@@ -138,12 +138,12 @@ body {
 
 .blue-purple {
   background: linear-gradient(135deg, #f8cdda 0%, #1d2b64 100%);
-  animation: fadeInOut 25s ease-in-out infinite;
+  opacity: 1;
 }
 
 .green-blue {
   background: linear-gradient(135deg, #185a9d 0%, #43cea2 100%);
-  animation: fadeOutIn 25s ease-in-out infinite;
+  opacity: 0;
 }
 
 /* ===== KEYFRAME ANIMATIONS ===== */

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Zap, BarChart3 } from 'lucide-react';
+import { Clock, Zap, BarChart3, Moon, Sun } from 'lucide-react';
 import Image from 'next/image';
 
 const TotalTimeNavbar = () => {
@@ -11,7 +11,7 @@ const TotalTimeNavbar = () => {
           <div className="flex items-center space-x-2">
             <div className="rounded-xl">
               <Image 
-                src="/total-time_logo.png" 
+                src="/total-time_logo.svg" 
                 alt="Total Time Logo" 
                 width={34} 
                 height={34} 
@@ -19,7 +19,7 @@ const TotalTimeNavbar = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-800">Total Time</h1>
+              <h1 className="text-lg font-bold text-gray-800">Total-Time</h1>
               <p className="text-xs text-gray-500">total-time.app</p>
             </div>
           </div>
@@ -57,6 +57,15 @@ const TotalTimeNavbar = () => {
               </span>
               
             </div>
+            
+            {/* Theme Toggle Button */}
+            <button 
+              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors duration-200 group"
+              title="Cambiar tema"
+            >
+              <Sun className="w-4 h-4 text-gray-600 group-hover:text-gray-800 block dark:hidden" />
+              <Moon className="w-4 h-4 text-gray-600 group-hover:text-gray-800 hidden dark:block" />
+            </button>
             
             {/* Indicador de conexión */}
             <div className="flex items-center space-x-2">

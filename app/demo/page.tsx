@@ -4,12 +4,11 @@ export default function Dashboard() {
   return (
     <div className="relative overflow-hidden" style={{ height: 'calc(100vh - 4rem)', padding: '1.5rem' }}>
 
-      <div className="relative z-10 max-w-7xl mx-auto">
+      <div className="relative z-10 w-full">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex items-start justify-between mb-8 px-4">
           {/* Left section - Total Time */}
           <div className="flex flex-col">
-
 
             {/* User info */}
             <div className="mb-6">
@@ -40,7 +39,7 @@ export default function Dashboard() {
           </div>
 
           {/* Center - Room tabs */}
-          <div className="flex bg-white/20 backdrop-blur-sm rounded-full p-2 gap-1">
+          <div className="flex bg-white/20 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
             <button className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
               Sala <span className="bg-white px-2 py-1 rounded text-sm ml-1">2</span>
             </button>
@@ -63,9 +62,9 @@ export default function Dashboard() {
         </div>
 
         {/* Main content area */}
-        <div className="flex justify-between items-end">
+        <div className="relative flex justify-between items-start px-4 h-full -mt-4">
           {/* Left section - Activities and chart */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             {/* Activities */}
             <div>
               <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg text-xl mb-3 inline-block">
@@ -83,7 +82,7 @@ export default function Dashboard() {
             </div>
 
             {/* Chart */}
-            <div className="flex items-end gap-2 mt-8">
+            <div className="flex items-end gap-2">
               <div className="w-6 h-12 bg-white/30 rounded-sm"></div>
               <div className="w-6 h-8 bg-white/30 rounded-sm"></div>
               <div className="w-6 h-16 bg-white/30 rounded-sm"></div>
@@ -92,8 +91,8 @@ export default function Dashboard() {
           </div>
 
           {/* Center - Input area */}
-          <div className="flex-1 mx-8">
-            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex items-center gap-3 max-w-md mx-auto">
+          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 mb-4">
+            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex items-center gap-3 max-w-md">
               <div className="w-8 h-8 bg-white/30 rounded"></div>
               <input
                 type="text"
