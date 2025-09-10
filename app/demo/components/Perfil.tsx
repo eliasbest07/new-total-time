@@ -35,7 +35,7 @@ const Perfil = ({
 
     const handleDashboard = () => {
         // Navegar al dashboard
-        console.log('Ir al dashboard...');
+        window.location.href = '/demo/dashboard';
         setMenuAbierto(false);
     };
 
