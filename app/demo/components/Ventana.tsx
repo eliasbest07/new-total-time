@@ -38,6 +38,8 @@ const Ventana = ({
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [size, setSize] = useState({ width: initialWidth, height: initialHeight });
   const [isMinimized, setIsMinimized] = useState(false);
+  const [minimizedPosition, setMinimizedPosition] = useState({ x: initialX, y: initialY });
+  const [expandedPosition, setExpandedPosition] = useState({ x: initialX, y: initialY });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState('');
@@ -92,14 +94,27 @@ const Ventana = ({
         const newX = e.clientX - dragStart.x;
         const newY = e.clientY - dragStart.y;
         
-        // Limitar a los bordes de la ventana
-        const maxX = window.innerWidth - size.width;
-        const maxY = window.innerHeight - size.height;
+        // Usar el tamaño actual de la ventana (minimizada o expandida)
+        const currentWidth = isMinimized ? 300 : size.width;
+        const currentHeight = isMinimized ? 48 : size.height;
         
-        setPosition({
+        // Limitar a los bordes de la ventana
+        const maxX = window.innerWidth - currentWidth;
+        const maxY = window.innerHeight - currentHeight;
+        
+        const newPosition = {
           x: Math.max(0, Math.min(newX, maxX)),
           y: Math.max(0, Math.min(newY, maxY))
-        });
+        };
+        
+        setPosition(newPosition);
+        
+        // Actualizar la posición correspondiente según el estado
+        if (isMinimized) {
+          setMinimizedPosition(newPosition);
+        } else {
+          setExpandedPosition(newPosition);
+        }
       }
       
       if (isResizing && resizable) {
@@ -173,7 +188,7 @@ const Ventana = ({
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, isResizing, dragStart, resizeStart, size, minWidth, minHeight, draggable, resizable]);
+  }, [isDragging, isResizing, dragStart, resizeStart, size, minWidth, minHeight, draggable, resizable, isMinimized]);
 
   // Centrar ventana al abrir
   useEffect(() => {
@@ -230,7 +245,16 @@ const Ventana = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsMinimized(!isMinimized);
+                  if (isMinimized) {
+                    // Restaurar: ir a la posición expandida guardada
+                    setPosition(expandedPosition);
+                    setIsMinimized(false);
+                  } else {
+                    // Minimizar: guardar posición expandida actual e ir a posición minimizada
+                    setExpandedPosition(position);
+                    setPosition(minimizedPosition);
+                    setIsMinimized(true);
+                  }
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 className="w-6 h-6 flex items-center justify-center hover:bg-yellow-100 rounded transition-colors group"
