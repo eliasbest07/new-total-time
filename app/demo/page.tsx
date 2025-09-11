@@ -1,7 +1,13 @@
+"use client";
+
+import { useState } from 'react';
 import Perfil from './components/Perfil';
 import RelojActual from './components/RelojActual';
+import Ventana from './components/Ventana';
 
 export default function Dashboard() {
+  const [ventanaAbierta, setVentanaAbierta] = useState(false);
+
   return (
     <div
       className="relative overflow-hidden flex flex-col"
@@ -76,6 +82,14 @@ export default function Dashboard() {
               <div className="w-6 h-16 bg-white/30 rounded-sm"></div>
               <div className="w-6 h-10 bg-white/30 rounded-sm"></div>
             </div>
+
+            {/* Botón discreto para probar ventana */}
+            <button
+              onClick={() => setVentanaAbierta(true)}
+              className="mt-4 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm transition-colors"
+            >
+              Probar Ventana
+            </button>
           </div>
 
           {/* Right section */}
@@ -91,10 +105,10 @@ export default function Dashboard() {
                 <div className="text-white/70 text-sm">Tiempo total hoy</div>
               </div>
             </div>
-            
+
             {/* Capture area */}
             <div className="h-32 bg-white/20 backdrop-blur-sm rounded-2xl">
-              Capture 
+              Capture
             </div>
           </div>
         </div>
@@ -111,6 +125,32 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Ventana de prueba */}
+      <Ventana
+        isOpen={ventanaAbierta}
+        onClose={() => setVentanaAbierta(false)}
+        title="Ventana de Prueba"
+        initialWidth={500}
+        initialHeight={400}
+      >
+        <div className="text-black space-y-4">
+          <h2 className="text-xl font-semibold">¡Funciona!</h2>
+          <p className="text-black/80">
+            Esta es una ventana modal que puedes arrastrar y redimensionar.
+          </p>
+          <div className="bg-white/10 p-4 rounded-lg">
+            <h3 className="font-medium mb-2">Controles:</h3>
+            <ul className="text-sm text-black/70 space-y-1">
+              <li>• Arrastra desde la barra de título</li>
+              <li>• Redimensiona desde la esquina inferior derecha</li>
+              <li>• Botón rojo: cerrar</li>
+              <li>• Botón amarillo: minimizar</li>
+              <li>• Botón verde: maximizar</li>
+            </ul>
+          </div>
+        </div>
+      </Ventana>
     </div>
   );
 }
