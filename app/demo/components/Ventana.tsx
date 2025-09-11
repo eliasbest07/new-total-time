@@ -231,6 +231,11 @@ const Ventana = ({
                 className="w-6 h-6 flex items-center justify-center hover:bg-gray-200 rounded transition-colors"
                 title="Maximizar"
                 onClick={() => {
+                  // Si está minimizada, restaurar primero
+                  if (isMinimized) {
+                    setIsMinimized(false);
+                  }
+                  
                   // Maximizar pero no completamente - dejar margen
                   const maxWidth = window.innerWidth - 100;
                   const maxHeight = window.innerHeight - 150;
