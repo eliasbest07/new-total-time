@@ -20,18 +20,29 @@ const MenuDashboard = ({ isOpen, onClose, onLogout, onConfiguracion }: MenuDashb
 
             {/* Menu lateral */}
             <div className={`
-                fixed top-0 right-0 h-full w-80 max-w-[85vw] sm:max-w-[90vw]
-                bg-white/10 backdrop-blur-md border-l border-white/20
+                fixed top-0 left-0 h-full w-80 max-w-[85vw] sm:max-w-[90vw]
+                bg-white/10 backdrop-blur-md border-r border-white/20
                 shadow-2xl z-[9999] 
                 transform transition-all duration-300 ease-in-out
-                ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
                 {/* Header del menú */}
                 <div className="p-4 sm:p-6 border-b border-white/20 bg-gradient-to-r from-white/5 to-white/10">
                     <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-white text-lg sm:text-xl font-semibold">Menú</h2>
-                            <p className="text-white/60 text-xs sm:text-sm">Opciones de usuario</p>
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full border-2 border-blue-500 flex items-center justify-center">
+                                <div className="relative w-9 h-9 rounded-full overflow-hidden">
+                                    <img
+                                        src="/total-time_logo.png"
+                                        alt="Foto de perfil"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <h2 className="text-white text-lg sm:text-xl font-semibold">Jesus Diaz</h2>
+                                <p className="text-white/60 text-xs sm:text-sm">BTM Studio</p>
+                            </div>
                         </div>
                         <button
                             onClick={onClose}

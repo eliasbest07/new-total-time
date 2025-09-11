@@ -110,16 +110,21 @@ export default function Dashboard() {
             {/* Container principal con max-width */}
             <div className="max-w-7xl mx-auto relative">
                 
-                {/* Botón de menú en esquina superior izquierda de la vista */}
+                {/* Botón de perfil en esquina superior izquierda de la vista */}
                 <button
                     onClick={() => setMenuLateralAbierto(true)}
-                    className="absolute top-0 left-0 w-12 h-12 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white rounded-xl transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl group hover:scale-105 z-10"
+                    className="absolute top-0 left-0 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white rounded-xl transition-all duration-200 flex items-center gap-4 px-5 py-3 shadow-lg hover:shadow-xl group hover:scale-105 z-10"
                 >
-                    <div className="flex flex-col gap-1.5 group-hover:gap-2 transition-all duration-200">
-                        <div className="w-5 h-0.5 bg-white rounded-full"></div>
-                        <div className="w-5 h-0.5 bg-white rounded-full"></div>
-                        <div className="w-5 h-0.5 bg-white rounded-full"></div>
+                    <div className="w-10 h-10 rounded-full border-2 border-blue-500 flex items-center justify-center">
+                        <div className="relative w-8 h-8 rounded-full overflow-hidden">
+                            <img
+                                src="/total-time_logo.png"
+                                alt="Foto de perfil"
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
                     </div>
+                    <span className="text-white font-medium text-base">Jesus Diaz</span>
                 </button>
 
                 {/* Header responsivo */}
@@ -127,7 +132,7 @@ export default function Dashboard() {
 
                     {/* Sección izquierda - Perfil y estadísticas */}
                     <div className="xl:col-span-2 space-y-6">
-                        <UserProfile />
+                        {/* <UserProfile /> */}
                         <LifeBar />
 
                         {/* Estadísticas responsivas */}
@@ -164,9 +169,9 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
 
                     {/* Mis últimas tareas */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-80">
                         <h3 className="text-white text-lg sm:text-xl font-medium mb-4">Mis Últimas Tareas</h3>
-                        <div className="space-y-3">
+                        <div className="h-60 overflow-y-auto pr-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {ultimasTareas.map(tarea => (
                                 <TaskCard key={tarea.id} tarea={tarea} />
                             ))}
