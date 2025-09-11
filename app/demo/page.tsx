@@ -54,7 +54,7 @@ export default function Dashboard() {
 
           {/* Center - Room tabs */}
           <div className="flex bg-white/20 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
-            <button className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
+            <button onClick={()=>setVentanaAbierta(true)}  className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
               Sala <span className="bg-white px-2 py-1 rounded text-sm ml-1">2</span>
             </button>
             <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Sala</button>
