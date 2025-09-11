@@ -112,25 +112,7 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Right section */}
-          <div className="w-80">
-            {/* Time info cards */}
-            <div className="flex gap-3 mb-4">
-              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
-                <div className="text-white text-xl font-medium">2:12</div>
-                <div className="text-white/70 text-sm">Tarea actual</div>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
-                <div className="text-white text-xl font-medium">3:12</div>
-                <div className="text-white/70 text-sm">Tiempo total hoy</div>
-              </div>
-            </div>
-
-            {/* Capture area */}
-            <div className="h-32 bg-white/20 backdrop-blur-sm rounded-2xl">
-              Capture
-            </div>
-          </div>
+         
         </div>
 
         {/* Input centrado abajo */}
