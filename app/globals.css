@@ -333,3 +333,77 @@ body {
     animation: none;
   }
 }
+/* ===== VENTANA STYLES ===== */
+.ventana-minimized {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+.ventana-minimized * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  pointer-events: none !important;
+}
+
+.ventana-minimized .ventana-header {
+  pointer-events: auto !important;
+}
+
+.ventana-minimized .ventana-header * {
+  pointer-events: auto !important;
+}
+
+/* Animación suave para minimizar */
+.ventana-minimized {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Prevenir selección durante arrastre */
+.ventana-dragging {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+.ventana-dragging * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Prevenir selección durante redimensionado */
+.ventana-resizing {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+.ventana-resizing * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Animación de entrada para ventanas */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}
