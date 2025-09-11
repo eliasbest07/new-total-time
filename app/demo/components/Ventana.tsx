@@ -177,6 +177,7 @@ const Ventana = ({
 
   // Centrar ventana al abrir
   useEffect(() => {
+    console.log('Ventana - isOpen cambió:', isOpen);
     if (isOpen && ventanaRef.current) {
       const centerX = (window.innerWidth - size.width) / 2;
       const centerY = (window.innerHeight - size.height) / 2;
@@ -184,7 +185,12 @@ const Ventana = ({
     }
   }, [isOpen, size.width, size.height]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log('Ventana no se renderiza porque isOpen es:', isOpen);
+    return null;
+  }
+  
+  console.log('Ventana se está renderizando con isOpen:', isOpen);
 
   return (
     <>
@@ -204,33 +210,39 @@ const Ventana = ({
           top: position.y,
           width: isMinimized ? 300 : size.width,
           height: isMinimized ? 48 : size.height,
-          zIndex: zIndex,
+          zIndex: 9999,
           minWidth: isMinimized ? 300 : minWidth,
-          minHeight: isMinimized ? 48 : minHeight
+          minHeight: isMinimized ? 48 : minHeight,
+          userSelect: isMinimized ? 'none' : 'auto'
         }}
       >
         {/* Header de la ventana */}
         <div
           ref={headerRef}
-          className={`flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 rounded-t-xl ${
+          className={`ventana-header flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 rounded-t-xl ${
             draggable ? 'cursor-grab active:cursor-grabbing' : ''
-          }`}
+          } ${isMinimized ? 'rounded-b-xl border-b-0' : ''}`}
           onMouseDown={handleMouseDown}
         >
           <div className="flex items-center gap-3">
             {/* Botones de control */}
             <div className="flex gap-1">
               <button
-                onClick={() => setIsMinimized(!isMinimized)}
-                className="w-6 h-6 flex items-center justify-center hover:bg-gray-200 rounded transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMinimized(!isMinimized);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="w-6 h-6 flex items-center justify-center hover:bg-yellow-100 rounded transition-colors group"
                 title={isMinimized ? "Restaurar" : "Minimizar"}
               >
-                <div className="w-3 h-0.5 bg-gray-600"></div>
+                <div className="w-3 h-0.5 bg-gray-600 group-hover:bg-yellow-600 transition-colors"></div>
               </button>
               <button
-                className="w-6 h-6 flex items-center justify-center hover:bg-gray-200 rounded transition-colors"
+                className="w-6 h-6 flex items-center justify-center hover:bg-green-100 rounded transition-colors group"
                 title="Maximizar"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   // Maximizar pero no completamente - dejar margen
                   const maxWidth = window.innerWidth - 100;
                   const maxHeight = window.innerHeight - 150;
@@ -245,15 +257,20 @@ const Ventana = ({
                     setPosition({ x: 50, y: 75 });
                   }
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
               >
-                <div className="w-3 h-3 border border-gray-600 rounded-sm"></div>
+                <div className="w-3 h-3 border border-gray-600 group-hover:border-green-600 rounded-sm transition-colors"></div>
               </button>
               <button
-                onClick={onClose}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
                 className="w-6 h-6 flex items-center justify-center hover:bg-red-100 rounded transition-colors group"
                 title="Cerrar"
               >
-                <svg className="w-3 h-3 text-gray-600 group-hover:text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 text-gray-600 group-hover:text-red-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -266,9 +283,20 @@ const Ventana = ({
 
         {/* Contenido de la ventana */}
         {!isMinimized && (
-          <div className="p-4 h-full overflow-auto ventana-content bg-white rounded-b-xl" style={{ height: 'calc(100% - 48px)' }}>
+          <div 
+            className="p-4 h-full overflow-auto ventana-content bg-white rounded-b-xl select-text" 
+            style={{ height: 'calc(100% - 48px)' }}
+          >
             {children}
           </div>
+        )}
+        
+        {/* Overlay para bloquear selección cuando está minimizada */}
+        {isMinimized && (
+          <div 
+            className="absolute inset-0 bg-transparent pointer-events-none" 
+            style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}
+          />
         )}
 
         {/* Handles de redimensionado */}
