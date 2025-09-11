@@ -1,3 +1,4 @@
+'use client'
 import React from 'react';
 import { Clock, Zap, BarChart3, Moon, Sun } from 'lucide-react';
 import Image from 'next/image';
@@ -8,7 +9,10 @@ const TotalTimeNavbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo y título */}
-          <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => window.location.href = '/demo'}
+            className="flex items-center space-x-2 hover:bg-gray-50 rounded-lg p-2 transition-colors duration-200"
+          >
             <div className="rounded-xl">
               <Image 
                 src="/total-time_logo.svg" 
@@ -22,7 +26,7 @@ const TotalTimeNavbar = () => {
               <h1 className="text-lg font-bold text-gray-800">Total-Time</h1>
               <p className="text-xs text-gray-500">total-time.app</p>
             </div>
-          </div>
+          </button>
 
           {/* Características - Desktop */}
           <div className="hidden lg:flex items-center space-x-6">

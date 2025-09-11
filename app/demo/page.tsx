@@ -13,6 +13,26 @@ export default function Dashboard() {
       className="relative overflow-hidden flex flex-col"
       style={{ height: 'calc(100vh - 1rem)', padding: '0.5rem' }}
     >
+      {/* Time cards positioned at bottom left */}
+      <div className="w-80 z-50" style={{ position: 'absolute', bottom: '4rem', right: '1rem' }}>
+        {/* Time info cards */}
+        <div className="flex gap-3 mb-4">
+          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
+            <div className="text-white text-xl font-medium">2:12</div>
+            <div className="text-white/70 text-sm">Tarea actual</div>
+          </div>
+          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
+            <div className="text-white text-xl font-medium">3:12</div>
+            <div className="text-white/70 text-sm">Tiempo total hoy</div>
+          </div>
+        </div>
+        
+        {/* Capture area */}
+        <div className="h-32 bg-green-500 rounded-2xl p-4 flex items-center justify-center text-white">
+          Capture 
+        </div>
+      </div>
+
       <div className="relative z-10 w-full flex-1 flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between mb-8 px-2">
@@ -114,7 +134,7 @@ export default function Dashboard() {
         </div>
 
         {/* Input centrado abajo */}
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center" style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', width: '100%', zIndex: 50 }}>
           <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex items-center gap-3 max-w-md w-full">
             <div className="w-8 h-8 bg-white/30 rounded"></div>
             <input
@@ -124,7 +144,8 @@ export default function Dashboard() {
             />
           </div>
         </div>
-      </div>
+        </div>
+      
 
       {/* Ventana de prueba */}
       <Ventana
