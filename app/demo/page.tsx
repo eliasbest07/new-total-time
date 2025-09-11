@@ -77,42 +77,32 @@ export default function Dashboard() {
 
         {/* Main content area */}
         <div className="relative flex justify-between items-start px-2 flex-1">
-          {/* Left section - Activities and chart */}
-          <div className="space-y-2">
-            {/* Activities */}
-            <div>
-              <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-                Actividades
-              </h2>
-              <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
-            </div>
-
-            {/* Missions */}
-            <div>
-              <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-                Misiones
-              </h2>
-              <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
-            </div>
-
-            {/* Chart */}
-            <div className="flex items-end gap-2">
-              <div className="w-6 h-12 bg-white/30 rounded-sm"></div>
-              <div className="w-6 h-8 bg-white/30 rounded-sm"></div>
-              <div className="w-6 h-16 bg-white/30 rounded-sm"></div>
-              <div className="w-6 h-10 bg-white/30 rounded-sm"></div>
-            </div>
-
-            {/* Botón discreto para probar ventana */}
-            <button
-              onClick={() => setVentanaAbierta(true)}
-              className="mt-4 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm transition-colors"
-            >
-              Probar Ventana
-            </button>
-          </div>
-
          
+        </div>
+
+        {/* Activities positioned at fixed location */}
+        <div style={{ position: 'fixed', bottom: '14rem', left: '1rem', zIndex: 50 }}>
+          <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+            Actividades
+          </h2>
+          <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+        </div>
+
+        {/* Missions positioned at fixed location */}
+        <div style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 50 }}>
+          <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+            Misiones
+          </h2>
+          <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+        </div>
+
+        {/* Chart positioned at bottom left */}
+        <div className="flex items-end gap-2" style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 50 }}>
+          <div className="w-6 h-12 bg-white/30 rounded-sm"></div>
+          <div className="w-6 h-8 bg-white/30 rounded-sm"></div>
+          <div className="w-6 h-16 bg-white/30 rounded-sm"></div>
+          <div className="w-6 h-10 bg-white/30 rounded-sm"></div>
+          <div className="w-6 h-8 bg-white/30 rounded-sm"></div>
         </div>
 
         {/* Input centrado abajo */}
