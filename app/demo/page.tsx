@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Perfil from './components/Perfil';
 import RelojActual from './components/RelojActual';
 import Ventana from './components/Ventana';
+import Pizarra from '@/application/pizarra/pizarra';
 
 export default function Dashboard() {
   const [ventanaAbierta, setVentanaAbierta] = useState(false);
@@ -13,6 +14,10 @@ export default function Dashboard() {
       className="relative overflow-hidden flex flex-col"
       style={{ height: 'calc(100vh - 1rem)', padding: '0.5rem' }}
     >
+      <div className="absolute inset-0 z-10">
+        <Pizarra />
+      </div>
+      
       {/* Time cards positioned at bottom left */}
       <div className="w-80 z-50" style={{ position: 'absolute', bottom: '4rem', right: '1rem' }}>
         {/* Time info cards */}
@@ -33,7 +38,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="relative z-10 w-full flex-1 flex flex-col">
+      <div className="relative z-30 w-full flex-1 flex flex-col pointer-events-none">
+        <div className="pointer-events-auto">
         {/* Header */}
         <div className="flex items-start justify-between mb-8 px-2">
           {/* Left section - Total Time */}
@@ -41,7 +47,7 @@ export default function Dashboard() {
             {/* User info and first time card */}
             <div className="flex gap-4 items-center mb-6">
               <Perfil
-                nombre="Juan Pérez"
+                nombre="Elias Montilla"
                 empresa="Total Time Solutions"
                 tipoUsuario="manager"
                 saludPorcentaje={85}
@@ -81,23 +87,39 @@ export default function Dashboard() {
         </div>
 
         {/* Activities positioned at fixed location */}
-        <div style={{ position: 'fixed', bottom: '14rem', left: '1rem', zIndex: 50 }}>
+        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '14rem', left: '1rem', zIndex: 50 }}>
           <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
             Actividades
           </h2>
-          <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+          <div 
+            className="w-16 h-16 bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', 'Actividades - Elemento arrastrado desde la interfaz');
+            }}
+          >
+          drag me
+          </div>
         </div>
 
         {/* Missions positioned at fixed location */}
-        <div style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 50 }}>
+        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 50 }}>
           <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
             Misiones
           </h2>
-          <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+          <div 
+            className="w-16 h-16 bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', 'Misiones - Elemento arrastrado desde la interfaz');
+            }}
+          >
+          drag me
+          </div>
         </div>
 
         {/* Chart positioned at bottom left */}
-        <div className="flex items-end gap-2" style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 50 }}>
+        <div className="flex items-end gap-2 pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 50 }}>
           <div className="w-6 h-12 bg-white/30 rounded-sm"></div>
           <div className="w-6 h-8 bg-white/30 rounded-sm"></div>
           <div className="w-6 h-16 bg-white/30 rounded-sm"></div>
@@ -106,7 +128,7 @@ export default function Dashboard() {
         </div>
 
         {/* Input centrado abajo */}
-        <div className="flex justify-center" style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', width: '100%', zIndex: 50 }}>
+        <div className="flex justify-center pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', width: '100%', zIndex: 50 }}>
           <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex items-center gap-3 max-w-md w-full">
             <div className="w-8 h-8 bg-white/30 rounded"></div>
             <input
@@ -115,6 +137,7 @@ export default function Dashboard() {
               className="flex-1 bg-transparent text-white placeholder-white/70 outline-none"
             />
           </div>
+        </div>
         </div>
         </div>
       
