@@ -5,10 +5,51 @@ import Perfil from './components/Perfil';
 import RelojActual from './components/RelojActual';
 import Ventana from './components/Ventana';
 import Accordion from './components/Accordion';
+import AddResourceForm from './components/AddResourceForm';
 import Pizarra from '@/application/pizarra/pizarra';
+import { 
+  FileText, 
+  Image, 
+  Video, 
+  Download, 
+  Link, 
+  Code, 
+  Archive, 
+  FolderOpen 
+} from 'lucide-react';
+import { saveResource, type Resource, type NewResourceData } from './utils/resourceUtils';
 
 export default function Dashboard() {
   const [ventanaAbierta, setVentanaAbierta] = useState(false);
+  const [showAddResourceModal, setShowAddResourceModal] = useState(false);
+  
+  // Lista de recursos inicial
+  const [recursos, setRecursos] = useState<Resource[]>([
+    { id: 1, name: 'Docs', icon: FileText, color: 'bg-blue-500', type: 'DOC' },
+    { id: 2, name: 'Imágenes', icon: Image, color: 'bg-green-500', type: 'IMG' },
+    { id: 3, name: 'Videos', icon: Video, color: 'bg-purple-500', type: 'MP4' },
+    { id: 4, name: 'Archivos', icon: Download, color: 'bg-orange-500', type: 'ZIP' },
+    { id: 5, name: 'Enlaces', icon: Link, color: 'bg-cyan-500', type: 'URL' },
+    { id: 6, name: 'Código', icon: Code, color: 'bg-pink-500', type: 'JS' },
+    { id: 7, name: 'PDFs', icon: FileText, color: 'bg-red-500', type: 'PDF' },
+    { id: 8, name: 'Audio', icon: Video, color: 'bg-yellow-500', type: 'MP3' },
+    { id: 9, name: 'Plantillas', icon: FolderOpen, color: 'bg-indigo-500', type: 'TPL' },
+    { id: 10, name: 'Recursos', icon: Archive, color: 'bg-teal-600', type: 'RES' }
+  ]);
+
+  const handleAddResource = (): void => {
+    setShowAddResourceModal(true);
+  };
+
+  const handleSaveResource = (newResourceData: NewResourceData): void => {
+    const updatedResources = saveResource(newResourceData, recursos);
+    setRecursos(updatedResources);
+    setShowAddResourceModal(false);
+  };
+
+  const handleCloseAddResourceModal = (): void => {
+    setShowAddResourceModal(false);
+  };
 
   return (
     <div
@@ -56,14 +97,14 @@ export default function Dashboard() {
           <RelojActual />
         </div>
 
-        {/* Center - Room tabs */}
-        <div className="z-30 flex bg-white/20 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2 top-8 pointer-events-auto">
-          <button onClick={() => setVentanaAbierta(true)} className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
-            Sala <span className="bg-white px-2 py-1 rounded text-sm ml-1">2</span>
-          </button>
-          <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Sala</button>
-          <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Sala</button>
-        </div>
+            {/* Center - Room tabs */}
+            <div className="flex bg-white/20 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
+              <button onClick={() => setVentanaAbierta(true)} className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
+                Avances <span className="bg-white px-2 py-1 rounded text-sm ml-1">2</span>
+              </button>
+              <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reglas</button>
+              <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reportes</button>
+            </div>
 
         {/* Main content area */}
         <div className="relative flex justify-between items-start px-2 flex-1">
@@ -107,7 +148,7 @@ export default function Dashboard() {
           <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
 
           </h2>
-          <Accordion />
+          <Accordion recursos={recursos} onAddResource={handleAddResource} />
         </div>
 
         {/* Chart positioned at bottom left */}
@@ -157,6 +198,23 @@ export default function Dashboard() {
             </ul>
           </div>
         </div>
+      </Ventana>
+
+      {/* Modal para añadir recurso */}
+      <Ventana
+        isOpen={showAddResourceModal}
+        onClose={handleCloseAddResourceModal}
+        title="Añadir Nuevo Recurso"
+        initialWidth={500}
+        initialHeight={600}
+        minWidth={450}
+        minHeight={550}
+        showOverlay={true}
+      >
+        <AddResourceForm
+          onSave={handleSaveResource}
+          onClose={handleCloseAddResourceModal}
+        />
       </Ventana>
     </div>
   );

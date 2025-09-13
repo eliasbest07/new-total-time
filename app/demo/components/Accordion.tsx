@@ -16,6 +16,7 @@ import {
   Plus,
   LucideIcon
 } from 'lucide-react';
+import { type Resource } from '../utils/resourceUtils';
 
 // Tipos/Interfaces
 interface User {
@@ -27,13 +28,6 @@ interface User {
   online: boolean;
 }
 
-interface Resource {
-  id: number;
-  name: string;
-  icon: LucideIcon;
-  color: string;
-  type: string;
-}
 
 interface Section {
   id: string;
@@ -43,8 +37,13 @@ interface Section {
   content: string | string[];
 }
 
+interface AccordionProps {
+  recursos: Resource[];
+  onAddResource: () => void;
+}
+
 // Componente Principal
-const Accordion: React.FC = () => {
+const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showAllUsers, setShowAllUsers] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -64,19 +63,6 @@ const Accordion: React.FC = () => {
     { id: 10, name: 'Carmen Ruiz', status: 'En línea', avatar: 'CR', color: 'bg-cyan-500', online: true }
   ];
 
-  // Lista de recursos
-  const recursos: Resource[] = [
-    { id: 1, name: 'Docs', icon: FileText, color: 'bg-blue-500', type: 'DOC' },
-    { id: 2, name: 'Imágenes', icon: Image, color: 'bg-green-500', type: 'IMG' },
-    { id: 3, name: 'Videos', icon: Video, color: 'bg-purple-500', type: 'MP4' },
-    { id: 4, name: 'Archivos', icon: Download, color: 'bg-orange-500', type: 'ZIP' },
-    { id: 5, name: 'Enlaces', icon: Link, color: 'bg-cyan-500', type: 'URL' },
-    { id: 6, name: 'Código', icon: Code, color: 'bg-pink-500', type: 'JS' },
-    { id: 7, name: 'PDFs', icon: FileText, color: 'bg-red-500', type: 'PDF' },
-    { id: 8, name: 'Audio', icon: Video, color: 'bg-yellow-500', type: 'MP3' },
-    { id: 9, name: 'Plantillas', icon: FolderOpen, color: 'bg-indigo-500', type: 'TPL' },
-    { id: 10, name: 'Recursos', icon: Archive, color: 'bg-teal-600', type: 'RES' }
-  ];
 
   const sections: Section[] = [
     {
@@ -113,8 +99,7 @@ const Accordion: React.FC = () => {
   };
 
   const handleAddResource = (): void => {
-    // Aquí puedes implementar la lógica para añadir un recurso
-    console.log('Añadir nuevo recurso');
+    onAddResource();
   };
 
   return (
