@@ -61,7 +61,7 @@ export default function Dashboard() {
       </div>
 
       {/* Time cards positioned at bottom left */}
-      <div className="w-80 z-50" style={{ position: 'absolute', bottom: '4rem', right: '1rem' }}>
+      <div className="w-80 z-50" style={{ position: 'absolute', bottom: '4rem', right: '1rem', zIndex :'30' }}>
         {/* Time info cards */}
         <div className="flex gap-3 mb-4">
           <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
@@ -75,7 +75,7 @@ export default function Dashboard() {
         </div>
 
         {/* Capture area */}
-        <div className="h-32 bg-green-500 rounded-2xl p-4 flex items-center justify-center text-white">
+        <div className="h-32 bg-green-500 rounded-2xl p-4 flex items-center justify-center text-white z-40">
           Capture
         </div>
       </div>
@@ -93,12 +93,12 @@ export default function Dashboard() {
         </div>
 
         {/* Header - Left section - RelojActual */}
-        <div className="mb-8 px-2 pointer-events-auto" style={{ position: 'absolute', top: '0.5rem', left: '16rem' }}>
+        <div className="mb-8 px-2 pointer-events-auto" style={{ position: 'absolute', top: '0.5rem', left: '9rem' }}>
           <RelojActual />
         </div>
 
             {/* Center - Room tabs */}
-            <div className="flex bg-white/20 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
+            <div className="flex bg-white/20 z-30 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
               <button onClick={() => setVentanaAbierta(true)} className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
                 Avances <span className="bg-white px-2 py-1 rounded text-sm ml-1">2</span>
               </button>

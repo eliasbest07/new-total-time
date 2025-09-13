@@ -14,6 +14,8 @@ import {
   Link,
   Code,
   Plus,
+  ChevronLeft,
+  ChevronRight,
   LucideIcon
 } from 'lucide-react';
 import { type Resource } from '../utils/resourceUtils';
@@ -47,7 +49,15 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showAllUsers, setShowAllUsers] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [currentResourcePage, setCurrentResourcePage] = useState<number>(0);
   const dragImageRef = useRef<HTMLDivElement>(null);
+
+  // Configuración para paginación de recursos
+  const ITEMS_PER_PAGE = 10; // 2 filas x 5 columnas
+  const totalResourcePages = Math.ceil(recursos.length / ITEMS_PER_PAGE);
+  const startIndex = currentResourcePage * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentResources = recursos.slice(startIndex, endIndex);
 
   // Lista completa de usuarios
   const allUsers: User[] = [
@@ -100,6 +110,14 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
 
   const handleAddResource = (): void => {
     onAddResource();
+  };
+
+  const handlePreviousPage = (): void => {
+    setCurrentResourcePage(prev => Math.max(0, prev - 1));
+  };
+
+  const handleNextPage = (): void => {
+    setCurrentResourcePage(prev => Math.min(totalResourcePages - 1, prev + 1));
   };
 
   return (
@@ -178,8 +196,8 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                 ) : section.content === 'resources' ? (
                   // Sección especial para recursos con cajitas pequeñas
                   <div>
-                    <div className="grid grid-cols-5 gap-2 mb-8 pb-4">
-                      {recursos.map((recurso) => {
+                    <div className="grid grid-cols-5 gap-2 mb-4 pb-4">
+                      {currentResources.map((recurso) => {
                         const IconComponent = recurso.icon;
                         return (
                           <div
@@ -225,6 +243,43 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                         );
                       })}
                     </div>
+
+                    {/* Controles de paginación */}
+                    {totalResourcePages > 1 && (
+                      <div className="flex items-center justify-between mb-4 px-2">
+                        <button
+                          onClick={handlePreviousPage}
+                          disabled={currentResourcePage === 0}
+                          className="flex items-center space-x-1 px-2 py-1 rounded text-xs text-white/60 hover:text-white/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-200"
+                        >
+                          <ChevronLeft size={12} />
+                          <span>Anterior</span>
+                        </button>
+                        
+                        <div className="flex items-center space-x-2">
+                          {Array.from({ length: totalResourcePages }, (_, index) => (
+                            <button
+                              key={index}
+                              onClick={() => setCurrentResourcePage(index)}
+                              className={`w-2 h-2 rounded-full transition-colors duration-200 ${
+                                index === currentResourcePage 
+                                  ? 'bg-white' 
+                                  : 'bg-white/30 hover:bg-white/60'
+                              }`}
+                            />
+                          ))}
+                        </div>
+
+                        <button
+                          onClick={handleNextPage}
+                          disabled={currentResourcePage === totalResourcePages - 1}
+                          className="flex items-center space-x-1 px-2 py-1 rounded text-xs text-white/60 hover:text-white/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-200"
+                        >
+                          <span>Siguiente</span>
+                          <ChevronRight size={12} />
+                        </button>
+                      </div>
+                    )}
 
                     {/* Botón discreto para añadir recurso */}
                     <button

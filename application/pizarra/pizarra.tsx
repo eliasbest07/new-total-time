@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 
 const Pizarra = () => {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -139,12 +139,16 @@ const handleCardMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, ca
     
     setDraggedCard(card.id);
     setDragOffset({ x: offsetX, y: offsetY });
+    
+    // Prevenir que el canvas inicie el pan cuando se arrastra una card
+    setIsPanning(false);
 }, [panOffset]);
 
   // Funciones para pan de la pizarra
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    // Solo iniciar pan si no hay card siendo arrastrada
-    if (!draggedCard) {
+    // Solo iniciar pan si el click es directamente en el canvas (no en una card)
+    // y no hay card siendo arrastrada
+    if (!draggedCard && e.target === e.currentTarget) {
       e.preventDefault();
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
@@ -156,6 +160,28 @@ const handleCardMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, ca
   }, [draggedCard, panOffset]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Los eventos globales se encargan del movimiento
+    // Este handler se mantiene para compatibilidad pero está vacío
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    if (isPanning) {
+      setIsPanning(false);
+    }
+    if (draggedCard) {
+      setDraggedCard(null);
+      setDragOffset({ x: 0, y: 0 });
+    }
+    
+    // Restaurar selección de texto
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
+  }, [isPanning, draggedCard]);
+
+  // Manejar eventos globales de mouse para mejor control
+  const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
+    if (!canvasRef.current) return;
+    
     if (isPanning) {
       // Mover la vista de la pizarra
       const newPanX = e.clientX - panStart.x;
@@ -163,7 +189,7 @@ const handleCardMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, ca
       setPanOffset({ x: newPanX, y: newPanY });
     } else if (draggedCard) {
       // Mover card individual
-      const rect = canvasRef.current!.getBoundingClientRect();
+      const rect = canvasRef.current.getBoundingClientRect();
       const newX = e.clientX - rect.left - panOffset.x - dragOffset.x;
       const newY = e.clientY - rect.top - panOffset.y - dragOffset.y;
       
@@ -175,15 +201,24 @@ const handleCardMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, ca
     }
   }, [isPanning, panStart, draggedCard, dragOffset, panOffset]);
 
-  const handleMouseUp = useCallback(() => {
-    setIsPanning(false);
-    setDraggedCard(null);
-    setDragOffset({ x: 0, y: 0 });
-    
-    // Restaurar selección de texto
-    document.body.style.userSelect = '';
-    document.body.style.webkitUserSelect = '';
-  }, []);
+  const handleGlobalMouseUp = useCallback(() => {
+    if (isPanning || draggedCard) {
+      handleMouseUp();
+    }
+  }, [isPanning, draggedCard, handleMouseUp]);
+
+  // Agregar y remover event listeners globales
+  useEffect(() => {
+    if (isPanning || draggedCard) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleGlobalMouseMove);
+        document.removeEventListener('mouseup', handleGlobalMouseUp);
+      };
+    }
+  }, [isPanning, draggedCard, handleGlobalMouseMove, handleGlobalMouseUp]);
 
   // Función para centrar la vista
   const centerView = useCallback(() => {
