@@ -15,7 +15,7 @@ export default function Dashboard() {
       className="relative overflow-hidden flex flex-col"
       style={{ height: 'calc(100vh - 1rem)', padding: '0.5rem' }}
     >
-      <div className="absolute inset-0 z-10">
+      <div className="absolute inset-0 z-30">
         <Pizarra />
       </div>
 
@@ -68,9 +68,9 @@ export default function Dashboard() {
               <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Sala</button>
             </div>
 
-            {/* Right sidebar */}
+            {/* Right sidebar - removed accordion from here */}
             <div className="w-80">
-              <Accordion />
+              {/* Accordion moved to fixed position below */}
             </div>
           </div>
 
@@ -80,7 +80,7 @@ export default function Dashboard() {
           </div>
 
           {/* Activities positioned at fixed location */}
-          <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '14rem', left: '1rem', zIndex: 50 }}>
+          <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '14rem', left: '1rem', zIndex: 30 }}>
             <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
               Actividades
             </h2>
@@ -96,7 +96,7 @@ export default function Dashboard() {
           </div>
 
           {/* Missions positioned at fixed location */}
-          <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 50 }}>
+          <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 30 }}>
             <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
               Misiones
             </h2>
@@ -111,8 +111,16 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Accordion positioned at fixed location */}
+          <div className="pointer-events-auto" style={{ position: 'fixed', top: '2rem', right: '1rem', zIndex: 40, width: '320px' }}>
+            <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+            
+            </h2>
+            <Accordion />
+          </div>
+
           {/* Chart positioned at bottom left */}
-          <div className="flex items-end gap-2 pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 50 }}>
+          <div className="flex items-end gap-2 pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 30 }}>
             <div className="w-6 h-12 bg-white/30 rounded-sm"></div>
             <div className="w-6 h-8 bg-white/30 rounded-sm"></div>
             <div className="w-6 h-16 bg-white/30 rounded-sm"></div>

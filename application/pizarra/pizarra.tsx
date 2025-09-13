@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef } from 'react';
 
 const Pizarra = () => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isReceivingDrag, setIsReceivingDrag] = useState(false);
   const [cards, setCards] = useState<Array<{
     id: string;
     type: string;
@@ -27,6 +28,7 @@ const Pizarra = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
+    setIsReceivingDrag(true);
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -34,6 +36,7 @@ const Pizarra = () => {
     e.stopPropagation();
     if (!(e.relatedTarget instanceof Node) || !e.currentTarget.contains(e.relatedTarget)) {
       setIsDragOver(false);
+      setIsReceivingDrag(false);
     }
   }, []);
 
@@ -46,6 +49,7 @@ const Pizarra = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+    setIsReceivingDrag(false);
     
    
     if (!canvasRef.current) return;
@@ -70,6 +74,30 @@ const Pizarra = () => {
         };
         setCards(prev => [...prev, newCard]);
       });
+    }
+    
+    // Manejar recursos del accordion
+    const resourceData = e.dataTransfer.getData('application/json');
+    if (resourceData) {
+      try {
+        const resource = JSON.parse(resourceData);
+        if (resource.type === 'resource') {
+          const newCard = {
+            id: `resource-${Date.now()}`,
+            type: 'resource',
+            title: resource.name,
+            content: `Tipo: ${resource.resourceType}`,
+            x: x,
+            y: y,
+            width: 180,
+            height: 110
+          };
+          setCards(prev => [...prev, newCard]);
+          return;
+        }
+      } catch (error) {
+        console.log('No es un recurso JSON válido');
+      }
     }
     
     // Manejar texto
@@ -182,6 +210,8 @@ const handleCardMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, ca
           return '📝';
         case 'test':
           return '🧪';
+        case 'resource':
+          return '📦';
         default:
           return '📋';
       }
@@ -219,7 +249,7 @@ const handleCardMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, ca
   };
 
   return (
-    <div className="w-screen h-screen bg-transparent flex items-center justify-center p-8">
+    <div className={`w-screen h-screen bg-transparent flex items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}>
       <div 
         ref={canvasRef}
         className={`
