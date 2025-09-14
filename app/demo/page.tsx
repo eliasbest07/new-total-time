@@ -18,10 +18,12 @@ import {
   FolderOpen 
 } from 'lucide-react';
 import { saveResource, type Resource, type NewResourceData } from './utils/resourceUtils';
+import ActividadCard from './components/ActividadCard';
 
 export default function Dashboard() {
   const [ventanaAbierta, setVentanaAbierta] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
+  const [showActividadDetails, setShowActividadDetails] = useState(false);
   
   // Lista de recursos inicial
   const [recursos, setRecursos] = useState<Resource[]>([
@@ -112,18 +114,19 @@ export default function Dashboard() {
         </div>
 
         {/* Activities positioned at fixed location */}
-        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '14rem', left: '1rem', zIndex: 30 }}>
+        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 30 }}>
           <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
             Actividades
           </h2>
           <div
-            className="w-16 h-16 bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
+            // className="bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
             draggable
             onDragStart={(e) => {
               e.dataTransfer.setData('text/plain', 'Actividades - Elemento arrastrado desde la interfaz');
             }}
+            onClick={() => setShowActividadDetails(true)}
           >
-            drag me
+             <ActividadCard />
           </div>
         </div>
 
@@ -132,14 +135,16 @@ export default function Dashboard() {
           <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
             Misiones
           </h2>
-          <div
-            className="w-16 h-16 bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('text/plain', 'Misiones - Elemento arrastrado desde la interfaz');
-            }}
-          >
-            drag me
+          <div className="flex gap-2">
+            <div className="w-20 h-20 bg-red-500/20 border-2 border-red-500 rounded-lg flex items-center justify-center text-red-600 font-medium text-sm">
+              Misión 1
+            </div>
+            <div className="w-20 h-20 bg-yellow-500/20 border-2 border-yellow-500 rounded-lg flex items-center justify-center text-yellow-600 font-medium text-sm">
+              Misión 2
+            </div>
+            <div className="w-20 h-20 bg-blue-500/20 border-2 border-blue-500 rounded-lg flex items-center justify-center text-blue-600 font-medium text-sm">
+              Misión 3
+            </div>
           </div>
         </div>
 
@@ -215,6 +220,72 @@ export default function Dashboard() {
           onSave={handleSaveResource}
           onClose={handleCloseAddResourceModal}
         />
+      </Ventana>
+
+      {/* Modal para detalles de actividad */}
+      <Ventana
+        isOpen={showActividadDetails}
+        onClose={() => setShowActividadDetails(false)}
+        title="Detalles de la Actividad"
+        initialWidth={600}
+        initialHeight={500}
+        minWidth={500}
+        minHeight={400}
+        showOverlay={true}
+      >
+        <div className="text-black space-y-6 p-4">
+          {/* Asunto */}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Asunto</h3>
+            <p className="text-gray-700">Reunión con cliente - Revisión de proyecto Q4</p>
+          </div>
+
+          {/* Participantes */}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Participantes</h3>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  EM
+                </div>
+                <span>Elias Montilla (Organizador)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  JD
+                </div>
+                <span>Juan Pérez</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  MR
+                </div>
+                <span>María Rodríguez</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Hora de comienzo */}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Fecha y Hora</h3>
+            <div className="bg-gray-100 p-3 rounded-lg">
+              <p className="font-medium">15 de Diciembre, 2025</p>
+              <p className="text-gray-600">2:30 PM - 3:30 PM</p>
+            </div>
+          </div>
+
+          {/* Botón para abrir link */}
+          <div className="flex justify-center pt-4">
+            <button 
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              onClick={() => {
+                window.open('https://meet.google.com/abc-defg-hij', '_blank');
+              }}
+            >
+              Abrir enlace de la reunión
+            </button>
+          </div>
+        </div>
       </Ventana>
     </div>
   );
