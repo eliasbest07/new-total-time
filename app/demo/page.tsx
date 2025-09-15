@@ -15,15 +15,23 @@ import {
   Link, 
   Code, 
   Archive, 
-  FolderOpen 
+  FolderOpen,
+  ChevronRight,
+  StickyNote,
+  CheckSquare,
+  Send
 } from 'lucide-react';
 import { saveResource, type Resource, type NewResourceData } from './utils/resourceUtils';
 import ActividadCard from './components/ActividadCard';
+import Cube from './components/cubo-acordion';
 
 export default function Dashboard() {
   const [ventanaAbierta, setVentanaAbierta] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [inputText, setInputText] = useState('');
+  const [showButtons, setShowButtons] = useState(false);
   
   // Lista de recursos inicial
   const [recursos, setRecursos] = useState<Resource[]>([
@@ -53,6 +61,34 @@ export default function Dashboard() {
     setShowAddResourceModal(false);
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+    const value = e.target.value;
+    setInputText(value);
+    setShowButtons(value.trim().length > 0);
+  };
+
+  const handleCreateNote = (): void => {
+    console.log('Crear nota:', inputText);
+    setInputText('');
+    setShowButtons(false);
+  };
+
+  const handleCreateTodoList = (): void => {
+    console.log('Crear lista de tareas:', inputText);
+    setInputText('');
+    setShowButtons(false);
+  };
+
+  const handleSendMessage = (): void => {
+    console.log('Enviar mensaje:', inputText);
+    setInputText('');
+    setShowButtons(false);
+  };
+
+  const getLineCount = (text: string): number => {
+    return text.split('\n').length;
+  };
+
   return (
     <div
       className="relative overflow-hidden flex flex-col"
@@ -62,29 +98,74 @@ export default function Dashboard() {
         <Pizarra />
       </div>
 
-      {/* Time cards positioned at bottom left */}
-      <div className="w-80 z-50" style={{ position: 'absolute', bottom: '4rem', right: '1rem', zIndex :'30' }}>
-        {/* Time info cards */}
-        <div className="flex gap-3 mb-4">
-          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
-            <div className="text-white text-xl font-medium">2:12</div>
-            <div className="text-white/70 text-sm">Tarea actual</div>
-          </div>
-          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
-            <div className="text-white text-xl font-medium">3:12</div>
-            <div className="text-white/70 text-sm">Tiempo total hoy</div>
-          </div>
-        </div>
+      {/* Toggle Button - Always visible */}
+<div className="fixed top-18 z-50 flex items-center transition-all duration-300">
+  {/* Botón expandir o contraer*/}
+  <button
+    onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+    className={`p-1 py-4 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-lg 
+      transition-all duration-300 text-white fixed top-18
+      ${rightPanelCollapsed ? 'right-38' : 'right-78'}`}
+  >
+    <ChevronRight
+      className={`w-4 h-4 transition-transform duration-300 ${
+        rightPanelCollapsed ? 'rotate-180' : ''
+      }`}
+    />
+  </button>
 
-        {/* Capture area */}
-        <div className="h-32 bg-green-500 rounded-2xl p-4 flex items-center justify-center text-white z-40">
-          Capture
+  {/* Cubo */}
+  {rightPanelCollapsed && (
+    <div className="fixed top-18 right-0">
+      <Cube />
+    </div>
+  )}
+</div>
+
+     {/* Panel fijo para el Acordeón (arriba) */}
+<div
+  className={`fixed top-0 right-0 h-auto flex flex-col transition-all duration-300 z-30 ${
+    rightPanelCollapsed ? "w-0" : "w-80 z-40"
+  }`}
+>
+  {!rightPanelCollapsed && (
+    <div className="p-4 pt-16">
+      <Accordion recursos={recursos} onAddResource={handleAddResource} />
+    </div>
+  )}
+</div>
+
+{/* Panel fijo para las horas y el capture (abajo) */}
+<div
+  className={`fixed bottom-0 right-0 flex flex-col transition-all duration-300 z-40 ${
+    rightPanelCollapsed ? "w-0" : "w-80"
+  }`}
+>
+  {!rightPanelCollapsed && (
+    <div className="p-4 flex flex-col gap-3">
+      {/* Time info cards */}
+      <div className="flex gap-3">
+        <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
+          <div className="text-white text-xl font-medium">2:12</div>
+          <div className="text-white/70 text-sm">Tarea actual</div>
+        </div>
+        <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
+          <div className="text-white text-xl font-medium">3:12</div>
+          <div className="text-white/70 text-sm">Tiempo total hoy</div>
         </div>
       </div>
 
+      {/* Capture */}
+      <div className="h-32 border-2 border-green-500 rounded-2xl p-4 flex items-center justify-center text-green-500 font-medium">
+        Capture
+      </div>
+    </div>
+  )}
+</div>
+
       
         {/* Header - Left section - Perfil */}
-        <div className="mb-8 px-2 z-30 pointer-events-auto">
+        <div className="mb-8 px-2 z-0 pointer-events-auto">
           <Perfil
             nombre="Elias Montilla"
             empresa="Total Time Solutions"
@@ -95,7 +176,7 @@ export default function Dashboard() {
         </div>
 
         {/* Header - Left section - RelojActual */}
-        <div className="mb-8 px-2 pointer-events-auto" style={{ position: 'absolute', top: '0.5rem', left: '9rem' }}>
+        <div className="pointer-events-auto " style={{ position: 'absolute', top: '0.5rem', left: '9rem', zIndex:40 }}>
           <RelojActual />
         </div>
 
@@ -136,25 +217,36 @@ export default function Dashboard() {
             Misiones
           </h2>
           <div className="flex gap-2">
-            <div className="w-20 h-20 bg-red-500/20 border-2 border-red-500 rounded-lg flex items-center justify-center text-red-600 font-medium text-sm">
+            <div 
+              className="w-20 h-20 bg-red-500/20 border-2 border-red-500 rounded-lg flex items-center justify-center text-red-600 font-medium text-sm cursor-grab active:cursor-grabbing"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', 'Misión 1 - Elemento arrastrado desde la interfaz');
+              }}
+            >
               Misión 1
             </div>
-            <div className="w-20 h-20 bg-yellow-500/20 border-2 border-yellow-500 rounded-lg flex items-center justify-center text-yellow-600 font-medium text-sm">
+            <div 
+              className="w-20 h-20 bg-yellow-500/20 border-2 border-yellow-500 rounded-lg flex items-center justify-center text-yellow-600 font-medium text-sm cursor-grab active:cursor-grabbing"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', 'Misión 2 - Elemento arrastrado desde la interfaz');
+              }}
+            >
               Misión 2
             </div>
-            <div className="w-20 h-20 bg-blue-500/20 border-2 border-blue-500 rounded-lg flex items-center justify-center text-blue-600 font-medium text-sm">
+            <div 
+              className="w-20 h-20 bg-blue-500/20 border-2 border-blue-500 rounded-lg flex items-center justify-center text-blue-600 font-medium text-sm cursor-grab active:cursor-grabbing"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', 'Misión 3 - Elemento arrastrado desde la interfaz');
+              }}
+            >
               Misión 3
             </div>
           </div>
         </div>
 
-        {/* Accordion positioned at fixed location */}
-        <div className="pointer-events-auto" style={{ position: 'fixed', top: '2rem', right: '1rem', zIndex: 40, width: '320px' }}>
-          <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-
-          </h2>
-          <Accordion recursos={recursos} onAddResource={handleAddResource} />
-        </div>
 
         {/* Chart positioned at bottom left */}
         <div className="flex items-end gap-2 pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 30 }}>
@@ -166,13 +258,63 @@ export default function Dashboard() {
         </div>
 
         {/* Input centrado abajo */}
-        <div className="flex justify-center pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', width: '100%', zIndex: 50 }}>
-          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex items-center gap-3 max-w-md w-full">
-            <div className="w-8 h-8 bg-white/30 rounded"></div>
-            <input
-              type="text"
+        <div className="flex flex-col items-center pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', width: '100%', zIndex: 50 }}>
+          {/* Botones de acción */}
+          {showButtons && (
+            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-3 mb-3 flex gap-3 max-w-md w-full">
+              <button
+                onClick={handleCreateNote}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg text-white text-sm font-medium transition-colors"
+                title="Crear Nota"
+              >
+                <StickyNote size={16} />
+                <span>Nota</span>
+              </button>
+              <button
+                onClick={handleCreateTodoList}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 rounded-lg text-white text-sm font-medium transition-colors"
+                title="Crear Lista de Tareas"
+              >
+                <CheckSquare size={16} />
+                <span>Tareas</span>
+              </button>
+              <button
+                onClick={handleSendMessage}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg text-white text-sm font-medium transition-colors"
+                title="Enviar"
+              >
+                <Send size={16} />
+                <span>Enviar</span>
+              </button>
+            </div>
+          )}
+
+          {/* Input principal */}
+          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex items-start gap-3 max-w-md w-full">
+            <div className="w-8 h-8 bg-white/30 rounded flex-shrink-0 mt-1"></div>
+            <textarea
+              value={inputText}
+              onChange={handleInputChange}
               placeholder="Escribe aquí"
-              className="flex-1 bg-transparent text-white placeholder-white/70 outline-none"
+              className="flex-1 bg-transparent text-white placeholder-white/70 outline-none resize-none"
+              style={{
+                height: `${Math.min(Math.max(getLineCount(inputText), 1), 5) * 1.5}rem`,
+                maxHeight: '7.5rem',
+                overflowY: getLineCount(inputText) > 5 ? 'auto' : 'hidden',
+                lineHeight: '1.5rem'
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.shiftKey) {
+                  // Allow new line with Shift+Enter
+                  return;
+                } else if (e.key === 'Enter') {
+                  // Send on Enter without Shift
+                  e.preventDefault();
+                  if (inputText.trim()) {
+                    handleSendMessage();
+                  }
+                }
+              }}
             />
           </div>
         </div>

@@ -160,7 +160,14 @@ const TestPizarra = () => {
     e.stopPropagation();
     
     if (!isConnecting) {
-      // Iniciar conexión
+      // Iniciar conexión - capturar posición inicial del mouse
+      if (canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        setMousePosition({ 
+          x: e.clientX - rect.left, 
+          y: e.clientY - rect.top 
+        });
+      }
       setIsConnecting(true);
       setConnectingFrom(cardId);
     } else {

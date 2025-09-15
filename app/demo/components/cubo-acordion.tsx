@@ -16,29 +16,34 @@ const Cube = () => {
     { id: 5, text: "Reunión equipo", completed: false }
   ]);
   const [newTodo, setNewTodo] = useState('');
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [showAddInput, setShowAddInput] = useState(false);
-  
+
   // Mouse drag states
   const [isDragging, setIsDragging] = useState(false);
+  const [isMouseDown, setIsMouseDown] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [autoRotate, setAutoRotate] = useState(true);
+  const [isInteractingWithTodos, setIsInteractingWithTodos] = useState(false);
   const cubeRef = useRef(null);
+  const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto rotation (only when not dragging)
+  // Auto rotation (only when not dragging or interacting with todos) - Fixed memory leak
   useEffect(() => {
-    if (!autoRotate) return;
-    
+    if (!autoRotate || isDragging || isInteractingWithTodos) return;
+
     const interval = setInterval(() => {
-      const randomSide = sides[Math.floor(Math.random() * sides.length)];
-      setCurrentClass(randomSide);
+      setCurrentClass(prevClass => {
+        const randomSide = sides[Math.floor(Math.random() * sides.length)];
+        return prevClass !== randomSide ? randomSide : sides[(sides.indexOf(randomSide) + 1) % sides.length];
+      });
     }, 8000);
 
     return () => clearInterval(interval);
-  }, [autoRotate]);
+  }, [autoRotate, isDragging, isInteractingWithTodos]);
 
-  // News ticker animation
+  // News ticker animation - Optimized
   useEffect(() => {
     const newsInterval = setInterval(() => {
       setNewsIndex(prev => (prev + 1) % 3);
@@ -47,24 +52,72 @@ const Cube = () => {
     return () => clearInterval(newsInterval);
   }, []);
 
-  // Icon carousel animation
+  const iconList = [
+    { icon: "📊", title: "Analytics" },
+    { icon: "🎨", title: "Design" },
+    { icon: "⚡", title: "Performance" },
+    { icon: "🔒", title: "Security" },
+    { icon: "🚀", title: "Deploy" }
+  ];
+
+  // Icon carousel animation - Optimized with proper cleanup
   useEffect(() => {
     const iconInterval = setInterval(() => {
       setIconIndex(prev => (prev + 1) % iconList.length);
     }, 2500);
 
     return () => clearInterval(iconInterval);
-  }, []);
+  }, []); // Removed dependency since iconList is now static
 
-  // Mouse event handlers for cube rotation
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    setAutoRotate(false);
+  // Mouse event handlers for cube rotation (sequential faces only)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Don't start if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    
+    // Check for any interactive elements
+    if (target.closest('button') ||
+      target.closest('input') ||
+      target.closest('.add-btn') ||
+      target.closest('.todo-checkbox') ||
+      target.closest('.edit-btn') ||
+      target.closest('.delete-btn') ||
+      target.closest('.save-btn') ||
+      target.closest('.cancel-btn') ||
+      target.closest('.add-todo-form') ||
+      target.closest('.edit-form') ||
+      target.tagName === 'BUTTON' ||
+      target.tagName === 'INPUT') {
+      return;
+    }
+
+    // Only allow drag initiation on cube face backgrounds
+    const isCubeFaceBackground = target.classList.contains('front') ||
+      target.classList.contains('back') ||
+      target.classList.contains('left') ||
+      target.classList.contains('right') ||
+      target.classList.contains('top') ||
+      target.classList.contains('bottom') ||
+      target.closest('.cube') === target.parentElement;
+
+    if (!isCubeFaceBackground) {
+      return;
+    }
+
+    setIsMouseDown(true);
     setDragStart({ x: e.clientX, y: e.clientY });
+
+    // Start drag mode after holding for 300ms
+    dragTimeoutRef.current = setTimeout(() => {
+      if (isMouseDown) {
+        setIsDragging(true);
+        setAutoRotate(false);
+      }
+    }, 300);
+
     e.preventDefault();
   };
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
 
     const deltaX = e.clientX - dragStart.x;
@@ -72,73 +125,109 @@ const Cube = () => {
     const threshold = 50;
 
     if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
-      let newSide = currentClass;
+      let newSide;
 
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
-        // Horizontal movement
+        // Horizontal movement - left or right face
         if (deltaX > 0) {
-          // Moving right
-          const currentIndex = sides.indexOf(currentClass);
-          newSide = sides[(currentIndex + 1) % sides.length];
+          // Right drag - show right face
+          newSide = 'right';
         } else {
-          // Moving left
-          const currentIndex = sides.indexOf(currentClass);
-          newSide = sides[currentIndex === 0 ? sides.length - 1 : currentIndex - 1];
+          // Left drag - show left face
+          newSide = 'left';
         }
       } else {
-        // Vertical movement
+        // Vertical movement - top or bottom face
         if (deltaY > 0) {
-          // Moving down
+          // Down drag - show bottom face
           newSide = 'bottom';
         } else {
-          // Moving up
+          // Up drag - show top face
           newSide = 'top';
         }
       }
 
       if (newSide !== currentClass) {
         setCurrentClass(newSide);
-        setDragStart({ x: e.clientX, y: e.clientY });
+        // Reset states after rotation
+        setIsDragging(false);
+        setIsMouseDown(false);
+        setIsInteractingWithTodos(false);
+        if (dragTimeoutRef.current) {
+          clearTimeout(dragTimeoutRef.current);
+        }
       }
     }
   };
 
   const handleMouseUp = () => {
+    setIsMouseDown(false);
     setIsDragging(false);
-    setTimeout(() => setAutoRotate(true), 2000); // Resume auto-rotation after 2 seconds
+    
+    // Clear timeout if mouse is released before drag activation
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+    }
+
+    // Re-enable auto rotation after a delay
+    setTimeout(() => {
+      setAutoRotate(true);
+    }, 2000);
   };
 
-  // Todo functions
-  const toggleTodo = (id) => {
-    setTodos(todos.map(todo => 
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    ));
+  // Todo functions - Improved with error handling
+  const toggleTodo = (id: number) => {
+    setTodos(prevTodos =>
+      prevTodos.map(todo =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      )
+    );
   };
 
   const addTodo = () => {
-    if (newTodo.trim()) {
-      const newId = Math.max(...todos.map(t => t.id), 0) + 1;
-      setTodos([...todos, { id: newId, text: newTodo.trim(), completed: false }]);
+    const trimmedText = newTodo.trim();
+    if (!trimmedText || trimmedText.length > 100) return; // Add length validation
+
+    try {
+      const newId = todos.length > 0 ? Math.max(...todos.map(t => t.id)) + 1 : 1; // Fixed empty array issue
+      setTodos(prevTodos => [...prevTodos, {
+        id: newId,
+        text: trimmedText,
+        completed: false
+      }]);
       setNewTodo('');
       setShowAddInput(false);
+    } catch (error) {
+      console.error('Error adding todo:', error);
     }
   };
 
-  const deleteTodo = (id) => {
-    setTodos(todos.filter(todo => todo.id !== id));
+  const deleteTodo = (id: number) => {
+    setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id));
+    // Clear edit state if deleting the item being edited
+    if (editingId === id) {
+      setEditingId(null);
+      setEditText('');
+    }
   };
 
-  const startEdit = (id, text) => {
+  const startEdit = (id: number, text: string) => {
     setEditingId(id);
     setEditText(text);
   };
 
   const saveEdit = () => {
-    if (editText.trim()) {
-      setTodos(todos.map(todo => 
-        todo.id === editingId ? { ...todo, text: editText.trim() } : todo
-      ));
+    const trimmedText = editText.trim();
+    if (!trimmedText || trimmedText.length > 100) {
+      cancelEdit();
+      return;
     }
+
+    setTodos(prevTodos =>
+      prevTodos.map(todo =>
+        todo.id === editingId ? { ...todo, text: trimmedText } : todo
+      )
+    );
     setEditingId(null);
     setEditText('');
   };
@@ -154,14 +243,6 @@ const Cube = () => {
     "NOVEDAD: Integración con servicios en la nube completada exitosamente"
   ];
 
-  const iconList = [
-    { icon: "📊", title: "Analytics" },
-    { icon: "🎨", title: "Design" },
-    { icon: "⚡", title: "Performance" },
-    { icon: "🔒", title: "Security" },
-    { icon: "🚀", title: "Deploy" }
-  ];
-
   const avatarUsers = [
     { id: 1, name: "Juan", online: true, hasFrame: true },
     { id: 2, name: "Ana", online: false, hasFrame: false },
@@ -170,38 +251,58 @@ const Cube = () => {
 
   const goToPrevious = () => {
     setAutoRotate(false);
-    const currentIndex = sides.indexOf(currentClass);
-    const previousIndex = currentIndex === 0 ? sides.length - 1 : currentIndex - 1;
-    setCurrentClass(sides[previousIndex]);
+
+    // Random vertical direction (up or down)
+    const verticalOptions = ['top', 'bottom'];
+    const randomVertical = verticalOptions[Math.floor(Math.random() * verticalOptions.length)];
+
+    // Random horizontal direction (left or right)
+    const horizontalOptions = ['left', 'right'];
+    const randomHorizontal = horizontalOptions[Math.floor(Math.random() * horizontalOptions.length)];
+
+    // Combine random choices
+    const randomCombination = `${randomVertical}-${randomHorizontal}`;
+
+    setCurrentClass(randomCombination);
     setTimeout(() => setAutoRotate(true), 2000);
   };
 
   return (
     <div className="flex items-center gap-4">
-      <div 
+      <div
         className="scene"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         ref={cubeRef}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        style={{ cursor: isDragging ? 'grabbing' : isMouseDown ? 'grabbing' : 'grab' }}
+        role="application"
+        aria-label="Cubo 3D interactivo con contenido"
       >
         <div className={`cube move-${currentClass}`}>
           {/* Face 1: Avatar with thought bubble */}
           <div className="front avatar-face">
-            <div className="avatar-stack">
+            <div className="avatar-stack mt-50">
               {avatarUsers.map((user, index) => (
-                <div 
-                  key={user.id} 
+                <div
+                  key={user.id}
                   className={`avatar-container ${user.hasFrame ? 'with-frame' : ''}`}
-                  style={{ zIndex: avatarUsers.length - index }}
+                  style={{
+                    zIndex: avatarUsers.length - index,
+                    transform: `translateZ(${index * 15}px) translateY(-${index * 10}px)`,
+                    filter: index > 0 ? `brightness(${1 - index * 0.1})` : 'none'
+                  }}
                 >
                   <div className="avatar">
                     <User size={20} />
                     {user.online && (
                       <div className="online-indicator">
-                        <Wifi size={8} />
+                          <div 
+          className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+            true ? 'bg-green-400' : 'bg-gray-400'
+          }`}
+        />
                       </div>
                     )}
                   </div>
@@ -215,20 +316,22 @@ const Cube = () => {
             </div>
           </div>
 
-          {/* Face 2: Moving text ticker */}
+          {/* Face 2: Continuous text ticker */}
           <div className="back news-ticker">
             <div className="ticker-container">
               <div className="ticker-row">
                 <div className="ticker-wrapper">
-                  <div className="ticker-content">
-                    {newsItems[0]} • {newsItems[0]} • {newsItems[0]} • {newsItems[0]} • {newsItems[0]}
+                  <div className="ticker-content-continuous">
+                    <span className="ticker-text">{newsItems[0]}</span>
+                    <span className="ticker-text">{newsItems[0]}</span>
                   </div>
                 </div>
               </div>
               <div className="ticker-row">
                 <div className="ticker-wrapper">
-                  <div className="ticker-content">
-                    {newsItems[1]} • {newsItems[1]} • {newsItems[1]} • {newsItems[1]} • {newsItems[1]}
+                  <div className="ticker-content-continuous">
+                    <span className="ticker-text">{newsItems[1]}</span>
+                    <span className="ticker-text">{newsItems[1]}</span>
                   </div>
                 </div>
               </div>
@@ -262,15 +365,20 @@ const Cube = () => {
             <div className="todo-container">
               <div className="todo-header">
                 <h3>Tareas</h3>
-                <button 
+                <button
                   className="add-btn"
-                  onClick={() => setShowAddInput(true)}
+                  onClick={() => {
+                    setShowAddInput(true);
+                    setIsInteractingWithTodos(true);
+                  }}
                   title="Agregar tarea"
+                  aria-label="Agregar nueva tarea"
+                  disabled={showAddInput}
                 >
                   <Plus size={14} />
                 </button>
               </div>
-              
+
               {showAddInput && (
                 <div className="add-todo-form">
                   <input
@@ -280,29 +388,52 @@ const Cube = () => {
                     placeholder="Nueva tarea..."
                     className="add-input"
                     autoFocus
-                    onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+                    maxLength={100}
+                    aria-label="Texto de nueva tarea"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') addTodo();
+                      if (e.key === 'Escape') { setShowAddInput(false); setNewTodo(''); }
+                    }}
                   />
                   <div className="add-actions">
-                    <button onClick={addTodo} className="save-btn">
+                    <button
+                      onClick={() => {
+                        addTodo();
+                        setIsInteractingWithTodos(false);
+                      }}
+                      className="save-btn"
+                      aria-label="Guardar tarea"
+                      disabled={!newTodo.trim()}
+                    >
                       <Check size={10} />
                     </button>
-                    <button onClick={() => {setShowAddInput(false); setNewTodo('');}} className="cancel-btn">
+                    <button
+                      onClick={() => { 
+                        setShowAddInput(false); 
+                        setNewTodo(''); 
+                        setIsInteractingWithTodos(false);
+                      }}
+                      className="cancel-btn"
+                      aria-label="Cancelar"
+                    >
                       <X size={10} />
                     </button>
                   </div>
                 </div>
               )}
-              
+
               <div className="todo-items">
                 {todos.slice(0, 4).map(item => (
                   <div key={item.id} className="todo-item">
-                    <button 
+                    <button
                       className="todo-checkbox"
                       onClick={() => toggleTodo(item.id)}
+                      aria-label={item.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
+                      title={item.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
                     >
                       {item.completed ? <Check size={12} /> : <Circle size={12} />}
                     </button>
-                    
+
                     {editingId === item.id ? (
                       <div className="edit-form">
                         <input
@@ -314,10 +445,22 @@ const Cube = () => {
                           autoFocus
                         />
                         <div className="edit-actions">
-                          <button onClick={saveEdit} className="save-btn">
+                          <button 
+                            onClick={() => {
+                              saveEdit();
+                              setIsInteractingWithTodos(false);
+                            }} 
+                            className="save-btn"
+                          >
                             <Check size={10} />
                           </button>
-                          <button onClick={cancelEdit} className="cancel-btn">
+                          <button 
+                            onClick={() => {
+                              cancelEdit();
+                              setIsInteractingWithTodos(false);
+                            }} 
+                            className="cancel-btn"
+                          >
                             <X size={10} />
                           </button>
                         </div>
@@ -328,15 +471,21 @@ const Cube = () => {
                           {item.text}
                         </span>
                         <div className="todo-actions">
-                          <button 
-                            onClick={() => startEdit(item.id, item.text)}
+                          <button
+                            onClick={() => {
+                              startEdit(item.id, item.text);
+                              setIsInteractingWithTodos(true);
+                            }}
                             className="edit-btn"
                             title="Editar"
                           >
                             <Edit2 size={10} />
                           </button>
-                          <button 
-                            onClick={() => deleteTodo(item.id)}
+                          <button
+                            onClick={() => {
+                              deleteTodo(item.id);
+                              setIsInteractingWithTodos(false);
+                            }}
                             className="delete-btn"
                             title="Eliminar"
                           >
@@ -354,7 +503,7 @@ const Cube = () => {
           {/* Face 5: Horizontal icon carousel */}
           <div className="top icon-carousel">
             <div className="carousel-container">
-              <div 
+              <div
                 className="carousel-track"
                 style={{ transform: `translateX(-${iconIndex * 100}%)` }}
               >
@@ -379,22 +528,14 @@ const Cube = () => {
         </div>
       </div>
 
-      {/* Navigation button */}
-      <button 
-        onClick={goToPrevious}
-        className="nav-button"
-        aria-label="Cara anterior"
-      >
-        <ChevronLeft size={24} />
-      </button>
 
       <style jsx>{`
         .scene {
-          color: #fff;
+          color: #000;
           font-size: 1em;
-          height: 180px;
-          width: 180px;
-          perspective: 540px;
+          height: 150px; /* Increased 25% from 120px */
+          width: 150px;  /* Increased 25% from 120px */
+          perspective: 450px; /* Adjusted perspective proportionally */
           user-select: none;
         }
         
@@ -410,57 +551,69 @@ const Cube = () => {
           display: flex;
           justify-content: center;
           align-items: center;
-          border: 2px solid #fff;
+          border: 2px solid white;
           height: 100%;
           position: absolute;    
           border-radius: 10%;
           overflow: hidden;
           width: 100%;
+          backdrop-filter: blur(10px);
+          background: rgba(255, 255, 255, 0.1);
         }
         
         .front {
-          background: #667eea;
-          transform: rotateY(0deg) translateZ(90px);
+          transform: rotateY(0deg) translateZ(75px); /* Increased 25% from 60px */
         }
         
         .back {
-          background: #f093fb;
-          transform: rotateY(180deg) translateZ(90px);
+          transform: rotateY(180deg) translateZ(75px); /* Increased 25% from 60px */
         }
         
         .left {
-          background: #4facfe;
-          transform: rotateY(-90deg) translateZ(90px);
+          transform: rotateY(-90deg) translateZ(75px); /* Increased 25% from 60px */
         }
         
         .right {
-          background: #43e97b;
-          transform: rotateY(90deg) translateZ(90px);
+          transform: rotateY(90deg) translateZ(75px); /* Increased 25% from 60px */
         }
         
         .top {
-          background: #fa709a;
-          transform: rotateX(90deg) translateZ(90px);
+          transform: rotateX(90deg) translateZ(75px); /* Increased 25% from 60px */
         }
         
         .bottom {
-          background: #a8edea;
-          transform: rotateX(-90deg) translateZ(90px);
+          transform: rotateX(-90deg) translateZ(75px); /* Increased 25% from 60px */
         }
         
-        .move-front { transform: translateZ(-180px) rotateY(0deg); }
-        .move-right { transform: translateZ(-180px) rotateY(-90deg); }
-        .move-back { transform: translateZ(-180px) rotateY(-180deg); }
-        .move-left { transform: translateZ(-180px) rotateY(90deg); }
-        .move-top { transform: translateZ(-180px) rotateX(-90deg); }
-        .move-bottom { transform: translateZ(-180px) rotateX(90deg); }
+        /* Single axis movements */
+        .move-front { transform: translateZ(-150px) rotateY(0deg) rotateX(0deg); }
+        .move-right { transform: translateZ(-150px) rotateY(-90deg) rotateX(0deg); }
+        .move-back { transform: translateZ(-150px) rotateY(-180deg) rotateX(0deg); }
+        .move-left { transform: translateZ(-150px) rotateY(90deg) rotateX(0deg); }
+        .move-top { transform: translateZ(-150px) rotateY(0deg) rotateX(-90deg); }
+        .move-bottom { transform: translateZ(-150px) rotateY(0deg) rotateX(90deg); }
+        
+        /* Dual-axis movements - showing corners/edges between faces */
+        .move-top-right { 
+          transform: translateZ(-150px) rotateY(-45deg) rotateX(-45deg); 
+        }
+        .move-top-left { 
+          transform: translateZ(-150px) rotateY(45deg) rotateX(-45deg); 
+        }
+        .move-bottom-right { 
+          transform: translateZ(-150px) rotateY(-45deg) rotateX(45deg); 
+        }
+        .move-bottom-left { 
+          transform: translateZ(-150px) rotateY(45deg) rotateX(45deg); 
+        }
         
         /* Avatar Face Styles */
         .avatar-face {
           flex-direction: column;
-          padding: 20px;
+          padding: 5px 15px 30px 15px; /* Minimal top padding, more bottom */
           perspective: 1000px;
           transform-style: preserve-3d;
+          justify-content: flex-end; /* Align content to bottom */
         }
         
         .avatar-stack {
@@ -468,9 +621,10 @@ const Cube = () => {
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
+          justify-content: flex-end; /* Align to bottom */
           height: 100%;
           transform-style: preserve-3d;
+          margin-bottom: 15px; /* Bottom margin */
         }
         
         .avatar-container {
@@ -511,17 +665,17 @@ const Cube = () => {
           align-items: center;
           justify-content: center;
           position: relative;
-          border: 2px solid rgba(255, 255, 255, 0.8);
+          border: 2px solid rgba(0, 0, 0, 0.8);
           box-shadow: 
-            0 4px 15px rgba(0, 0, 0, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            0 4px 15px rgba(255, 255, 255, 0.2),
+            inset 0 1px 0 rgba(0, 0, 0, 0.3);
           transition: all 0.3s ease;
         }
         
         .avatar:hover {
           box-shadow: 
-            0 6px 20px rgba(0, 0, 0, 0.3),
-            inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            0 6px 20px rgba(255, 255, 255, 0.3),
+            inset 0 1px 0 rgba(0, 0, 0, 0.4);
         }
         
         .online-indicator {
@@ -529,7 +683,7 @@ const Cube = () => {
           top: -3px;
           right: -3px;
           background: linear-gradient(135deg, #4ade80, #22c55e);
-          border: 2px solid white;
+          border: 2px solid black;
           border-radius: 50%;
           width: 16px;
           height: 16px;
@@ -553,23 +707,25 @@ const Cube = () => {
         
         .thought-bubble {
           position: absolute;
-          top: -45px; /* Moved higher up from -35px */
-          right: -25px;
-          background: linear-gradient(135deg, #ffffff, #f8fafc);
-          color: #1f2937;
-          padding: 8px 14px; /* Slightly larger padding */
-          border-radius: 15px;
-          font-size: 0.8em; /* Slightly larger font */
-          white-space: nowrap;
+          top: -75px; /* Back to top positioning */
+          right: -35px;
+          background: linear-gradient(135deg,rgb(129, 123, 123),rgb(189, 182, 182));
+          color: #ffffff;
+          padding: 10px 16px;
+          border-radius: 18px;
+          font-size: 0.65em;
           z-index: 100;
-          border: 1px solid rgba(0, 0, 0, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           box-shadow: 
-            0 4px 15px rgba(0, 0, 0, 0.1),
-            0 1px 3px rgba(0, 0, 0, 0.2);
+            0 4px 15px rgba(255, 255, 255, 0.1),
+            0 1px 3px rgba(255, 255, 255, 0.2);
           transform: translateZ(30px);
           animation: float-bubble 3s ease-in-out infinite;
-          min-width: 80px; /* Ensure minimum width for better visibility */
+          min-width: 85px;
+          max-width: 100px;
           text-align: center;
+          line-height: 1.2;
+          white-space: normal;
         }
         
         @keyframes float-bubble {
@@ -580,19 +736,19 @@ const Cube = () => {
         .thought-bubble::before {
           content: '';
           position: absolute;
-          bottom: -8px;
-          left: 15px;
+          bottom: -10px; /* Back to bottom pointing down */
+          left: 20px;
           width: 0;
           height: 0;
-          border-left: 8px solid transparent;
-          border-right: 8px solid transparent;
-          border-top: 8px solid #ffffff;
-          filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+          border-left: 10px solid transparent;
+          border-right: 10px solid transparent;
+          border-top: 10px solidrgb(255, 255, 255); /* Changed to black */
+          filter: drop-shadow(0 2px 2px rgba(255, 255, 255, 0.1)); /* Inverted shadow */
         }
         
         .bubble-content {
           font-weight: 600;
-          background: linear-gradient(45deg, #667eea, #764ba2);
+          background: linear-gradient(45deg,rgb(3, 3, 3),rgb(4, 4, 4));
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -618,10 +774,10 @@ const Cube = () => {
         .ticker-row {
           height: 40px;
           overflow: hidden;
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(190, 190, 190, 0.26);
           border-radius: 8px;
           backdrop-filter: blur(5px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          border: 1px solid rgba(0, 0, 0, 0.2);
         }
         
         .ticker-wrapper {
@@ -631,20 +787,29 @@ const Cube = () => {
           overflow: hidden;
         }
         
-        .ticker-content {
-          animation: scroll-left-continuous 25s linear infinite;
-          white-space: nowrap;
+        .ticker-content-continuous {
+          animation: scroll-left-seamless 20s linear infinite;
+          display: flex;
           font-size: 0.75em;
           font-weight: 500;
           line-height: 1;
-          padding: 0 20px;
-          color: #ffffff;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+          color: #000000;
+          white-space: nowrap;
         }
         
-        @keyframes scroll-left-continuous {
-          0% { transform: translateX(100%); }
-          100% { transform: translateX(-100%); }
+        .ticker-text {
+          padding: 0 20px;
+          display: inline-block;
+        }
+        
+        .ticker-text:after {
+          content: " • ";
+          color: rgba(0, 0, 0, 0.6);
+        }
+        
+        @keyframes scroll-left-seamless {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-50%); }
         }
         
         /* File Icons Styles */
@@ -671,8 +836,8 @@ const Cube = () => {
           cursor: pointer;
           padding: 4px;
           border-radius: 6px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(0, 0, 0, 0.05);
+          border: 1px solid rgba(0, 0, 0, 0.1);
           width: 100%;
           max-width: 45px;
           height: 45px;
@@ -681,7 +846,7 @@ const Cube = () => {
         
         .icon-item:hover {
           transform: scale(1.05);
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(0, 0, 0, 0.1);
         }
         
         .icon-item span {
@@ -715,11 +880,11 @@ const Cube = () => {
         .todo-header h3 {
           margin: 0;
           font-size: 0.8em;
-          color: white;
+          color: black;
         }
         
         .add-btn {
-          background: rgba(255, 255, 255, 0.2);
+          background: rgba(0, 0, 0, 0.2);
           border: none;
           border-radius: 50%;
           width: 20px;
@@ -727,14 +892,20 @@ const Cube = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: black;
           cursor: pointer;
           transition: all 0.2s;
         }
         
-        .add-btn:hover {
-          background: rgba(255, 255, 255, 0.3);
+        .add-btn:hover:not(:disabled) {
+          background: rgba(0, 0, 0, 0.3);
           transform: scale(1.1);
+        }
+        
+        .add-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
         }
         
         .add-todo-form {
@@ -742,7 +913,7 @@ const Cube = () => {
           align-items: center;
           gap: 4px;
           margin-bottom: 6px;
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(0, 0, 0, 0.1);
           padding: 4px;
           border-radius: 4px;
         }
@@ -751,14 +922,14 @@ const Cube = () => {
           flex: 1;
           background: transparent;
           border: none;
-          color: white;
+          color: black;
           font-size: 0.6em;
           padding: 2px 4px;
           outline: none;
         }
         
         .add-input::placeholder {
-          color: rgba(255, 255, 255, 0.7);
+          color: rgba(0, 0, 0, 0.7);
         }
         
         .add-actions {
@@ -780,19 +951,19 @@ const Cube = () => {
           gap: 6px;
           font-size: 0.6em;
           padding: 3px 4px;
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(0, 0, 0, 0.1);
           border-radius: 4px;
           transition: background 0.2s;
         }
         
         .todo-item:hover {
-          background: rgba(255, 255, 255, 0.15);
+          background: rgba(0, 0, 0, 0.15);
         }
         
         .todo-checkbox {
           background: none;
           border: none;
-          color: white;
+          color: black;
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -818,7 +989,7 @@ const Cube = () => {
         }
         
         .edit-btn, .delete-btn, .save-btn, .cancel-btn {
-          background: rgba(255, 255, 255, 0.2);
+          background: rgba(0, 0, 0, 0.2);
           border: none;
           border-radius: 2px;
           width: 16px;
@@ -826,24 +997,29 @@ const Cube = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: black;
           cursor: pointer;
           transition: all 0.2s;
         }
         
-        .edit-btn:hover {
+        .edit-btn:hover:not(:disabled) {
           background: rgba(74, 222, 128, 0.3);
         }
         
-        .delete-btn:hover {
+        .delete-btn:hover:not(:disabled) {
           background: rgba(248, 113, 113, 0.3);
         }
         
-        .save-btn:hover {
+        .save-btn:hover:not(:disabled) {
           background: rgba(34, 197, 94, 0.4);
         }
         
-        .cancel-btn:hover {
+        .save-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .cancel-btn:hover:not(:disabled) {
           background: rgba(248, 113, 113, 0.4);
         }
         
@@ -856,9 +1032,9 @@ const Cube = () => {
         
         .edit-input {
           flex: 1;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          color: white;
+          background: rgba(0, 0, 0, 0.1);
+          border: 1px solid rgba(0, 0, 0, 0.3);
+          color: black;
           font-size: 0.6em;
           padding: 2px 4px;
           border-radius: 2px;

@@ -130,12 +130,12 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
         return (
           <div key={section.id} className="border-b border-white/10 last:border-b-0">
             {/* Header */}
-            <button
-              onClick={() => toggleSection(section.id)}
-              className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${isActive ? section.color : 'bg-transparent'
-                }`}
-            >
-              <div className="flex items-center space-x-3">
+            <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${isActive ? section.color : 'bg-transparent'
+                }`}>
+              <button
+                onClick={() => toggleSection(section.id)}
+                className="flex items-center space-x-3 flex-1"
+              >
                 <Icon
                   size={20}
                   className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/70'
@@ -145,13 +145,29 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                   }`}>
                   {section.title}
                 </span>
+              </button>
+              
+              <div className="flex items-center space-x-2">
+                {section.id === 'recursos' && (
+                  <button
+                    onClick={handleAddResource}
+                    className="p-1 hover:bg-white/20 rounded transition-colors duration-200"
+                  >
+                    <Plus size={16} className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/70'}`} />
+                  </button>
+                )}
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  className="p-1"
+                >
+                  <ChevronDown
+                    size={16}
+                    className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
+                      }`}
+                  />
+                </button>
               </div>
-              <ChevronDown
-                size={16}
-                className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
-                  }`}
-              />
-            </button>
+            </div>
 
             {/* Expandable Content */}
             <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
@@ -281,14 +297,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                       </div>
                     )}
 
-                    {/* Botón discreto para añadir recurso */}
-                    <button
-                      onClick={handleAddResource}
-                      className="w-full py-1.5 px-2 bg-white/5 hover:bg-white/10 rounded border border-white/20 border-dashed text-xs text-white/60 hover:text-white/80 transition-colors duration-200 flex items-center justify-center space-x-1"
-                    >
-                      <Plus size={12} />
-                      <span>Añadir recurso</span>
-                    </button>
+              
                   </div>
                 ) : (
                   // Contenido normal para otras secciones

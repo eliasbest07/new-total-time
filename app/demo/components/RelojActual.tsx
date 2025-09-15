@@ -3,15 +3,19 @@
 import { useState, useEffect } from 'react';
 
 const RelojActual = () => {
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState<Date | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    // Marcar que estamos en el cliente
+    setIsClient(true);
+    
+    // Establecer la hora inicial
+    setTime(new Date());
+
     const timer = setInterval(() => {
       setTime(new Date());
     }, 60000); // Actualiza cada minuto
-
-    // Establecer la hora inicial
-    setTime(new Date());
 
     return () => clearInterval(timer);
   }, []);
@@ -32,10 +36,20 @@ const RelojActual = () => {
     return `${day} ${month}`;
   };
 
+  // Durante el servidor y hasta que se hidrate, mostrar placeholder
+  if (!isClient || !time) {
+    return (
+      <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 min-w-[120px]">
+        <div className="text-white text-xl font-medium">--:-- --</div>
+        <div className="text-white text-sm">-- ---</div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 min-w-[120px]">
       <div className="text-white text-xl font-medium">{formatTime(time)}</div>
-      <div className="text-white/70 text-sm">{formatDate(time)}</div>
+      <div className="text-white text-sm">{formatDate(time)}</div>
     </div>
   );
 };
