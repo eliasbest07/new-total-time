@@ -102,7 +102,7 @@ export default function Dashboard() {
             {/* Center - Room tabs */}
             <div className="flex bg-white/20 z-30 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
               <button onClick={() => setVentanaAbierta(true)} className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
-                Avances <span className="bg-white px-2 py-1 rounded text-sm ml-1">2</span>
+                Avances <span className="bg-gray-600 px-1.5 py-1 rounded-full text-sm ml-1 text-white">2</span>
               </button>
               <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reglas</button>
               <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reportes</button>
@@ -116,7 +116,7 @@ export default function Dashboard() {
         {/* Activities positioned at fixed location */}
         <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 30 }}>
           <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-            Actividades
+            Actividades 🗓️
           </h2>
           <div
             // className="bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
