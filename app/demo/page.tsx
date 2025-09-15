@@ -65,6 +65,14 @@ export default function Dashboard() {
     const value = e.target.value;
     setInputText(value);
     setShowButtons(value.trim().length > 0);
+    
+    // Auto-resize the textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    const scrollHeight = textarea.scrollHeight;
+    const lineHeight = 24; // 1.5rem = 24px
+    const maxHeight = lineHeight * 5; // 5 lines max
+    textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
   };
 
   const handleCreateNote = (): void => {
@@ -86,6 +94,7 @@ export default function Dashboard() {
   };
 
   const getLineCount = (text: string): number => {
+    if (!text) return 1;
     return text.split('\n').length;
   };
 
@@ -298,10 +307,12 @@ export default function Dashboard() {
               placeholder="Escribe aquí"
               className="flex-1 bg-transparent text-white placeholder-white/70 outline-none resize-none"
               style={{
-                height: `${Math.min(Math.max(getLineCount(inputText), 1), 5) * 1.5}rem`,
-                maxHeight: '7.5rem',
-                overflowY: getLineCount(inputText) > 5 ? 'auto' : 'hidden',
-                lineHeight: '1.5rem'
+                minHeight: '24px',
+                maxHeight: '120px',
+                lineHeight: '24px',
+                overflowY: 'auto',
+                wordWrap: 'break-word',
+                whiteSpace: 'pre-wrap'
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && e.shiftKey) {
