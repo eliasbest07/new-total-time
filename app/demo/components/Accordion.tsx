@@ -14,11 +14,9 @@ import {
   Link,
   Code,
   Plus,
-  ChevronLeft,
-  ChevronRight,
   LucideIcon
 } from 'lucide-react';
-import { type Resource } from '../utils/resourceUtils';
+import { Resource } from '../utils/resourceUtils';
 
 // Tipos/Interfaces
 interface User {
@@ -30,6 +28,7 @@ interface User {
   online: boolean;
 }
 
+// Resource interface now imported from utils
 
 interface Section {
   id: string;
@@ -39,6 +38,7 @@ interface Section {
   content: string | string[];
 }
 
+// Props interface
 interface AccordionProps {
   recursos: Resource[];
   onAddResource: () => void;
@@ -49,15 +49,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showAllUsers, setShowAllUsers] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [currentResourcePage, setCurrentResourcePage] = useState<number>(0);
   const dragImageRef = useRef<HTMLDivElement>(null);
-
-  // Configuración para paginación de recursos
-  const ITEMS_PER_PAGE = 10; // 2 filas x 5 columnas
-  const totalResourcePages = Math.ceil(recursos.length / ITEMS_PER_PAGE);
-  const startIndex = currentResourcePage * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentResources = recursos.slice(startIndex, endIndex);
 
   // Lista completa de usuarios
   const allUsers: User[] = [
@@ -73,6 +65,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
     { id: 10, name: 'Carmen Ruiz', status: 'En línea', avatar: 'CR', color: 'bg-cyan-500', online: true }
   ];
 
+  // recursos now comes from props
 
   const sections: Section[] = [
     {
@@ -112,14 +105,6 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
     onAddResource();
   };
 
-  const handlePreviousPage = (): void => {
-    setCurrentResourcePage(prev => Math.max(0, prev - 1));
-  };
-
-  const handleNextPage = (): void => {
-    setCurrentResourcePage(prev => Math.min(totalResourcePages - 1, prev + 1));
-  };
-
   return (
     <div className="w-full bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg pointer-events-auto">
       {sections.map((section) => {
@@ -130,12 +115,12 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
         return (
           <div key={section.id} className="border-b border-white/10 last:border-b-0">
             {/* Header */}
-            <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${isActive ? section.color : 'bg-transparent'
-                }`}>
-              <button
-                onClick={() => toggleSection(section.id)}
-                className="flex items-center space-x-3 flex-1"
-              >
+            <button
+              onClick={() => toggleSection(section.id)}
+              className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${isActive ? section.color : 'bg-transparent'
+                }`}
+            >
+              <div className="flex items-center space-x-3">
                 <Icon
                   size={20}
                   className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/70'
@@ -145,29 +130,13 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                   }`}>
                   {section.title}
                 </span>
-              </button>
-              
-              <div className="flex items-center space-x-2">
-                {section.id === 'recursos' && (
-                  <button
-                    onClick={handleAddResource}
-                    className="p-1 hover:bg-white/20 rounded transition-colors duration-200"
-                  >
-                    <Plus size={16} className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/70'}`} />
-                  </button>
-                )}
-                <button
-                  onClick={() => toggleSection(section.id)}
-                  className="p-1"
-                >
-                  <ChevronDown
-                    size={16}
-                    className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
-                      }`}
-                  />
-                </button>
               </div>
-            </div>
+              <ChevronDown
+                size={16}
+                className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
+                  }`}
+              />
+            </button>
 
             {/* Expandable Content */}
             <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
@@ -212,8 +181,8 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                 ) : section.content === 'resources' ? (
                   // Sección especial para recursos con cajitas pequeñas
                   <div>
-                    <div className="grid grid-cols-5 gap-2 mb-4 pb-4">
-                      {currentResources.map((recurso) => {
+                    <div className="grid grid-cols-5 gap-2 mb-8 pb-4">
+                      {recursos.map((recurso) => {
                         const IconComponent = recurso.icon;
                         return (
                           <div
@@ -260,44 +229,14 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                       })}
                     </div>
 
-                    {/* Controles de paginación */}
-                    {totalResourcePages > 1 && (
-                      <div className="flex items-center justify-between mb-4 px-2">
-                        <button
-                          onClick={handlePreviousPage}
-                          disabled={currentResourcePage === 0}
-                          className="flex items-center space-x-1 px-2 py-1 rounded text-xs text-white/60 hover:text-white/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-200"
-                        >
-                          <ChevronLeft size={12} />
-                          <span>Anterior</span>
-                        </button>
-                        
-                        <div className="flex items-center space-x-2">
-                          {Array.from({ length: totalResourcePages }, (_, index) => (
-                            <button
-                              key={index}
-                              onClick={() => setCurrentResourcePage(index)}
-                              className={`w-2 h-2 rounded-full transition-colors duration-200 ${
-                                index === currentResourcePage 
-                                  ? 'bg-white' 
-                                  : 'bg-white/30 hover:bg-white/60'
-                              }`}
-                            />
-                          ))}
-                        </div>
-
-                        <button
-                          onClick={handleNextPage}
-                          disabled={currentResourcePage === totalResourcePages - 1}
-                          className="flex items-center space-x-1 px-2 py-1 rounded text-xs text-white/60 hover:text-white/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-200"
-                        >
-                          <span>Siguiente</span>
-                          <ChevronRight size={12} />
-                        </button>
-                      </div>
-                    )}
-
-              
+                    {/* Botón discreto para añadir recurso */}
+                    <button
+                      onClick={handleAddResource}
+                      className="w-full py-1.5 px-2 bg-white/5 hover:bg-white/10 rounded border border-white/20 border-dashed text-xs text-white/60 hover:text-white/80 transition-colors duration-200 flex items-center justify-center space-x-1"
+                    >
+                      <Plus size={12} />
+                      <span>Añadir recurso</span>
+                    </button>
                   </div>
                 ) : (
                   // Contenido normal para otras secciones

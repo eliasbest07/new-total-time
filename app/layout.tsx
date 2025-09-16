@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import TotalTimeNavbar from "./components/total-time-info";
 import AnimatedBackground from "./components/AnimatedBackground";
+import { AuthProvider } from "./contexts/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,11 +30,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AnimatedBackground />
-        <TotalTimeNavbar />
-        <main className="pt-16">
-          {children}
-        </main>
+        <AuthProvider>
+          <AnimatedBackground />
+          <TotalTimeNavbar />
+          <main className="pt-16">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );
