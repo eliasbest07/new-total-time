@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Perfil from './components/Perfil';
 import RelojActual from './components/RelojActual';
 import Ventana from './components/Ventana';
 import Accordion from './components/Accordion';
 import AddResourceForm from './components/AddResourceForm';
-import Pizarra from '@/application/pizarra/pizarra';
+import Pizarra, { PizarraRef } from '@/application/pizarra/pizarra';
+import MisionCard from './components/MisionCard';
 import { 
   FileText, 
   Image, 
@@ -29,9 +30,12 @@ export default function Dashboard() {
   const [ventanaAbierta, setVentanaAbierta] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
+  const [showMisionDetails, setShowMisionDetails] = useState(false);
+  const [selectedMision, setSelectedMision] = useState<{title: string, hours: number} | null>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [inputText, setInputText] = useState('');
   const [showButtons, setShowButtons] = useState(false);
+  const pizarraRef = useRef<PizarraRef>(null);
   
   // Lista de recursos inicial
   const [recursos, setRecursos] = useState<Resource[]>([
@@ -76,15 +80,19 @@ export default function Dashboard() {
   };
 
   const handleCreateNote = (): void => {
-    console.log('Crear nota:', inputText);
-    setInputText('');
-    setShowButtons(false);
+    if (inputText.trim() && pizarraRef.current) {
+      pizarraRef.current.addNoteCard(inputText.trim());
+      setInputText('');
+      setShowButtons(false);
+    }
   };
 
   const handleCreateTodoList = (): void => {
-    console.log('Crear lista de tareas:', inputText);
-    setInputText('');
-    setShowButtons(false);
+    if (inputText.trim() && pizarraRef.current) {
+      pizarraRef.current.addTodoCard(inputText.trim());
+      setInputText('');
+      setShowButtons(false);
+    }
   };
 
   const handleSendMessage = (): void => {
@@ -104,7 +112,7 @@ export default function Dashboard() {
       style={{ height: 'calc(100vh - 1rem)', padding: '0.5rem' }}
     >
       <div className="absolute inset-0 z-30">
-        <Pizarra />
+        <Pizarra ref={pizarraRef} />
       </div>
 
       {/* Toggle Button - Always visible */}
@@ -226,33 +234,30 @@ export default function Dashboard() {
             Misiones
           </h2>
           <div className="flex gap-2">
-            <div 
-              className="w-20 h-20 bg-red-500/20 border-2 border-red-500 rounded-lg flex items-center justify-center text-red-600 font-medium text-sm cursor-grab active:cursor-grabbing"
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/plain', 'Misión 1 - Elemento arrastrado desde la interfaz');
+            <MisionCard 
+              title="Optimizar rendimiento del sistema"
+              hours={8}
+              onClick={() => {
+                setSelectedMision({title: "Optimizar rendimiento del sistema", hours: 8});
+                setShowMisionDetails(true);
               }}
-            >
-              Misión 1
-            </div>
-            <div 
-              className="w-20 h-20 bg-yellow-500/20 border-2 border-yellow-500 rounded-lg flex items-center justify-center text-yellow-600 font-medium text-sm cursor-grab active:cursor-grabbing"
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/plain', 'Misión 2 - Elemento arrastrado desde la interfaz');
+            />
+            <MisionCard 
+              title="Implementar nueva funcionalidad de reportes"
+              hours={12}
+              onClick={() => {
+                setSelectedMision({title: "Implementar nueva funcionalidad de reportes", hours: 12});
+                setShowMisionDetails(true);
               }}
-            >
-              Misión 2
-            </div>
-            <div 
-              className="w-20 h-20 bg-blue-500/20 border-2 border-blue-500 rounded-lg flex items-center justify-center text-blue-600 font-medium text-sm cursor-grab active:cursor-grabbing"
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/plain', 'Misión 3 - Elemento arrastrado desde la interfaz');
+            />
+            <MisionCard 
+              title="Refactorizar código legacy"
+              hours={6}
+              onClick={() => {
+                setSelectedMision({title: "Refactorizar código legacy", hours: 6});
+                setShowMisionDetails(true);
               }}
-            >
-              Misión 3
-            </div>
+            />
           </div>
         </div>
 
@@ -439,6 +444,79 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+      </Ventana>
+
+      {/* Modal para detalles de misión */}
+      <Ventana
+        isOpen={showMisionDetails}
+        onClose={() => setShowMisionDetails(false)}
+        title="Detalles de la Misión"
+        initialWidth={600}
+        initialHeight={450}
+        minWidth={500}
+        minHeight={350}
+        showOverlay={true}
+      >
+        {selectedMision && (
+          <div className="text-black space-y-6 p-4">
+            {/* Título de la misión */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">🎯 Misión</h3>
+              <p className="text-gray-700 text-lg">{selectedMision.title}</p>
+            </div>
+
+            {/* Duración estimada */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">⏱️ Duración Estimada</h3>
+              <div className="bg-green-100 p-3 rounded-lg">
+                <p className="font-medium text-green-800">{selectedMision.hours} horas</p>
+                <p className="text-green-600 text-sm">Tiempo aproximado para completar la misión</p>
+              </div>
+            </div>
+
+            {/* Objetivos */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">📋 Objetivos</h3>
+              <div className="space-y-2">
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <span className="text-gray-700">Análisis de requisitos y alcance</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <span className="text-gray-700">Desarrollo e implementación</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <span className="text-gray-700">Pruebas y validación</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <span className="text-gray-700">Documentación y entrega</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex justify-center gap-3 pt-4">
+              <button 
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                onClick={() => {
+                  console.log('Iniciar misión:', selectedMision.title);
+                  setShowMisionDetails(false);
+                }}
+              >
+                ▶️ Iniciar Misión
+              </button>
+              <button 
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                onClick={() => setShowMisionDetails(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
       </Ventana>
     </div>
   );

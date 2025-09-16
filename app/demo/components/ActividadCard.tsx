@@ -33,8 +33,33 @@ export default function ActividadCard() {
     setIsRunning(false);
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    const activityData = {
+      type: 'actividad',
+      subject: 'Reunión con cliente - Revisión de proyecto Q4',
+      participants: [
+        { name: 'Elias Montilla', initial: 'EM', color: 'bg-blue-500' },
+        { name: 'Juan Pérez', initial: 'JP', color: 'bg-green-500' },
+        { name: 'María Rodríguez', initial: 'MR', color: 'bg-purple-500' }
+      ],
+      date: '15 de Diciembre, 2025',
+      time: '2:30 PM - 3:30 PM',
+      duration: 60,
+      isRunning: false,
+      timeLeft: timeInSeconds
+    };
+    
+    e.dataTransfer.setData('application/json', JSON.stringify(activityData));
+    e.dataTransfer.setData('text/plain', 'Actividad - Reunión con cliente');
+  };
+
   return (
-    <div className="bg-slate-600 rounded-xl p-1 w-19 h-19 flex flex-col justify-between items-start shadow-lg relative">
+    <div 
+      className="bg-slate-600 rounded-xl p-1 w-19 h-19 flex flex-col justify-between items-start shadow-lg relative cursor-grab active:cursor-grabbing"
+      draggable
+      onDragStart={handleDragStart}
+    >
+    
       {/* Franja superior */}
       <div className="absolute top-0 left-0 right-0 h-5 bg-slate-700 rounded-t-xl"></div>
       
