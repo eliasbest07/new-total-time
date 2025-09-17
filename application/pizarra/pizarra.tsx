@@ -1,5 +1,18 @@
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 
+// Función para generar IDs únicos consistentes entre servidor y cliente
+let idCounter = 0;
+const generateUniqueId = (prefix: string) => {
+  return `${prefix}-${++idCounter}`;
+};
+
+// Función para generar posiciones consistentes
+let positionCounter = 0;
+const generatePosition = () => {
+  positionCounter += 50;
+  return (positionCounter % 300) + 100;
+};
+
 export interface PizarraRef {
   addNoteCard: (text: string) => void;
   addTodoCard: (text: string) => void;
@@ -112,7 +125,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
       const files = Array.from(e.dataTransfer.files);
       files.forEach((file, index) => {
         const newCard = {
-          id: `file-${Date.now()}-${index}`,
+          id: generateUniqueId(`file-${index}`),
           type: 'file',
           title: (file as File).name,
           content: `Tamaño: ${((file as File).size / 1024).toFixed(2)} KB`,
@@ -132,7 +145,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
         const resource = JSON.parse(resourceData);
         if (resource.type === 'resource') {
           const newCard = {
-            id: `resource-${Date.now()}`,
+            id: generateUniqueId('resource'),
             type: 'resource',
             title: resource.name,
             content: `Tipo: ${resource.resourceType}`,
@@ -146,7 +159,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
           return;
         } else if (resource.type === 'mision') {
           const newCard = {
-            id: `mision-${Date.now()}`,
+            id: generateUniqueId('mision'),
             type: 'mision',
             title: resource.title || 'Nueva Misión',
             content: `${resource.hours}h - ${resource.description || resource.title}`,
@@ -165,7 +178,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
           return;
         } else if (resource.type === 'actividad') {
           const newCard = {
-            id: `actividad-${Date.now()}`,
+            id: generateUniqueId('actividad'),
             type: 'actividad',
             title: resource.subject || 'Actividad',
             content: `Reunión: ${resource.subject}`,
@@ -200,7 +213,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
     const text = e.dataTransfer.getData('text/plain');
     if (text && e.dataTransfer.files.length === 0) {
       const newCard = {
-        id: `text-${Date.now()}`,
+        id: generateUniqueId('text'),
         type: 'text',
         title: 'Texto',
         content: text.length > 50 ? text.substring(0, 50) + '...' : text,
@@ -262,7 +275,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
       } else {
         // Crear conexión
         const newConnection = {
-          id: `connection-${Date.now()}`,
+          id: generateUniqueId('connection'),
           from: connectingFrom,
           to: cardId
         };
@@ -289,7 +302,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
       } else {
         // Crear conexión
         const newConnection = {
-          id: `connection-${Date.now()}`,
+          id: generateUniqueId('connection'),
           from: connectingFrom,
           to: cardId
         };
@@ -1147,12 +1160,12 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
   // Función para agregar cards de prueba
   const addNoteCard = useCallback((text: string) => {
     const newCard = {
-      id: `note-${Date.now()}`,
+      id: generateUniqueId('note'),
       type: 'text',
       title: 'Nota',
       content: text.length > 100 ? text.substring(0, 100) + '...' : text,
-      x: Math.random() * 300 + 100,
-      y: Math.random() * 200 + 100,
+      x: generatePosition(),
+      y: generatePosition(),
       width: 200,
       height: 120,
       fontSize: 18
@@ -1162,12 +1175,12 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
 
   const addTodoCard = useCallback((text: string) => {
     const newCard = {
-      id: `todo-${Date.now()}`,
+      id: generateUniqueId('todo'),
       type: 'todo',
       title: 'Lista de Tareas',
       content: `Iniciado con: ${text}`,
-      x: Math.random() * 300 + 100,
-      y: Math.random() * 200 + 100,
+      x: generatePosition(),
+      y: generatePosition(),
       width: 250,
       height: 200,
       fontSize: 18,
