@@ -115,12 +115,12 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
         return (
           <div key={section.id} className="border-b border-white/10 last:border-b-0">
             {/* Header */}
-            <button
-              onClick={() => toggleSection(section.id)}
-              className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${isActive ? section.color : 'bg-transparent'
-                }`}
-            >
-              <div className="flex items-center space-x-3">
+            <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${isActive ? section.color : 'bg-transparent'
+                }`}>
+              <button
+                onClick={() => toggleSection(section.id)}
+                className="flex items-center space-x-3 flex-1"
+              >
                 <Icon
                   size={20}
                   className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/70'
@@ -130,26 +130,28 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                   }`}>
                   {section.title}
                 </span>
-              </div>
+              </button>
               <div className="flex items-center space-x-2">
                 {section.id === 'recursos' && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddResource();
-                    }}
+                    onClick={handleAddResource}
                     className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 opacity-80 hover:opacity-100"
                   >
                     <Plus size={14} className="text-white" />
                   </button>
                 )}
-                <ChevronDown
-                  size={16}
-                  className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
-                    }`}
-                />
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  className="p-1"
+                >
+                  <ChevronDown
+                    size={16}
+                    className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
+                      }`}
+                  />
+                </button>
               </div>
-            </button>
+            </div>
 
             {/* Expandable Content */}
             <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
