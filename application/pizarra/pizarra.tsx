@@ -83,6 +83,8 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
   const [configOpenCard, setConfigOpenCard] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [resizingCard, setResizingCard] = useState<string | null>(null);
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -389,6 +391,56 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
     }
   }, [isPanning, draggedCard, isConnecting, handleGlobalMouseMove, handleGlobalMouseUp]);
 
+  // Funciones para resize de cards
+  const handleResizeStart = useCallback((e: React.MouseEvent, cardId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return;
+
+    setResizingCard(cardId);
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: card.width,
+      height: card.height
+    });
+  }, [cards]);
+
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!resizingCard) return;
+
+    const deltaX = e.clientX - resizeStart.x;
+    const deltaY = e.clientY - resizeStart.y;
+    
+    const newWidth = Math.max(250, Math.min(600, resizeStart.width + deltaX));
+    const newHeight = Math.max(200, Math.min(500, resizeStart.height + deltaY));
+
+    setCards(prev => prev.map(card =>
+      card.id === resizingCard
+        ? { ...card, width: newWidth, height: newHeight }
+        : card
+    ));
+  }, [resizingCard, resizeStart]);
+
+  const handleResizeEnd = useCallback(() => {
+    setResizingCard(null);
+  }, []);
+
+  // Efecto para manejar el resize
+  useEffect(() => {
+    if (resizingCard) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleResizeMove);
+        document.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [resizingCard, handleResizeMove, handleResizeEnd]);
+
   // Función para obtener el centro de una card
   const getCardCenter = useCallback((card: Card) => {
     return {
@@ -549,7 +601,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
     }, [handleSubmit]);
 
     return (
-      <div className="flex gap-1 mt-1 mx-1" data-todo-interactive>
+      <div className="flex gap-1 mt-1 ml-0 mr-1" data-todo-interactive>
         <input
           type="text"
           placeholder="Nueva tarea..."
@@ -621,7 +673,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
     };
 
     const getCardStyle = () => {
-      const baseStyle = "absolute rounded-lg shadow-lg border-2 p-3 cursor-move transition-colors duration-200 select-none";
+      const baseStyle = "absolute rounded-lg shadow-lg border-2 p-2 cursor-move transition-colors duration-200 select-none";
 
       switch (card.type) {
         case 'file':
@@ -669,6 +721,44 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
         onMouseLeave={() => setHoveredCard(null)}
         onClick={(e) => handleCardClick(e, card.id)}
       >
+        
+        {/* Resize handles */}
+        <div 
+          className="absolute -bottom-1 -right-1 w-4 h-4 bg-transparent hover:bg-gray-600 cursor-se-resize rounded-tl-lg hover:opacity-100 transition-all duration-200"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleResizeStart(e, card.id);
+          }}
+          data-todo-interactive
+        />
+        <div 
+          className="absolute -top-1 -right-1 w-4 h-4 bg-transparent hover:bg-gray-600 cursor-ne-resize rounded-bl-lg hover:opacity-100 transition-all duration-200"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleResizeStart(e, card.id);
+          }}
+          data-todo-interactive
+        />
+        <div 
+          className="absolute -top-1 -left-1 w-4 h-4 bg-transparent hover:bg-gray-600 cursor-nw-resize rounded-br-lg hover:opacity-100 transition-all duration-200"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleResizeStart(e, card.id);
+          }}
+          data-todo-interactive
+        />
+        <div 
+          className="absolute -bottom-1 -left-1 w-4 h-4 bg-transparent hover:bg-gray-600 cursor-sw-resize rounded-tr-lg hover:opacity-100 transition-all duration-200"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleResizeStart(e, card.id);
+          }}
+          data-todo-interactive
+        />
         {/* Top border line for all cards */}
         <div className={`absolute top-0 left-0 right-0 h-2 rounded-t-lg ${
           card.type === 'actividad' ? 'bg-blue-600' :
@@ -1289,6 +1379,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
     ));
     setEditingTodo(null);
   }, []);
+
 
   // Funciones para configuración de cards
   const changeFontSize = useCallback((cardId: string, increment: number) => {
