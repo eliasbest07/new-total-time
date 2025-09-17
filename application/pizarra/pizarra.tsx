@@ -549,7 +549,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
     }, [handleSubmit]);
 
     return (
-      <div className="flex gap-1 mt-2" data-todo-interactive>
+      <div className="flex gap-1 mt-1 mx-1" data-todo-interactive>
         <input
           type="text"
           placeholder="Nueva tarea..."
@@ -569,7 +569,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
           onFocus={(e) => {
             e.stopPropagation();
           }}
-          className="flex-1 p-1 border rounded focus:border-blue-400 focus:outline-none bg-white text-black"
+          className="flex-1 px-2 py-1 border rounded focus:border-blue-400 focus:outline-none bg-white text-black"
           style={{ fontSize: `${Math.max(8, fontSize - 3)}px` }}
           data-todo-interactive
         />
@@ -583,7 +583,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
             e.preventDefault();
             e.stopPropagation();
           }}
-          className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+          className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors flex items-center justify-center min-w-[20px]"
           style={{ fontSize: `${Math.max(8, fontSize - 3)}px` }}
           data-todo-interactive
         >
@@ -679,7 +679,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
         }`}></div>
 
         {card.type === 'actividad' ? (
-          <div className="flex flex-col h-full w-full p-3" data-todo-interactive>
+          <div className="flex flex-col h-full w-full p-3">
             {/* Header con icono y título */}
             <div className="flex items-center gap-2 mb-3 border-b border-blue-200 pb-2">
               <div style={{ fontSize: `${Math.max(16, (card.fontSize || 18) + 2)}px` }}>{getCardIcon()}</div>
@@ -796,7 +796,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
             </div>
           </div>
         ) : card.type === 'todo' ? (
-          <div className="flex flex-col h-full w-full p-2" data-todo-interactive>
+          <div className="flex flex-col h-full w-full p-2">
             <div className="flex items-center gap-2 mb-2">
               <div style={{ fontSize: `${Math.max(16, (card.fontSize || 18) + 4)}px` }}>{getCardIcon()}</div>
               {editingTitle === card.id ? (
@@ -855,9 +855,60 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
                   >
                     {todo.completed && '✓'}
                   </button>
-                  <span className={`flex-1 ${todo.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
-                    {todo.text}
-                  </span>
+                  {editingTodo && editingTodo.cardId === card.id && editingTodo.todoId === todo.id ? (
+                    <input
+                      type="text"
+                      defaultValue={todo.text}
+                      className="flex-1 px-1 py-0.5 border rounded focus:border-blue-400 focus:outline-none bg-white text-black"
+                      style={{ fontSize: `${(card.fontSize || 18) - 3}px` }}
+                      autoFocus
+                      onBlur={(e) => {
+                        if (e.target.value.trim()) {
+                          updateTodoInCard(card.id, todo.id, e.target.value.trim());
+                        } else {
+                          setEditingTodo(null);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === 'Enter') {
+                          if (e.currentTarget.value.trim()) {
+                            updateTodoInCard(card.id, todo.id, e.currentTarget.value.trim());
+                          } else {
+                            setEditingTodo(null);
+                          }
+                        }
+                        if (e.key === 'Escape') {
+                          setEditingTodo(null);
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      data-todo-interactive
+                    />
+                  ) : (
+                    <span 
+                      className={`flex-1 cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5 transition-colors ${todo.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!todo.completed) {
+                          setEditingTodo({ cardId: card.id, todoId: todo.id });
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                      }}
+                      data-todo-interactive
+                    >
+                      {todo.text}
+                    </span>
+                  )}
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -881,7 +932,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
             <TodoInput cardId={card.id} onAddTodo={addTodoToCard} fontSize={card.fontSize} />
           </div>
         ) : card.type === 'mision' ? (
-          <div className="flex flex-col h-full w-full p-3" data-todo-interactive>
+          <div className="flex flex-col h-full w-full p-3">
             {/* Header con icono, título y horas */}
             <div className="flex items-center gap-2 mb-2 border-b border-green-200 pb-2">
               <div style={{ fontSize: `${Math.max(16, (card.fontSize || 18) + 2)}px` }}>🎯</div>
@@ -1208,7 +1259,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
         ? {
           ...card,
           todos: [...card.todos, {
-            id: Math.max(...card.todos.map(t => t.id)) + 1,
+            id: card.todos.length > 0 ? Math.max(...card.todos.map(t => t.id)) + 1 : 1,
             text,
             completed: false
           }]
@@ -1223,6 +1274,20 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
         ? { ...card, todos: card.todos.filter(todo => todo.id !== todoId) }
         : card
     ));
+  }, []);
+
+  const updateTodoInCard = useCallback((cardId: string, todoId: number, newText: string) => {
+    setCards(prev => prev.map(card =>
+      card.id === cardId && card.todos
+        ? {
+          ...card,
+          todos: card.todos.map(todo =>
+            todo.id === todoId ? { ...todo, text: newText } : todo
+          )
+        }
+        : card
+    ));
+    setEditingTodo(null);
   }, []);
 
   // Funciones para configuración de cards
