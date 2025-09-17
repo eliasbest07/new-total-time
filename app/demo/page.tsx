@@ -26,17 +26,37 @@ import { saveResource, type Resource, type NewResourceData } from './utils/resou
 import ActividadCard from './components/ActividadCard';
 import Cube from './components/cubo-acordion';
 
+type BoardHistoryItem = {
+  id: string;
+  title: string;
+  type: 'Nota' | 'Tarea' | 'Recurso';
+  owner: string;
+  summary: string;
+  lastUpdated: string;
+};
+
+type BoardHistorySnapshot = {
+  id: string;
+  label: string;
+  value: number;
+  savedAt: string;
+  summary: string;
+  highlights: string[];
+  items: BoardHistoryItem[];
+};
+
 export default function Dashboard() {
   const [ventanaAbierta, setVentanaAbierta] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
   const [showMisionDetails, setShowMisionDetails] = useState(false);
   const [selectedMision, setSelectedMision] = useState<{title: string, hours: number} | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistorySnapshot, setSelectedHistorySnapshot] = useState<BoardHistorySnapshot | null>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [inputText, setInputText] = useState('');
   const [showButtons, setShowButtons] = useState(false);
   const pizarraRef = useRef<PizarraRef>(null);
-  
   // Lista de recursos inicial
   const [recursos, setRecursos] = useState<Resource[]>([
     { id: 1, name: 'Docs', icon: FileText, color: 'bg-blue-500', type: 'DOC' },
@@ -50,6 +70,159 @@ export default function Dashboard() {
     { id: 9, name: 'Plantillas', icon: FolderOpen, color: 'bg-indigo-500', type: 'TPL' },
     { id: 10, name: 'Recursos', icon: Archive, color: 'bg-teal-600', type: 'RES' }
   ]);
+
+  const previousDayBoardHistory: BoardHistorySnapshot[] = [
+     {
+      id: 'notas-clave2',
+      label: 'Notas',
+      value: 18,
+      savedAt: '14 de Diciembre, 2025',
+      summary: 'Notas tácticas de seguimiento y acuerdos del daily standup.',
+      highlights: [
+        '3 recordatorios críticos vinculados a proyectos activos',
+        '2 riesgos escalados a dirección',
+        'Notas convertidas en tareas durante la reunión matutina'
+      ],
+      items: [
+        {
+          id: 'nota-1',
+          title: 'Migración de endpoints legacy',
+          type: 'Nota',
+          owner: 'Daniela Ruiz',
+          summary: 'Resumen de dependencias pendientes antes de habilitar el nuevo gateway.',
+          lastUpdated: '14/12 • 18:45'
+        },
+        {
+          id: 'nota-2',
+          title: 'Insights de sesión con cliente X',
+          type: 'Nota',
+          owner: 'Elias Montilla',
+          summary: 'Se acordó congelar cambios visuales hasta cerrar pruebas de carga.',
+          lastUpdated: '14/12 • 16:20'
+        }
+      ]
+    },
+    {
+      id: 'notas-clave',
+      label: 'Notas',
+      value: 18,
+      savedAt: '14 de Diciembre, 2025',
+      summary: 'Notas tácticas de seguimiento y acuerdos del daily standup.',
+      highlights: [
+        '3 recordatorios críticos vinculados a proyectos activos',
+        '2 riesgos escalados a dirección',
+        'Notas convertidas en tareas durante la reunión matutina'
+      ],
+      items: [
+        {
+          id: 'nota-1',
+          title: 'Migración de endpoints legacy',
+          type: 'Nota',
+          owner: 'Daniela Ruiz',
+          summary: 'Resumen de dependencias pendientes antes de habilitar el nuevo gateway.',
+          lastUpdated: '14/12 • 18:45'
+        },
+        {
+          id: 'nota-2',
+          title: 'Insights de sesión con cliente X',
+          type: 'Nota',
+          owner: 'Elias Montilla',
+          summary: 'Se acordó congelar cambios visuales hasta cerrar pruebas de carga.',
+          lastUpdated: '14/12 • 16:20'
+        }
+      ]
+    },
+    {
+      id: 'tareas',
+      label: 'Tareas',
+      value: 12,
+      savedAt: '14 de Diciembre, 2025',
+      summary: 'Checklist de tareas arrastradas de la pizarra colaborativa.',
+      highlights: [
+        '5 tareas completadas y archivadas',
+        '2 tareas bloqueadas esperando assets',
+        'Recordatorio automático para QA a las 09:00'
+      ],
+      items: [
+        {
+          id: 'task-1',
+          title: 'Refactorizar módulo de analítica',
+          type: 'Tarea',
+          owner: 'Juan Pérez',
+          summary: 'Separar cálculos de agregación en workers y ajustar umbrales.',
+          lastUpdated: '14/12 • 19:05'
+        },
+        {
+          id: 'task-2',
+          title: 'Checklist QA sprint 23',
+          type: 'Tarea',
+          owner: 'María Rodríguez',
+          summary: 'Validaciones de regresión sobre los nuevos flujos de notificaciones.',
+          lastUpdated: '14/12 • 15:10'
+        }
+      ]
+    },
+    {
+      id: 'recursos',
+      label: 'Recursos',
+      value: 9,
+      savedAt: '14 de Diciembre, 2025',
+      summary: 'Vínculos y assets que se guardaron en la pizarra para seguimiento.',
+      highlights: [
+        '1 grabación de la sesión remota',
+        'Plantilla de reporte financiero cargada desde drive',
+        'Enlace directo al dashboard de Supabase'
+      ],
+      items: [
+        {
+          id: 'res-1',
+          title: 'Grabación sync equipo producto',
+          type: 'Recurso',
+          owner: 'Equipo Producto',
+          summary: 'Video MP4 con acuerdos del comité táctico (45 min).',
+          lastUpdated: '14/12 • 12:00'
+        },
+        {
+          id: 'res-2',
+          title: 'Plantilla reporte financiero Q4',
+          type: 'Recurso',
+          owner: 'Finanzas',
+          summary: 'Spreadsheet compartido con métricas clave y proyecciones.',
+          lastUpdated: '14/12 • 11:30'
+        }
+      ]
+    },
+    {
+      id: 'acuerdos',
+      label: 'Acuerdos',
+      value: 7,
+      savedAt: '14 de Diciembre, 2025',
+      summary: 'Compromisos finales acordados en la retrospectiva de equipo.',
+      highlights: [
+        'Cierre de sprint adelantado a jueves 17:00',
+        'Definición de owners para incidentes críticos',
+        'Kickoff de experimentos UX el próximo lunes'
+      ],
+      items: [
+        {
+          id: 'agr-1',
+          title: 'Owner rotativo de guardia',
+          type: 'Nota',
+          owner: 'Ops',
+          summary: 'Secuencia acordada para cubrir guardias nocturnas en diciembre.',
+          lastUpdated: '14/12 • 17:40'
+        }
+      ]
+    }
+  ];
+
+  const chartBarHeights = [48, 32, 64, 40, 32];
+  const chartMaxHeight = Math.max(...chartBarHeights);
+
+  const handleChartBarClick = (snapshot: BoardHistorySnapshot): void => {
+    setSelectedHistorySnapshot(snapshot);
+    setShowHistoryModal(true);
+  };
 
   const handleAddResource = (): void => {
     setShowAddResourceModal(true);
@@ -182,7 +355,7 @@ export default function Dashboard() {
 
       
         {/* Header - Left section - Perfil */}
-        <div className="mb-8 px-2 z-0 pointer-events-auto">
+        <div className="mb-8 px-2 z-50 pointer-events-auto w-fit">
           <Perfil
             nombre="Elias Montilla"
             empresa="Total Time Solutions"
@@ -263,12 +436,26 @@ export default function Dashboard() {
 
 
         {/* Chart positioned at bottom left */}
-        <div className="flex items-end gap-2 pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 30 }}>
-          <div className="w-6 h-12 bg-white/30 rounded-sm"></div>
-          <div className="w-6 h-8 bg-white/30 rounded-sm"></div>
-          <div className="w-6 h-16 bg-white/30 rounded-sm"></div>
-          <div className="w-6 h-10 bg-white/30 rounded-sm"></div>
-          <div className="w-6 h-8 bg-white/30 rounded-sm"></div>
+        <div
+          className="flex items-end gap-2 pointer-events-auto"
+          style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 60 }}
+        >
+          {previousDayBoardHistory.map((snapshot, index) => (
+            <button
+              key={snapshot.id}
+              type="button"
+              onClick={() => handleChartBarClick(snapshot)}
+              className="group flex w-6 items-end justify-center rounded-sm bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              style={{ height: chartMaxHeight }}
+              title={`${snapshot.label}: ${snapshot.value} elementos`}
+              aria-label={`${snapshot.label}: ${snapshot.value} elementos`}
+            >
+              <span
+                className="w-6 rounded-sm bg-white/30 transition-all duration-150 group-hover:bg-white/50 group-active:scale-y-95"
+                style={{ height: chartBarHeights[index] ?? 32 }}
+              />
+            </button>
+          ))}
         </div>
 
         {/* Input centrado abajo */}
@@ -361,6 +548,81 @@ export default function Dashboard() {
             </ul>
           </div>
         </div>
+      </Ventana>
+
+      {/* Modal historial pizarra */}
+      <Ventana
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        title={selectedHistorySnapshot ? `Historial de la pizarra • ${selectedHistorySnapshot.savedAt}` : 'Historial de la pizarra'}
+        initialWidth={960}
+        initialHeight={640}
+        minWidth={720}
+        minHeight={480}
+        showOverlay={true}
+        defaultMaximized={true}
+      >
+        {selectedHistorySnapshot ? (
+          <div className="text-black space-y-6 p-2 md:p-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">{selectedHistorySnapshot.label}</h2>
+                <p className="text-gray-600 text-sm">
+                  Historial de los elementos guardados en la pizarra del {selectedHistorySnapshot.savedAt}. Estos datos son de referencia hasta conectar la API real.
+                </p>
+              </div>
+              <div className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
+                {selectedHistorySnapshot.value} elementos almacenados
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              {selectedHistorySnapshot.highlights.map((highlight) => (
+                <div
+                  key={highlight}
+                  className="border border-gray-200 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700"
+                >
+                  {highlight}
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Elementos guardados</h3>
+                <span className="text-xs uppercase tracking-wide text-gray-500">Muestra del día anterior</span>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {selectedHistorySnapshot.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="border border-gray-200 rounded-xl bg-white p-4 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between">
+                      <h4 className="text-sm font-semibold text-gray-900 leading-snug">{item.title}</h4>
+                      <span className="ml-2 inline-flex items-center rounded-full bg-gray-900/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-700">
+                        {item.type}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-600 leading-relaxed">{item.summary}</p>
+                    <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
+                      <span>{item.owner}</span>
+                      <span>{item.lastUpdated}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              Ejemplo sincrónico: reemplaza este bloque con la respuesta del endpoint que devuelva el snapshot de la pizarra para la fecha solicitada.
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-600">
+            Selecciona una barra del gráfico para ver el detalle de la pizarra del día anterior.
+          </div>
+        )}
       </Ventana>
 
       {/* Modal para añadir recurso */}

@@ -17,6 +17,7 @@ interface VentanaProps {
   draggable?: boolean;
   className?: string;
   showOverlay?: boolean;
+  defaultMaximized?: boolean;
 }
 
 const Ventana = ({
@@ -33,7 +34,8 @@ const Ventana = ({
   resizable = true,
   draggable = true,
   className = '',
-  showOverlay = false
+  showOverlay = false,
+  defaultMaximized = false
 }: VentanaProps) => {
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [size, setSize] = useState({ width: initialWidth, height: initialHeight });
@@ -53,6 +55,8 @@ const Ventana = ({
     posY: 0 
   });
   const [zIndex, setZIndex] = useState(1000);
+  const [hasAppliedDefaultMaximize, setHasAppliedDefaultMaximize] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
 
   const ventanaRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -200,7 +204,32 @@ const Ventana = ({
     }
   }, [isOpen, size.width, size.height]);
 
-  if (!isOpen) {
+  useEffect(() => {
+    if (!isOpen) {
+      setHasAppliedDefaultMaximize(false);
+      setIsClosing(false);
+      return;
+    }
+
+    if (!defaultMaximized || hasAppliedDefaultMaximize) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const maxWidth = Math.max(minWidth, window.innerWidth - 100);
+    const maxHeight = Math.max(minHeight, window.innerHeight - 120);
+    const maximizedPosition = { x: 50, y: 60 };
+
+    setSize({ width: maxWidth, height: maxHeight });
+    setPosition(maximizedPosition);
+    setExpandedPosition(maximizedPosition);
+    setHasAppliedDefaultMaximize(true);
+  }, [defaultMaximized, hasAppliedDefaultMaximize, isOpen, minHeight, minWidth]);
+
+  if (!isOpen && !isClosing) {
     console.log('Ventana no se renderiza porque isOpen es:', isOpen);
     return null;
   }
@@ -217,7 +246,7 @@ const Ventana = ({
       {/* Ventana */}
       <div
         ref={ventanaRef}
-        className={`fixed bg-white border border-gray-200 rounded-xl shadow-2xl animate-slide-in ${className} ${
+        className={`fixed bg-white border border-gray-200 rounded-xl shadow-2xl transition-all duration-150 ease-out ${isClosing ? 'scale-90 opacity-0' : 'scale-100 opacity-100 animate-slide-in'} ${className} ${
           isDragging ? 'cursor-grabbing ventana-dragging' : ''
         } ${isResizing ? 'ventana-resizing' : ''} ${isMinimized ? 'ventana-minimized' : ''}`}
         style={{
@@ -292,7 +321,12 @@ const Ventana = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onClose();
+                  if (!isClosing) {
+                    setIsClosing(true);
+                    setTimeout(() => {
+                      onClose();
+                    }, 150);
+                  }
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 className="w-6 h-6 flex items-center justify-center hover:bg-red-100 rounded transition-colors group"
