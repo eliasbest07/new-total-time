@@ -131,11 +131,24 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                   {section.title}
                 </span>
               </div>
-              <ChevronDown
-                size={16}
-                className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
-                  }`}
-              />
+              <div className="flex items-center space-x-2">
+                {section.id === 'recursos' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAddResource();
+                    }}
+                    className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 opacity-80 hover:opacity-100"
+                  >
+                    <Plus size={14} className="text-white" />
+                  </button>
+                )}
+                <ChevronDown
+                  size={16}
+                  className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
+                    }`}
+                />
+              </div>
             </button>
 
             {/* Expandable Content */}
@@ -229,14 +242,6 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                       })}
                     </div>
 
-                    {/* Botón discreto para añadir recurso */}
-                    <button
-                      onClick={handleAddResource}
-                      className="w-full py-1.5 px-2 bg-white/5 hover:bg-white/10 rounded border border-white/20 border-dashed text-xs text-white/60 hover:text-white/80 transition-colors duration-200 flex items-center justify-center space-x-1"
-                    >
-                      <Plus size={12} />
-                      <span>Añadir recurso</span>
-                    </button>
                   </div>
                 ) : (
                   // Contenido normal para otras secciones
