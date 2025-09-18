@@ -2,23 +2,35 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { useAuth } from '@/app/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface PerfilProps {
-    nombre: string;
-    empresa: string;
-    tipoUsuario: 'admin' | 'manager' | 'empleado';
-    saludPorcentaje: number;
+    // Props opcionales para override, si no se pasan usa los del contexto
+    nombre?: string;
+    empresa?: string;
+    tipoUsuario?: 'admin' | 'manager' | 'empleado';
+    saludPorcentaje?: number;
     fotoUrl?: string;
 }
 
 const Perfil = ({
-    nombre,
-    empresa,
-    tipoUsuario,
-    saludPorcentaje,
-    fotoUrl = '/default-avatar.png'
-}: PerfilProps) => {
+    nombre: nombreProp,
+    empresa: empresaProp,
+    tipoUsuario: tipoUsuarioProp,
+    saludPorcentaje: saludPorcentajeProp,
+    fotoUrl: fotoUrlProp
+}: PerfilProps = {}) => {
     const [menuAbierto, setMenuAbierto] = useState(false);
+    const { usuario, logout } = useAuth();
+    const router = useRouter();
+
+    // Usar datos del contexto si no se pasan como props
+    const nombre = nombreProp || usuario?.getNombreCompleto() || 'Usuario';
+    const empresa = empresaProp || usuario?.profile.nombreOrganizacion || 'Sin empresa';
+    const tipoUsuario = tipoUsuarioProp || (usuario?.admin ? 'admin' : 'empleado');
+    const saludPorcentaje = saludPorcentajeProp || usuario?.barraSalud || 100;
+    const fotoUrl = fotoUrlProp || usuario?.profile.avatar || '/total-time_logo.png';
 
     // Colores del marco según tipo de usuario
     const coloresMarco = {
@@ -27,15 +39,18 @@ const Perfil = ({
         empleado: 'border-green-500'
     };
 
-    const handleLogout = () => {
-        // Lógica de logout
-        console.log('Cerrando sesión...');
+    const handleLogout = async () => {
+        try {
+            await logout();
+            router.push('/login');
+        } catch (error) {
+            console.error('Error al cerrar sesión:', error);
+        }
         setMenuAbierto(false);
     };
 
     const handleDashboard = () => {
-        // Navegar al dashboard
-        window.location.href = '/demo/dashboard';
+        router.push('/demo/dashboard');
         setMenuAbierto(false);
     };
 
@@ -64,7 +79,7 @@ const Perfil = ({
                     <div className="w-3 h-16 bg-gray-300 rounded-full overflow-hidden">
                         <div
                             className="w-full bg-green-500 transition-all duration-300 rounded-full"
-                            style={{ height: `100%` }}
+                            style={{ height: `${saludPorcentaje}%` }}
                         />
                     </div>
                 </div>

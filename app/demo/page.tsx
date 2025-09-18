@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef } from 'react';
-import Perfil from './components/Perfil';
-import RelojActual from './components/RelojActual';
+import Perfil from '@/app/components/mainUI/Perfil';
+import RelojActual from '@/app/components/mainUI/RelojActual';
 import Ventana from './components/Ventana';
 import Accordion from './components/Accordion';
 import AddResourceForm from './components/AddResourceForm';

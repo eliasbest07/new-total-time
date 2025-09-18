@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
+import LocalStorageDebug from '@/app/components/debug/LocalStorageDebug';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,7 +13,14 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, usuario, isLoading: authLoading } = useAuth();
+
+  // Redirigir si el usuario ya está autenticado
+  useEffect(() => {
+    if (!authLoading && usuario) {
+      router.replace('/'); // Usar replace para no agregar al historial
+    }
+  }, [usuario, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,8 +31,8 @@ export default function Login() {
       const success = await login(email, password);
       
       if (success) {
-        // Login exitoso - redirigir al dashboard
-        router.push('/demo');
+        // Login exitoso - redirigir a la página principal
+        router.replace('/'); // Usar replace para no agregar al historial
       } else {
         setError('Credenciales incorrectas');
       }
@@ -35,6 +43,20 @@ export default function Login() {
       setIsLoading(false);
     }
   };
+
+  // Mostrar loading mientras se verifica la autenticación
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
+      </div>
+    );
+  }
+
+  // Si ya está autenticado, no mostrar el formulario (se redirigirá)
+  if (usuario) {
+    return null;
+  }
 
   return (
     <div
@@ -130,6 +152,9 @@ export default function Login() {
           </form>
         </div>
       </div>
+      
+      {/* Debug component - remover en producción */}
+      <LocalStorageDebug />
     </div>
   );
 }

@@ -7,32 +7,41 @@ export class Usuario {
     public email: string;
     public role: Rol;
     public profile: InfoUsuario;
-    public barraVida: number;
-    public idOrganizacion: string;
+    public barraSalud: number;
+    public idOrganizacion?: string;
     public permisos: Permiso[];
     public ultimaActividad: Date;
     public ultimaCaptura: string;
+    public admin: boolean;
+    public userAuth: string; // UUID del auth de Supabase
+    public solicitudNivel?: string;
 
     constructor(
         id: string,
         email: string,
         role: Rol,
         profile: InfoUsuario,
-        barraVida: number,
-        idOrganizacion: string,
+        barraSalud: number,
+        userAuth: string,
+        admin: boolean = false,
+        idOrganizacion?: string,
         permisos: Permiso[] = [],
         ultimaActividad: Date = new Date(),
-        ultimaCaptura: string = ''
+        ultimaCaptura: string = '',
+        solicitudNivel?: string
     ) {
         this.id = id;
         this.email = email;
         this.role = role;
         this.profile = profile;
-        this.barraVida = barraVida;
+        this.barraSalud = barraSalud;
         this.idOrganizacion = idOrganizacion;
         this.permisos = permisos;
         this.ultimaActividad = ultimaActividad;
         this.ultimaCaptura = ultimaCaptura;
+        this.admin = admin;
+        this.userAuth = userAuth;
+        this.solicitudNivel = solicitudNivel;
     }
 
     // Métodos de utilidad
@@ -55,8 +64,8 @@ export class Usuario {
         this.ultimaActividad = new Date();
     }
 
-    public actualizarBarraVida(nuevaVida: number): void {
-        this.barraVida = Math.max(0, Math.min(100, nuevaVida));
+    public actualizarBarraSalud(nuevaSalud: number): void {
+        this.barraSalud = Math.max(0, Math.min(100, nuevaSalud));
     }
 
     public getNombreCompleto(): string {
