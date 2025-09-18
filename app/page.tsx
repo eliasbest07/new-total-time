@@ -4,7 +4,7 @@ import Pizarra, { PizarraRef } from "@/application/pizarra/pizarra";
 import { useRef } from "react";
 import Perfil from "./demo/components/Perfil";
 import RelojActual from "./demo/components/RelojActual";
-import Salas from "./components/Salas";
+import Salas from "./components/mainUI/Salas";
 
 
 export default function Home() {
