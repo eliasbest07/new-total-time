@@ -4,6 +4,7 @@ import Pizarra, { PizarraRef } from "@/application/pizarra/pizarra";
 import { useRef } from "react";
 import Perfil from "./demo/components/Perfil";
 import RelojActual from "./demo/components/RelojActual";
+import Salas from "./components/Salas";
 
 
 export default function Home() {
@@ -35,14 +36,7 @@ export default function Home() {
         <RelojActual /> 
       </div>
 
-{/* este componente salas se debe crear */}
-      <div className="flex bg-white/20 z-30 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
-        <button className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
-          Avances <span className="bg-gray-600 px-1.5 py-1 rounded-full text-sm ml-1 text-white">2</span>
-        </button>
-        <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reglas</button>
-        <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reportes</button>
-      </div>
+      <Salas />
 
 
     </div>
