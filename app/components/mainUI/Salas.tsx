@@ -1,34 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { useSalas } from "@/hooks/useSalas";
 
-interface Sala {
-  id: string;
-  nombre: string;
-  activa?: boolean;
-}
-
-interface SalasProps {
-  salas?: Sala[];
-}
-
-const salasDefault: Sala[] = [
-  { id: "1", nombre: "Sala Principal", activa: true },
-  { id: "2", nombre: "Desarrollo" },
-  { id: "3", nombre: "Reuniones" },
-  { id: "4", nombre: "Marketing" },
-  { id: "5", nombre: "Finanzas" },
-];
-
-export default function Salas({ salas = salasDefault }: SalasProps) {
+export default function Salas() {
+  const { salas, isLoading, error, setSalaActiva } = useSalas();
   const [currentIndex, setCurrentIndex] = useState(0);
   const maxVisible = 3;
   
   const canScrollLeft = currentIndex > 0;
   const canScrollRight = currentIndex + maxVisible < salas.length;
-  
-  const visibleSalas = salas.slice(currentIndex, currentIndex + maxVisible);
   
   const scrollLeft = () => {
     if (canScrollLeft) {
@@ -41,6 +23,43 @@ export default function Salas({ salas = salasDefault }: SalasProps) {
       setCurrentIndex(currentIndex + 1);
     }
   };
+
+  const handleSalaClick = (salaId: number) => {
+    setSalaActiva(salaId);
+  };
+
+  // Mostrar loading
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2 z-30">
+        <div className="bg-white/20 backdrop-blur-sm rounded-full p-4">
+          <Loader2 className="w-5 h-5 animate-spin text-gray-700" />
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2 z-30">
+        <div className="bg-red-100/80 backdrop-blur-sm rounded-full px-4 py-2">
+          <span className="text-red-700 text-sm">Error al cargar salas</span>
+        </div>
+      </div>
+    );
+  }
+
+  // No mostrar nada si no hay salas
+  if (salas.length === 0) {
+    return (
+      <div className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2 z-30">
+        <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+          <span className="text-gray-700 text-sm">No hay salas disponibles</span>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2 z-30">
@@ -61,16 +80,18 @@ export default function Salas({ salas = salasDefault }: SalasProps) {
             width: `${salas.length * 120}px`
           }}
         >
-          {salas.map((sala, index) => (
+          {salas.map((sala) => (
             <button
               key={sala.id}
+              onClick={() => handleSalaClick(sala.id)}
               className={`px-3 py-2 rounded-full font-medium transition-all duration-200 whitespace-nowrap min-w-[12px] max-w-[112px] overflow-hidden text-ellipsis ${
                 sala.activa
                   ? "bg-green-200 text-gray-800"
                   : "bg-gray-200 text-gray-800 hover:bg-gray-300"
               }`}
+              title={sala.nombre || 'Sala sin nombre'}
             >
-              {sala.nombre}
+              {sala.nombre || 'Sin nombre'}
             </button>
           ))}
           <div className="w-2"></div>

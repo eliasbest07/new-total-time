@@ -8,6 +8,7 @@ import RelojActual from "@/app/components/mainUI/RelojActual";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import Salas from "@/app/components/mainUI/Salas";
 import LocalStorageDebug from "@/app/components/debug/LocalStorageDebug";
+import SalasDebug from "@/app/components/debug/SalasDebug";
 
 
 export default function Home() {
@@ -38,8 +39,9 @@ export default function Home() {
 
         <Salas />
 
-        {/* Debug component - remover en producción 
-        <LocalStorageDebug />*/}
+        {/* Debug components - remover en producción */}
+        <SalasDebug />
+        {/* <LocalStorageDebug /> */}
       </div>
     </ProtectedRoute>
   );

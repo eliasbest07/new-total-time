@@ -6,6 +6,7 @@ import RelojActual from '@/app/components/mainUI/RelojActual';
 import Ventana from './components/Ventana';
 import Accordion from './components/Accordion';
 import AddResourceForm from './components/AddResourceForm';
+import Sala from './components/Sala';
 import Pizarra, { PizarraRef } from '@/application/pizarra/pizarra';
 import MisionCard from './components/MisionCard';
 import { 
@@ -47,6 +48,7 @@ type BoardHistorySnapshot = {
 
 export default function Dashboard() {
   const [ventanaAbierta, setVentanaAbierta] = useState(false);
+  const [showSalaModal, setShowSalaModal] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
   const [showMisionDetails, setShowMisionDetails] = useState(false);
@@ -372,8 +374,8 @@ export default function Dashboard() {
 
             {/* Center - Room tabs */}
             <div className="flex bg-white/20 z-30 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
-              <button onClick={() => setVentanaAbierta(true)} className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
-                Avances <span className="bg-gray-600 px-1.5 py-1 rounded-full text-sm ml-1 text-white">2</span>
+              <button onClick={() => setShowSalaModal(true)} className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
+                Avances <span className="bg-gray-600 px-1.5 py-1 rounded-full text-sm ml-1 text-white">8</span>
               </button>
               <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reglas</button>
               <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reportes</button>
@@ -779,6 +781,21 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+      </Ventana>
+
+      {/* Modal para Sala - Avances */}
+      <Ventana
+        isOpen={showSalaModal}
+        onClose={() => setShowSalaModal(false)}
+        title="Desarrollo Frontend - Avances"
+        initialWidth={800}
+        initialHeight={600}
+        minWidth={600}
+        minHeight={500}
+        showOverlay={true}
+        defaultMaximized={false}
+      >
+        <Sala />
       </Ventana>
     </div>
   );
