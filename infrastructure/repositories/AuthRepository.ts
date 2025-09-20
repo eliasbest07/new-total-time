@@ -6,4 +6,5 @@ export interface AuthRepository {
   register(email: string, password: string): Promise<Usuario | null>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<Usuario | null>;
+  isAuthenticated(): Promise<boolean>;
 }

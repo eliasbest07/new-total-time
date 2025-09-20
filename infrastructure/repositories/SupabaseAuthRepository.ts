@@ -102,6 +102,11 @@ export class SupabaseAuthRepository implements AuthRepository {
         return await this.mapToDomainUser(data.user, userData);
     }
 
+    async isAuthenticated(): Promise<boolean> {
+        const { data, error } = await supabase.auth.getUser();
+        return !error && !!data.user;
+    }
+
     // 🔑 Mapear el user de supabase al dominio Usuario
     private async mapToDomainUser(supabaseUser: any, userData: UsuarioSupabase | null = null): Promise<Usuario> {
         console.log('Mapeando usuario:', { supabaseUser, userData });

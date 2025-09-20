@@ -4,11 +4,11 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-interface ProtectedRouteProps {
+interface AuthWrapperProps {
   children: React.ReactNode;
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { usuario, isLoading } = useAuth();
   const router = useRouter();
 
