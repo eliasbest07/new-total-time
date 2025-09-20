@@ -8,6 +8,7 @@ import RelojActual from "@/app/components/mainUI/RelojActual";
 import Salas from "@/app/components/mainUI/Salas";
 import LocalStorageDebug from "@/app/components/debug/LocalStorageDebug";
 import SalasDebug from "@/app/components/debug/SalasDebug";
+import RealtimeTest from "@/app/components/debug/RealtimeTest";
 
 export default function MainScreen() {
   const pizarraRef = useRef<PizarraRef>(null);
