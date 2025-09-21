@@ -1,5 +1,7 @@
+
 import AuthWrapper from "@/app/components/AuthWrapper";
-import MainScreen from "@/app/components/MainScreen";
+import MainScreen from './components/MainScreen';
+
 
 export default function Home() {
   return (

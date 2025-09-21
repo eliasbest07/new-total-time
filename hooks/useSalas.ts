@@ -14,7 +14,7 @@ interface UseSalasReturn {
 
 export const useSalas = (idOrganizacion: string | null): UseSalasReturn => {
   const [salas, setSalas] = useState<Sala[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // Iniciar sin loading
   const [error, setError] = useState<string | null>(null);
   const [salaActiva, setSalaActivaState] = useState<Sala | null>(null);
   
@@ -106,7 +106,7 @@ export const useSalas = (idOrganizacion: string | null): UseSalasReturn => {
     };
 
     // Suscribirse a cambios
-    realtimeChannel.current = salaRepository.current.subscribeToOrganizacionChanges(
+    realtimeChannel.current = salaRepository.current.subscribeToSalasChanges(
       idOrganizacion,
       realtimeCallbacks
     );

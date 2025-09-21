@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { SupabaseAuthRepository } from '@/infrastructure/repositories/SupabaseAuthRepository';
 import LocalStorageDebug from '@/app/components/debug/LocalStorageDebug';
 
 export default function Login() {
@@ -13,14 +14,15 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const { login, usuario, isLoading: authLoading } = useAuth();
+  const { usuario, setUsuario } = useAuth();
+  const authRepository = new SupabaseAuthRepository();
 
   // Redirigir si el usuario ya está autenticado
   useEffect(() => {
-    if (!authLoading && usuario) {
+    if (usuario) {
       router.replace('/'); // Usar replace para no agregar al historial
     }
-  }, [usuario, authLoading, router]);
+  }, [usuario, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,10 +30,12 @@ export default function Login() {
     setError('');
 
     try {
-      const success = await login(email, password);
+      console.log('🔐 Iniciando login para:', email);
+      const user = await authRepository.login(email, password);
       
-      if (success) {
-        // Login exitoso - redirigir a la página principal
+      if (user) {
+        console.log('✅ Login exitoso, actualizando contexto');
+        setUsuario(user);
         router.replace('/'); // Usar replace para no agregar al historial
       } else {
         setError('Credenciales incorrectas');
@@ -43,15 +47,6 @@ export default function Login() {
       setIsLoading(false);
     }
   };
-
-  // Mostrar loading mientras se verifica la autenticación
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
-      </div>
-    );
-  }
 
   // Si ya está autenticado, no mostrar el formulario (se redirigirá)
   if (usuario) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/infrastructure/services/SupabaseClient";
 import { useAuth } from "@/app/contexts/AuthContext";
 
@@ -9,6 +9,53 @@ export default function RealtimeTest() {
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [message, setMessage] = useState<string>("");
+  const [connectionStatus, setConnectionStatus] = useState<string>("Iniciando...");
+  const [logs, setLogs] = useState<string[]>([]);
+
+  const addLog = (message: string) => {
+    console.log(message);
+    setLogs(prev => [...prev.slice(-3), `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
+
+  // Test de conexión realtime
+  useEffect(() => {
+    if (!usuario?.idOrganizacion) return;
+
+    addLog('🚀 Iniciando test de conexión realtime...');
+    setConnectionStatus('Conectando...');
+
+    // Test básico de conexión
+    const testChannel = supabase
+      .channel('connection-test')
+      .subscribe((status) => {
+        addLog(`📡 Estado conexión: ${status}`);
+        setConnectionStatus(status);
+      });
+
+    // Test de suscripción a tabla sala
+    const salaChannel = supabase
+      .channel(`sala-test-${usuario.idOrganizacion}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sala'
+        },
+        (payload) => {
+          addLog(`✅ Cambio detectado: ${payload.eventType} en sala`);
+        }
+      )
+      .subscribe((status) => {
+        addLog(`🏠 Suscripción sala: ${status}`);
+      });
+
+    return () => {
+      addLog('🔒 Cerrando canales de test');
+      supabase.removeChannel(testChannel);
+      supabase.removeChannel(salaChannel);
+    };
+  }, [usuario?.idOrganizacion]);
 
   const createTestSala = async () => {
     if (!usuario?.idOrganizacion) {
@@ -132,6 +179,22 @@ export default function RealtimeTest() {
   return (
     <div className="fixed bottom-4 left-4 bg-white p-4 rounded-lg shadow-lg max-w-sm">
       <h3 className="font-bold mb-3">🧪 Realtime Test</h3>
+      
+      {/* Estado de conexión */}
+      <div className="mb-3 p-2 bg-gray-100 rounded text-xs">
+        <div className="flex justify-between">
+          <span>Estado:</span>
+          <span className={connectionStatus === 'SUBSCRIBED' ? 'text-green-600 font-bold' : 'text-red-600'}>{connectionStatus}</span>
+        </div>
+      </div>
+
+      {/* Logs recientes */}
+      <div className="mb-3 max-h-16 overflow-y-auto bg-gray-50 p-2 rounded text-xs">
+        {logs.map((log, i) => (
+          <div key={i} className="text-gray-700">{log}</div>
+        ))}
+        {logs.length === 0 && <div className="text-gray-400">No hay logs aún...</div>}
+      </div>
       
       <div className="space-y-2 mb-3">
         <button

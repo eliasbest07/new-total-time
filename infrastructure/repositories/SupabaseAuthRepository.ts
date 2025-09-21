@@ -76,7 +76,7 @@ export class SupabaseAuthRepository implements AuthRepository {
 
     // Obtener nombre de la organización por ID
     private async getOrganizacionNombre(organizacionId: string): Promise<string | null> {
-        console.log('Buscando organización con id:', organizacionId);
+        console.log('🔍 Buscando organización con id:', organizacionId);
 
         const { data, error } = await supabase
             .from('organizacion')
@@ -85,11 +85,12 @@ export class SupabaseAuthRepository implements AuthRepository {
             .single();
 
         if (error) {
-            console.error('Error fetching organizacion:', error);
+            console.error('❌ Error fetching organizacion:', error);
+            console.error('Error details:', error.message, error.code, error.details);
             return null;
         }
 
-        console.log('Organización encontrada:', data);
+        console.log('✅ Organización encontrada:', data);
         return data?.nombre || null;
     }
 
@@ -113,11 +114,16 @@ export class SupabaseAuthRepository implements AuthRepository {
 
         // Obtener nombre de la organización si existe
         let nombreOrganizacion: string | undefined = undefined;
+        console.log('🏢 id_organizacion del usuario:', userData?.id_organizacion);
         if (userData?.id_organizacion) {
+            console.log('🔍 Buscando organización con ID:', userData.id_organizacion);
             const orgNombre = await this.getOrganizacionNombre(userData.id_organizacion);
+            console.log('🏢 Nombre de organización obtenido:', orgNombre);
             if (orgNombre) {
                 nombreOrganizacion = orgNombre;
             }
+        } else {
+            console.log('⚠️ Usuario no tiene id_organizacion asignado');
         }
 
         const profile: InfoUsuario = {

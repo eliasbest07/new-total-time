@@ -6,9 +6,6 @@ import { useRef } from "react";
 import Perfil from "@/app/components/mainUI/Perfil";
 import RelojActual from "@/app/components/mainUI/RelojActual";
 import Salas from "@/app/components/mainUI/Salas";
-import LocalStorageDebug from "@/app/components/debug/LocalStorageDebug";
-import SalasDebug from "@/app/components/debug/SalasDebug";
-import RealtimeTest from "@/app/components/debug/RealtimeTest";
 
 export default function MainScreen() {
   const pizarraRef = useRef<PizarraRef>(null);
@@ -32,10 +29,6 @@ export default function MainScreen() {
       </div>
 
       <Salas />
-
-      {/* Debug components - remover en producción */}
-      <SalasDebug />
-      {/* <LocalStorageDebug /> */}
     </div>
   );
 }

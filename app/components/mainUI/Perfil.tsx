@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { SupabaseAuthRepository } from '@/infrastructure/repositories/SupabaseAuthRepository';
 
 interface PerfilProps {
     // Props opcionales para override, si no se pasan usa los del contexto
@@ -22,8 +23,9 @@ const Perfil = ({
     fotoUrl: fotoUrlProp
 }: PerfilProps = {}) => {
     const [menuAbierto, setMenuAbierto] = useState(false);
-    const { usuario, logout } = useAuth();
+    const { usuario, clearUsuario } = useAuth();
     const router = useRouter();
+    const authRepository = new SupabaseAuthRepository();
 
     // Usar datos del contexto si no se pasan como props
     const nombre = nombreProp || usuario?.getNombreCompleto() || 'Usuario';
@@ -32,16 +34,23 @@ const Perfil = ({
     const saludPorcentaje = saludPorcentajeProp || usuario?.barraSalud || 100;
     const fotoUrl = fotoUrlProp || usuario?.profile.avatar || '/total-time_logo.png';
 
-    // Colores del marco según tipo de usuario
-    const coloresMarco = {
-        admin: 'border-red-500',
-        manager: 'border-blue-500',
-        empleado: 'border-green-500'
+    // Color del marco desde el perfil del usuario (hex) o colores por defecto
+    const colorMarco = usuario?.profile.marco || '#10b981'; // verde por defecto
+    
+    // Colores de respaldo por tipo de usuario si no hay color personalizado
+    const coloresMarcoRespaldo = {
+        admin: '#ef4444',
+        manager: '#3b82f6', 
+        empleado: '#10b981'
     };
+
+    // Usar color personalizado o color por tipo de usuario
+    const colorMarcoFinal = usuario?.profile.marco || coloresMarcoRespaldo[tipoUsuario];
 
     const handleLogout = async () => {
         try {
-            await logout();
+            await authRepository.logout();
+            clearUsuario();
             router.push('/login');
         } catch (error) {
             console.error('Error al cerrar sesión:', error);
@@ -64,7 +73,10 @@ const Perfil = ({
                 {/* Contenedor de foto y barra vertical */}
                 <div className="flex items-center gap-3 mb-2">
                     {/* Foto de perfil con marco de color */}
-                    <div className={`w-15 h-15 rounded-full border-4 ${coloresMarco[tipoUsuario]} flex items-center justify-center`}>
+                    <div 
+                        className="w-15 h-15 rounded-full border-4 flex items-center justify-center"
+                        style={{ borderColor: colorMarcoFinal }}
+                    >
                         <div className="relative w-12 h-12 rounded-full overflow-hidden">
                             <Image
                                 src={fotoUrl}

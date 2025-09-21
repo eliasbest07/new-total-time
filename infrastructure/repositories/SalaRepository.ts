@@ -14,9 +14,9 @@ export class SalaRepository {
     try {
       console.log('🏢 Obteniendo IDs de salas para organización:', idOrganizacion);
 
-      // Crear timeout de 5 segundos
+      // Reducir timeout a 1 segundo para respuesta más rápida
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getSalaIdsByOrganizacion')), 5000);
+        setTimeout(() => reject(new Error('Timeout en getSalaIdsByOrganizacion')), 1000);
       });
 
       const queryPromise = supabase
@@ -69,9 +69,9 @@ export class SalaRepository {
         return [];
       }
 
-      // Crear timeout de 5 segundos
+      // Reducir timeout a 1 segundo para respuesta más rápida
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getSalasByIds')), 5000);
+        setTimeout(() => reject(new Error('Timeout en getSalasByIds')), 1000);
       });
 
       const queryPromise = supabase
@@ -106,9 +106,9 @@ export class SalaRepository {
     try {
       console.log('🚀 Iniciando carga de salas para organización:', idOrganizacion);
 
-      // Timeout global de 8 segundos para todo el proceso
+      // Timeout global de 2 segundos para todo el proceso
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout global en getSalasByOrganizacion')), 8000);
+        setTimeout(() => reject(new Error('Timeout global en getSalasByOrganizacion')), 2000);
       });
 
       const loadSalasPromise = async () => {
@@ -134,39 +134,12 @@ export class SalaRepository {
     }
   }
 
-  // Suscribirse a cambios en tiempo real de la organización (optimizado)
-  subscribeToOrganizacionChanges(idOrganizacion: string, callbacks: RealtimeCallbacks): RealtimeChannel {
-    console.log('📡 Iniciando suscripción realtime para organización:', idOrganizacion);
+  // Suscribirse a cambios en tiempo real de salas (optimizado)
+  subscribeToSalasChanges(idOrganizacion: string, callbacks: RealtimeCallbacks): RealtimeChannel {
+    console.log('📡 Iniciando suscripción realtime para salas de organización:', idOrganizacion);
 
     const channel = supabase
-      .channel(`organizacion-salas-${idOrganizacion}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'organizacion',
-          filter: `id=eq.${idOrganizacion}`
-        },
-        async (payload) => {
-          console.log('📡 Cambio detectado en organización:', payload);
-
-          try {
-            // Timeout para la recarga en tiempo real
-            const timeoutPromise = new Promise<never>((_, reject) => {
-              setTimeout(() => reject(new Error('Timeout en realtime update')), 5000);
-            });
-
-            const updatePromise = this.getSalasByOrganizacion(idOrganizacion);
-            const nuevasSalas = await Promise.race([updatePromise, timeoutPromise]);
-
-            callbacks.onSalasUpdated(nuevasSalas);
-          } catch (error) {
-            console.error('❌ Error procesando cambio de organización:', error);
-            callbacks.onError('Error al procesar cambios de la organización');
-          }
-        }
-      )
+      .channel(`salas-${idOrganizacion}`)
       .on(
         'postgres_changes',
         {
@@ -179,10 +152,10 @@ export class SalaRepository {
 
           // Solo procesar si la sala pertenece a nuestra organización
           const salaData = payload.new || payload.old;
-          if (salaData && salaData.id_organizacion === idOrganizacion) {
+          if (salaData && (salaData as any).id_organizacion === idOrganizacion) {
             try {
               const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('Timeout en realtime sala update')), 5000);
+                setTimeout(() => reject(new Error('Timeout en realtime sala update')), 3000);
               });
 
               const updatePromise = this.getSalasByOrganizacion(idOrganizacion);

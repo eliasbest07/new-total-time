@@ -3,9 +3,10 @@ import { Usuario } from '@/domain/entities/Usuario';
 export class StorageService {
   private static readonly USER_KEY = 'usuario';
   private static readonly TIMESTAMP_KEY = 'usuario_timestamp';
-  private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+  private static readonly CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 
   static saveUser(usuario: Usuario): void {
+    if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(this.USER_KEY, JSON.stringify(usuario));
       localStorage.setItem(this.TIMESTAMP_KEY, Date.now().toString());
@@ -15,6 +16,7 @@ export class StorageService {
   }
 
   static getUser(): Usuario | null {
+    if (typeof window === 'undefined') return null;
     try {
       const storedUser = localStorage.getItem(this.USER_KEY);
       if (!storedUser) return null;
@@ -44,6 +46,7 @@ export class StorageService {
   }
 
   static clearUser(): void {
+    if (typeof window === 'undefined') return;
     try {
       localStorage.removeItem(this.USER_KEY);
       localStorage.removeItem(this.TIMESTAMP_KEY);
@@ -53,6 +56,7 @@ export class StorageService {
   }
 
   static hasUser(): boolean {
+    if (typeof window === 'undefined') return false;
     try {
       return localStorage.getItem(this.USER_KEY) !== null;
     } catch (error) {
@@ -61,6 +65,7 @@ export class StorageService {
   }
 
   static isUserDataFresh(): boolean {
+    if (typeof window === 'undefined') return false;
     try {
       const timestamp = localStorage.getItem(this.TIMESTAMP_KEY);
       if (!timestamp) return false;

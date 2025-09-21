@@ -36,17 +36,17 @@ export default function Salas() {
 
   const usingRealData = !loading && salas.length > 0;
 
-  // Mostrar loading o error si es necesario
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2 z-30">
-        <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 w-[340px] flex items-center justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700"></div>
-          <span className="ml-2 text-gray-700">Cargando salas...</span>
-        </div>
-      </div>
-    );
-  }
+  // Eliminar el loading screen - mostrar contenido inmediatamente
+  // if (loading) {
+  //   return (
+  //     <div className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2 z-30">
+  //       <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 w-[340px] flex items-center justify-center">
+  //         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700"></div>
+  //         <span className="ml-2 text-gray-700">Cargando salas...</span>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   if (error) {
     return (
