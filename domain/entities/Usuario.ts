@@ -54,7 +54,7 @@ export class Usuario {
         return this.role === Rol.MIEMBRO;
     }
 
-  
+
 
     public tienePermiso(permiso: Permiso): boolean {
         return this.permisos.includes(permiso);

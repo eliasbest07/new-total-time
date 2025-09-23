@@ -8,15 +8,15 @@ import Accordion from './components/Accordion';
 import AddResourceForm from './components/AddResourceForm';
 import Sala from './components/Sala';
 import Pizarra, { PizarraRef } from '@/application/pizarra/pizarra';
-import MisionCard from './components/MisionCard';
-import { 
-  FileText, 
-  Image, 
-  Video, 
-  Download, 
-  Link, 
-  Code, 
-  Archive, 
+
+import {
+  FileText,
+  Image,
+  Video,
+  Download,
+  Link,
+  Code,
+  Archive,
   FolderOpen,
   ChevronRight,
   StickyNote,
@@ -52,7 +52,7 @@ export default function Dashboard() {
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
   const [showMisionDetails, setShowMisionDetails] = useState(false);
-  const [selectedMision, setSelectedMision] = useState<{title: string, hours: number} | null>(null);
+  const [selectedMision, setSelectedMision] = useState<{ title: string, hours: number } | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistorySnapshot, setSelectedHistorySnapshot] = useState<BoardHistorySnapshot | null>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
@@ -74,7 +74,7 @@ export default function Dashboard() {
   ]);
 
   const previousDayBoardHistory: BoardHistorySnapshot[] = [
-     {
+    {
       id: 'notas-clave2',
       label: 'Notas',
       value: 18,
@@ -244,7 +244,7 @@ export default function Dashboard() {
     const value = e.target.value;
     setInputText(value);
     setShowButtons(value.trim().length > 0);
-    
+
     // Auto-resize the textarea
     const textarea = e.target;
     textarea.style.height = 'auto';
@@ -291,239 +291,205 @@ export default function Dashboard() {
       </div>
 
       {/* Toggle Button - Always visible */}
-<div className="fixed top-18 z-50 flex items-center transition-all duration-300">
-  {/* Botón expandir o contraer*/}
-  <button
-    onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
-    className={`p-1 py-4 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-lg 
+      <div className="fixed top-18 z-50 flex items-center transition-all duration-300">
+        {/* Botón expandir o contraer*/}
+        <button
+          onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+          className={`p-1 py-4 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-lg 
       transition-all duration-300 text-white fixed top-18
       ${rightPanelCollapsed ? 'right-38' : 'right-78'}`}
-  >
-    <ChevronRight
-      className={`w-4 h-4 transition-transform duration-300 ${
-        rightPanelCollapsed ? 'rotate-180' : ''
-      }`}
-    />
-  </button>
+        >
+          <ChevronRight
+            className={`w-4 h-4 transition-transform duration-300 ${rightPanelCollapsed ? 'rotate-180' : ''
+              }`}
+          />
+        </button>
 
-  {/* Cubo */}
-  {rightPanelCollapsed && (
-    <div className="fixed top-18 right-0">
-      <Cube />
-    </div>
-  )}
-</div>
+        {/* Cubo */}
+        {rightPanelCollapsed && (
+          <div className="fixed top-18 right-0">
+            <Cube />
+          </div>
+        )}
+      </div>
 
-     {/* Panel fijo para el Acordeón (arriba) */}
-<div
-  className={`fixed top-0 right-0 h-auto flex flex-col transition-all duration-300 z-30 ${
-    rightPanelCollapsed ? "w-0" : "w-80 z-40"
-  }`}
->
-  {!rightPanelCollapsed && (
-    <div className="p-4 pt-16">
-      <Accordion recursos={recursos} onAddResource={handleAddResource} />
-    </div>
-  )}
-</div>
+      {/* Panel fijo para el Acordeón (arriba) */}
+      <div
+        className={`fixed top-0 right-0 h-auto flex flex-col transition-all duration-300 z-30 ${rightPanelCollapsed ? "w-0" : "w-80 z-40"
+          }`}
+      >
+        {!rightPanelCollapsed && (
+          <div className="p-4 pt-16">
+            <Accordion recursos={recursos} onAddResource={handleAddResource} />
+          </div>
+        )}
+      </div>
 
-{/* Panel fijo para las horas y el capture (abajo) */}
-<div
-  className={`fixed bottom-0 right-0 flex flex-col transition-all duration-300 z-40 ${
-    rightPanelCollapsed ? "w-0" : "w-80"
-  }`}
->
-  {!rightPanelCollapsed && (
-    <div className="p-4 flex flex-col gap-3">
-      {/* Time info cards */}
-      <div className="flex gap-3">
-        <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
-          <div className="text-white text-xl font-medium">2:12</div>
-          <div className="text-white/70 text-sm">Tarea actual</div>
-        </div>
-        <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
-          <div className="text-white text-xl font-medium">3:12</div>
-          <div className="text-white/70 text-sm">Tiempo total hoy</div>
+      {/* Panel fijo para las horas y el capture (abajo) */}
+      <div
+        className={`fixed bottom-0 right-0 flex flex-col transition-all duration-300 z-40 ${rightPanelCollapsed ? "w-0" : "w-80"
+          }`}
+      >
+        {!rightPanelCollapsed && (
+          <div className="p-4 flex flex-col gap-3">
+            {/* Time info cards */}
+            <div className="flex gap-3">
+              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
+                <div className="text-white text-xl font-medium">2:12</div>
+                <div className="text-white/70 text-sm">Tarea actual</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex-1">
+                <div className="text-white text-xl font-medium">3:12</div>
+                <div className="text-white/70 text-sm">Tiempo total hoy</div>
+              </div>
+            </div>
+
+            {/* Capture */}
+            <div className="h-32 border-2 border-green-500 rounded-2xl p-4 flex items-center justify-center text-green-500 font-medium">
+              Capture
+            </div>
+          </div>
+        )}
+      </div>
+
+
+      {/* Header - Left section - Perfil */}
+      <div className="mb-8 px-2 z-50 pointer-events-auto w-fit">
+        <Perfil
+          nombre="Elias Montilla"
+          empresa="Total Time Solutions"
+          tipoUsuario="manager"
+          saludPorcentaje={85}
+          fotoUrl="/total-time_logo.png"
+        />
+      </div>
+
+      {/* Header - Left section - RelojActual */}
+      <div className="pointer-events-auto " style={{ position: 'absolute', top: '0.5rem', left: '9rem', zIndex: 40 }}>
+        <RelojActual />
+      </div>
+
+      {/* Center - Room tabs */}
+      <div className="flex bg-white/20 z-30 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
+        <button onClick={() => setShowSalaModal(true)} className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
+          Avances <span className="bg-gray-600 px-1.5 py-1 rounded-full text-sm ml-1 text-white">8</span>
+        </button>
+        <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reglas</button>
+        <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reportes</button>
+      </div>
+
+      {/* Main content area */}
+      <div className="relative flex justify-between items-start px-2 flex-1">
+
+      </div>
+
+      {/* Activities positioned at fixed location */}
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 30 }}>
+        <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+          Actividades 🗓️
+        </h2>
+        <div
+          // className="bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('text/plain', 'Actividades - Elemento arrastrado desde la interfaz');
+          }}
+          onClick={() => setShowActividadDetails(true)}
+        >
+          <ActividadesGrid />
         </div>
       </div>
 
-      {/* Capture */}
-      <div className="h-32 border-2 border-green-500 rounded-2xl p-4 flex items-center justify-center text-green-500 font-medium">
-        Capture
-      </div>
-    </div>
-  )}
-</div>
 
-      
-        {/* Header - Left section - Perfil */}
-        <div className="mb-8 px-2 z-50 pointer-events-auto w-fit">
-          <Perfil
-            nombre="Elias Montilla"
-            empresa="Total Time Solutions"
-            tipoUsuario="manager"
-            saludPorcentaje={85}
-            fotoUrl="/total-time_logo.png"
+
+
+      {/* Chart positioned at bottom left */}
+      <div
+        className="flex items-end gap-2 pointer-events-auto"
+        style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 60 }}
+      >
+        {previousDayBoardHistory.map((snapshot, index) => (
+          <button
+            key={snapshot.id}
+            type="button"
+            onClick={() => handleChartBarClick(snapshot)}
+            className="group flex w-6 items-end justify-center rounded-sm bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            style={{ height: chartMaxHeight }}
+            title={`${snapshot.label}: ${snapshot.value} elementos`}
+            aria-label={`${snapshot.label}: ${snapshot.value} elementos`}
+          >
+            <span
+              className="w-6 rounded-sm bg-white/30 transition-all duration-150 group-hover:bg-white/50 group-active:scale-y-95"
+              style={{ height: chartBarHeights[index] ?? 32 }}
+            />
+          </button>
+        ))}
+      </div>
+
+      {/* Input centrado abajo */}
+      <div className="flex flex-col items-center pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', width: '100%', zIndex: 50 }}>
+        {/* Botones de acción */}
+        {showButtons && (
+          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-3 mb-3 flex gap-3 max-w-md w-full">
+            <button
+              onClick={handleCreateNote}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg text-white text-sm font-medium transition-colors"
+              title="Crear Nota"
+            >
+              <StickyNote size={16} />
+              <span>Nota</span>
+            </button>
+            <button
+              onClick={handleCreateTodoList}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 rounded-lg text-white text-sm font-medium transition-colors"
+              title="Crear Lista de Tareas"
+            >
+              <CheckSquare size={16} />
+              <span>Tareas</span>
+            </button>
+            <button
+              onClick={handleSendMessage}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg text-white text-sm font-medium transition-colors"
+              title="Enviar"
+            >
+              <Send size={16} />
+              <span>Enviar</span>
+            </button>
+          </div>
+        )}
+
+        {/* Input principal */}
+        <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex items-start gap-3 max-w-md w-full">
+          <div className="w-8 h-8 bg-white/30 rounded flex-shrink-0 mt-1"></div>
+          <textarea
+            value={inputText}
+            onChange={handleInputChange}
+            placeholder="Escribe aquí"
+            className="flex-1 bg-transparent text-white placeholder-white/70 outline-none resize-none"
+            style={{
+              minHeight: '24px',
+              maxHeight: '120px',
+              lineHeight: '24px',
+              overflowY: 'auto',
+              wordWrap: 'break-word',
+              whiteSpace: 'pre-wrap'
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.shiftKey) {
+                // Allow new line with Shift+Enter
+                return;
+              } else if (e.key === 'Enter') {
+                // Send on Enter without Shift
+                e.preventDefault();
+                if (inputText.trim()) {
+                  handleSendMessage();
+                }
+              }
+            }}
           />
         </div>
+      </div>
 
-        {/* Header - Left section - RelojActual */}
-        <div className="pointer-events-auto " style={{ position: 'absolute', top: '0.5rem', left: '9rem', zIndex:40 }}>
-          <RelojActual />
-        </div>
-
-            {/* Center - Room tabs */}
-            <div className="flex bg-white/20 z-30 backdrop-blur-sm rounded-full p-2 gap-1 absolute left-1/2 transform -translate-x-1/2">
-              <button onClick={() => setShowSalaModal(true)} className="bg-green-200 text-gray-800 px-6 py-2 rounded-full font-medium">
-                Avances <span className="bg-gray-600 px-1.5 py-1 rounded-full text-sm ml-1 text-white">8</span>
-              </button>
-              <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reglas</button>
-              <button className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-medium">Reportes</button>
-            </div>
-
-        {/* Main content area */}
-        <div className="relative flex justify-between items-start px-2 flex-1">
-
-        </div>
-
-        {/* Activities positioned at fixed location */}
-        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 30 }}>
-          <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-            Actividades 🗓️
-          </h2>
-          <div
-            // className="bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('text/plain', 'Actividades - Elemento arrastrado desde la interfaz');
-            }}
-            onClick={() => setShowActividadDetails(true)}
-          >
-             <ActividadesGrid />
-          </div>
-        </div>
-
-        {/* Missions positioned at fixed location */}
-        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 30 }}>
-          <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-            Misiones
-          </h2>
-          <div className="flex gap-2">
-            <MisionCard 
-              title="Optimizar rendimiento del sistema"
-              hours={8}
-              onClick={() => {
-                setSelectedMision({title: "Optimizar rendimiento del sistema", hours: 8});
-                setShowMisionDetails(true);
-              }}
-            />
-            <MisionCard 
-              title="Implementar nueva funcionalidad de reportes"
-              hours={12}
-              onClick={() => {
-                setSelectedMision({title: "Implementar nueva funcionalidad de reportes", hours: 12});
-                setShowMisionDetails(true);
-              }}
-            />
-            <MisionCard 
-              title="Refactorizar código legacy"
-              hours={6}
-              onClick={() => {
-                setSelectedMision({title: "Refactorizar código legacy", hours: 6});
-                setShowMisionDetails(true);
-              }}
-            />
-          </div>
-        </div>
-
-
-        {/* Chart positioned at bottom left */}
-        <div
-          className="flex items-end gap-2 pointer-events-auto"
-          style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 60 }}
-        >
-          {previousDayBoardHistory.map((snapshot, index) => (
-            <button
-              key={snapshot.id}
-              type="button"
-              onClick={() => handleChartBarClick(snapshot)}
-              className="group flex w-6 items-end justify-center rounded-sm bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-              style={{ height: chartMaxHeight }}
-              title={`${snapshot.label}: ${snapshot.value} elementos`}
-              aria-label={`${snapshot.label}: ${snapshot.value} elementos`}
-            >
-              <span
-                className="w-6 rounded-sm bg-white/30 transition-all duration-150 group-hover:bg-white/50 group-active:scale-y-95"
-                style={{ height: chartBarHeights[index] ?? 32 }}
-              />
-            </button>
-          ))}
-        </div>
-
-        {/* Input centrado abajo */}
-        <div className="flex flex-col items-center pointer-events-auto" style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', width: '100%', zIndex: 50 }}>
-          {/* Botones de acción */}
-          {showButtons && (
-            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-3 mb-3 flex gap-3 max-w-md w-full">
-              <button
-                onClick={handleCreateNote}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg text-white text-sm font-medium transition-colors"
-                title="Crear Nota"
-              >
-                <StickyNote size={16} />
-                <span>Nota</span>
-              </button>
-              <button
-                onClick={handleCreateTodoList}
-                className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 rounded-lg text-white text-sm font-medium transition-colors"
-                title="Crear Lista de Tareas"
-              >
-                <CheckSquare size={16} />
-                <span>Tareas</span>
-              </button>
-              <button
-                onClick={handleSendMessage}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg text-white text-sm font-medium transition-colors"
-                title="Enviar"
-              >
-                <Send size={16} />
-                <span>Enviar</span>
-              </button>
-            </div>
-          )}
-
-          {/* Input principal */}
-          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex items-start gap-3 max-w-md w-full">
-            <div className="w-8 h-8 bg-white/30 rounded flex-shrink-0 mt-1"></div>
-            <textarea
-              value={inputText}
-              onChange={handleInputChange}
-              placeholder="Escribe aquí"
-              className="flex-1 bg-transparent text-white placeholder-white/70 outline-none resize-none"
-              style={{
-                minHeight: '24px',
-                maxHeight: '120px',
-                lineHeight: '24px',
-                overflowY: 'auto',
-                wordWrap: 'break-word',
-                whiteSpace: 'pre-wrap'
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.shiftKey) {
-                  // Allow new line with Shift+Enter
-                  return;
-                } else if (e.key === 'Enter') {
-                  // Send on Enter without Shift
-                  e.preventDefault();
-                  if (inputText.trim()) {
-                    handleSendMessage();
-                  }
-                }
-              }}
-            />
-          </div>
-        </div>
-      
 
 
       {/* Ventana de prueba */}
@@ -698,7 +664,7 @@ export default function Dashboard() {
 
           {/* Botón para abrir link */}
           <div className="flex justify-center pt-4">
-            <button 
+            <button
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
               onClick={() => {
                 window.open('https://meet.google.com/abc-defg-hij', '_blank');
@@ -763,7 +729,7 @@ export default function Dashboard() {
 
             {/* Botones de acción */}
             <div className="flex justify-center gap-3 pt-4">
-              <button 
+              <button
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
                 onClick={() => {
                   console.log('Iniciar misión:', selectedMision.title);
@@ -772,7 +738,7 @@ export default function Dashboard() {
               >
                 ▶️ Iniciar Misión
               </button>
-              <button 
+              <button
                 className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                 onClick={() => setShowMisionDetails(false)}
               >

@@ -17,7 +17,7 @@ export const useActividades = (idUsuario: string | null): UseActividadesReturn =
   const [actividades, setActividades] = useState<Actividad[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const actividadRepository = useRef(new SupabaseActividadRepository());
   const realtimeChannel = useRef<RealtimeChannel | null>(null);
 
@@ -34,7 +34,7 @@ export const useActividades = (idUsuario: string | null): UseActividadesReturn =
     try {
       console.log('📅 Cargando actividades para usuario:', idUsuario);
       const actividadesData = await actividadRepository.current.getActividadesByUsuario(idUsuario);
-      
+
       setActividades(actividadesData);
       console.log('✅ Actividades cargadas exitosamente:', actividadesData.length);
     } catch (err) {
