@@ -12,11 +12,11 @@ export class SalaRepository {
   // Obtener los IDs de salas de una organización con timeout
   async getSalaIdsByOrganizacion(idOrganizacion: string): Promise<string[]> {
     try {
-      console.log('🏢 Obteniendo IDs de salas para organización:', idOrganizacion);
+   //   console.log('🏢 Obteniendo IDs de salas para organización:', idOrganizacion);
 
-      // Reducir timeout a 1 segundo para respuesta más rápida
+      // Timeout de 5 segundos para consultas de base de datos
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getSalaIdsByOrganizacion')), 1000);
+        setTimeout(() => reject(new Error('Timeout en getSalaIdsByOrganizacion')), 5000);
       });
 
       const queryPromise = supabase
@@ -69,9 +69,9 @@ export class SalaRepository {
         return [];
       }
 
-      // Reducir timeout a 1 segundo para respuesta más rápida
+      // Timeout de 5 segundos para consultas de base de datos
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getSalasByIds')), 1000);
+        setTimeout(() => reject(new Error('Timeout en getSalasByIds')), 5000);
       });
 
       const queryPromise = supabase
@@ -106,9 +106,9 @@ export class SalaRepository {
     try {
       console.log('🚀 Iniciando carga de salas para organización:', idOrganizacion);
 
-      // Timeout global de 2 segundos para todo el proceso
+      // Timeout global de 10 segundos para todo el proceso
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout global en getSalasByOrganizacion')), 2000);
+        setTimeout(() => reject(new Error('Timeout global en getSalasByOrganizacion')), 10000);
       });
 
       const loadSalasPromise = async () => {
