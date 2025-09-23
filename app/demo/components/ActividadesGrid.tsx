@@ -15,44 +15,25 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index, onShowD
   const calculateTimeUntilStart = () => {
     if (!actividad.hora_inicio) return 0;
 
+    console.log('🕐 Raw hora_inicio:', actividad.hora_inicio);
+    console.log('🕐 Type:', typeof actividad.hora_inicio);
+
     try {
-      // Parse format: "2023-09-23:11:00pm"
-      const parts = actividad.hora_inicio.split(':');
-
-      if (parts.length < 3) {
+      // Parse ISO 8601 format: "2023-09-23T23:00:00+00:00"
+      const targetDateTime = new Date(actividad.hora_inicio);
+      
+      console.log('📅 Parsed date:', targetDateTime);
+      console.log('📅 Date valid?', !isNaN(targetDateTime.getTime()));
+      
+      // Validate that the date is valid
+      if (isNaN(targetDateTime.getTime())) {
+        console.log('❌ Invalid date detected');
         return 0;
       }
-
-      const datePart = parts[0]; // "2023-09-23"
-      const hour = parseInt(parts[1]); // "11"
-      const minuteAndPeriod = parts[2]; // "00pm"
-
-      // Extract minute and period from "00pm"
-      const minute = parseInt(minuteAndPeriod.slice(0, 2));
-      const period = minuteAndPeriod.slice(2).toLowerCase();
-
-      // Validate parsed values
-      if (isNaN(hour) || isNaN(minute)) {
-        return 0;
-      }
-
-      if (period !== 'am' && period !== 'pm') {
-        return 0;
-      }
-
-      let adjustedHour = hour;
-      if (period === 'pm' && hour !== 12) {
-        adjustedHour = hour + 12;
-      } else if (period === 'am' && hour === 12) {
-        adjustedHour = 0;
-      }
-
-      const targetDateTime = new Date(datePart);
-      targetDateTime.setHours(adjustedHour, minute, 0, 0);
 
       const now = new Date();
       const diffInMs = targetDateTime.getTime() - now.getTime();
-      const diffInSeconds = Math.max(0, Math.floor(diffInMs / 1000));
+      const diffInSeconds = Math.floor(diffInMs / 1000);
 
       return diffInSeconds;
     } catch (error) {
@@ -79,14 +60,17 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index, onShowD
   }, [isRunning, actividad.hora_inicio]);
 
   const formatTime = (seconds: number) => {
+    if (seconds < 0) {
+      return '--:--';
+    }
+    
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
 
     if (hours > 0) {
-      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      return `${hours}:${mins.toString().padStart(2, '0')}`;
     }
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, '0')}`;
   };
 
   const handleShowDetails = () => {
@@ -187,13 +171,30 @@ export default function ActividadesGrid() {
   const formatTime = (horaInicio: string | null) => {
     if (!horaInicio) return 'Sin hora';
 
-    try {
-      const [datePart, timePart] = horaInicio.split(':');
-      const [hourMinute, period] = [timePart.slice(0, -2), timePart.slice(-2)];
-      const [hour, minute] = hourMinute.split(':').map(Number);
+    console.log('🕐 formatTime input:', horaInicio);
 
-      return `${hour}:${minute.toString().padStart(2, '0')} ${period.toUpperCase()}`;
-    } catch {
+    try {
+      // Parse ISO 8601 and convert to local time
+      const date = new Date(horaInicio);
+      
+      console.log('📅 formatTime parsed date:', date);
+      console.log('📅 formatTime date valid?', !isNaN(date.getTime()));
+      
+      if (isNaN(date.getTime())) {
+        console.log('❌ formatTime returning 00:00 due to invalid date');
+        return '00:00';
+      }
+
+      const formatted = date.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      console.log('✅ formatTime result:', formatted);
+      return formatted;
+    } catch (error) {
+      console.log('❌ formatTime catch error:', error);
       return horaInicio;
     }
   };

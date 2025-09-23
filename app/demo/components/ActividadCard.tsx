@@ -17,25 +17,19 @@ export default function ActividadCard() {
     if (!actividadActual?.hora_inicio) return 0;
 
     try {
-      // Parse format: "2023-09-23:11:00pm"
-      const [datePart, timePart] = actividadActual.hora_inicio.split(':');
-      const [hourMinute, period] = [timePart.slice(0, -2), timePart.slice(-2)];
-      const [hour, minute] = hourMinute.split(':').map(Number);
-
-      let adjustedHour = hour;
-      if (period.toLowerCase() === 'pm' && hour !== 12) {
-        adjustedHour = hour + 12;
-      } else if (period.toLowerCase() === 'am' && hour === 12) {
-        adjustedHour = 0;
+      // Parse ISO 8601 format: "2023-09-23T23:00:00+00:00"
+      const targetDateTime = new Date(actividadActual.hora_inicio);
+      
+      // Validate that the date is valid
+      if (isNaN(targetDateTime.getTime())) {
+        return 0;
       }
-
-      const targetDateTime = new Date(datePart);
-      targetDateTime.setHours(adjustedHour, minute, 0, 0);
 
       const now = new Date();
       const diffInMs = targetDateTime.getTime() - now.getTime();
+      const diffInSeconds = Math.floor(diffInMs / 1000);
 
-      return Math.max(0, Math.floor(diffInMs / 1000));
+      return diffInSeconds;
     } catch (error) {
       console.error('Error parsing hora_inicio:', actividadActual.hora_inicio, error);
       return 0;
@@ -72,14 +66,17 @@ export default function ActividadCard() {
   }, [isRunning, actividadActual]);
 
   const formatTimer = (seconds: number) => {
+    if (seconds < 0) {
+      return '--:--';
+    }
+    
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
 
     if (hours > 0) {
-      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      return `${hours}:${mins.toString().padStart(2, '0')}`;
     }
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, '0')}`;
   };
 
   const handleShowDetails = () => {
@@ -132,11 +129,18 @@ export default function ActividadCard() {
     if (!horaInicio) return 'Sin hora';
 
     try {
-      const [datePart, timePart] = horaInicio.split(':');
-      const [hourMinute, period] = [timePart.slice(0, -2), timePart.slice(-2)];
-      const [hour, minute] = hourMinute.split(':').map(Number);
+      // Parse ISO 8601 and convert to local time
+      const date = new Date(horaInicio);
+      
+      if (isNaN(date.getTime())) {
+        return 'Hora inválida';
+      }
 
-      return `${hour}:${minute.toString().padStart(2, '0')} ${period.toUpperCase()}`;
+      return date.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
     } catch {
       return horaInicio;
     }
@@ -145,9 +149,10 @@ export default function ActividadCard() {
   return (
     <>
       <div
-        className="bg-slate-600 rounded-xl p-1 w-19 h-19 flex flex-col justify-between items-start shadow-lg relative cursor-grab active:cursor-grabbing"
+        className="bg-slate-600 rounded-xl p-1 w-19 h-19 flex flex-col justify-between items-start shadow-lg relative cursor-pointer hover:bg-slate-500 transition-colors"
         draggable
         onDragStart={handleDragStart}
+        onClick={handleShowDetails}
         title={actividadActual?.descripcion || 'Sin actividad registrada'}
       >
 
@@ -186,16 +191,11 @@ export default function ActividadCard() {
           )}
         </div>
 
-        {/* Icono de play para ver detalles */}
+        {/* Icono de play decorativo */}
         <div className="flex justify-end w-full">
-          <button
-            onClick={handleShowDetails}
-            className="text-white hover:text-gray-300 transition-colors duration-200 p-1 hover:bg-slate-500 rounded-lg"
-            aria-label="Ver detalles de la actividad"
-            disabled={!actividadActual}
-          >
+          <div className="text-white p-1">
             <Play size={12} fill="currentColor" className="ml-0.5" />
-          </button>
+          </div>
         </div>
       </div>
 
