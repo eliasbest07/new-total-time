@@ -315,7 +315,7 @@ export default function Dashboard() {
 
       {/* Panel fijo para el Acordeón (arriba) */}
       <div
-        className={`fixed top-0 right-0 h-auto flex flex-col transition-all duration-300 z-30 ${rightPanelCollapsed ? "w-0" : "w-80 z-40"
+        className={`fixed top-0 right-0 h-auto flex flex-col transition-all duration-300 z-30 ${rightPanelCollapsed ? "w-0" : "w-80"
           }`}
       >
         {!rightPanelCollapsed && (

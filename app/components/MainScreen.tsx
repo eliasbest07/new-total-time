@@ -37,17 +37,17 @@ export default function MainScreen() {
       </div>
 
       {/* estos dos componentes abajo estan dentro de demo, tiene que estar afuera para ser usados en cualquier parte */}
-      <div className="mb-8 px-2 z-50 pointer-events-auto w-fit">
+      <div className="mb-8 px-2 z-30 pointer-events-auto w-fit">
         <Perfil />
       </div>
 
-      <div className="pointer-events-auto " style={{ position: 'absolute', top: '0.5rem', left: '9rem', zIndex: 40 }}>
+      <div className="pointer-events-auto " style={{ position: 'absolute', top: '0.5rem', left: '9rem', zIndex: 30 }}>
         <RelojActual />
       </div>
 
       <Salas />
 
-      <div className="fixed top-18 z-50 flex items-center transition-all duration-300">
+      <div className="fixed top-18 z-30 flex items-center transition-all duration-300">
         {/* Botón expandir o contraer*/}
         <button
           onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
@@ -71,11 +71,11 @@ export default function MainScreen() {
       </div>
 
       <div className={`fixed top-0 right-0 h-auto flex flex-col transition-all duration-300 z-30 ${
-          rightPanelCollapsed ? "w-0" : "w-80 z-40"
+          rightPanelCollapsed ? "w-0" : "w-80"
         }`}
       >
         {!rightPanelCollapsed && (
-          <div className="p-4 pt-16">
+          <div className="p-4 pt-16 z-10">
             <Accordion recursos={recursos} onAddResource={handleAddResource} />
           </div>
         )}
@@ -98,7 +98,7 @@ export default function MainScreen() {
         </div>
 
         {/* Missions positioned at fixed location */}
-        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 30 }}>
+        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 10 }}>
           <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
             Misiones 🎯
           </h2>
