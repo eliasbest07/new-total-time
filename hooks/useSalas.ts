@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { SalaRepository } from '@/infrastructure/repositories/SalaRepository';
+import { SupabaseSalaRepository } from '@/infrastructure/datasource/SupabaseSalaRepository';
 import { Sala } from '@/domain/entities/Sala';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -18,7 +18,7 @@ export const useSalas = (idOrganizacion: string | null): UseSalasReturn => {
   const [error, setError] = useState<string | null>(null);
   const [salaActiva, setSalaActivaState] = useState<Sala | null>(null);
   
-  const salaRepository = useRef(new SalaRepository());
+  const salaRepository = useRef(new SupabaseSalaRepository());
   const realtimeChannel = useRef<RealtimeChannel | null>(null);
   const isInitialLoad = useRef(true);
 

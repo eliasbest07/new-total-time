@@ -10,16 +10,23 @@ import { ChevronRight } from "lucide-react";
 import Cube from "./mainUI/cubo-acordion-carga";
 import Accordion from "../demo/components/Accordion";
 import { Resource } from "../demo/utils/resourceUtils";
+import ActividadCard from "../demo/components/ActividadCard";
+import MisionCard from "../demo/components/MisionCard";
 
 
 export default function MainScreen() {
   const pizarraRef = useRef<PizarraRef>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [recursos, setRecursos] = useState<Resource[]>([]);
+  const [showActividadDetails, setShowActividadDetails] = useState(false);
+  const [selectedMision, setSelectedMision] = useState<{title: string, hours: number} | null>(null);
+  const [showMisionDetails, setShowMisionDetails] = useState(false);
  
   const handleAddResource = (): void => {
    // setShowAddResourceModal(true);
   };
+
+
   return (
     <div
       className="relative overflow-hidden flex flex-col"
@@ -73,6 +80,57 @@ export default function MainScreen() {
           </div>
         )}
       </div>
+
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 30 }}>
+          <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+            Actividades 🗓️
+          </h2>
+          <div
+            // className="bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', 'Actividades - Elemento arrastrado desde la interfaz');
+            }}
+            onClick={() => setShowActividadDetails(true)}
+          >
+             <ActividadCard />
+          </div>
+        </div>
+
+        {/* Missions positioned at fixed location */}
+        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 30 }}>
+          <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+            Misiones
+          </h2>
+          <div className="flex gap-2">
+            <MisionCard 
+              title="Optimizar rendimiento del sistema"
+              hours={8}
+              onClick={() => {
+                setSelectedMision({title: "Optimizar rendimiento del sistema", hours: 8});
+                setShowMisionDetails(true);
+              }}
+            />
+            <MisionCard 
+              title="Implementar nueva funcionalidad de reportes"
+              hours={12}
+              onClick={() => {
+                setSelectedMision({title: "Implementar nueva funcionalidad de reportes", hours: 12});
+                setShowMisionDetails(true);
+              }}
+            />
+            <MisionCard 
+              title="Refactorizar código legacy"
+              hours={6}
+              onClick={() => {
+                setSelectedMision({title: "Refactorizar código legacy", hours: 6});
+                setShowMisionDetails(true);
+              }}
+            />
+          </div>
+        </div>
+
+
     </div>
   );
 }
