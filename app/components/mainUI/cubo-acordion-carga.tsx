@@ -387,7 +387,7 @@ const Cube = () => {
               <div className="todo-header">
                 <h3>Tareas</h3>
                 <button
-                  className="add-btn text-white"
+                  className="add-btn "
                   onClick={() => {
                     setShowAddInput(true);
                     setIsInteractingWithTodos(true);

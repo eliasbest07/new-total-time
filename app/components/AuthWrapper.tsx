@@ -3,7 +3,7 @@
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { SupabaseAuthRepository } from '@/infrastructure/repositories/SupabaseAuthRepository';
+import { SupabaseAuthRepository } from '@/infrastructure/datasource/SupabaseAuthRepository';
 import { StorageService } from '@/infrastructure/services/StorageService';
 
 interface AuthWrapperProps {

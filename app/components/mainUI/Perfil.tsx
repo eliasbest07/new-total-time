@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { SupabaseAuthRepository } from '@/infrastructure/repositories/SupabaseAuthRepository';
+import { SupabaseAuthRepository } from '@/infrastructure/datasource/SupabaseAuthRepository';
 
 interface PerfilProps {
     // Props opcionales para override, si no se pasan usa los del contexto

@@ -8,3 +8,7 @@ export interface AuthRepository {
   getCurrentUser(): Promise<Usuario | null>;
   isAuthenticated(): Promise<boolean>;
 }
+
+
+// cantindad de publicacion 
+// lista de salas 

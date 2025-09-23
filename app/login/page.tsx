@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { SupabaseAuthRepository } from '@/infrastructure/repositories/SupabaseAuthRepository';
+import { SupabaseAuthRepository } from '@/infrastructure/datasource/SupabaseAuthRepository';
 import LocalStorageDebug from '@/app/components/debug/LocalStorageDebug';
 
 export default function Login() {
