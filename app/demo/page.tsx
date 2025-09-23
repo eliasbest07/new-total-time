@@ -24,7 +24,7 @@ import {
   Send
 } from 'lucide-react';
 import { saveResource, type Resource, type NewResourceData } from './utils/resourceUtils';
-import ActividadCard from './components/ActividadCard';
+import ActividadesGrid from './components/ActividadesGrid';
 import Cube from './components/cubo-acordion';
 
 type BoardHistoryItem = {
@@ -399,7 +399,7 @@ export default function Dashboard() {
             }}
             onClick={() => setShowActividadDetails(true)}
           >
-             <ActividadCard />
+             <ActividadesGrid />
           </div>
         </div>
 
