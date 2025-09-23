@@ -3,41 +3,99 @@ import { Play, Pause, Calendar, Clock } from 'lucide-react';
 import { useActividades } from '@/hooks/useActividades';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Actividad } from '@/domain/entities/Actividad';
+import Ventana from './Ventana';
 
 interface ActividadCardProps {
   actividad: Actividad;
   index: number;
+  onShowDetails: (actividad: Actividad) => void;
 }
 
-const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index }) => {
-  const [timeInSeconds, setTimeInSeconds] = useState((22 + index) * 60 + 59); // Tiempo diferente para cada card
-  const [isRunning, setIsRunning] = useState(false);
+const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index, onShowDetails }) => {
+  const calculateTimeUntilStart = () => {
+    if (!actividad.hora_inicio) return 0;
+
+    try {
+      // Parse format: "2023-09-23:11:00pm"
+      const parts = actividad.hora_inicio.split(':');
+
+      if (parts.length < 3) {
+        return 0;
+      }
+
+      const datePart = parts[0]; // "2023-09-23"
+      const hour = parseInt(parts[1]); // "11"
+      const minuteAndPeriod = parts[2]; // "00pm"
+
+      // Extract minute and period from "00pm"
+      const minute = parseInt(minuteAndPeriod.slice(0, 2));
+      const period = minuteAndPeriod.slice(2).toLowerCase();
+
+      // Validate parsed values
+      if (isNaN(hour) || isNaN(minute)) {
+        return 0;
+      }
+
+      if (period !== 'am' && period !== 'pm') {
+        return 0;
+      }
+
+      let adjustedHour = hour;
+      if (period === 'pm' && hour !== 12) {
+        adjustedHour = hour + 12;
+      } else if (period === 'am' && hour === 12) {
+        adjustedHour = 0;
+      }
+
+      const targetDateTime = new Date(datePart);
+      targetDateTime.setHours(adjustedHour, minute, 0, 0);
+
+      const now = new Date();
+      const diffInMs = targetDateTime.getTime() - now.getTime();
+      const diffInSeconds = Math.max(0, Math.floor(diffInMs / 1000));
+
+      return diffInSeconds;
+    } catch (error) {
+      console.error('Error parsing hora_inicio:', actividad.hora_inicio, error);
+      return 0;
+    }
+  };
+
+  const [timeInSeconds, setTimeInSeconds] = useState(calculateTimeUntilStart);
+  const [isRunning, setIsRunning] = useState(true);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isRunning && timeInSeconds > 0) {
       interval = setInterval(() => {
-        setTimeInSeconds(seconds => seconds - 1);
+        const newTime = calculateTimeUntilStart();
+        setTimeInSeconds(newTime);
+        if (newTime === 0) {
+          setIsRunning(false);
+        }
       }, 1000);
-    } else if (timeInSeconds === 0) {
-      setIsRunning(false);
     }
     return () => clearInterval(interval!);
-  }, [isRunning, timeInSeconds]);
+  }, [isRunning, actividad.hora_inicio]);
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handlePlayPause = () => {
-    setIsRunning(!isRunning);
+  const handleShowDetails = () => {
+    onShowDetails(actividad);
   };
 
   const resetTimer = () => {
-    setTimeInSeconds((22 + index) * 60 + 59);
-    setIsRunning(false);
+    setTimeInSeconds(calculateTimeUntilStart());
+    setIsRunning(true);
   };
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -52,7 +110,7 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index }) => {
       link: actividad.link || '',
       id: actividad.id
     };
-    
+
     e.dataTransfer.setData('application/json', JSON.stringify(activityData));
     e.dataTransfer.setData('text/plain', `Actividad - ${actividad.descripcion || 'Sin descripción'}`);
   };
@@ -66,15 +124,16 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index }) => {
   };
 
   return (
-    <div 
-      className="bg-slate-600 rounded-xl p-1 w-19 h-19 flex flex-col justify-between items-start shadow-lg relative cursor-grab active:cursor-grabbing hover:bg-slate-500 transition-colors"
+    <div
+      className="bg-slate-600 rounded-xl p-1 w-19 h-19 flex flex-col justify-between items-start shadow-lg relative cursor-pointer hover:bg-slate-500 transition-colors"
       draggable
       onDragStart={handleDragStart}
+      onClick={handleShowDetails}
       title={`${actividad.descripcion || 'Sin descripción'} - ${formatDate(actividad.fecha)}`}
     >
       {/* Franja superior */}
       <div className="absolute top-0 left-0 right-0 h-5 bg-slate-700 rounded-t-xl"></div>
-      
+
       {/* Indicador de estado */}
       <div className="flex justify-start w-full relative z-10">
         <div className="w-3 h-3 rounded-full bg-green-400 transition-colors duration-300" />
@@ -83,39 +142,23 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index }) => {
       {/* Tiempo e información de actividad */}
       <div className="flex-1 flex items-center justify-center w-full">
         <div className="text-center">
-          <div 
-            className="text-white text-xs font-light tracking-wide cursor-pointer select-none"
+          <div
+            className="text-white text-base tracking-wide cursor-pointer select-none"
             onClick={resetTimer}
-            title="Click para resetear timer"
+
           >
             {formatTime(timeInSeconds)}
           </div>
-          {actividad.cant_horas && (
-            <div className="text-white/70 text-xs">
-              {actividad.cant_horas}h
-            </div>
-          )}
-          {actividad.fecha && (
-            <div className="text-white/50 text-xs">
-              {formatDate(actividad.fecha)}
-            </div>
-          )}
+
+
         </div>
       </div>
 
-      {/* Botón de play/pause */}
+      {/* Icono de play decorativo */}
       <div className="flex justify-end w-full">
-        <button
-          onClick={handlePlayPause}
-          className="text-white hover:text-gray-300 transition-colors duration-200 p-1 hover:bg-slate-500 rounded-lg"
-          aria-label={isRunning ? "Pausar timer" : "Iniciar timer"}
-        >
-          {isRunning ? (
-            <Pause size={12} fill="currentColor" />
-          ) : (
-            <Play size={12} fill="currentColor" className="ml-0.5" />
-          )}
-        </button>
+        <div className="text-white p-1">
+          <Play size={12} fill="currentColor" className="ml-0.5" />
+        </div>
       </div>
     </div>
   );
@@ -124,6 +167,36 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index }) => {
 export default function ActividadesGrid() {
   const { usuario } = useAuth();
   const { actividades, loading, error } = useActividades(usuario?.id || null);
+  const [showActividadDetails, setShowActividadDetails] = useState(false);
+  const [selectedActividad, setSelectedActividad] = useState<Actividad | null>(null);
+
+  const handleShowDetails = (actividad: Actividad) => {
+    setSelectedActividad(actividad);
+    setShowActividadDetails(true);
+  };
+
+  const formatDate = (fecha: string | null) => {
+    if (!fecha) return 'Sin fecha';
+    return new Date(fecha).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (horaInicio: string | null) => {
+    if (!horaInicio) return 'Sin hora';
+
+    try {
+      const [datePart, timePart] = horaInicio.split(':');
+      const [hourMinute, period] = [timePart.slice(0, -2), timePart.slice(-2)];
+      const [hour, minute] = hourMinute.split(':').map(Number);
+
+      return `${hour}:${minute.toString().padStart(2, '0')} ${period.toUpperCase()}`;
+    } catch {
+      return horaInicio;
+    }
+  };
 
   if (loading) {
     return (
@@ -154,14 +227,91 @@ export default function ActividadesGrid() {
   }
 
   return (
-    <div className="flex gap-2 flex-wrap">
-      {actividades.map((actividad, index) => (
-        <ActividadCard 
-          key={actividad.id} 
-          actividad={actividad} 
-          index={index}
-        />
-      ))}
-    </div>
+    <>
+      <div className="flex gap-2 flex-wrap">
+        {actividades.map((actividad, index) => (
+          <ActividadCard
+            key={actividad.id}
+            actividad={actividad}
+            index={index}
+            onShowDetails={handleShowDetails}
+          />
+        ))}
+      </div>
+
+      {/* Ventana de detalles de actividad */}
+      <Ventana
+        isOpen={showActividadDetails}
+        onClose={() => setShowActividadDetails(false)}
+        title="Detalles de la Actividad"
+        initialWidth={600}
+        initialHeight={500}
+        minWidth={500}
+        minHeight={400}
+        showOverlay={true}
+      >
+        {selectedActividad && (
+          <div className="text-black space-y-6 p-4">
+            {/* Descripción */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Descripción</h3>
+              <p className="text-gray-700">{selectedActividad.descripcion || 'Sin descripción'}</p>
+            </div>
+
+            {/* Fecha y Hora */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Fecha y Hora</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="font-medium">{formatDate(selectedActividad.fecha)}</p>
+                <p className="text-gray-600">{formatTime(selectedActividad.hora_inicio)}</p>
+              </div>
+            </div>
+
+            {/* Duración */}
+            {selectedActividad.cant_horas && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Duración</h3>
+                <div className="bg-blue-100 p-3 rounded-lg">
+                  <p className="font-medium text-blue-800">{selectedActividad.cant_horas} horas</p>
+                </div>
+              </div>
+            )}
+
+            {/* Tiempo dedicado */}
+            {selectedActividad.tiempo_dedicado && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Tiempo Dedicado</h3>
+                <div className="bg-green-100 p-3 rounded-lg">
+                  <p className="font-medium text-green-800">{selectedActividad.tiempo_dedicado} minutos</p>
+                </div>
+              </div>
+            )}
+
+            {/* Link */}
+            {selectedActividad.link && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Enlace</h3>
+                <button
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  onClick={() => window.open(selectedActividad.link!, '_blank')}
+                >
+                  Abrir enlace
+                </button>
+              </div>
+            )}
+
+            {/* Captures */}
+            {selectedActividad.captures && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Notas</h3>
+                <div className="bg-gray-100 p-3 rounded-lg">
+                  <p className="text-gray-700 whitespace-pre-wrap">{selectedActividad.captures}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Ventana>
+    </>
   );
 }

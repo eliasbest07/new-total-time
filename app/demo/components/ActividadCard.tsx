@@ -2,42 +2,97 @@ import React, { useState, useEffect } from 'react';
 import { Play, Pause, Calendar, Clock } from 'lucide-react';
 import { useActividades } from '@/hooks/useActividades';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { Actividad } from '@/domain/entities/Actividad';
+import Ventana from './Ventana';
 
 export default function ActividadCard() {
   const { usuario } = useAuth();
   const { actividades, loading } = useActividades(usuario?.id || null);
-  const [timeInSeconds, setTimeInSeconds] = useState(22 * 60 + 59); // 22:59 inicial
-  const [isRunning, setIsRunning] = useState(false);
-  const [isActive, setIsActive] = useState(true); // Para el indicador verde
-  
+  const [showActividadDetails, setShowActividadDetails] = useState(false);
+
   // Obtener la actividad más reciente
   const actividadActual = actividades.length > 0 ? actividades[0] : null;
 
+  const calculateTimeUntilStart = () => {
+    if (!actividadActual?.hora_inicio) return 0;
+
+    try {
+      // Parse format: "2023-09-23:11:00pm"
+      const [datePart, timePart] = actividadActual.hora_inicio.split(':');
+      const [hourMinute, period] = [timePart.slice(0, -2), timePart.slice(-2)];
+      const [hour, minute] = hourMinute.split(':').map(Number);
+
+      let adjustedHour = hour;
+      if (period.toLowerCase() === 'pm' && hour !== 12) {
+        adjustedHour = hour + 12;
+      } else if (period.toLowerCase() === 'am' && hour === 12) {
+        adjustedHour = 0;
+      }
+
+      const targetDateTime = new Date(datePart);
+      targetDateTime.setHours(adjustedHour, minute, 0, 0);
+
+      const now = new Date();
+      const diffInMs = targetDateTime.getTime() - now.getTime();
+
+      return Math.max(0, Math.floor(diffInMs / 1000));
+    } catch (error) {
+      console.error('Error parsing hora_inicio:', actividadActual.hora_inicio, error);
+      return 0;
+    }
+  };
+
+  const [timeInSeconds, setTimeInSeconds] = useState(0);
+  const [isRunning, setIsRunning] = useState(true);
+  const [isActive, setIsActive] = useState(true); // Para el indicador verde
+
+  // Update time when activity changes
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isRunning && timeInSeconds > 0) {
-      interval = setInterval(() => {
-        setTimeInSeconds(seconds => seconds - 1);
-      }, 1000);
-    } else if (timeInSeconds === 0) {
+    if (actividadActual) {
+      setTimeInSeconds(calculateTimeUntilStart());
+      setIsRunning(true);
+    } else {
+      setTimeInSeconds(0);
       setIsRunning(false);
     }
-    return () => clearInterval(interval!);
-  }, [isRunning, timeInSeconds]);
+  }, [actividadActual]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isRunning && timeInSeconds > 0 && actividadActual) {
+      interval = setInterval(() => {
+        const newTime = calculateTimeUntilStart();
+        setTimeInSeconds(newTime);
+        if (newTime === 0) {
+          setIsRunning(false);
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval!);
+  }, [isRunning, actividadActual]);
+
+  const formatTimer = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handlePlayPause = () => {
-    setIsRunning(!isRunning);
+  const handleShowDetails = () => {
+    if (actividadActual) {
+      setShowActividadDetails(true);
+    }
   };
 
   const resetTimer = () => {
-    setTimeInSeconds(22 * 60 + 59);
-    setIsRunning(false);
+    if (actividadActual) {
+      setTimeInSeconds(calculateTimeUntilStart());
+      setIsRunning(true);
+    }
   };
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -51,7 +106,7 @@ export default function ActividadCard() {
       captures: actividadActual?.captures || '',
       link: actividadActual?.link || ''
     };
-    
+
     e.dataTransfer.setData('application/json', JSON.stringify(activityData));
     e.dataTransfer.setData('text/plain', `Actividad - ${actividadActual?.descripcion || 'Sin descripción'}`);
   };
@@ -64,65 +119,159 @@ export default function ActividadCard() {
     );
   }
 
+  const formatDate = (fecha: string | null) => {
+    if (!fecha) return 'Sin fecha';
+    return new Date(fecha).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (horaInicio: string | null) => {
+    if (!horaInicio) return 'Sin hora';
+
+    try {
+      const [datePart, timePart] = horaInicio.split(':');
+      const [hourMinute, period] = [timePart.slice(0, -2), timePart.slice(-2)];
+      const [hour, minute] = hourMinute.split(':').map(Number);
+
+      return `${hour}:${minute.toString().padStart(2, '0')} ${period.toUpperCase()}`;
+    } catch {
+      return horaInicio;
+    }
+  };
+
   return (
-    <div 
-      className="bg-slate-600 rounded-xl p-1 w-19 h-19 flex flex-col justify-between items-start shadow-lg relative cursor-grab active:cursor-grabbing"
-      draggable
-      onDragStart={handleDragStart}
-      title={actividadActual?.descripcion || 'Sin actividad registrada'}
-    >
-    
-      {/* Franja superior */}
-      <div className="absolute top-0 left-0 right-0 h-5 bg-slate-700 rounded-t-xl"></div>
-      
-      {/* Indicador de estado */}
-      <div className="flex justify-start w-full relative z-10">
-        <div 
-          className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-            actividadActual ? 'bg-green-400' : 'bg-gray-400'
-          }`}
-        />
+    <>
+      <div
+        className="bg-slate-600 rounded-xl p-1 w-19 h-19 flex flex-col justify-between items-start shadow-lg relative cursor-grab active:cursor-grabbing"
+        draggable
+        onDragStart={handleDragStart}
+        title={actividadActual?.descripcion || 'Sin actividad registrada'}
+      >
+
+        {/* Franja superior */}
+        <div className="absolute top-0 left-0 right-0 h-5 bg-slate-700 rounded-t-xl"></div>
+
+        {/* Indicador de estado */}
+        <div className="flex justify-start w-full relative z-10">
+          <div
+            className={`w-3 h-3 rounded-full transition-colors duration-300 ${actividadActual ? 'bg-green-400' : 'bg-gray-400'
+              }`}
+          />
+        </div>
+
+        {/* Tiempo o información de actividad */}
+        <div className="flex-1 flex items-center justify-center w-full">
+          {actividadActual ? (
+            <div className="text-center">
+              <div
+                className="text-white text-sm font-light tracking-wide cursor-pointer select-none"
+                onClick={resetTimer}
+                title="Click para resetear timer"
+              >
+                {formatTimer(timeInSeconds)}
+              </div>
+              {actividadActual.cant_horas && (
+                <div className="text-white/70 text-xs">
+                  {actividadActual.cant_horas}h
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-white/70 text-xs text-center">
+              Sin actividad
+            </div>
+          )}
+        </div>
+
+        {/* Icono de play para ver detalles */}
+        <div className="flex justify-end w-full">
+          <button
+            onClick={handleShowDetails}
+            className="text-white hover:text-gray-300 transition-colors duration-200 p-1 hover:bg-slate-500 rounded-lg"
+            aria-label="Ver detalles de la actividad"
+            disabled={!actividadActual}
+          >
+            <Play size={12} fill="currentColor" className="ml-0.5" />
+          </button>
+        </div>
       </div>
 
-      {/* Tiempo o información de actividad */}
-      <div className="flex-1 flex items-center justify-center w-full">
-        {actividadActual ? (
-          <div className="text-center">
-            <div 
-              className="text-white text-xs font-light tracking-wide cursor-pointer select-none"
-              onClick={resetTimer}
-              title="Click para resetear timer"
-            >
-              {formatTime(timeInSeconds)}
+      {/* Ventana de detalles de actividad */}
+      <Ventana
+        isOpen={showActividadDetails}
+        onClose={() => setShowActividadDetails(false)}
+        title="Detalles de la Actividad"
+        initialWidth={600}
+        initialHeight={500}
+        minWidth={500}
+        minHeight={400}
+        showOverlay={true}
+      >
+        {actividadActual && (
+          <div className="text-black space-y-6 p-4">
+            {/* Descripción */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Descripción</h3>
+              <p className="text-gray-700">{actividadActual.descripcion || 'Sin descripción'}</p>
             </div>
+
+            {/* Fecha y Hora */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Fecha y Hora</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="font-medium">{formatDate(actividadActual.fecha)}</p>
+                <p className="text-gray-600">{formatTime(actividadActual.hora_inicio)}</p>
+              </div>
+            </div>
+
+            {/* Duración */}
             {actividadActual.cant_horas && (
-              <div className="text-white/70 text-xs">
-                {actividadActual.cant_horas}h
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Duración</h3>
+                <div className="bg-blue-100 p-3 rounded-lg">
+                  <p className="font-medium text-blue-800">{actividadActual.cant_horas} horas</p>
+                </div>
+              </div>
+            )}
+
+            {/* Tiempo dedicado */}
+            {actividadActual.tiempo_dedicado && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Tiempo Dedicado</h3>
+                <div className="bg-green-100 p-3 rounded-lg">
+                  <p className="font-medium text-green-800">{actividadActual.tiempo_dedicado} minutos</p>
+                </div>
+              </div>
+            )}
+
+            {/* Link */}
+            {actividadActual.link && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Enlace</h3>
+                <button
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  onClick={() => window.open(actividadActual.link!, '_blank')}
+                >
+                  Abrir enlace
+                </button>
+              </div>
+            )}
+
+            {/* Captures */}
+            {actividadActual.captures && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Notas</h3>
+                <div className="bg-gray-100 p-3 rounded-lg">
+                  <p className="text-gray-700 whitespace-pre-wrap">{actividadActual.captures}</p>
+                </div>
               </div>
             )}
           </div>
-        ) : (
-          <div className="text-white/70 text-xs text-center">
-            Sin actividad
-          </div>
         )}
-      </div>
-
-      {/* Botón de play/pause */}
-      <div className="flex justify-end w-full">
-        <button
-          onClick={handlePlayPause}
-          className="text-white hover:text-gray-300 transition-colors duration-200 p-1 hover:bg-slate-500 rounded-lg"
-          aria-label={isRunning ? "Pausar timer" : "Iniciar timer"}
-          disabled={!actividadActual}
-        >
-          {isRunning ? (
-            <Pause size={12} fill="currentColor" />
-          ) : (
-            <Play size={12} fill="currentColor" className="ml-0.5" />
-          )}
-        </button>
-      </div>
-    </div>
+      </Ventana>
+    </>
   );
 }
