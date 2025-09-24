@@ -12,6 +12,10 @@ import Accordion from "../demo/components/Accordion";
 import { Resource } from "../demo/utils/resourceUtils";
 import ActividadesGrid from "../demo/components/ActividadesGrid";
 import MisionesCompact from "./mainUI/MisionesCompact";
+import { useRecursos } from "@/hooks/useRecursos";
+import { useAuth } from "@/app/contexts/AuthContext";
+import { useEffect } from "react";
+import { FileText, Link, Code, Image, Video, Download } from "lucide-react";
 
 
 export default function MainScreen() {
@@ -21,6 +25,76 @@ export default function MainScreen() {
   const [showActividadDetails, setShowActividadDetails] = useState(false);
   const [selectedMision, setSelectedMision] = useState<{title: string, hours: number} | null>(null);
   const [showMisionDetails, setShowMisionDetails] = useState(false);
+  
+  const { usuario } = useAuth();
+  const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
+
+  // Función para convertir recursos de Supabase al formato del Accordion
+  const convertirRecursosSupabase = () => {
+    return recursosSupabase.map((recurso, index) => ({
+      id: recurso.id,
+      name: recurso.nombre || 'Sin nombre',
+      icon: getIconForRecurso(recurso.icono),
+      color: getColorForRecurso(index),
+      type: 'link',
+      url: recurso.link || undefined,
+      description: `Recurso creado el ${new Date(recurso.created_at).toLocaleDateString()}`
+    }));
+  };
+
+  // Función para obtener icono basado en el icono del recurso
+  const getIconForRecurso = (icono: string | null) => {
+    if (!icono) return FileText;
+    
+    // Si es un emoji, usar FileText como fallback
+    if (icono.length <= 2) return FileText;
+    
+    // Mapear algunos tipos comunes
+    const iconMap: { [key: string]: any } = {
+      'link': Link,
+      'code': Code,
+      'image': Image,
+      'video': Video,
+      'download': Download,
+      'file': FileText
+    };
+    
+    return iconMap[icono.toLowerCase()] || FileText;
+  };
+
+  // Función para obtener color basado en el índice
+  const getColorForRecurso = (index: number) => {
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500', 
+      'bg-purple-500',
+      'bg-orange-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-teal-500',
+      'bg-red-500',
+      'bg-yellow-500',
+      'bg-cyan-500'
+    ];
+    return colors[index % colors.length];
+  };
+
+  // Actualizar recursos cuando cambien los de Supabase
+  useEffect(() => {
+    console.log('📚 MainScreen - Estado recursos:', {
+      usuario: usuario?.id,
+      recursosLoading,
+      recursosSupabaseLength: recursosSupabase?.length,
+      recursosSupabase
+    });
+
+    if (!recursosLoading && recursosSupabase) {
+      console.log('📚 MainScreen - Convirtiendo recursos:', recursosSupabase);
+      const recursosConvertidos = convertirRecursosSupabase();
+      console.log('📚 MainScreen - Recursos convertidos:', recursosConvertidos);
+      setRecursos(recursosConvertidos);
+    }
+  }, [recursosSupabase, recursosLoading]);
  
   const handleAddResource = (): void => {
    // setShowAddResourceModal(true);
@@ -96,6 +170,8 @@ export default function MainScreen() {
              <ActividadesGrid />
           </div>
         </div>
+
+
 
         {/* Missions positioned at fixed location */}
         <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 10 }}>

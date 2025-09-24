@@ -15,19 +15,12 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index, onShowD
   const calculateTimeUntilStart = () => {
     if (!actividad.hora_inicio) return 0;
 
-    console.log('🕐 Raw hora_inicio:', actividad.hora_inicio);
-    console.log('🕐 Type:', typeof actividad.hora_inicio);
-
     try {
       // Parse ISO 8601 format: "2023-09-23T23:00:00+00:00"
       const targetDateTime = new Date(actividad.hora_inicio);
       
-      console.log('📅 Parsed date:', targetDateTime);
-      console.log('📅 Date valid?', !isNaN(targetDateTime.getTime()));
-      
       // Validate that the date is valid
       if (isNaN(targetDateTime.getTime())) {
-        console.log('❌ Invalid date detected');
         return 0;
       }
 
@@ -171,17 +164,11 @@ export default function ActividadesGrid() {
   const formatTime = (horaInicio: string | null) => {
     if (!horaInicio) return 'Sin hora';
 
-    console.log('🕐 formatTime input:', horaInicio);
-
     try {
       // Parse ISO 8601 and convert to local time
       const date = new Date(horaInicio);
       
-      console.log('📅 formatTime parsed date:', date);
-      console.log('📅 formatTime date valid?', !isNaN(date.getTime()));
-      
       if (isNaN(date.getTime())) {
-        console.log('❌ formatTime returning 00:00 due to invalid date');
         return '00:00';
       }
 
@@ -191,10 +178,8 @@ export default function ActividadesGrid() {
         hour12: true
       });
       
-      console.log('✅ formatTime result:', formatted);
       return formatted;
     } catch (error) {
-      console.log('❌ formatTime catch error:', error);
       return horaInicio;
     }
   };

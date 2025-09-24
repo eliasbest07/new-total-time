@@ -51,6 +51,9 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const dragImageRef = useRef<HTMLDivElement>(null);
 
+  // Log para debug
+  console.log('📚 Accordion - Recursos recibidos:', recursos);
+
   // Lista completa de usuarios
   const allUsers: User[] = [
     { id: 1, name: 'Juan Pérez', status: 'En línea', avatar: 'JP', color: 'bg-blue-500', online: true },
@@ -196,54 +199,73 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
                 ) : section.content === 'resources' ? (
                   // Sección especial para recursos con cajitas pequeñas
                   <div>
-                    <div className="grid grid-cols-5 gap-2 mb-8 pb-4">
-                      {recursos.map((recurso) => {
-                        const IconComponent = recurso.icon;
-                        return (
-                          <div
-                            key={recurso.id}
-                            className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-grab hover:scale-105 flex flex-col items-center group"
-                            draggable
-                            onDragStart={(e) => {
-                              setIsDragging(true);
-                              e.dataTransfer.setData('text/plain', `Recurso: ${recurso.name} (${recurso.type})`);
-                              e.dataTransfer.setData('application/json', JSON.stringify({
-                                type: 'resource',
-                                name: recurso.name,
-                                resourceType: recurso.type,
-                                color: recurso.color,
-                                icon: recurso.icon.name
-                              }));
+                    {recursos.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-white/60 text-sm mb-4">No hay recursos disponibles</p>
+                        <button
+                          onClick={handleAddResource}
+                          className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors duration-200"
+                        >
+                          Agregar primer recurso
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-5 gap-2 mb-8 pb-4">
+                        {recursos.map((recurso) => {
+                          const IconComponent = recurso.icon;
+                          return (
+                            <div
+                              key={recurso.id}
+                              className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-grab hover:scale-105 flex flex-col items-center group"
+                              draggable
+                              onDragStart={(e) => {
+                                setIsDragging(true);
+                                e.dataTransfer.setData('text/plain', `Recurso: ${recurso.name} (${recurso.type})`);
+                                e.dataTransfer.setData('application/json', JSON.stringify({
+                                  type: 'resource',
+                                  name: recurso.name,
+                                  resourceType: recurso.type,
+                                  color: recurso.color,
+                                  icon: recurso.icon.name,
+                                  url: recurso.url
+                                }));
 
-                              // Crear imagen de drag personalizada
-                              if (dragImageRef.current) {
-                                e.dataTransfer.setDragImage(dragImageRef.current, 20, 20);
-                              }
+                                // Crear imagen de drag personalizada
+                                if (dragImageRef.current) {
+                                  e.dataTransfer.setDragImage(dragImageRef.current, 20, 20);
+                                }
 
-                              // Hacer el elemento semi-transparente durante el drag
-                              e.currentTarget.style.opacity = '0.5';
-                            }}
-                            onDragEnd={(e) => {
-                              setIsDragging(false);
-                              e.currentTarget.style.opacity = '1';
-                            }}
-                          >
-                            <div className={`w-8 h-8 rounded ${recurso.color} flex items-center justify-center mb-1`}>
-                              <IconComponent size={16} className="text-white" />
+                                // Hacer el elemento semi-transparente durante el drag
+                                e.currentTarget.style.opacity = '0.5';
+                              }}
+                              onDragEnd={(e) => {
+                                setIsDragging(false);
+                                e.currentTarget.style.opacity = '1';
+                              }}
+                              onClick={() => {
+                                // Si tiene URL, abrir en nueva pestaña
+                                if (recurso.url) {
+                                  window.open(recurso.url, '_blank');
+                                }
+                              }}
+                            >
+                              <div className={`w-8 h-8 rounded ${recurso.color} flex items-center justify-center mb-1`}>
+                                <IconComponent size={16} className="text-white" />
+                              </div>
+                              <span className="text-white text-[10px] text-center truncate w-full leading-tight">
+                                {recurso.name}
+                              </span>
+
+                              {/* Tooltip */}
+                              <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[9999] shadow-2xl border border-white/20">
+                                {recurso.name}
+                                {recurso.url && <div className="text-xs text-white/70 mt-1">Click para abrir</div>}
+                              </div>
                             </div>
-                            <span className="text-white text-[10px] text-center truncate w-full leading-tight">
-                              {recurso.name}
-                            </span>
-
-                            {/* Tooltip */}
-                            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[9999] shadow-2xl border border-white/20">
-                              {recurso.name}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   // Contenido normal para otras secciones
