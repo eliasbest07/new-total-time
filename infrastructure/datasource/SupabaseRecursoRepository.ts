@@ -1,12 +1,6 @@
 import { supabase } from "@/infrastructure/services/SupabaseClient";
 import { RecursoRepository } from "@/infrastructure/repositories/RecursoRepository";
 import { Recurso } from "@/domain/entities/Recurso";
-import { RealtimeChannel } from "@supabase/supabase-js";
-
-interface RealtimeCallbacks {
-  onRecursosUpdated: (recursos: Recurso[]) => void;
-  onError: (error: string) => void;
-}
 
 export class SupabaseRecursoRepository implements RecursoRepository {
 
@@ -132,66 +126,5 @@ export class SupabaseRecursoRepository implements RecursoRepository {
     }
   }
 
-  // Suscribirse a cambios en tiempo real de recursos del usuario
-  subscribeToRecursosChanges(idUsuario: string, callbacks: RealtimeCallbacks): RealtimeChannel {
-    console.log('📡 Iniciando suscripción realtime para recursos del usuario:', idUsuario);
 
-    const channel = supabase
-      .channel(`recursos-usuario-${idUsuario}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'recursos',
-          filter: `id_usuario=eq.${idUsuario}`
-        },
-        async (payload) => {
-          console.log('📡 Cambio detectado en recursos:', payload);
-
-          try {
-            const timeoutPromise = new Promise<never>((_, reject) => {
-              setTimeout(() => reject(new Error('Timeout en realtime update')), 5000);
-            });
-
-            const updatePromise = this.getRecursosByUsuario(idUsuario);
-            const nuevosRecursos = await Promise.race([updatePromise, timeoutPromise]);
-
-            callbacks.onRecursosUpdated(nuevosRecursos);
-          } catch (error) {
-            console.error('❌ Error procesando cambio de recursos:', error);
-            callbacks.onError('Error al procesar cambios de recursos');
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Estado de suscripción realtime recursos:', status);
-
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Suscripción realtime recursos activa');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Error en canal realtime recursos');
-          callbacks.onError('Error en la conexión realtime de recursos');
-        } else if (status === 'TIMED_OUT') {
-          console.error('⏰ Timeout en suscripción realtime recursos');
-          callbacks.onError('Timeout en la conexión realtime de recursos');
-        } else if (status === 'CLOSED') {
-          console.log('🔒 Canal realtime recursos cerrado');
-        }
-      });
-
-    return channel;
-  }
-
-  // Desuscribirse de cambios en tiempo real
-  unsubscribeFromChanges(channel: RealtimeChannel): Promise<void> {
-    console.log('🧹 Desuscribiendo canal realtime recursos');
-
-    return supabase.removeChannel(channel).then(() => {
-      console.log('✅ Canal realtime recursos removido exitosamente');
-    }).catch((error) => {
-      console.error('❌ Error removiendo canal realtime recursos:', error);
-      throw error;
-    });
-  }
 }

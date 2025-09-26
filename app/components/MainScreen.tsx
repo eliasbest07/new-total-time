@@ -13,9 +13,11 @@ import { Resource } from "../demo/utils/resourceUtils";
 import ActividadesGrid from "../demo/components/ActividadesGrid";
 import MisionesCompact from "./mainUI/MisionesCompact";
 import { useRecursos } from "@/hooks/useRecursos";
+import { useProyectos } from "@/hooks/useProyectos";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useEffect } from "react";
 import { FileText, Link, Code, Image, Video, Download } from "lucide-react";
+import AgregarRecursoModal from "./modals/AgregarRecursoModal";
 
 
 export default function MainScreen() {
@@ -25,9 +27,11 @@ export default function MainScreen() {
   const [showActividadDetails, setShowActividadDetails] = useState(false);
   const [selectedMision, setSelectedMision] = useState<{title: string, hours: number} | null>(null);
   const [showMisionDetails, setShowMisionDetails] = useState(false);
+  const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   
   const { usuario } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
+  const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos(usuario?.id || null);
 
   // Función para convertir recursos de Supabase al formato del Accordion
   const convertirRecursosSupabase = () => {
@@ -95,9 +99,19 @@ export default function MainScreen() {
       setRecursos(recursosConvertidos);
     }
   }, [recursosSupabase, recursosLoading]);
+
+  // Log para proyectos
+  useEffect(() => {
+    console.log('📁 MainScreen - Estado proyectos:', {
+      usuario: usuario?.id,
+      proyectosLoading,
+      proyectosSupabaseLength: proyectosSupabase?.length,
+      proyectosSupabase
+    });
+  }, [proyectosSupabase, proyectosLoading]);
  
   const handleAddResource = (): void => {
-   // setShowAddResourceModal(true);
+    setShowAddResourceModal(true);
   };
 
 
@@ -150,7 +164,11 @@ export default function MainScreen() {
       >
         {!rightPanelCollapsed && (
           <div className="p-4 pt-16 z-10">
-            <Accordion recursos={recursos} onAddResource={handleAddResource} />
+            <Accordion 
+              recursos={recursos} 
+              proyectos={proyectosSupabase}
+              onAddResource={handleAddResource} 
+            />
           </div>
         )}
       </div>
@@ -181,6 +199,11 @@ export default function MainScreen() {
           <MisionesCompact />
         </div>
 
+      {/* Modal para agregar recurso */}
+      <AgregarRecursoModal
+        isOpen={showAddResourceModal}
+        onClose={() => setShowAddResourceModal(false)}
+      />
 
     </div>
   );

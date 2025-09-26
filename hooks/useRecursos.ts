@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Recurso } from '@/domain/entities/Recurso';
 import { SupabaseRecursoRepository } from '@/infrastructure/datasource/SupabaseRecursoRepository';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 export const useRecursos = (idUsuario: string | null) => {
   const [recursos, setRecursos] = useState<Recurso[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
 
   const recursoRepository = new SupabaseRecursoRepository();
 
@@ -40,7 +38,8 @@ export const useRecursos = (idUsuario: string | null) => {
     try {
       const nuevoRecurso = await recursoRepository.createRecurso(recursoData);
       if (nuevoRecurso) {
-        // El realtime se encargará de actualizar la lista
+        // Recargar la lista después de crear
+        await loadRecursos();
         return nuevoRecurso;
       }
       throw new Error('No se pudo crear el recurso');
@@ -55,7 +54,8 @@ export const useRecursos = (idUsuario: string | null) => {
     try {
       const recursoActualizado = await recursoRepository.updateRecurso(id, recursoData);
       if (recursoActualizado) {
-        // El realtime se encargará de actualizar la lista
+        // Recargar la lista después de actualizar
+        await loadRecursos();
         return recursoActualizado;
       }
       throw new Error('No se pudo actualizar el recurso');
@@ -70,7 +70,8 @@ export const useRecursos = (idUsuario: string | null) => {
     try {
       const success = await recursoRepository.deleteRecurso(id);
       if (success) {
-        // El realtime se encargará de actualizar la lista
+        // Recargar la lista después de eliminar
+        await loadRecursos();
         return true;
       }
       throw new Error('No se pudo eliminar el recurso');
@@ -81,46 +82,20 @@ export const useRecursos = (idUsuario: string | null) => {
     }
   };
 
-  // Configurar realtime cuando cambia el usuario
+  // Cargar recursos cuando cambia el usuario (sin realtime)
   useEffect(() => {
     console.log('📚 useRecursos - useEffect ejecutado con idUsuario:', idUsuario);
     
     if (!idUsuario) {
-      console.log('📚 useRecursos - No hay usuario, limpiando suscripción');
-      // Limpiar suscripción si no hay usuario
-      if (realtimeChannel) {
-        recursoRepository.unsubscribeFromChanges(realtimeChannel);
-        setRealtimeChannel(null);
-      }
+      console.log('📚 useRecursos - No hay usuario, limpiando recursos');
+      setRecursos([]);
+      setLoading(false);
       return;
     }
 
-    console.log('📚 useRecursos - Configurando para usuario:', idUsuario);
-
+    console.log('📚 useRecursos - Cargando recursos para usuario:', idUsuario);
     // Cargar recursos iniciales
     loadRecursos();
-
-    // Configurar suscripción realtime
-    const channel = recursoRepository.subscribeToRecursosChanges(idUsuario, {
-      onRecursosUpdated: (nuevosRecursos) => {
-        console.log('📡 Recursos actualizados via realtime:', nuevosRecursos.length);
-        setRecursos(nuevosRecursos);
-        setError(null);
-      },
-      onError: (errorMsg) => {
-        console.error('📡 Error en realtime recursos:', errorMsg);
-        setError(errorMsg);
-      }
-    });
-
-    setRealtimeChannel(channel);
-
-    // Cleanup al desmontar o cambiar usuario
-    return () => {
-      if (channel) {
-        recursoRepository.unsubscribeFromChanges(channel);
-      }
-    };
   }, [idUsuario, loadRecursos]);
 
   return {

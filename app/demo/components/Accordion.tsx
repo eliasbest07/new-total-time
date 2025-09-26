@@ -7,16 +7,11 @@ import {
   FolderOpen,
   Archive,
   Clock,
-  FileText,
-  Image,
-  Video,
-  Download,
-  Link,
-  Code,
   Plus,
   LucideIcon
 } from 'lucide-react';
 import { Resource } from '../utils/resourceUtils';
+import Ventana from './Ventana';
 
 // Tipos/Interfaces
 interface User {
@@ -28,7 +23,18 @@ interface User {
   online: boolean;
 }
 
-// Resource interface now imported from utils
+interface Proyecto {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  fechaCreacion: string;
+  estado: string;
+  colores: {
+    primario: string;
+    secundario: string;
+    acento: string;
+  };
+}
 
 interface Section {
   id: string;
@@ -41,18 +47,18 @@ interface Section {
 // Props interface
 interface AccordionProps {
   recursos: Resource[];
+  proyectos?: Proyecto[];
   onAddResource: () => void;
 }
 
 // Componente Principal
-const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
+const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], onAddResource }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showAllUsers, setShowAllUsers] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [showProyectoDetails, setShowProyectoDetails] = useState(false);
+  const [selectedProyecto, setSelectedProyecto] = useState<Proyecto | null>(null);
   const dragImageRef = useRef<HTMLDivElement>(null);
-
-  // Log para debug
-  console.log('📚 Accordion - Recursos recibidos:', recursos);
 
   // Lista completa de usuarios
   const allUsers: User[] = [
@@ -68,7 +74,38 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
     { id: 10, name: 'Carmen Ruiz', status: 'En línea', avatar: 'CR', color: 'bg-cyan-500', online: true }
   ];
 
-  // recursos now comes from props
+  // Función para convertir proyectos de Supabase al formato del Accordion
+  const convertirProyectosSupabase = () => {
+    return proyectos.map((proyecto) => ({
+      id: proyecto.id,
+      nombre: proyecto.nombre,
+      descripcion: proyecto.description || 'Sin descripción',
+      fechaCreacion: proyecto.created_at.split('T')[0], // Convertir timestamp a fecha
+      estado: getEstadoFromType(proyecto.type),
+      colores: {
+        primario: proyecto.colors?.[0] || '#3B82F6',
+        secundario: proyecto.colors?.[1] || '#1E40AF',
+        acento: proyecto.colors?.[2] || '#60A5FA'
+      }
+    }));
+  };
+
+  // Función para obtener estado basado en el tipo
+  const getEstadoFromType = (type: string | null) => {
+    if (!type) return 'Sin estado';
+    
+    const estadoMap: { [key: string]: string } = {
+      'development': 'En desarrollo',
+      'review': 'En revisión',
+      'completed': 'Completado',
+      'active': 'En desarrollo',
+      'inactive': 'Pausado'
+    };
+    
+    return estadoMap[type.toLowerCase()] || 'En desarrollo';
+  };
+
+  const proyectosConvertidos = convertirProyectosSupabase();
 
   const sections: Section[] = [
     {
@@ -83,13 +120,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
       title: 'Proyectos',
       icon: FolderOpen,
       color: 'bg-blue-500',
-      content: [
-        'Proyecto Alpha - En desarrollo',
-        'Proyecto Beta - En revisión',
-        'Proyecto Gamma - Completado',
-        'Proyecto Delta - Planificación',
-        'Proyecto Epsilon - En pausa'
-      ]
+      content: 'projects'
     },
     {
       id: 'recursos',
@@ -105,197 +136,324 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, onAddResource }) => {
   };
 
   const handleAddResource = (): void => {
+    console.log('🔧 Accordion - handleAddResource llamado');
     onAddResource();
   };
 
-  return (
-    <div className="w-full bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg pointer-events-auto">
-      {sections.map((section) => {
-        const Icon = section.icon;
-        const isActive = activeSection === section.id;
-        const isExpanded = isActive;
+  const handleProyectoClick = (proyecto: Proyecto) => {
+    setSelectedProyecto(proyecto);
+    setShowProyectoDetails(true);
+  };
 
-        return (
-          <div key={section.id} className="border-b border-white/10 last:border-b-0">
-            {/* Header */}
-            <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${isActive ? section.color : 'bg-transparent'
-                }`}>
-              <button
-                onClick={() => toggleSection(section.id)}
-                className="flex items-center space-x-3 flex-1"
-              >
-                <Icon
-                  size={20}
-                  className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/70'
-                    }`}
-                />
-                <span className={`font-medium transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/90'
-                  }`}>
-                  {section.title}
-                </span>
-              </button>
-              <div className="flex items-center space-x-2">
-                {section.id === 'recursos' && (
-                  <button
-                    onClick={handleAddResource}
-                    className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 opacity-80 hover:opacity-100"
-                  >
-                    <Plus size={14} className="text-white" />
-                  </button>
-                )}
+  const getEstadoColor = (estado: string) => {
+    switch (estado) {
+      case 'En desarrollo':
+        return 'bg-blue-100 text-blue-800';
+      case 'En revisión':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Completado':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <>
+      <div className="w-full bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg pointer-events-auto">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          const isActive = activeSection === section.id;
+          const isExpanded = isActive;
+
+          return (
+            <div key={section.id} className="border-b border-white/10 last:border-b-0">
+              {/* Header */}
+              <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${
+                isActive ? section.color : 'bg-transparent'
+              }`}>
                 <button
                   onClick={() => toggleSection(section.id)}
-                  className="p-1"
+                  className="flex items-center space-x-3 flex-1"
                 >
-                  <ChevronDown
-                    size={16}
-                    className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
-                      }`}
+                  <Icon
+                    size={20}
+                    className={`transition-colors duration-300 ${
+                      isActive ? 'text-white' : 'text-white/70'
+                    }`}
                   />
+                  <span className={`font-medium transition-colors duration-300 ${
+                    isActive ? 'text-white' : 'text-white/90'
+                  }`}>
+                    {section.title}
+                  </span>
                 </button>
+                <div className="flex items-center space-x-2">
+                  {section.id === 'recursos' && (
+                    <button
+                      onClick={handleAddResource}
+                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 opacity-80 hover:opacity-100"
+                    >
+                      <Plus size={14} className="text-white" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="p-1"
+                  >
+                    <ChevronDown
+                      size={16}
+                      className={`transition-all duration-300 ${
+                        isActive ? 'text-white rotate-180' : 'text-white/70'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Expandable Content */}
-            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+              {/* Expandable Content */}
+              <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
               }`}>
-              <div className="bg-white/5 backdrop-blur-sm px-4 py-3">
-                {section.content === 'users' ? (
-                  // Sección especial para usuarios
-                  <div>
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      {(showAllUsers ? allUsers : allUsers.slice(0, 4)).map((user) => (
-                        <div
-                          key={user.id}
-                          className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-pointer"
-                        >
-                          <div className="relative">
-                            <div className={`w-10 h-10 rounded-full ${user.color} flex items-center justify-center text-white text-sm font-semibold`}>
-                              {user.avatar}
+                <div className="bg-white/5 backdrop-blur-sm px-4 py-3">
+                  {section.content === 'users' ? (
+                    // Sección especial para usuarios
+                    <div>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        {(showAllUsers ? allUsers : allUsers.slice(0, 4)).map((user) => (
+                          <div
+                            key={user.id}
+                            className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-pointer"
+                          >
+                            <div className="relative">
+                              <div className={`w-10 h-10 rounded-full ${user.color} flex items-center justify-center text-white text-sm font-semibold`}>
+                                {user.avatar}
+                              </div>
+                              {user.online && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white/20"></div>
+                              )}
                             </div>
-                            {user.online && (
-                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white/20"></div>
-                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-white truncate">{user.name}</p>
+                              <div className="flex items-center space-x-1">
+                                {!user.online && <Clock size={10} className="text-white/60" />}
+                                <p className="text-xs text-white/60 truncate">{user.status}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{user.name}</p>
-                            <div className="flex items-center space-x-1">
-                              {!user.online && <Clock size={10} className="text-white/60" />}
-                              <p className="text-xs text-white/60 truncate">{user.status}</p>
-                            </div>
+                        ))}
+                      </div>
+
+                      {/* Botón Ver más */}
+                      <button
+                        onClick={() => setShowAllUsers(!showAllUsers)}
+                        className="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/80 hover:text-white transition-colors duration-200 font-medium"
+                      >
+                        {showAllUsers ? 'Ver menos' : `Ver más (${allUsers.length - 4} usuarios más)`}
+                      </button>
+                    </div>
+                  ) : section.content === 'projects' ? (
+                    // Sección especial para proyectos
+                    <div className="space-y-3">
+                      {proyectosConvertidos.map((proyecto) => (
+                        <div
+                          key={proyecto.id}
+                          className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-pointer"
+                          onClick={() => handleProyectoClick(proyecto)}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-white font-medium text-sm">{proyecto.nombre}</h4>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(proyecto.estado)}`}>
+                              {proyecto.estado}
+                            </span>
                           </div>
                         </div>
                       ))}
                     </div>
+                  ) : section.content === 'resources' ? (
+                    // Sección especial para recursos con cajitas pequeñas
+                    <div>
+                      {recursos.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-white/60 text-sm mb-4">No hay recursos disponibles</p>
+                          <button
+                            onClick={handleAddResource}
+                            className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors duration-200"
+                          >
+                            Agregar primer recurso
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-5 gap-2 mb-8 pb-4">
+                          {recursos.map((recurso) => {
+                            const IconComponent = recurso.icon;
+                            return (
+                              <div
+                                key={recurso.id}
+                                className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-grab hover:scale-105 flex flex-col items-center group"
+                                draggable
+                                onDragStart={(e) => {
+                                  setIsDragging(true);
+                                  e.dataTransfer.setData('text/plain', `Recurso: ${recurso.name} (${recurso.type})`);
+                                  e.dataTransfer.setData('application/json', JSON.stringify({
+                                    type: 'resource',
+                                    name: recurso.name,
+                                    resourceType: recurso.type,
+                                    color: recurso.color,
+                                    icon: recurso.icon.name,
+                                    url: recurso.url
+                                  }));
 
-                    {/* Botón Ver más */}
-                    <button
-                      onClick={() => setShowAllUsers(!showAllUsers)}
-                      className="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/80 hover:text-white transition-colors duration-200 font-medium"
-                    >
-                      {showAllUsers ? 'Ver menos' : `Ver más (${allUsers.length - 4} usuarios más)`}
-                    </button>
-                  </div>
-                ) : section.content === 'resources' ? (
-                  // Sección especial para recursos con cajitas pequeñas
-                  <div>
-                    {recursos.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-white/60 text-sm mb-4">No hay recursos disponibles</p>
-                        <button
-                          onClick={handleAddResource}
-                          className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors duration-200"
+                                  // Crear imagen de drag personalizada
+                                  if (dragImageRef.current) {
+                                    e.dataTransfer.setDragImage(dragImageRef.current, 20, 20);
+                                  }
+
+                                  // Hacer el elemento semi-transparente durante el drag
+                                  e.currentTarget.style.opacity = '0.5';
+                                }}
+                                onDragEnd={(e) => {
+                                  setIsDragging(false);
+                                  e.currentTarget.style.opacity = '1';
+                                }}
+                                onClick={() => {
+                                  // Si tiene URL, abrir en nueva pestaña
+                                  if (recurso.url) {
+                                    window.open(recurso.url, '_blank');
+                                  }
+                                }}
+                              >
+                                <div className={`w-8 h-8 rounded ${recurso.color} flex items-center justify-center mb-1`}>
+                                  <IconComponent size={16} className="text-white" />
+                                </div>
+                                <span className="text-white text-[10px] text-center truncate w-full leading-tight">
+                                  {recurso.name}
+                                </span>
+
+                                {/* Tooltip */}
+                                <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[9999] shadow-2xl border border-white/20">
+                                  {recurso.name}
+                                  {recurso.url && <div className="text-xs text-white/70 mt-1">Click para abrir</div>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    // Contenido normal para otras secciones
+                    <ul className="space-y-2">
+                      {Array.isArray(section.content) && section.content.map((item, itemIndex) => (
+                        <li
+                          key={itemIndex}
+                          className="text-sm text-white/80 hover:text-white transition-colors duration-200 cursor-pointer flex items-center space-x-2 py-1 hover:bg-white/10 rounded px-2 -mx-2"
                         >
-                          Agregar primer recurso
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-5 gap-2 mb-8 pb-4">
-                        {recursos.map((recurso) => {
-                          const IconComponent = recurso.icon;
-                          return (
-                            <div
-                              key={recurso.id}
-                              className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-grab hover:scale-105 flex flex-col items-center group"
-                              draggable
-                              onDragStart={(e) => {
-                                setIsDragging(true);
-                                e.dataTransfer.setData('text/plain', `Recurso: ${recurso.name} (${recurso.type})`);
-                                e.dataTransfer.setData('application/json', JSON.stringify({
-                                  type: 'resource',
-                                  name: recurso.name,
-                                  resourceType: recurso.type,
-                                  color: recurso.color,
-                                  icon: recurso.icon.name,
-                                  url: recurso.url
-                                }));
+                          <div className={`w-2 h-2 rounded-full ${section.color.replace('bg-', 'bg-')} opacity-60`}></div>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
 
-                                // Crear imagen de drag personalizada
-                                if (dragImageRef.current) {
-                                  e.dataTransfer.setDragImage(dragImageRef.current, 20, 20);
-                                }
+        {/* Imagen de drag personalizada (invisible) */}
+        <div
+          ref={dragImageRef}
+          className="fixed -top-96 -left-96 w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold pointer-events-none z-[9999]"
+          style={{ opacity: isDragging ? 1 : 0 }}
+        >
+          📦
+        </div>
+      </div>
 
-                                // Hacer el elemento semi-transparente durante el drag
-                                e.currentTarget.style.opacity = '0.5';
-                              }}
-                              onDragEnd={(e) => {
-                                setIsDragging(false);
-                                e.currentTarget.style.opacity = '1';
-                              }}
-                              onClick={() => {
-                                // Si tiene URL, abrir en nueva pestaña
-                                if (recurso.url) {
-                                  window.open(recurso.url, '_blank');
-                                }
-                              }}
-                            >
-                              <div className={`w-8 h-8 rounded ${recurso.color} flex items-center justify-center mb-1`}>
-                                <IconComponent size={16} className="text-white" />
-                              </div>
-                              <span className="text-white text-[10px] text-center truncate w-full leading-tight">
-                                {recurso.name}
-                              </span>
+      {/* Ventana de detalles del proyecto */}
+      <Ventana
+        isOpen={showProyectoDetails}
+        onClose={() => setShowProyectoDetails(false)}
+        title="Detalles del Proyecto"
+        initialWidth={600}
+        initialHeight={500}
+        minWidth={500}
+        minHeight={400}
+        showOverlay={true}
+      >
+        {selectedProyecto && (
+          <div className="text-black space-y-6 p-4">
+            {/* Nombre del proyecto */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Nombre del Proyecto</h3>
+              <p className="text-gray-700 text-xl font-medium">{selectedProyecto.nombre}</p>
+            </div>
 
-                              {/* Tooltip */}
-                              <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[9999] shadow-2xl border border-white/20">
-                                {recurso.name}
-                                {recurso.url && <div className="text-xs text-white/70 mt-1">Click para abrir</div>}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  // Contenido normal para otras secciones
-                  <ul className="space-y-2">
-                    {Array.isArray(section.content) && section.content.map((item, itemIndex) => (
-                      <li
-                        key={itemIndex}
-                        className="text-sm text-white/80 hover:text-white transition-colors duration-200 cursor-pointer flex items-center space-x-2 py-1 hover:bg-white/10 rounded px-2 -mx-2"
-                      >
-                        <div className={`w-2 h-2 rounded-full ${section.color.replace('bg-', 'bg-')} opacity-60`}></div>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+            {/* Fecha de creación */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Fecha de Creación</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="text-gray-700">
+                  {new Date(selectedProyecto.fechaCreacion).toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+              </div>
+            </div>
+
+            {/* Descripción */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Descripción</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="text-gray-700">{selectedProyecto.descripcion}</p>
+              </div>
+            </div>
+
+            {/* Estado */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Estado</h3>
+              <span className={`inline-block px-3 py-2 rounded-lg font-medium ${getEstadoColor(selectedProyecto.estado)}`}>
+                {selectedProyecto.estado}
+              </span>
+            </div>
+
+            {/* Colores */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Colores del Proyecto</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div 
+                    className="w-16 h-16 rounded-lg mx-auto mb-2 border border-gray-200"
+                    style={{ backgroundColor: selectedProyecto.colores.primario }}
+                  ></div>
+                  <p className="text-sm text-gray-600">Primario</p>
+                  <p className="text-xs text-gray-500 font-mono">{selectedProyecto.colores.primario}</p>
+                </div>
+                <div className="text-center">
+                  <div 
+                    className="w-16 h-16 rounded-lg mx-auto mb-2 border border-gray-200"
+                    style={{ backgroundColor: selectedProyecto.colores.secundario }}
+                  ></div>
+                  <p className="text-sm text-gray-600">Secundario</p>
+                  <p className="text-xs text-gray-500 font-mono">{selectedProyecto.colores.secundario}</p>
+                </div>
+                <div className="text-center">
+                  <div 
+                    className="w-16 h-16 rounded-lg mx-auto mb-2 border border-gray-200"
+                    style={{ backgroundColor: selectedProyecto.colores.acento }}
+                  ></div>
+                  <p className="text-sm text-gray-600">Acento</p>
+                  <p className="text-xs text-gray-500 font-mono">{selectedProyecto.colores.acento}</p>
+                </div>
               </div>
             </div>
           </div>
-        );
-      })}
-
-      {/* Imagen de drag personalizada (invisible) */}
-      <div
-        ref={dragImageRef}
-        className="fixed -top-96 -left-96 w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold pointer-events-none z-[9999]"
-        style={{ opacity: isDragging ? 1 : 0 }}
-      >
-        📦
-      </div>
-    </div>
+        )}
+      </Ventana>
+    </>
   );
 };
 
