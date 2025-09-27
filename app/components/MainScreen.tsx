@@ -14,6 +14,7 @@ import ActividadesGrid from "../demo/components/ActividadesGrid";
 import MisionesCompact from "./mainUI/MisionesCompact";
 import { useRecursos } from "@/hooks/useRecursos";
 import { useProyectos } from "@/hooks/useProyectos";
+import { useUsuariosOrganizacion } from "@/hooks/useUsuariosOrganizacion";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useEffect } from "react";
 import { FileText, Link, Code, Image, Video, Download } from "lucide-react";
@@ -32,6 +33,7 @@ export default function MainScreen() {
   const { usuario } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos(usuario?.id || null);
+  const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
 
   // Función para convertir recursos de Supabase al formato del Accordion
   const convertirRecursosSupabase = () => {
@@ -109,6 +111,17 @@ export default function MainScreen() {
       proyectosSupabase
     });
   }, [proyectosSupabase, proyectosLoading]);
+
+  // Log para usuarios de organización
+  useEffect(() => {
+    console.log('👥 MainScreen - Estado usuarios organización:', {
+      usuario: usuario?.id,
+      organizacion: usuario?.idOrganizacion,
+      usuariosLoading,
+      usuariosOrganizacionLength: usuariosOrganizacion?.length,
+      usuariosOrganizacion
+    });
+  }, [usuariosOrganizacion, usuariosLoading]);
  
   const handleAddResource = (): void => {
     setShowAddResourceModal(true);
@@ -167,6 +180,7 @@ export default function MainScreen() {
             <Accordion 
               recursos={recursos} 
               proyectos={proyectosSupabase}
+              usuarios={usuariosOrganizacion}
               onAddResource={handleAddResource} 
             />
           </div>

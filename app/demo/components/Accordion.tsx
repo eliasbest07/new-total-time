@@ -11,6 +11,7 @@ import {
   LucideIcon
 } from 'lucide-react';
 import { Resource } from '../utils/resourceUtils';
+import { Usuario } from '@/domain/entities/Usuario';
 import Ventana from './Ventana';
 
 // Tipos/Interfaces
@@ -48,11 +49,12 @@ interface Section {
 interface AccordionProps {
   recursos: Resource[];
   proyectos?: Proyecto[];
+  usuarios?: Usuario[];
   onAddResource: () => void;
 }
 
 // Componente Principal
-const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], onAddResource }) => {
+const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuarios = [], onAddResource }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showAllUsers, setShowAllUsers] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -60,19 +62,66 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], onAddRe
   const [selectedProyecto, setSelectedProyecto] = useState<Proyecto | null>(null);
   const dragImageRef = useRef<HTMLDivElement>(null);
 
-  // Lista completa de usuarios
-  const allUsers: User[] = [
-    { id: 1, name: 'Juan Pérez', status: 'En línea', avatar: 'JP', color: 'bg-blue-500', online: true },
-    { id: 2, name: 'María García', status: 'Activa hace 5 min', avatar: 'MG', color: 'bg-purple-500', online: false },
-    { id: 3, name: 'Carlos López', status: 'En línea', avatar: 'CL', color: 'bg-orange-500', online: true },
-    { id: 4, name: 'Ana Martínez', status: 'Activa hace 2 min', avatar: 'AM', color: 'bg-pink-500', online: false },
-    { id: 5, name: 'Luis Rodríguez', status: 'En línea', avatar: 'LR', color: 'bg-indigo-500', online: true },
-    { id: 6, name: 'Sofia Chen', status: 'En línea', avatar: 'SC', color: 'bg-teal-500', online: true },
-    { id: 7, name: 'Diego Morales', status: 'Activa hace 10 min', avatar: 'DM', color: 'bg-red-500', online: false },
-    { id: 8, name: 'Elena Vargas', status: 'En línea', avatar: 'EV', color: 'bg-green-600', online: true },
-    { id: 9, name: 'Roberto Silva', status: 'Activa hace 1 hora', avatar: 'RS', color: 'bg-yellow-500', online: false },
-    { id: 10, name: 'Carmen Ruiz', status: 'En línea', avatar: 'CR', color: 'bg-cyan-500', online: true }
-  ];
+  // Función para convertir usuarios de Supabase al formato del Accordion
+  const convertirUsuariosSupabase = () => {
+    return usuarios.map((usuario, index) => ({
+      id: parseInt(usuario.id) || index,
+      name: usuario.getNombreCompleto(),
+      status: getStatusFromActivity(usuario.ultimaActividad),
+      avatar: getAvatarFromName(usuario.getNombreCompleto()),
+      color: getColorForUser(index),
+      online: isUserOnline(usuario.ultimaActividad)
+    }));
+  };
+
+  // Función para obtener estado basado en última actividad
+  const getStatusFromActivity = (ultimaActividad: Date) => {
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - ultimaActividad.getTime()) / (1000 * 60));
+    
+    if (diffMinutes < 5) return 'En línea';
+    if (diffMinutes < 30) return `Activa hace ${diffMinutes} min`;
+    if (diffMinutes < 60) return 'Activa hace menos de 1 hora';
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `Activa hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `Activa hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+  };
+
+  // Función para obtener avatar de las iniciales del nombre
+  const getAvatarFromName = (name: string) => {
+    const words = name.split(' ');
+    if (words.length >= 2) {
+      return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Función para determinar si el usuario está online (activo en los últimos 5 minutos)
+  const isUserOnline = (ultimaActividad: Date) => {
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - ultimaActividad.getTime()) / (1000 * 60));
+    return diffMinutes < 5;
+  };
+
+  // Función para obtener color basado en el índice
+  const getColorForUser = (index: number) => {
+    const colors = [
+      'bg-blue-500',
+      'bg-purple-500',
+      'bg-orange-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-teal-500',
+      'bg-red-500',
+      'bg-green-600',
+      'bg-yellow-500',
+      'bg-cyan-500'
+    ];
+    return colors[index % colors.length];
+  };
+
+  const allUsers = convertirUsuariosSupabase();
 
   // Función para convertir proyectos de Supabase al formato del Accordion
   const convertirProyectosSupabase = () => {

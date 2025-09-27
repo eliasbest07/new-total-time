@@ -1,6 +1,6 @@
 export interface InfoUsuario {
   nombre: string;
-  apellido?: string; // No está en la DB, lo mantenemos opcional
+  apellido?: string;
   avatar?: string;
   nivel?: number;
   fecha_nacimiento?: Date;
@@ -13,5 +13,5 @@ export interface InfoUsuario {
   bio?: string;
   username: string;
   correo?: string;
-  nombreOrganizacion?:string;
+  nombreOrganizacion?: string;
 }
