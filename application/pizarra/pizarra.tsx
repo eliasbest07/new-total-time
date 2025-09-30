@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useScreenshots } from '@/hooks/useScreenshots';
+import { Camera, X, Trash2 } from 'lucide-react';
 
 // Función para generar IDs únicos consistentes entre servidor y cliente
 let idCounter = 0;
@@ -66,6 +68,10 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
   const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [showScreenshotsModal, setShowScreenshotsModal] = useState<string | null>(null);
+
+
+
 
   // Estados para vínculos
   interface Connection {
@@ -74,6 +80,14 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
     to: string;
   }
 
+    const {
+  screenshots,
+  isCapturing,
+  startCapturing,
+  stopCapturing,
+  clearScreenshots,
+  error: screenshotError
+} = useScreenshots();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
@@ -251,6 +265,39 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
     setDragOffset({ x: offsetX, y: offsetY });
     setIsPanning(false);
   }, [panOffset, isConnecting]);
+
+  // Agrégala después de las funciones handleDrop, handleCardMouseDown, etc.
+const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
+  console.log('🎬 [PLAY/PAUSE] Botón presionado en tarjeta:', cardId);
+  console.log('📊 Estado actual:', { isRunning: currentIsRunning, isCapturing, cardId });
+
+  const newRunningState = !currentIsRunning;
+  console.log('🔄 Nuevo estado:', newRunningState);
+
+  // Actualizar estado de la tarjeta
+  setCards(prev => prev.map(c =>
+    c.id === cardId && c.activityData
+      ? { ...c, activityData: { ...c.activityData, isRunning: newRunningState } }
+      : c
+  ));
+
+  if (newRunningState && !isCapturing) {
+    console.log('▶️ Iniciando captura...');
+    console.log('🌐 navigator.mediaDevices disponible:', !!navigator.mediaDevices);
+    console.log('🎥 getDisplayMedia disponible:', !!navigator.mediaDevices?.getDisplayMedia);
+    
+    try {
+      const actividadId = parseInt(cardId.split('-')[1]) || 1;
+      await startCapturing(actividadId);
+      console.log('✅ Captura iniciada exitosamente');
+    } catch (error) {
+      console.error('❌ Error:', error);
+    }
+  } else if (!newRunningState && isCapturing) {
+    console.log('⏸️ Deteniendo captura');
+    stopCapturing();
+  }
+}, [isCapturing, startCapturing, stopCapturing]);
 
   // Funciones para vínculos
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
@@ -647,6 +694,19 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
 
   // Componente Card mejorado
   const Card: React.FC<{ card: Card }> = React.memo(({ card }) => {
+      const cardScreenshots = screenshots.filter(s => {
+    const actividadId = parseInt(card.id.split('-')[1]) || 0;
+    return s.actividadId === actividadId;
+  });
+
+  const formatTimestamp = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+  
     const getCardIcon = () => {
       switch (card.type) {
         case 'file':
@@ -822,11 +882,11 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
                 className="text-blue-700 font-medium mb-2"
                 style={{ fontSize: `${(card.fontSize || 18) - 2}px` }}
               >
-                👥 Participantes:
+                👥 Participante:
               </div>
               <div className="flex flex-wrap gap-1">
                 {(card.activityData?.participants || [
-                  { name: 'Elias M.', initial: 'EM', color: 'bg-blue-500' },
+                  { name: 'Elias M.', initial: 'MM', color: 'bg-blue-500' },
                   { name: 'Juan P.', initial: 'JP', color: 'bg-green-500' },
                   { name: 'María R.', initial: 'MR', color: 'bg-purple-500' }
                 ]).map((participant, index) => (
@@ -858,31 +918,26 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
                 }
               </div>
               <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  // Toggle timer
-                  setCards(prev => prev.map(c =>
-                    c.id === card.id && c.activityData
-                      ? { ...c, activityData: { ...c.activityData, isRunning: !c.activityData.isRunning } }
-                      : c
-                  ));
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 transition-colors shadow-md"
-                data-todo-interactive
-                style={{
-                  width: `${Math.max(32, (card.fontSize || 18) + 14)}px`,
-                  height: `${Math.max(32, (card.fontSize || 18) + 14)}px`
-                }}
-              >
-                <div style={{ fontSize: `${Math.max(12, (card.fontSize || 18) - 6)}px` }}>
-                  {card.activityData?.isRunning ? '⏸️' : '▶️'}
-                </div>
-              </button>
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleActivityPlayPause(card.id, card.activityData?.isRunning || false);
+  }}
+  onMouseDown={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }}
+  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 transition-colors shadow-md"
+  data-todo-interactive
+  style={{
+    width: `${Math.max(32, (card.fontSize || 18) + 14)}px`,
+    height: `${Math.max(32, (card.fontSize || 18) + 14)}px`
+  }}
+>
+  <div style={{ fontSize: `${Math.max(12, (card.fontSize || 18) - 6)}px` }}>
+    {card.activityData?.isRunning ? '⏸️' : '▶️'}
+  </div>
+</button>
             </div>
           </div>
         ) : card.type === 'todo' ? (
