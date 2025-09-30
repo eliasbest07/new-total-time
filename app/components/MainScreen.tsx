@@ -2,6 +2,8 @@
 
 import Pizarra, { PizarraRef } from "@/application/pizarra/pizarra";
 import { useRef, useState } from "react";
+import Ventana from "@/app/demo/components/Ventana";
+import { useScreenshots } from "@/hooks/useScreenshots";
 
 import Perfil from "@/app/components/mainUI/Perfil";
 import RelojActual from "@/app/components/mainUI/RelojActual";
@@ -29,11 +31,23 @@ export default function MainScreen() {
   const [selectedMision, setSelectedMision] = useState<{title: string, hours: number} | null>(null);
   const [showMisionDetails, setShowMisionDetails] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
+  const [showScreenshotsModal, setShowScreenshotsModal] = useState<string | null>(null);
   
   const { usuario } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos(usuario?.id || null);
   const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
+  
+  // Hook para screenshots
+  const {
+    screenshots,
+    isCapturing,
+    startCapturing,
+    stopCapturing,
+    clearScreenshots,
+    reloadScreenshots,
+    error: screenshotError
+  } = useScreenshots();
 
   // Función para convertir recursos de Supabase al formato del Accordion
   const convertirRecursosSupabase = () => {
@@ -127,6 +141,20 @@ export default function MainScreen() {
     setShowAddResourceModal(true);
   };
 
+  // Función para formatear timestamp
+  const formatTimestamp = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  // Función para manejar la apertura de screenshots
+  const handleShowScreenshots = (cardId: string) => {
+    setShowScreenshotsModal(cardId);
+  };
+
 
   return (
     <div
@@ -134,7 +162,7 @@ export default function MainScreen() {
       style={{ height: 'calc(100vh - 1rem)', padding: '0.5rem' }}>
 
       <div className="absolute inset-0 z-30">
-        <Pizarra ref={pizarraRef} />
+        <Pizarra ref={pizarraRef} onShowScreenshots={handleShowScreenshots} />
       </div>
 
       {/* estos dos componentes abajo estan dentro de demo, tiene que estar afuera para ser usados en cualquier parte */}
@@ -218,6 +246,100 @@ export default function MainScreen() {
         isOpen={showAddResourceModal}
         onClose={() => setShowAddResourceModal(false)}
       />
+
+      {/* Ventana de Screenshots */}
+      <Ventana
+        isOpen={!!showScreenshotsModal}
+        onClose={() => setShowScreenshotsModal(null)}
+        title="Screenshots de Actividad"
+        initialWidth={800}
+        initialHeight={600}
+        minWidth={600}
+        minHeight={400}
+        showOverlay={true}
+      >
+        <div className="h-full flex flex-col">
+          <div className="mb-4">
+            <p className="text-sm text-gray-600">
+              Total: {showScreenshotsModal ? screenshots.filter(s => {
+                const actividadId = parseInt(showScreenshotsModal.split('-')[1]) || 0;
+                return s.actividadId === actividadId;
+              }).length : 0} capturas
+            </p>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {showScreenshotsModal && screenshots
+                .filter(s => {
+                  const actividadId = parseInt(showScreenshotsModal.split('-')[1]) || 0;
+                  return s.actividadId === actividadId;
+                })
+                .sort((a, b) => b.timestamp - a.timestamp)
+                .map(screenshot => (
+                  <div
+                    key={screenshot.id}
+                    className="border rounded-lg overflow-hidden bg-gray-50 hover:shadow-md transition-shadow"
+                  >
+                    <img
+                      src={screenshot.dataUrl}
+                      alt={`Screenshot ${formatTimestamp(screenshot.timestamp)}`}
+                      className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => {
+                        // Abrir imagen en nueva ventana/tab
+                        window.open(screenshot.dataUrl, '_blank');
+                      }}
+                    />
+                    <div className="p-2">
+                      <p className="text-xs text-gray-600">
+                        {formatTimestamp(screenshot.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {showScreenshotsModal && screenshots.filter(s => {
+              const actividadId = parseInt(showScreenshotsModal.split('-')[1]) || 0;
+              return s.actividadId === actividadId;
+            }).length === 0 && (
+              <div className="text-center py-8">
+                <div className="text-gray-400 text-4xl mb-2">📷</div>
+                <p className="text-gray-500">No hay capturas disponibles</p>
+                <p className="text-sm text-gray-400">
+                  Inicia la actividad para comenzar a capturar pantalla
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 pt-4 border-t flex justify-end gap-2">
+            <button
+              onClick={() => {
+                if (!showScreenshotsModal) return;
+                const actividadId = parseInt(showScreenshotsModal.split('-')[1]) || 0;
+                const activityScreenshots = screenshots.filter(s => s.actividadId === actividadId);
+                if (activityScreenshots.length > 0 && confirm('¿Estás seguro de que quieres eliminar todas las capturas de esta actividad?')) {
+                  // Filtrar y guardar screenshots sin los de esta actividad
+                  const remaining = screenshots.filter(s => s.actividadId !== actividadId);
+                  localStorage.setItem('screenshots', JSON.stringify(remaining));
+                  // Recargar screenshots para actualizar la UI
+                  reloadScreenshots();
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm transition-colors"
+            >
+              🗑️ Eliminar Todas
+            </button>
+            <button
+              onClick={() => setShowScreenshotsModal(null)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </Ventana>
 
     </div>
   );

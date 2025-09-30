@@ -13,11 +13,19 @@ interface UseScreenshotsReturn {
   startCapturing: (actividadId: number) => Promise<void>;
   stopCapturing: () => void;
   clearScreenshots: () => void;
+  reloadScreenshots: () => void;
   error: string | null;
 }
 
 export const useScreenshots = (): UseScreenshotsReturn => {
-  const [screenshots, setScreenshots] = useState<Screenshot[]>([]);
+  const [screenshots, setScreenshots] = useState<Screenshot[]>(() => {
+    // Cargar screenshots del localStorage al inicializar
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('screenshots');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -48,19 +56,12 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         actividadId: currentActividadIdRef.current
       };
 
-      setScreenshots(prev => [...prev, newScreenshot]);
-
-      // IMPORTANTE: Aquí deberías enviar la captura a tu backend
-      // Ejemplo:
-      // await fetch('/api/screenshots', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     actividadId: currentActividadIdRef.current,
-      //     image: dataUrl,
-      //     timestamp: Date.now()
-      //   })
-      // });
+      setScreenshots(prev => {
+        const updated = [...prev, newScreenshot];
+        // Guardar en localStorage
+        localStorage.setItem('screenshots', JSON.stringify(updated));
+        return updated;
+      });
 
     } catch (err) {
       console.error('Error al capturar frame:', err);
@@ -166,8 +167,16 @@ export const useScreenshots = (): UseScreenshotsReturn => {
   // Limpiar screenshots
   const clearScreenshots = useCallback(() => {
     setScreenshots([]);
-    // IMPORTANTE: Aquí deberías eliminar las capturas del backend
-    // await fetch(`/api/screenshots/actividad/${actividadId}`, { method: 'DELETE' });
+    // Limpiar del localStorage
+    localStorage.removeItem('screenshots');
+  }, []);
+
+  // Recargar screenshots desde localStorage
+  const reloadScreenshots = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('screenshots');
+      setScreenshots(saved ? JSON.parse(saved) : []);
+    }
   }, []);
 
   // Cleanup al desmontar
@@ -183,6 +192,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     startCapturing,
     stopCapturing,
     clearScreenshots,
+    reloadScreenshots,
     error
   };
 };

@@ -20,7 +20,11 @@ export interface PizarraRef {
   addTodoCard: (text: string) => void;
 }
 
-const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
+export interface PizarraProps {
+  onShowScreenshots?: (cardId: string) => void;
+}
+
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots }, ref) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isReceivingDrag, setIsReceivingDrag] = useState(false);
   interface TodoItem {
@@ -68,7 +72,6 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
   const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [showScreenshotsModal, setShowScreenshotsModal] = useState<string | null>(null);
 
 
 
@@ -86,6 +89,7 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
   startCapturing,
   stopCapturing,
   clearScreenshots,
+  reloadScreenshots,
   error: screenshotError
 } = useScreenshots();
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -101,6 +105,15 @@ const TestPizarra = forwardRef<PizarraRef>((props, ref) => {
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Función para formatear timestamp
+  const formatTimestamp = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
 
   // Funciones para drag and drop externo (archivos)
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -698,14 +711,6 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
     const actividadId = parseInt(card.id.split('-')[1]) || 0;
     return s.actividadId === actividadId;
   });
-
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
   
     const getCardIcon = () => {
       switch (card.type) {
@@ -906,7 +911,7 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
               </div>
             </div>
 
-            {/* Timer y botón play */}
+            {/* Timer y botones */}
             <div className="flex items-center justify-between bg-blue-100 rounded-lg p-2">
               <div
                 className="text-blue-800 font-mono font-bold"
@@ -917,27 +922,58 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
                   : '22:59'
                 }
               </div>
-              <button
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleActivityPlayPause(card.id, card.activityData?.isRunning || false);
-  }}
-  onMouseDown={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }}
-  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 transition-colors shadow-md"
-  data-todo-interactive
-  style={{
-    width: `${Math.max(32, (card.fontSize || 18) + 14)}px`,
-    height: `${Math.max(32, (card.fontSize || 18) + 14)}px`
-  }}
->
-  <div style={{ fontSize: `${Math.max(12, (card.fontSize || 18) - 6)}px` }}>
-    {card.activityData?.isRunning ? '⏸️' : '▶️'}
-  </div>
-</button>
+              <div className="flex gap-2">
+                {/* Botón de screenshots */}
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onShowScreenshots?.(card.id);
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="bg-gray-600 hover:bg-gray-700 text-white rounded-full p-2 transition-colors shadow-md relative"
+                  data-todo-interactive
+                  style={{
+                    width: `${Math.max(32, (card.fontSize || 18) + 14)}px`,
+                    height: `${Math.max(32, (card.fontSize || 18) + 14)}px`
+                  }}
+                >
+                  <div style={{ fontSize: `${Math.max(12, (card.fontSize || 18) - 6)}px` }}>
+                    📷
+                  </div>
+                  {cardScreenshots.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                      {cardScreenshots.length}
+                    </span>
+                  )}
+                </button>
+                
+                {/* Botón play/pause */}
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleActivityPlayPause(card.id, card.activityData?.isRunning || false);
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 transition-colors shadow-md"
+                  data-todo-interactive
+                  style={{
+                    width: `${Math.max(32, (card.fontSize || 18) + 14)}px`,
+                    height: `${Math.max(32, (card.fontSize || 18) + 14)}px`
+                  }}
+                >
+                  <div style={{ fontSize: `${Math.max(12, (card.fontSize || 18) - 6)}px` }}>
+                    {card.activityData?.isRunning ? '⏸️' : '▶️'}
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         ) : card.type === 'todo' ? (
@@ -1623,6 +1659,7 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
           </p>
         )}
       </div>
+
 
       {/* Estilos para scroll personalizado */}
       <style jsx>{`
