@@ -120,7 +120,7 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
     return new Usuario(
       data.id,
       data.email || '',
-      this.mapRol(data.role),
+      this.mapRol(data.role || data.rol || null),
       infoUsuario,
       data.barra_salud || 100,
       data.user_auth || data.id,
@@ -133,7 +133,7 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
     );
   }
 
-  private mapRol(role: string): Rol {
+  private mapRol(role: string | null): Rol {
     switch (role?.toLowerCase()) {
       case 'admin':
         return Rol.ADMIN;
