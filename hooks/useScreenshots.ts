@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 interface Screenshot {
   id: string;
   timestamp: number;
-  dataUrl: string;
+  fileName: string;
+  filePath: string;
   actividadId: number;
 }
 
@@ -13,19 +14,13 @@ interface UseScreenshotsReturn {
   startCapturing: (actividadId: number) => Promise<void>;
   stopCapturing: () => void;
   clearScreenshots: () => void;
+  clearScreenshotsByActivity: (actividadId: number) => void;
   reloadScreenshots: () => void;
   error: string | null;
 }
 
 export const useScreenshots = (): UseScreenshotsReturn => {
-  const [screenshots, setScreenshots] = useState<Screenshot[]>(() => {
-    // Cargar screenshots del localStorage al inicializar
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('screenshots');
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
-  });
+  const [screenshots, setScreenshots] = useState<Screenshot[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -34,8 +29,34 @@ export const useScreenshots = (): UseScreenshotsReturn => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentActividadIdRef = useRef<number | null>(null);
 
+  // Función para descargar un blob como archivo
+  const downloadFile = useCallback(async (blob: Blob, fileName: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      try {
+        // Crear un enlace temporal para descargar
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Limpiar la URL del objeto después de un breve delay
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        
+        // Para el propósito de la UI, devolvemos la URL del blob como path temporal
+        resolve(url);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }, []);
+
   // Función para capturar un frame del video
-  const captureFrame = useCallback(() => {
+  const captureFrame = useCallback(async () => {
     if (!videoRef.current || !currentActividadIdRef.current) return;
 
     try {
@@ -47,27 +68,39 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       if (!ctx) return;
 
       ctx.drawImage(videoRef.current, 0, 0);
-      const dataUrl = canvas.toDataURL('image/png');
+      
+      // Convertir canvas a blob
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        
+        const timestamp = Date.now();
+        const fileName = `screenshot_actividad_${currentActividadIdRef.current}_${timestamp}.png`;
+        
+        try {
+          // Guardar archivo en el sistema
+          const filePath = await downloadFile(blob, fileName);
+          
+          const newScreenshot: Screenshot = {
+            id: `screenshot-${timestamp}-${Math.random()}`,
+            timestamp,
+            fileName,
+            filePath, // URL temporal del blob para mostrar en la UI
+            actividadId: currentActividadIdRef.current!
+          };
 
-      const newScreenshot: Screenshot = {
-        id: `screenshot-${Date.now()}-${Math.random()}`,
-        timestamp: Date.now(),
-        dataUrl,
-        actividadId: currentActividadIdRef.current
-      };
-
-      setScreenshots(prev => {
-        const updated = [...prev, newScreenshot];
-        // Guardar en localStorage
-        localStorage.setItem('screenshots', JSON.stringify(updated));
-        return updated;
-      });
+          setScreenshots(prev => [...prev, newScreenshot]);
+          
+        } catch (err) {
+          console.error('Error al guardar archivo:', err);
+          setError('Error al guardar captura de pantalla');
+        }
+      }, 'image/png', 0.9); // Calidad del 90%
 
     } catch (err) {
       console.error('Error al capturar frame:', err);
       setError('Error al capturar pantalla');
     }
-  }, []);
+  }, [downloadFile]);
 
   // Iniciar captura de pantalla
   const startCapturing = useCallback(async (actividadId: number) => {
@@ -166,17 +199,36 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
   // Limpiar screenshots
   const clearScreenshots = useCallback(() => {
+    // Revocar todas las URLs de objetos para liberar memoria
+    screenshots.forEach(screenshot => {
+      if (screenshot.filePath.startsWith('blob:')) {
+        URL.revokeObjectURL(screenshot.filePath);
+      }
+    });
     setScreenshots([]);
-    // Limpiar del localStorage
-    localStorage.removeItem('screenshots');
+  }, [screenshots]);
+
+  // Limpiar screenshots por actividad específica
+  const clearScreenshotsByActivity = useCallback((actividadId: number) => {
+    setScreenshots(prev => {
+      // Revocar URLs de la actividad específica
+      const toRemove = prev.filter(s => s.actividadId === actividadId);
+      toRemove.forEach(screenshot => {
+        if (screenshot.filePath.startsWith('blob:')) {
+          URL.revokeObjectURL(screenshot.filePath);
+        }
+      });
+      
+      // Retornar screenshots sin los de esta actividad
+      return prev.filter(s => s.actividadId !== actividadId);
+    });
   }, []);
 
-  // Recargar screenshots desde localStorage
+  // Recargar screenshots (para mantener compatibilidad con la interfaz existente)
   const reloadScreenshots = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('screenshots');
-      setScreenshots(saved ? JSON.parse(saved) : []);
-    }
+    // Como ahora los screenshots están en memoria, no necesitamos recargar desde almacenamiento
+    // Esta función se mantiene para compatibilidad
+    console.log('Screenshots están en memoria, no se requiere recarga');
   }, []);
 
   // Cleanup al desmontar
@@ -192,6 +244,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     startCapturing,
     stopCapturing,
     clearScreenshots,
+    clearScreenshotsByActivity,
     reloadScreenshots,
     error
   };

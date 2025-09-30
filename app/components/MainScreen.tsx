@@ -45,6 +45,7 @@ export default function MainScreen() {
     startCapturing,
     stopCapturing,
     clearScreenshots,
+    clearScreenshotsByActivity,
     reloadScreenshots,
     error: screenshotError
   } = useScreenshots();
@@ -282,12 +283,12 @@ export default function MainScreen() {
                     className="border rounded-lg overflow-hidden bg-gray-50 hover:shadow-md transition-shadow"
                   >
                     <img
-                      src={screenshot.dataUrl}
+                      src={screenshot.filePath}
                       alt={`Screenshot ${formatTimestamp(screenshot.timestamp)}`}
                       className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={() => {
                         // Abrir imagen en nueva ventana/tab
-                        window.open(screenshot.dataUrl, '_blank');
+                        window.open(screenshot.filePath, '_blank');
                       }}
                     />
                     <div className="p-2">
@@ -320,11 +321,8 @@ export default function MainScreen() {
                 const actividadId = parseInt(showScreenshotsModal.split('-')[1]) || 0;
                 const activityScreenshots = screenshots.filter(s => s.actividadId === actividadId);
                 if (activityScreenshots.length > 0 && confirm('¿Estás seguro de que quieres eliminar todas las capturas de esta actividad?')) {
-                  // Filtrar y guardar screenshots sin los de esta actividad
-                  const remaining = screenshots.filter(s => s.actividadId !== actividadId);
-                  localStorage.setItem('screenshots', JSON.stringify(remaining));
-                  // Recargar screenshots para actualizar la UI
-                  reloadScreenshots();
+                  // Usar la función específica para eliminar por actividad
+                  clearScreenshotsByActivity(actividadId);
                 }
               }}
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm transition-colors"
