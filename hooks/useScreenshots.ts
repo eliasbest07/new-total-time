@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { supabase } from "@/infrastructure/services/SupabaseClient";
 
 interface Screenshot {
   id: string;
   timestamp: number;
   fileName: string;
-  filePath: string;
+  filePath: string; // URL pública de Supabase
   actividadId: number;
 }
 
@@ -15,7 +16,7 @@ interface UseScreenshotsReturn {
   stopCapturing: () => void;
   clearScreenshots: () => void;
   clearScreenshotsByActivity: (actividadId: number) => void;
-  reloadScreenshots: () => void;
+  reloadScreenshots: (actividadId?: number) => Promise<void>;
   error: string | null;
 }
 
@@ -29,30 +30,40 @@ export const useScreenshots = (): UseScreenshotsReturn => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentActividadIdRef = useRef<number | null>(null);
 
-  // Función para descargar un blob como archivo
-  const downloadFile = useCallback(async (blob: Blob, fileName: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      try {
-        // Crear un enlace temporal para descargar
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        link.style.display = 'none';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Limpiar la URL del objeto después de un breve delay
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-        
-        // Para el propósito de la UI, devolvemos la URL del blob como path temporal
-        resolve(url);
-      } catch (error) {
-        reject(error);
+  // Función para subir archivo a Supabase Storage
+  const uploadToSupabase = useCallback(async (blob: Blob, fileName: string, actividadId: number): Promise<string> => {
+    try {
+      console.log('📤 Subiendo captura a Supabase...', fileName);
+
+      // Subir archivo al bucket 'capturas'
+      const { data, error: uploadError } = await supabase.storage
+        .from('capturas')
+        .upload(`actividad_${actividadId}/${fileName}`, blob, {
+          contentType: 'image/png',
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Error al subir a Supabase:', uploadError);
+        throw uploadError;
       }
-    });
+
+      console.log('✅ Archivo subido:', data.path);
+
+      // Obtener URL pública
+      const { data: urlData } = supabase.storage
+        .from('capturas')
+        .getPublicUrl(data.path);
+
+      console.log('🔗 URL pública generada:', urlData.publicUrl);
+
+      return urlData.publicUrl;
+
+    } catch (err) {
+      console.error('❌ Error en uploadToSupabase:', err);
+      throw err;
+    }
   }, []);
 
   // Función para capturar un frame del video
@@ -69,38 +80,41 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
       ctx.drawImage(videoRef.current, 0, 0);
       
+      console.log('📸 Capturando frame...');
+
       // Convertir canvas a blob
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         
         const timestamp = Date.now();
-        const fileName = `screenshot_actividad_${currentActividadIdRef.current}_${timestamp}.png`;
+        const fileName = `screenshot_${timestamp}.png`;
         
         try {
-          // Guardar archivo en el sistema
-          const filePath = await downloadFile(blob, fileName);
+          // Subir a Supabase Storage
+          const publicUrl = await uploadToSupabase(blob, fileName, currentActividadIdRef.current!);
           
           const newScreenshot: Screenshot = {
             id: `screenshot-${timestamp}-${Math.random()}`,
             timestamp,
             fileName,
-            filePath, // URL temporal del blob para mostrar en la UI
+            filePath: publicUrl,
             actividadId: currentActividadIdRef.current!
           };
 
           setScreenshots(prev => [...prev, newScreenshot]);
+          console.log('✅ Screenshot guardado y agregado al estado');
           
         } catch (err) {
-          console.error('Error al guardar archivo:', err);
-          setError('Error al guardar captura de pantalla');
+          console.error('Error al guardar captura:', err);
+          setError('Error al guardar captura en el servidor');
         }
-      }, 'image/png', 0.9); // Calidad del 90%
+      }, 'image/png', 0.9);
 
     } catch (err) {
       console.error('Error al capturar frame:', err);
       setError('Error al capturar pantalla');
     }
-  }, [downloadFile]);
+  }, [uploadToSupabase]);
 
   // Iniciar captura de pantalla
   const startCapturing = useCallback(async (actividadId: number) => {
@@ -114,17 +128,17 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         return;
       }
 
-      console.log('Solicitando permiso de captura de pantalla...');
+      console.log('🎥 Solicitando permiso de captura de pantalla...');
 
       // Solicitar permiso para capturar pantalla
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
-          displaySurface: 'monitor', // 'monitor', 'window', o 'browser'
+          displaySurface: 'monitor',
         },
         audio: false
       });
 
-      console.log('Permiso concedido, stream obtenido');
+      console.log('✅ Permiso concedido, stream obtenido');
 
       mediaStreamRef.current = stream;
 
@@ -151,7 +165,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       // Configurar intervalo para capturas cada 5 segundos
       intervalRef.current = setInterval(() => {
         captureFrame();
-      }, 5000);
+      }, 300000);
 
       // Detectar cuando el usuario detiene la compartición de pantalla
       stream.getVideoTracks()[0].onended = () => {
@@ -159,7 +173,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       };
 
     } catch (err) {
-      console.error('Error al iniciar captura:', err);
+      console.error('❌ Error al iniciar captura:', err);
       if (err instanceof Error) {
         if (err.name === 'NotAllowedError') {
           setError('Permiso denegado para capturar pantalla');
@@ -175,6 +189,8 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
   // Detener captura
   const stopCapturing = useCallback(() => {
+    console.log('⏹️ Deteniendo captura...');
+    
     // Detener intervalo
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -197,38 +213,153 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     currentActividadIdRef.current = null;
   }, []);
 
-  // Limpiar screenshots
-  const clearScreenshots = useCallback(() => {
-    // Revocar todas las URLs de objetos para liberar memoria
-    screenshots.forEach(screenshot => {
-      if (screenshot.filePath.startsWith('blob:')) {
-        URL.revokeObjectURL(screenshot.filePath);
-      }
-    });
-    setScreenshots([]);
-  }, [screenshots]);
+  // Recargar screenshots desde Supabase
+  const reloadScreenshots = useCallback(async (actividadId?: number) => {
+    try {
+      console.log('🔄 Recargando screenshots desde Supabase...');
 
-  // Limpiar screenshots por actividad específica
-  const clearScreenshotsByActivity = useCallback((actividadId: number) => {
-    setScreenshots(prev => {
-      // Revocar URLs de la actividad específica
-      const toRemove = prev.filter(s => s.actividadId === actividadId);
-      toRemove.forEach(screenshot => {
-        if (screenshot.filePath.startsWith('blob:')) {
-          URL.revokeObjectURL(screenshot.filePath);
-        }
-      });
-      
-      // Retornar screenshots sin los de esta actividad
-      return prev.filter(s => s.actividadId !== actividadId);
-    });
+      let path = '';
+      if (actividadId) {
+        path = `actividad_${actividadId}`;
+      }
+
+      // Listar archivos en el bucket
+      const { data: files, error: listError } = await supabase.storage
+        .from('capturas')
+        .list(path, {
+          limit: 100,
+          offset: 0,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
+
+      if (listError) {
+        console.error('Error al listar archivos:', listError);
+        return;
+      }
+
+      if (!files || files.length === 0) {
+        console.log('No se encontraron screenshots');
+        setScreenshots([]);
+        return;
+      }
+
+      // Convertir archivos a Screenshots
+      const loadedScreenshots: Screenshot[] = files
+        .filter(file => file.name.endsWith('.png'))
+        .map(file => {
+          const fullPath = path ? `${path}/${file.name}` : file.name;
+          const { data: urlData } = supabase.storage
+            .from('capturas')
+            .getPublicUrl(fullPath);
+
+          // Extraer timestamp del nombre del archivo
+          const timestampMatch = file.name.match(/screenshot_(\d+)\.png/);
+          const timestamp = timestampMatch ? parseInt(timestampMatch[1]) : Date.now();
+
+          // Extraer actividadId del path
+          const actividadMatch = fullPath.match(/actividad_(\d+)/);
+          const extractedActividadId = actividadMatch ? parseInt(actividadMatch[1]) : 0;
+
+          return {
+            id: `screenshot-${timestamp}-${Math.random()}`,
+            timestamp,
+            fileName: file.name,
+            filePath: urlData.publicUrl,
+            actividadId: extractedActividadId
+          };
+        });
+
+      setScreenshots(loadedScreenshots);
+      console.log(`✅ ${loadedScreenshots.length} screenshots cargados`);
+
+    } catch (err) {
+      console.error('Error al recargar screenshots:', err);
+      setError('Error al cargar capturas desde el servidor');
+    }
   }, []);
 
-  // Recargar screenshots (para mantener compatibilidad con la interfaz existente)
-  const reloadScreenshots = useCallback(() => {
-    // Como ahora los screenshots están en memoria, no necesitamos recargar desde almacenamiento
-    // Esta función se mantiene para compatibilidad
-    console.log('Screenshots están en memoria, no se requiere recarga');
+  // Limpiar screenshots (eliminar de Supabase)
+  const clearScreenshots = useCallback(async () => {
+    try {
+      console.log('🗑️ Eliminando todos los screenshots...');
+
+      // Obtener todos los archivos
+      const { data: files, error: listError } = await supabase.storage
+        .from('capturas')
+        .list('', {
+          limit: 1000
+        });
+
+      if (listError) {
+        console.error('Error al listar archivos:', listError);
+        return;
+      }
+
+      if (!files || files.length === 0) {
+        setScreenshots([]);
+        return;
+      }
+
+      // Eliminar cada carpeta/archivo
+      for (const file of files) {
+        const { error: deleteError } = await supabase.storage
+          .from('capturas')
+          .remove([file.name]);
+
+        if (deleteError) {
+          console.error('Error al eliminar:', deleteError);
+        }
+      }
+
+      setScreenshots([]);
+      console.log('✅ Screenshots eliminados');
+
+    } catch (err) {
+      console.error('Error al limpiar screenshots:', err);
+      setError('Error al eliminar capturas');
+    }
+  }, []);
+
+  // Limpiar screenshots por actividad específica
+  const clearScreenshotsByActivity = useCallback(async (actividadId: number) => {
+    try {
+      console.log(`🗑️ Eliminando screenshots de actividad ${actividadId}...`);
+
+      const folderPath = `actividad_${actividadId}`;
+
+      // Listar archivos de la actividad
+      const { data: files, error: listError } = await supabase.storage
+        .from('capturas')
+        .list(folderPath);
+
+      if (listError) {
+        console.error('Error al listar archivos:', listError);
+        return;
+      }
+
+      if (!files || files.length === 0) {
+        setScreenshots(prev => prev.filter(s => s.actividadId !== actividadId));
+        return;
+      }
+
+      // Eliminar archivos
+      const filePaths = files.map(file => `${folderPath}/${file.name}`);
+      const { error: deleteError } = await supabase.storage
+        .from('capturas')
+        .remove(filePaths);
+
+      if (deleteError) {
+        console.error('Error al eliminar archivos:', deleteError);
+      }
+
+      // Actualizar estado local
+      setScreenshots(prev => prev.filter(s => s.actividadId !== actividadId));
+      console.log('✅ Screenshots de la actividad eliminados');
+
+    } catch (err) {
+      console.error('Error al limpiar screenshots por actividad:', err);
+      setError('Error al eliminar capturas de la actividad');
+    }
   }, []);
 
   // Cleanup al desmontar
