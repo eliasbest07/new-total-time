@@ -91,6 +91,20 @@ const Ventana = ({
     });
   };
 
+  const clampPosition = (targetPosition: { x: number; y: number }, width: number, height: number) => {
+    if (typeof window === 'undefined') {
+      return targetPosition;
+    }
+
+    const maxX = Math.max(0, window.innerWidth - width);
+    const maxY = Math.max(0, window.innerHeight - height);
+
+    return {
+      x: Math.max(0, Math.min(targetPosition.x, maxX)),
+      y: Math.max(0, Math.min(targetPosition.y, maxY))
+    };
+  };
+
   // Efectos para manejar el movimiento del mouse
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -275,13 +289,19 @@ const Ventana = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (isMinimized) {
-                    // Restaurar: ir a la posición expandida guardada
-                    setPosition(expandedPosition);
+                    // Restaurar: ir a la posición minimizada (ya actualizada) y usarla como referencia expandida
+                    const restoredPosition = clampPosition(minimizedPosition, size.width, size.height);
+                    setExpandedPosition(restoredPosition);
+                    setPosition(restoredPosition);
                     setIsMinimized(false);
                   } else {
-                    // Minimizar: guardar posición expandida actual e ir a posición minimizada
-                    setExpandedPosition(position);
-                    setPosition(minimizedPosition);
+                    // Minimizar: guardar posición expandida actual, sincronizar posición minimizada y clavarla a la vista
+                    const currentExpanded = clampPosition(position, size.width, size.height);
+                    const minimizedPlacement = clampPosition(currentExpanded, 300, 48);
+
+                    setExpandedPosition(currentExpanded);
+                    setMinimizedPosition(minimizedPlacement);
+                    setPosition(minimizedPlacement);
                     setIsMinimized(true);
                   }
                 }}

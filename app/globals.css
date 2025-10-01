@@ -364,6 +364,7 @@ body {
 
 /* Prevenir selección durante arrastre */
 .ventana-dragging {
+  transition: none !important;
   user-select: none !important;
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
