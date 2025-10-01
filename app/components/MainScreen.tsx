@@ -21,6 +21,7 @@ import { useAuth } from "@/app/contexts/AuthContext";
 import { useEffect } from "react";
 import { FileText, Link, Code, Image, Video, Download } from "lucide-react";
 import AgregarRecursoModal from "./modals/AgregarRecursoModal";
+import { Actividad } from "@/domain/entities/Actividad";
 
 
 export default function MainScreen() {
@@ -28,16 +29,17 @@ export default function MainScreen() {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [recursos, setRecursos] = useState<Resource[]>([]);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
-  const [selectedMision, setSelectedMision] = useState<{title: string, hours: number} | null>(null);
+  const [selectedMision, setSelectedMision] = useState<{ title: string, hours: number } | null>(null);
   const [showMisionDetails, setShowMisionDetails] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [showScreenshotsModal, setShowScreenshotsModal] = useState<string | null>(null);
-  
+  const [selectedActividad, setSelectedActividad] = useState<Actividad | null>(null);
+
   const { usuario } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos(usuario?.id || null);
   const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
-  
+
   // Hook para screenshots
   const {
     screenshots,
@@ -45,7 +47,7 @@ export default function MainScreen() {
     startCapturing,
     stopCapturing,
     clearScreenshots,
-    clearScreenshotsByActivity,
+    clearScreenshotsByBloque,
     reloadScreenshots,
     error: screenshotError
   } = useScreenshots();
@@ -66,10 +68,10 @@ export default function MainScreen() {
   // Función para obtener icono basado en el icono del recurso
   const getIconForRecurso = (icono: string | null) => {
     if (!icono) return FileText;
-    
+
     // Si es un emoji, usar FileText como fallback
     if (icono.length <= 2) return FileText;
-    
+
     // Mapear algunos tipos comunes
     const iconMap: { [key: string]: any } = {
       'link': Link,
@@ -79,7 +81,7 @@ export default function MainScreen() {
       'download': Download,
       'file': FileText
     };
-    
+
     return iconMap[icono.toLowerCase()] || FileText;
   };
 
@@ -87,7 +89,7 @@ export default function MainScreen() {
   const getColorForRecurso = (index: number) => {
     const colors = [
       'bg-blue-500',
-      'bg-green-500', 
+      'bg-green-500',
       'bg-purple-500',
       'bg-orange-500',
       'bg-pink-500',
@@ -137,23 +139,54 @@ export default function MainScreen() {
       usuariosOrganizacion
     });
   }, [usuariosOrganizacion, usuariosLoading]);
- 
+
   const handleAddResource = (): void => {
     setShowAddResourceModal(true);
   };
 
-  // Función para formatear timestamp
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
+
 
   // Función para manejar la apertura de screenshots
   const handleShowScreenshots = (cardId: string) => {
     setShowScreenshotsModal(cardId);
+  };
+
+  // Función para manejar la apertura de detalles de actividad
+  const handleShowActividadDetails = (actividad: Actividad) => {
+    setSelectedActividad(actividad);
+    setShowActividadDetails(true);
+  };
+
+  // Funciones para formatear fecha y hora de actividades
+  const formatDate = (fecha: string | null) => {
+    if (!fecha) return 'Sin fecha';
+    return new Date(fecha).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (horaInicio: string | null) => {
+    if (!horaInicio) return 'Sin hora';
+
+    try {
+      const date = new Date(horaInicio);
+      
+      if (isNaN(date.getTime())) {
+        return '00:00';
+      }
+
+      const formatted = date.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      return formatted;
+    } catch (error) {
+      return horaInicio;
+    }
   };
 
 
@@ -186,9 +219,8 @@ export default function MainScreen() {
             ${rightPanelCollapsed ? 'right-38' : 'right-78'}`}
         >
           <ChevronRight
-            className={`w-4 h-4 transition-transform duration-300 ${
-              rightPanelCollapsed ? 'rotate-180' : ''
-            }`}
+            className={`w-4 h-4 transition-transform duration-300 ${rightPanelCollapsed ? 'rotate-180' : ''
+              }`}
           />
         </button>
 
@@ -200,47 +232,46 @@ export default function MainScreen() {
         )}
       </div>
 
-      <div className={`fixed top-0 right-0 h-auto flex flex-col transition-all duration-300 z-30 ${
-          rightPanelCollapsed ? "w-0" : "w-80"
+      <div className={`fixed top-0 right-0 h-auto flex flex-col transition-all duration-300 z-30 ${rightPanelCollapsed ? "w-0" : "w-80"
         }`}
       >
         {!rightPanelCollapsed && (
           <div className="p-4 pt-16 z-10">
-            <Accordion 
-              recursos={recursos} 
+            <Accordion
+              recursos={recursos}
               proyectos={proyectosSupabase}
               usuarios={usuariosOrganizacion}
-              onAddResource={handleAddResource} 
+              onAddResource={handleAddResource}
             />
           </div>
         )}
       </div>
 
-        {/* Activities positioned at fixed location */}
-        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 30 }}>
-          <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-            Actividades 🗓️
-          </h2>
-          <div
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('text/plain', 'Actividades - Elemento arrastrado desde la interfaz');
-            }}
-            onClick={() => setShowActividadDetails(true)}
-          >
-             <ActividadesGrid />
-          </div>
+      {/* Activities positioned at fixed location */}
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 30 }}>
+        <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+          Actividades 🗓️
+        </h2>
+        <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('text/plain', 'Actividades - Elemento arrastrado desde la interfaz');
+          }}
+          onClick={() => setShowActividadDetails(true)}
+        >
+          <ActividadesGrid onShowDetails={handleShowActividadDetails} />
         </div>
+      </div>
 
 
 
-        {/* Missions positioned at fixed location */}
-        <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 10 }}>
-          <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-            Misiones 🎯
-          </h2>
-          <MisionesCompact />
-        </div>
+      {/* Missions positioned at fixed location */}
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 10 }}>
+        <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+          Misiones 🎯
+        </h2>
+        <MisionesCompact />
+      </div>
 
       {/* Modal para agregar recurso */}
       <AgregarRecursoModal
@@ -263,8 +294,8 @@ export default function MainScreen() {
           <div className="mb-4">
             <p className="text-sm text-gray-600">
               Total: {showScreenshotsModal ? screenshots.filter(s => {
-                const actividadId = parseInt(showScreenshotsModal.split('-')[1]) || 0;
-                return s.actividadId === actividadId;
+                const actividadId = showScreenshotsModal.split('-')[1] || '0';
+                return s.id_bloque === actividadId;
               }).length : 0} capturas
             </p>
           </div>
@@ -273,27 +304,31 @@ export default function MainScreen() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {showScreenshotsModal && screenshots
                 .filter(s => {
-                  const actividadId = parseInt(showScreenshotsModal.split('-')[1]) || 0;
-                  return s.actividadId === actividadId;
+                  const actividadId = showScreenshotsModal.split('-')[1] || '0';
+                  return s.id_bloque === actividadId;
                 })
-                .sort((a, b) => b.timestamp - a.timestamp)
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                 .map(screenshot => (
                   <div
                     key={screenshot.id}
                     className="border rounded-lg overflow-hidden bg-gray-50 hover:shadow-md transition-shadow"
                   >
                     <img
-                      src={screenshot.filePath}
-                      alt={`Screenshot ${formatTimestamp(screenshot.timestamp)}`}
+                      src={screenshot.img_url}
+                      alt={`Screenshot ${new Date(screenshot.created_at).toLocaleTimeString()}`}
                       className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={() => {
                         // Abrir imagen en nueva ventana/tab
-                        window.open(screenshot.filePath, '_blank');
+                        window.open(screenshot.img_url, '_blank');
                       }}
                     />
                     <div className="p-2">
                       <p className="text-xs text-gray-600">
-                        {formatTimestamp(screenshot.timestamp)}
+                        {new Date(screenshot.created_at).toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
                       </p>
                     </div>
                   </div>
@@ -301,28 +336,28 @@ export default function MainScreen() {
             </div>
 
             {showScreenshotsModal && screenshots.filter(s => {
-              const actividadId = parseInt(showScreenshotsModal.split('-')[1]) || 0;
-              return s.actividadId === actividadId;
+              const actividadId = showScreenshotsModal.split('-')[1] || '0';
+              return s.id_bloque === actividadId;
             }).length === 0 && (
-              <div className="text-center py-8">
-                <div className="text-gray-400 text-4xl mb-2">📷</div>
-                <p className="text-gray-500">No hay capturas disponibles</p>
-                <p className="text-sm text-gray-400">
-                  Inicia la actividad para comenzar a capturar pantalla
-                </p>
-              </div>
-            )}
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-4xl mb-2">📷</div>
+                  <p className="text-gray-500">No hay capturas disponibles</p>
+                  <p className="text-sm text-gray-400">
+                    Inicia la actividad para comenzar a capturar pantalla
+                  </p>
+                </div>
+              )}
           </div>
 
           <div className="mt-4 pt-4 border-t flex justify-end gap-2">
             <button
               onClick={() => {
                 if (!showScreenshotsModal) return;
-                const actividadId = parseInt(showScreenshotsModal.split('-')[1]) || 0;
-                const activityScreenshots = screenshots.filter(s => s.actividadId === actividadId);
+                const actividadId = showScreenshotsModal.split('-')[1] || '0';
+                const activityScreenshots = screenshots.filter(s => s.id_bloque === actividadId);
                 if (activityScreenshots.length > 0 && confirm('¿Estás seguro de que quieres eliminar todas las capturas de esta actividad?')) {
-                  // Usar la función específica para eliminar por actividad
-                  clearScreenshotsByActivity(actividadId);
+                  // Usar la función específica para eliminar por bloque
+                  clearScreenshotsByBloque(actividadId);
                 }
               }}
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm transition-colors"
@@ -337,6 +372,80 @@ export default function MainScreen() {
             </button>
           </div>
         </div>
+      </Ventana>
+
+      {/* Ventana de detalles de actividad */}
+      <Ventana
+        isOpen={showActividadDetails}
+        onClose={() => setShowActividadDetails(false)}
+        title="Detalles de la Actividad"
+        initialWidth={600}
+        initialHeight={500}
+        minWidth={500}
+        minHeight={400}
+        showOverlay={true}
+      >
+        {selectedActividad && (
+          <div className="text-black space-y-6 p-4">
+            {/* Descripción */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Descripción</h3>
+              <p className="text-gray-700">{selectedActividad.descripcion || 'Sin descripción'}</p>
+            </div>
+
+            {/* Fecha y Hora */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Fecha y Hora</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="font-medium">{formatDate(selectedActividad.fecha)}</p>
+                <p className="text-gray-600">{formatTime(selectedActividad.hora_inicio)}</p>
+              </div>
+            </div>
+
+            {/* Duración */}
+            {selectedActividad.cant_horas && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Duración</h3>
+                <div className="bg-blue-100 p-3 rounded-lg">
+                  <p className="font-medium text-blue-800">{selectedActividad.cant_horas} horas</p>
+                </div>
+              </div>
+            )}
+
+            {/* Tiempo dedicado */}
+            {selectedActividad.tiempo_dedicado && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Tiempo Dedicado</h3>
+                <div className="bg-green-100 p-3 rounded-lg">
+                  <p className="font-medium text-green-800">{selectedActividad.tiempo_dedicado} minutos</p>
+                </div>
+              </div>
+            )}
+
+            {/* Link */}
+            {selectedActividad.link && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Enlace</h3>
+                <button
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  onClick={() => window.open(selectedActividad.link!, '_blank')}
+                >
+                  Abrir enlace
+                </button>
+              </div>
+            )}
+
+            {/* Captures */}
+            {selectedActividad.captures && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Notas</h3>
+                <div className="bg-gray-100 p-3 rounded-lg">
+                  <p className="text-gray-700 whitespace-pre-wrap">{selectedActividad.captures}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Ventana>
 
     </div>

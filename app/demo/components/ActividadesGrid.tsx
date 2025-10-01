@@ -4,11 +4,14 @@ import { useActividades } from '@/hooks/useActividades';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { Actividad } from '@/domain/entities/Actividad';
-import Ventana from './Ventana';
 
 interface ActividadCardProps {
   actividad: Actividad;
   index: number;
+  onShowDetails: (actividad: Actividad) => void;
+}
+
+interface ActividadesGridProps {
   onShowDetails: (actividad: Actividad) => void;
 }
 
@@ -340,47 +343,10 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index, onShowD
   );
 };
 
-export default function ActividadesGrid() {
+export default function ActividadesGrid({ onShowDetails }: ActividadesGridProps) {
   const { usuario } = useAuth();
   const { actividades, loading, error } = useActividades(usuario?.id || null);
-  const [showActividadDetails, setShowActividadDetails] = useState(false);
-  const [selectedActividad, setSelectedActividad] = useState<Actividad | null>(null);
 
-  const handleShowDetails = (actividad: Actividad) => {
-    setSelectedActividad(actividad);
-    setShowActividadDetails(true);
-  };
-
-  const formatDate = (fecha: string | null) => {
-    if (!fecha) return 'Sin fecha';
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const formatTime = (horaInicio: string | null) => {
-    if (!horaInicio) return 'Sin hora';
-
-    try {
-      const date = new Date(horaInicio);
-      
-      if (isNaN(date.getTime())) {
-        return '00:00';
-      }
-
-      const formatted = date.toLocaleTimeString('es-ES', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-      
-      return formatted;
-    } catch (error) {
-      return horaInicio;
-    }
-  };
 
   if (loading) {
     return (
@@ -411,91 +377,15 @@ export default function ActividadesGrid() {
   }
 
   return (
-    <>
-      <div className="flex gap-2 flex-wrap">
-        {actividades.map((actividad, index) => (
-          <ActividadCard
-            key={actividad.id}
-            actividad={actividad}
-            index={index}
-            onShowDetails={handleShowDetails}
-          />
-        ))}
-      </div>
-
-      {/* Ventana de detalles de actividad */}
-      <Ventana
-        isOpen={showActividadDetails}
-        onClose={() => setShowActividadDetails(false)}
-        title="Detalles de la Actividad"
-        initialWidth={600}
-        initialHeight={500}
-        minWidth={500}
-        minHeight={400}
-        showOverlay={true}
-      >
-        {selectedActividad && (
-          <div className="text-black space-y-6 p-4">
-            {/* Descripción */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Descripción</h3>
-              <p className="text-gray-700">{selectedActividad.descripcion || 'Sin descripción'}</p>
-            </div>
-
-            {/* Fecha y Hora */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Fecha y Hora</h3>
-              <div className="bg-gray-100 p-3 rounded-lg">
-                <p className="font-medium">{formatDate(selectedActividad.fecha)}</p>
-                <p className="text-gray-600">{formatTime(selectedActividad.hora_inicio)}</p>
-              </div>
-            </div>
-
-            {/* Duración */}
-            {selectedActividad.cant_horas && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Duración</h3>
-                <div className="bg-blue-100 p-3 rounded-lg">
-                  <p className="font-medium text-blue-800">{selectedActividad.cant_horas} horas</p>
-                </div>
-              </div>
-            )}
-
-            {/* Tiempo dedicado */}
-            {selectedActividad.tiempo_dedicado && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Tiempo Dedicado</h3>
-                <div className="bg-green-100 p-3 rounded-lg">
-                  <p className="font-medium text-green-800">{selectedActividad.tiempo_dedicado} minutos</p>
-                </div>
-              </div>
-            )}
-
-            {/* Link */}
-            {selectedActividad.link && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Enlace</h3>
-                <button
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                  onClick={() => window.open(selectedActividad.link!, '_blank')}
-                >
-                  Abrir enlace
-                </button>
-              </div>
-            )}
-
-            {/* Captures */}
-            {selectedActividad.captures && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Notas</h3>
-                <div className="bg-gray-100 p-3 rounded-lg">
-                  <p className="text-gray-700 whitespace-pre-wrap">{selectedActividad.captures}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Ventana>
-    </>
+    <div className="flex gap-2 flex-wrap">
+      {actividades.map((actividad, index) => (
+        <ActividadCard
+          key={actividad.id}
+          actividad={actividad}
+          index={index}
+          onShowDetails={onShowDetails}
+        />
+      ))}
+    </div>
   );
 }
