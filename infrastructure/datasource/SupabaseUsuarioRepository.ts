@@ -31,7 +31,7 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
         return [];
       }
 
-      const usuarios = (data || []).map(this.mapToUsuario);
+      const usuarios = (data || []).map((item) => this.mapToUsuario(item));
       console.log('✅ Usuarios encontrados:', usuarios.length);
       return usuarios;
     } catch (error) {
