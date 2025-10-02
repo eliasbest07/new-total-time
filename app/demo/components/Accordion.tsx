@@ -64,7 +64,10 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [showProyectoDetails, setShowProyectoDetails] = useState(false);
   const [selectedProyecto, setSelectedProyecto] = useState<Proyecto | null>(null);
+  const [currentUserPage, setCurrentUserPage] = useState<number>(1);
   const dragImageRef = useRef<HTMLDivElement>(null);
+
+  const USERS_PER_PAGE = 4;
 
   // Función para convertir usuarios de Supabase al formato del Accordion
   const convertirUsuariosSupabase = () => {
@@ -126,6 +129,10 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   };
 
   const allUsers = convertirUsuariosSupabase();
+  const totalUserPages = Math.ceil(allUsers.length / USERS_PER_PAGE);
+  const startUserIndex = (currentUserPage - 1) * USERS_PER_PAGE;
+  const endUserIndex = startUserIndex + USERS_PER_PAGE;
+  const currentUsers = allUsers.slice(startUserIndex, endUserIndex);
 
   // Función para convertir proyectos de Supabase al formato del Accordion
   const convertirProyectosSupabase = (): ProyectoConvertido[] => {
@@ -273,7 +280,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                     // Sección especial para usuarios
                     <div>
                       <div className="grid grid-cols-2 gap-3 mb-4">
-                        {(showAllUsers ? allUsers : allUsers.slice(0, 4)).map((user) => (
+                        {currentUsers.map((user) => (
                           <div
                             key={user.id}
                             className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-pointer"
@@ -297,13 +304,40 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                         ))}
                       </div>
 
-                      {/* Botón Ver más */}
-                      <button
-                        onClick={() => setShowAllUsers(!showAllUsers)}
-                        className="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/80 hover:text-white transition-colors duration-200 font-medium"
-                      >
-                        {showAllUsers ? 'Ver menos' : `Ver más (${allUsers.length - 4} usuarios más)`}
-                      </button>
+                      {/* Paginación horizontal por números */}
+                      {totalUserPages > 1 && (
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => setCurrentUserPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentUserPage === 1}
+                            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded-lg text-sm text-white/80 hover:text-white transition-colors duration-200 font-medium disabled:text-white/40"
+                          >
+                            ←
+                          </button>
+
+                          {Array.from({ length: totalUserPages }, (_, i) => i + 1).map((page) => (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentUserPage(page)}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                                currentUserPage === page
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-white/10 hover:bg-white/20 text-white/80 hover:text-white'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          ))}
+
+                          <button
+                            onClick={() => setCurrentUserPage(prev => Math.min(totalUserPages, prev + 1))}
+                            disabled={currentUserPage === totalUserPages}
+                            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded-lg text-sm text-white/80 hover:text-white transition-colors duration-200 font-medium disabled:text-white/40"
+                          >
+                            →
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : section.content === 'projects' ? (
                     // Sección especial para proyectos
