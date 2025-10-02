@@ -45,11 +45,8 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
       console.log('🔍 Obteniendo usuario por ID:', id);
 
       const { data, error } = await supabase
-        .from('usuarios')
-        .select(`
-          *,
-          info_usuarios (*)
-        `)
+        .from('usuario')
+        .select('*')
         .eq('id', id)
         .single();
 
@@ -71,17 +68,14 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
       console.log('✏️ Actualizando usuario:', id, usuario);
 
       const { data, error } = await supabase
-        .from('usuarios')
+        .from('usuario')
         .update({
           ultima_actividad: usuario.ultimaActividad?.toISOString(),
           barra_salud: usuario.barraSalud,
           ultima_captura: usuario.ultimaCaptura
         })
         .eq('id', id)
-        .select(`
-          *,
-          info_usuarios (*)
-        `)
+        .select('*')
         .single();
 
       if (error) {
@@ -100,30 +94,30 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
   private mapToUsuario(data: any): Usuario {
     // Mapear los datos de Supabase a la entidad Usuario
     const infoUsuario: InfoUsuario = {
-      nombre: data.info_usuarios?.nombre || 'Sin nombre',
-      apellido: data.info_usuarios?.apellido || '',
-      avatar: data.info_usuarios?.foto_perfil || '',
-      nivel: data.info_usuarios?.nivel || 0,
-      fecha_nacimiento: data.info_usuarios?.fecha_nacimiento ? new Date(data.info_usuarios.fecha_nacimiento) : undefined,
-      ubicacion: data.info_usuarios?.direccion || '',
-      enlace_github: data.info_usuarios?.enlace_github || '',
-      enlace_web: data.info_usuarios?.enlace_web || '',
-      enlace_linkedin: data.info_usuarios?.enlace_linkedin || '',
-      idea: data.info_usuarios?.idea || '',
-      marco: data.info_usuarios?.marco || '',
-      bio: data.info_usuarios?.bio || '',
-      username: data.info_usuarios?.username || data.email || '',
-      correo: data.email || '',
-      nombreOrganizacion: data.info_usuarios?.nombreOrganizacion || ''
+      nombre: data.nombre || 'Sin nombre',
+      apellido: '', // No existe en la tabla
+      avatar: data.avatar || '',
+      nivel: data.nivel || 0,
+      fecha_nacimiento: data.fecha_nacimiento ? new Date(data.fecha_nacimiento) : undefined,
+      ubicacion: data.ubicacion || '',
+      enlace_github: data.enlace_github || '',
+      enlace_web: data.enlace_web || '',
+      enlace_linkedin: data.enlace_linkedin || '',
+      idea: data.idea || '',
+      marco: data.marco || '',
+      bio: data.bio || '',
+      username: data.username || data.correo || '',
+      correo: data.correo || '',
+      nombreOrganizacion: '' // No existe directamente, requiere JOIN si se necesita
     };
 
     return new Usuario(
       data.id,
-      data.email || '',
-      this.mapRol(data.role || data.rol || null),
+      data.correo || '',
+      this.mapRol(data.role),
       infoUsuario,
       data.barra_salud || 100,
-      data.user_auth || data.id,
+      data.user_auth || data.id_usuario,
       data.admin || false,
       data.id_organizacion,
       this.mapPermisos(data.permisos),
