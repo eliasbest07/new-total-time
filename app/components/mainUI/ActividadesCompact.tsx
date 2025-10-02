@@ -244,18 +244,24 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
                     >
                       <div className="aspect-video bg-slate-900 relative group">
                         <img
-                          src={screenshot.img_url}
+                          src={screenshot.img_url || '/placeholder-image.png'}
                           alt={`Captura ${new Date(screenshot.created_at).toLocaleTimeString()}`}
                           className="w-full h-full object-contain"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                          <a
-                            href={screenshot.img_url}
-                            download={`captura-${new Date(screenshot.created_at).getTime()}.png`}
-                            className="bg-white text-slate-900 px-4 py-2 rounded-lg font-medium hover:bg-slate-100 transition-colors"
-                          >
-                            Descargar
-                          </a>
+                          {screenshot.img_url ? (
+                            <a
+                              href={screenshot.img_url}
+                              download={`captura-${new Date(screenshot.created_at).getTime()}.png`}
+                              className="bg-white text-slate-900 px-4 py-2 rounded-lg font-medium hover:bg-slate-100 transition-colors"
+                            >
+                              Descargar
+                            </a>
+                          ) : (
+                            <span className="bg-gray-400 text-gray-700 px-4 py-2 rounded-lg font-medium cursor-not-allowed">
+                              No disponible
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="p-3">
