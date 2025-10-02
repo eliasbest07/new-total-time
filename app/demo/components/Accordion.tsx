@@ -355,16 +355,33 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                   ) : section.content === 'projects' ? (
                     // Sección especial para proyectos
                     <div className="space-y-3">
-                      {proyectosConvertidos.map((proyecto) => (
+                      {proyectos.map((proyecto) => (
                         <div
                           key={proyecto.id}
-                          className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-pointer"
+                          className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-3"
                           onClick={() => handleProyectoClick(proyecto)}
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-white font-medium text-sm">{proyecto.nombre}</h4>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(proyecto.estado)}`}>
-                              {proyecto.estado}
+                          {/* Logo del proyecto */}
+                          <div className="w-12 h-12 flex-shrink-0 bg-white/10 rounded-lg overflow-hidden flex items-center justify-center">
+                            {proyecto.imagen_url ? (
+                              <img
+                                src={proyecto.imagen_url}
+                                alt={proyecto.nombre}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling!.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <span className={`text-2xl ${proyecto.imagen_url ? 'hidden' : ''}`}>✏️</span>
+                          </div>
+
+                          {/* Nombre y estado */}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-white font-medium text-sm truncate">{proyecto.nombre}</h4>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getEstadoColor(getEstadoFromType(proyecto.type))}`}>
+                              {getEstadoFromType(proyecto.type)}
                             </span>
                           </div>
                         </div>
@@ -495,7 +512,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
               <h3 className="text-lg font-semibold mb-2">Fecha de Creación</h3>
               <div className="bg-gray-100 p-3 rounded-lg">
                 <p className="text-gray-700">
-                  {new Date(selectedProyecto.fechaCreacion).toLocaleDateString('es-ES', {
+                  {new Date(selectedProyecto.created_at).toLocaleDateString('es-ES', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
@@ -508,48 +525,50 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
             <div>
               <h3 className="text-lg font-semibold mb-2">Descripción</h3>
               <div className="bg-gray-100 p-3 rounded-lg">
-                <p className="text-gray-700">{selectedProyecto.descripcion}</p>
+                <p className="text-gray-700">{selectedProyecto.description || 'Sin descripción'}</p>
               </div>
             </div>
 
             {/* Estado */}
             <div>
               <h3 className="text-lg font-semibold mb-2">Estado</h3>
-              <span className={`inline-block px-3 py-2 rounded-lg font-medium ${getEstadoColor(selectedProyecto.estado)}`}>
-                {selectedProyecto.estado}
+              <span className={`inline-block px-3 py-2 rounded-lg font-medium ${getEstadoColor(getEstadoFromType(selectedProyecto.type))}`}>
+                {getEstadoFromType(selectedProyecto.type)}
               </span>
             </div>
 
             {/* Colores */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Colores del Proyecto</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div 
-                    className="w-16 h-16 rounded-lg mx-auto mb-2 border border-gray-200"
-                    style={{ backgroundColor: selectedProyecto.colores.primario }}
-                  ></div>
-                  <p className="text-sm text-gray-600">Primario</p>
-                  <p className="text-xs text-gray-500 font-mono">{selectedProyecto.colores.primario}</p>
-                </div>
-                <div className="text-center">
-                  <div 
-                    className="w-16 h-16 rounded-lg mx-auto mb-2 border border-gray-200"
-                    style={{ backgroundColor: selectedProyecto.colores.secundario }}
-                  ></div>
-                  <p className="text-sm text-gray-600">Secundario</p>
-                  <p className="text-xs text-gray-500 font-mono">{selectedProyecto.colores.secundario}</p>
-                </div>
-                <div className="text-center">
-                  <div 
-                    className="w-16 h-16 rounded-lg mx-auto mb-2 border border-gray-200"
-                    style={{ backgroundColor: selectedProyecto.colores.acento }}
-                  ></div>
-                  <p className="text-sm text-gray-600">Acento</p>
-                  <p className="text-xs text-gray-500 font-mono">{selectedProyecto.colores.acento}</p>
+            {selectedProyecto.colors && selectedProyecto.colors.length >= 3 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Colores del Proyecto</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div
+                      className="w-16 h-16 rounded-lg mx-auto mb-2 border border-gray-200"
+                      style={{ backgroundColor: selectedProyecto.colors[0] || '#3B82F6' }}
+                    ></div>
+                    <p className="text-sm text-gray-600">Primario</p>
+                    <p className="text-xs text-gray-500 font-mono">{selectedProyecto.colors[0] || '#3B82F6'}</p>
+                  </div>
+                  <div className="text-center">
+                    <div
+                      className="w-16 h-16 rounded-lg mx-auto mb-2 border border-gray-200"
+                      style={{ backgroundColor: selectedProyecto.colors[1] || '#1E40AF' }}
+                    ></div>
+                    <p className="text-sm text-gray-600">Secundario</p>
+                    <p className="text-xs text-gray-500 font-mono">{selectedProyecto.colors[1] || '#1E40AF'}</p>
+                  </div>
+                  <div className="text-center">
+                    <div
+                      className="w-16 h-16 rounded-lg mx-auto mb-2 border border-gray-200"
+                      style={{ backgroundColor: selectedProyecto.colors[2] || '#60A5FA' }}
+                    ></div>
+                    <p className="text-sm text-gray-600">Acento</p>
+                    <p className="text-xs text-gray-500 font-mono">{selectedProyecto.colors[2] || '#60A5FA'}</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </Ventana>
