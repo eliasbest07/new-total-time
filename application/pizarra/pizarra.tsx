@@ -49,6 +49,21 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     description: string;
   }
 
+  interface ChatMessage {
+    id: number;
+    text: string;
+    sender: 'me' | 'other';
+    timestamp: Date;
+  }
+
+  interface UsuarioData {
+    name: string;
+    avatar: string;
+    color: string;
+    online: boolean;
+    messages?: ChatMessage[];
+  }
+
   interface Card {
     id: string;
     type: string;
@@ -62,6 +77,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     fontSize?: number;
     activityData?: ActivityData;
     misionData?: MisionData;
+    usuarioData?: UsuarioData;
   }
 
   const [cards, setCards] = useState<Card[]>([]);
@@ -228,6 +244,27 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
               duration: resource.duration || 60,
               isRunning: false,
               timeLeft: (resource.duration || 60) * 60
+            }
+          };
+          setCards(prev => [...prev, newCard]);
+          return;
+        } else if (resource.type === 'usuario') {
+          const newCard = {
+            id: generateUniqueId('usuario'),
+            type: 'usuario',
+            title: resource.name || 'Usuario',
+            content: `Usuario: ${resource.name}`,
+            x: x,
+            y: y,
+            width: 280,
+            height: 400,
+            fontSize: 18,
+            usuarioData: {
+              name: resource.name || 'Usuario',
+              avatar: resource.avatar || 'US',
+              color: resource.color || 'bg-blue-500',
+              online: resource.online || false,
+              messages: []
             }
           };
           setCards(prev => [...prev, newCard]);
@@ -732,6 +769,8 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
           return '📝';
         case 'actividad':
           return '📅';
+        case 'usuario':
+          return '👤';
         default:
           return '📋';
       }
@@ -761,6 +800,8 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
           return `${baseStyle} bg-blue-50 border-blue-300`;
         case 'mision':
           return `${baseStyle} bg-green-50 border-green-300`;
+        case 'usuario':
+          return `${baseStyle} bg-purple-50 border-purple-300`;
         default:
           return `${baseStyle} bg-white border-gray-200`;
       }
@@ -830,6 +871,7 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
           card.type === 'mision' ? 'bg-green-600' :
           card.type === 'todo' ? 'bg-orange-600' :
           card.type === 'text' ? 'bg-yellow-500' :
+          card.type === 'usuario' ? 'bg-purple-600' :
           'bg-gray-600'
         }`}></div>
 
@@ -1187,6 +1229,156 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        ) : card.type === 'usuario' ? (
+          <div className="flex flex-col h-full w-full p-3">
+            {/* Header con avatar y nombre */}
+            <div className="flex items-center gap-2 mb-2 border-b border-purple-200 pb-2">
+              <div className="relative">
+                <div className={`w-10 h-10 rounded-full ${card.usuarioData?.color || 'bg-purple-500'} flex items-center justify-center text-white font-semibold shadow-md`}
+                  style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
+                >
+                  {card.usuarioData?.avatar || 'US'}
+                </div>
+                {card.usuarioData?.online && (
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white"></div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                {editingTitle === card.id ? (
+                  <input
+                    type="text"
+                    defaultValue={card.title}
+                    onBlur={(e) => updateCardTitle(card.id, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        updateCardTitle(card.id, e.currentTarget.value);
+                      }
+                      if (e.key === 'Escape') {
+                        setEditingTitle(null);
+                      }
+                    }}
+                    className="font-semibold text-purple-800 bg-transparent border-b border-purple-400 focus:outline-none w-full"
+                    autoFocus
+                    data-todo-interactive
+                  />
+                ) : (
+                  <h3
+                    className="font-semibold text-purple-800 truncate"
+                    style={{ fontSize: `${(card.fontSize || 18) - 2}px` }}
+                  >
+                    {card.usuarioData?.name || card.title}
+                  </h3>
+                )}
+                <div className={`inline-flex items-center gap-1 mt-0.5 ${
+                  card.usuarioData?.online ? 'text-green-600' : 'text-gray-500'
+                }`}
+                  style={{ fontSize: `${(card.fontSize || 18) - 6}px` }}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    card.usuarioData?.online ? 'bg-green-500' : 'bg-gray-400'
+                  }`}></div>
+                  <span className="font-medium">
+                    {card.usuarioData?.online ? 'En línea' : 'Offline'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mensajes del chat */}
+            <div className="flex-1 overflow-y-auto mb-2 space-y-1.5 min-h-0"
+              style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
+            >
+              {(card.usuarioData?.messages || []).map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[75%] rounded-lg px-2 py-1 ${
+                      message.sender === 'me'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-purple-100 text-purple-900'
+                    }`}
+                  >
+                    <p className="break-words">{message.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Input de mensaje */}
+            <div className="flex gap-1" data-todo-interactive>
+              <input
+                type="text"
+                placeholder="Escribe un mensaje..."
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                    const newMessage: ChatMessage = {
+                      id: Date.now(),
+                      text: e.currentTarget.value.trim(),
+                      sender: 'me',
+                      timestamp: new Date()
+                    };
+                    setCards(prev => prev.map(c =>
+                      c.id === card.id && c.usuarioData
+                        ? {
+                            ...c,
+                            usuarioData: {
+                              ...c.usuarioData,
+                              messages: [...(c.usuarioData.messages || []), newMessage]
+                            }
+                          }
+                        : c
+                    ));
+                    e.currentTarget.value = '';
+                  }
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => e.stopPropagation()}
+                className="flex-1 px-2 py-1.5 border border-purple-300 rounded-lg focus:border-purple-500 focus:outline-none bg-white text-black"
+                style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
+                data-todo-interactive
+              />
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                  if (input && input.value.trim()) {
+                    const newMessage: ChatMessage = {
+                      id: Date.now(),
+                      text: input.value.trim(),
+                      sender: 'me',
+                      timestamp: new Date()
+                    };
+                    setCards(prev => prev.map(c =>
+                      c.id === card.id && c.usuarioData
+                        ? {
+                            ...c,
+                            usuarioData: {
+                              ...c.usuarioData,
+                              messages: [...(c.usuarioData.messages || []), newMessage]
+                            }
+                          }
+                        : c
+                    ));
+                    input.value = '';
+                  }
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagagation();
+                }}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
+                data-todo-interactive
+              >
+                💬
+              </button>
             </div>
           </div>
         ) : (

@@ -283,9 +283,24 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                         {currentUsers.map((user) => (
                           <div
                             key={user.id}
-                            className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-pointer"
+                            className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing"
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', `Usuario: ${user.name}`);
+                              e.dataTransfer.setData('application/json', JSON.stringify({
+                                type: 'usuario',
+                                name: user.name,
+                                avatar: user.avatar,
+                                color: user.color,
+                                online: user.online
+                              }));
+                              e.currentTarget.style.opacity = '0.5';
+                            }}
+                            onDragEnd={(e) => {
+                              e.currentTarget.style.opacity = '1';
+                            }}
                           >
-                            <div className="relative">
+                            <div className="relative" title={user.name}>
                               <div className={`w-10 h-10 rounded-full ${user.color} flex items-center justify-center text-white text-sm font-semibold`}>
                                 {user.avatar}
                               </div>
@@ -293,12 +308,10 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white/20"></div>
                               )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-white truncate">{user.name}</p>
-                              <div className="flex items-center space-x-1">
-                                {!user.online && <Clock size={10} className="text-white/60" />}
-                                <p className="text-xs text-white/60 truncate">{user.status}</p>
-                              </div>
+                            <div className="flex-1 min-w-0" title={user.name}>
+                              <p className="text-sm font-medium text-white truncate">
+                                {user.name}
+                              </p>
                             </div>
                           </div>
                         ))}
