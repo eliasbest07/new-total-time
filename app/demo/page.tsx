@@ -27,6 +27,9 @@ import { saveResource, type Resource, type NewResourceData } from './utils/resou
 import ActividadesGrid from './components/ActividadesGrid';
 import Cube from './components/cubo-acordion';
 import { Actividad } from '@/domain/entities/Actividad';
+import { Usuario } from '@/domain/entities/Usuario';
+import { Rol } from '@/domain/enums/Rol';
+import { Permiso } from '@/domain/enums/Permiso';
 
 type BoardHistoryItem = {
   id: string;
@@ -60,6 +63,25 @@ export default function Dashboard() {
   const [inputText, setInputText] = useState('');
   const [showButtons, setShowButtons] = useState(false);
   const pizarraRef = useRef<PizarraRef>(null);
+
+  // Usuarios mock para testing
+  const mockUsuarios: Usuario[] = [
+    new Usuario('1', 'juan.perez@example.com', Rol.ADMIN, { nombre: 'Juan Pérez', apellido: '', avatar: '', nivel: 5, correo: 'juan.perez@example.com', username: 'jperez', bio: '', idea: '', marco: '' }, 95, 'auth1', true, 'org1', [Permiso.LEER, Permiso.ESCRIBIR], new Date(Date.now() - 2 * 60000)),
+    new Usuario('2', 'maria.rodriguez@example.com', Rol.MIEMBRO, { nombre: 'María Rodríguez', apellido: '', avatar: '', nivel: 3, correo: 'maria.rodriguez@example.com', username: 'mrodriguez', bio: '', idea: '', marco: '' }, 88, 'auth2', false, 'org1', [Permiso.LEER], new Date(Date.now() - 15 * 60000)),
+    new Usuario('3', 'carlos.gomez@example.com', Rol.MIEMBRO, { nombre: 'Carlos Gómez', apellido: '', avatar: '', nivel: 4, correo: 'carlos.gomez@example.com', username: 'cgomez', bio: '', idea: '', marco: '' }, 92, 'auth3', false, 'org1', [Permiso.LEER, Permiso.ESCRIBIR], new Date(Date.now() - 45 * 60000)),
+    new Usuario('4', 'ana.martinez@example.com', Rol.MIEMBRO, { nombre: 'Ana Martínez', apellido: '', avatar: '', nivel: 2, correo: 'ana.martinez@example.com', username: 'amartinez', bio: '', idea: '', marco: '' }, 76, 'auth4', false, 'org1', [Permiso.LEER], new Date(Date.now() - 3 * 60 * 60000)),
+    new Usuario('5', 'luis.fernandez@example.com', Rol.ADMIN, { nombre: 'Luis Fernández', apellido: '', avatar: '', nivel: 6, correo: 'luis.fernandez@example.com', username: 'lfernandez', bio: '', idea: '', marco: '' }, 98, 'auth5', true, 'org1', [Permiso.LEER, Permiso.ESCRIBIR, Permiso.ELIMINAR], new Date(Date.now() - 1 * 60000)),
+    new Usuario('6', 'sofia.lopez@example.com', Rol.MIEMBRO, { nombre: 'Sofía López', apellido: '', avatar: '', nivel: 3, correo: 'sofia.lopez@example.com', username: 'slopez', bio: '', idea: '', marco: '' }, 84, 'auth6', false, 'org1', [Permiso.LEER], new Date(Date.now() - 8 * 60 * 60000)),
+    new Usuario('7', 'diego.sanchez@example.com', Rol.MIEMBRO, { nombre: 'Diego Sánchez', apellido: '', avatar: '', nivel: 4, correo: 'diego.sanchez@example.com', username: 'dsanchez', bio: '', idea: '', marco: '' }, 90, 'auth7', false, 'org1', [Permiso.LEER, Permiso.ESCRIBIR], new Date(Date.now() - 25 * 60000)),
+    new Usuario('8', 'laura.torres@example.com', Rol.MIEMBRO, { nombre: 'Laura Torres', apellido: '', avatar: '', nivel: 5, correo: 'laura.torres@example.com', username: 'ltorres', bio: '', idea: '', marco: '' }, 87, 'auth8', false, 'org1', [Permiso.LEER], new Date(Date.now() - 2 * 24 * 60 * 60000)),
+    new Usuario('9', 'pablo.ramirez@example.com', Rol.MIEMBRO, { nombre: 'Pablo Ramírez', apellido: '', avatar: '', nivel: 2, correo: 'pablo.ramirez@example.com', username: 'pramirez', bio: '', idea: '', marco: '' }, 79, 'auth9', false, 'org1', [Permiso.LEER], new Date(Date.now() - 50 * 60000)),
+    new Usuario('10', 'valeria.castro@example.com', Rol.ADMIN, { nombre: 'Valeria Castro', apellido: '', avatar: '', nivel: 7, correo: 'valeria.castro@example.com', username: 'vcastro', bio: '', idea: '', marco: '' }, 96, 'auth10', true, 'org1', [Permiso.LEER, Permiso.ESCRIBIR, Permiso.ELIMINAR], new Date(Date.now() - 4 * 60000)),
+    new Usuario('11', 'javier.morales@example.com', Rol.MIEMBRO, { nombre: 'Javier Morales', apellido: '', avatar: '', nivel: 3, correo: 'javier.morales@example.com', username: 'jmorales', bio: '', idea: '', marco: '' }, 82, 'auth11', false, 'org1', [Permiso.LEER], new Date(Date.now() - 6 * 60 * 60000)),
+    new Usuario('12', 'camila.ruiz@example.com', Rol.MIEMBRO, { nombre: 'Camila Ruiz', apellido: '', avatar: '', nivel: 4, correo: 'camila.ruiz@example.com', username: 'cruiz', bio: '', idea: '', marco: '' }, 91, 'auth12', false, 'org1', [Permiso.LEER, Permiso.ESCRIBIR], new Date(Date.now() - 30 * 60000)),
+    new Usuario('13', 'miguel.herrera@example.com', Rol.MIEMBRO, { nombre: 'Miguel Herrera', apellido: '', avatar: '', nivel: 5, correo: 'miguel.herrera@example.com', username: 'mherrera', bio: '', idea: '', marco: '' }, 93, 'auth13', false, 'org1', [Permiso.LEER, Permiso.ESCRIBIR], new Date(Date.now() - 1 * 60000)),
+    new Usuario('14', 'daniela.vargas@example.com', Rol.MIEMBRO, { nombre: 'Daniela Vargas', apellido: '', avatar: '', nivel: 2, correo: 'daniela.vargas@example.com', username: 'dvargas', bio: '', idea: '', marco: '' }, 78, 'auth14', false, 'org1', [Permiso.LEER], new Date(Date.now() - 5 * 24 * 60 * 60000)),
+    new Usuario('15', 'andres.silva@example.com', Rol.MIEMBRO, { nombre: 'Andrés Silva', apellido: '', avatar: '', nivel: 6, correo: 'andres.silva@example.com', username: 'asilva', bio: '', idea: '', marco: '' }, 94, 'auth15', false, 'org1', [Permiso.LEER, Permiso.ESCRIBIR], new Date(Date.now() - 20 * 60000))
+  ];
   // Lista de recursos inicial
   const [recursos, setRecursos] = useState<Resource[]>([
     { id: 1, name: 'Docs', icon: FileText, color: 'bg-blue-500', type: 'DOC' },
@@ -321,7 +343,7 @@ export default function Dashboard() {
       >
         {!rightPanelCollapsed && (
           <div className="p-4 pt-16">
-            <Accordion recursos={recursos} onAddResource={handleAddResource} />
+            <Accordion recursos={recursos} usuarios={mockUsuarios} onAddResource={handleAddResource} />
           </div>
         )}
       </div>
