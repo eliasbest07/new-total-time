@@ -1255,7 +1255,7 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
         )}
 
         {/* Panel de configuración */}
-        {hoveredCard === card.id && (
+        {(hoveredCard === card.id || configOpenCard === card.id) && (
           <div
             data-config-button="true"
             className={`absolute bottom-1 left-1 z-30 transition-all duration-300 ${configOpenCard === card.id ? 'w-48' : 'w-8'

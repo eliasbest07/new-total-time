@@ -13,6 +13,8 @@ import {
 import { Resource } from '../utils/resourceUtils';
 import { Usuario } from '@/domain/entities/Usuario';
 import Ventana from './Ventana';
+import { Proyecto } from '@/domain/entities/Proyecto';
+
 
 // Tipos/Interfaces
 interface User {
@@ -24,7 +26,7 @@ interface User {
   online: boolean;
 }
 
-interface Proyecto {
+interface ProyectoConvertido {
   id: number;
   nombre: string;
   descripcion: string;
@@ -37,6 +39,8 @@ interface Proyecto {
   };
 }
 
+
+
 interface Section {
   id: string;
   title: string;
@@ -48,7 +52,7 @@ interface Section {
 // Props interface
 interface AccordionProps {
   recursos: Resource[];
-  proyectos?: Proyecto[];
+  proyectos?: import('@/domain/entities/Proyecto').Proyecto[];
   usuarios?: Usuario[];
   onAddResource: () => void;
 }
@@ -124,7 +128,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   const allUsers = convertirUsuariosSupabase();
 
   // Función para convertir proyectos de Supabase al formato del Accordion
-  const convertirProyectosSupabase = () => {
+  const convertirProyectosSupabase = (): ProyectoConvertido[] => {
     return proyectos.map((proyecto) => ({
       id: proyecto.id,
       nombre: proyecto.nombre,

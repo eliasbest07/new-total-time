@@ -8,8 +8,13 @@ interface MisionCompactCardProps {
   onClick?: () => void;
 }
 
+interface MisionesCompactProps {
+  onShowDetails?: (mision: Mision) => void;
+}
+
 const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }) => {
   const handleDragStart = (e: React.DragEvent) => {
+    console.log('Drag started for mission:', mision.nombre);
     const misionData = {
       type: 'mision',
       title: mision.nombre || 'Sin nombre',
@@ -22,12 +27,20 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
     
     e.dataTransfer.setData('application/json', JSON.stringify(misionData));
     e.dataTransfer.setData('text/plain', `Misión - ${mision.nombre || 'Sin nombre'}`);
+    console.log('Drag data set:', misionData);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    console.log('MisionCompactCard clicked:', mision.nombre);
+    if (onClick) {
+      onClick();
+    }
   };
 
   return (
     <div 
       className="relative bg-green-600 w-19 h-19 rounded-xl shadow-lg overflow-hidden cursor-grab active:cursor-grabbing hover:bg-green-500 transition-colors"
-      onClick={onClick}
+      onClick={handleClick}
       draggable
       onDragStart={handleDragStart}
       title={mision.descripcion || mision.nombre || 'Sin descripción'}
@@ -36,9 +49,12 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
       <div className="absolute top-0 left-0 right-0 h-5 bg-green-800 rounded-t-xl"></div>
       
       {/* Ticker text container */}
-      <div className="absolute top-6 left-2 right-2 bottom-6 overflow-hidden flex items-center justify-center">
-        <div className="text-white text-xs font-medium text-center px-1">
-          {mision.nombre || 'Sin nombre'}
+      <div className="absolute top-6 left-2 right-2 bottom-6 overflow-hidden flex items-center">
+        <div className="ticker-wrapper h-full flex items-center">
+          <div className="ticker-content-continuous">
+            <span className="ticker-text">{mision.nombre || 'Sin nombre'}</span>
+            <span className="ticker-text">{mision.nombre || 'Sin nombre'}</span>
+          </div>
         </div>
       </div>
       
@@ -49,14 +65,44 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
         </div>
       )}
       
-      {/* Drag area - invisible overlay for better drag experience */}
-      <div className="absolute inset-0 cursor-grab active:cursor-grabbing"></div>
 
+      <style jsx>{`
+        .ticker-wrapper {
+          display: flex;
+          align-items: center;
+          overflow: hidden;
+        }
+        
+        .ticker-content-continuous {
+          animation: scroll-left-seamless 20s linear infinite;
+          display: flex;
+          font-size: 0.75rem;
+          font-weight: 500;
+          line-height: 1;
+          color: #ffffff;
+          white-space: nowrap;
+        }
+        
+        .ticker-text {
+          padding: 0 20px;
+          display: inline-block;
+        }
+        
+        .ticker-text:after {
+          content: " • ";
+          color: rgba(255, 255, 255, 0.6);
+        }
+        
+        @keyframes scroll-left-seamless {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   );
 };
 
-export default function MisionesCompact() {
+export default function MisionesCompact({ onShowDetails }: MisionesCompactProps) {
   const { usuarioId, loading: loadingUsuario, error: errorUsuario } = useUsuarioId();
   const { misiones, loading: loadingMisiones, error: errorMisiones } = useMisiones(usuarioId);
 
@@ -95,6 +141,10 @@ export default function MisionesCompact() {
           mision={mision}
           onClick={() => {
             console.log('Misión seleccionada:', mision);
+            console.log('onShowDetails function:', onShowDetails);
+            if (onShowDetails) {
+              onShowDetails(mision);
+            }
           }}
         />
       ))}

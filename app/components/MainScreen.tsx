@@ -22,6 +22,8 @@ import { useEffect } from "react";
 import { FileText, Link, Code, Image, Video, Download } from "lucide-react";
 import AgregarRecursoModal from "./modals/AgregarRecursoModal";
 import { Actividad } from "@/domain/entities/Actividad";
+import { Mision } from "@/domain/entities/Mision";
+import MisionCard from "../demo/components/MisionCard";
 
 
 export default function MainScreen() {
@@ -29,11 +31,11 @@ export default function MainScreen() {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [recursos, setRecursos] = useState<Resource[]>([]);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
-  const [selectedMision, setSelectedMision] = useState<{ title: string, hours: number } | null>(null);
-  const [showMisionDetails, setShowMisionDetails] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [showScreenshotsModal, setShowScreenshotsModal] = useState<string | null>(null);
   const [selectedActividad, setSelectedActividad] = useState<Actividad | null>(null);
+  const [showMisionDetails, setShowMisionDetails] = useState(false);
+  const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
 
   const { usuario } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
@@ -157,6 +159,12 @@ export default function MainScreen() {
     setShowActividadDetails(true);
   };
 
+  // Función para manejar la apertura de detalles de misión
+  const handleShowMisionDetails = (mision: Mision) => {
+    setSelectedMision(mision);
+    setShowMisionDetails(true);
+  };
+
   // Funciones para formatear fecha y hora de actividades
   const formatDate = (fecha: string | null) => {
     if (!fecha) return 'Sin fecha';
@@ -172,7 +180,7 @@ export default function MainScreen() {
 
     try {
       const date = new Date(horaInicio);
-      
+
       if (isNaN(date.getTime())) {
         return '00:00';
       }
@@ -182,7 +190,7 @@ export default function MainScreen() {
         minute: '2-digit',
         hour12: true
       });
-      
+
       return formatted;
     } catch (error) {
       return horaInicio;
@@ -266,11 +274,11 @@ export default function MainScreen() {
 
 
       {/* Missions positioned at fixed location */}
-      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 10 }}>
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 40 }}>
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Misiones 🎯
         </h2>
-        <MisionesCompact />
+        <MisionesCompact onShowDetails={handleShowMisionDetails} />
       </div>
 
       {/* Modal para agregar recurso */}
@@ -314,12 +322,14 @@ export default function MainScreen() {
                     className="border rounded-lg overflow-hidden bg-gray-50 hover:shadow-md transition-shadow"
                   >
                     <img
-                      src={screenshot.img_url}
+                      src={screenshot.img_url || '/placeholder-image.png'}
                       alt={`Screenshot ${new Date(screenshot.created_at).toLocaleTimeString()}`}
                       className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={() => {
-                        // Abrir imagen en nueva ventana/tab
-                        window.open(screenshot.img_url, '_blank');
+                        // Abrir imagen en nueva ventana/tab si existe la URL
+                        if (screenshot.img_url) {
+                          window.open(screenshot.img_url, '_blank');
+                        }
                       }}
                     />
                     <div className="p-2">
@@ -383,7 +393,7 @@ export default function MainScreen() {
         initialHeight={500}
         minWidth={500}
         minHeight={400}
-        showOverlay={true}
+        showOverlay={false}
       >
         {selectedActividad && (
           <div className="text-black space-y-6 p-4">
@@ -444,6 +454,86 @@ export default function MainScreen() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </Ventana>
+
+      {/* Ventana de detalles de misión */}
+      <Ventana
+        isOpen={showMisionDetails}
+        onClose={() => setShowMisionDetails(false)}
+        title="Detalles de la Misión"
+        initialWidth={600}
+        initialHeight={500}
+        minWidth={500}
+        minHeight={400}
+        showOverlay={false}
+      >
+        {selectedMision && (
+          <div className="text-black space-y-6 p-4">
+            {/* Nombre */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Nombre</h3>
+              <p className="text-gray-700 text-xl font-medium">{selectedMision.nombre || 'Sin nombre'}</p>
+            </div>
+
+            {/* Descripción */}
+            {selectedMision.descripcion && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Descripción</h3>
+                <div className="bg-gray-100 p-3 rounded-lg">
+                  <p className="text-gray-700 whitespace-pre-wrap">{selectedMision.descripcion}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Fechas */}
+            {(selectedMision.fecha_start || selectedMision.fecha_end) && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Fechas</h3>
+                <div className="bg-blue-100 p-3 rounded-lg space-y-2">
+                  {selectedMision.fecha_start && (
+                    <p className="text-blue-800">
+                      <span className="font-medium">Inicio:</span> {formatDate(selectedMision.fecha_start)}
+                    </p>
+                  )}
+                  {selectedMision.fecha_end && (
+                    <p className="text-blue-800">
+                      <span className="font-medium">Fin:</span> {formatDate(selectedMision.fecha_end)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Horas */}
+            {selectedMision.horas && selectedMision.horas > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Duración Estimada</h3>
+                <div className="bg-green-100 p-3 rounded-lg">
+                  <p className="font-medium text-green-800 text-xl">{selectedMision.horas} horas</p>
+                </div>
+              </div>
+            )}
+
+            {/* Estado/Progreso (si existe) */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Estado</h3>
+              <div className="bg-yellow-100 p-3 rounded-lg">
+                <p className="font-medium text-yellow-800">En progreso</p>
+              </div>
+            </div>
+
+            {/* ID de referencia */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Información técnica</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="text-gray-600 text-sm">ID: {selectedMision.id}</p>
+                {selectedMision.usuarioId && (
+                  <p className="text-gray-600 text-sm">Usuario: {selectedMision.usuarioId}</p>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </Ventana>
