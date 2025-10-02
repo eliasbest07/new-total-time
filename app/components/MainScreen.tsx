@@ -24,6 +24,7 @@ import AgregarRecursoModal from "./modals/AgregarRecursoModal";
 import { Actividad } from "@/domain/entities/Actividad";
 import { Mision } from "@/domain/entities/Mision";
 import MisionCard from "../demo/components/MisionCard";
+import InputArea from "./mainUI/InputArea";
 
 
 export default function MainScreen() {
@@ -529,14 +530,34 @@ export default function MainScreen() {
               <h3 className="text-lg font-semibold mb-2">Información técnica</h3>
               <div className="bg-gray-100 p-3 rounded-lg">
                 <p className="text-gray-600 text-sm">ID: {selectedMision.id}</p>
-                {selectedMision.usuarioId && (
-                  <p className="text-gray-600 text-sm">Usuario: {selectedMision.usuarioId}</p>
+                {selectedMision.id_usuario && (
+                  <p className="text-gray-600 text-sm">Usuario: {selectedMision.id_usuario}</p>
                 )}
               </div>
             </div>
           </div>
         )}
       </Ventana>
+
+      {/* Input Area centrado abajo */}
+      <InputArea
+        onCreateNote={(text) => {
+          if (pizarraRef.current) {
+            pizarraRef.current.addNoteCard(text);
+          }
+        }}
+        onCreateTodoList={(text) => {
+          if (pizarraRef.current) {
+            pizarraRef.current.addTodoCard(text);
+          }
+        }}
+        onSendMessage={(text) => {
+          console.log('Mensaje enviado:', text);
+          // Aquí puedes agregar la lógica para enviar mensajes
+        }}
+        className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
+        placeholder="Escribe aquí para crear notas, tareas o enviar..."
+      />
 
     </div>
   );
