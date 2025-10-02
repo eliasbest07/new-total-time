@@ -8,6 +8,7 @@ import {
   Archive,
   Clock,
   Plus,
+  ChevronUp,
   LucideIcon
 } from 'lucide-react';
 import { Resource } from '../utils/resourceUtils';
@@ -65,9 +66,11 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   const [showProyectoDetails, setShowProyectoDetails] = useState(false);
   const [selectedProyecto, setSelectedProyecto] = useState<Proyecto | null>(null);
   const [currentUserPage, setCurrentUserPage] = useState<number>(1);
+  const [currentProyectoPage, setCurrentProyectoPage] = useState<number>(1);
   const dragImageRef = useRef<HTMLDivElement>(null);
 
   const USERS_PER_PAGE = 4;
+  const PROYECTOS_PER_PAGE = 2;
 
   // Función para convertir usuarios de Supabase al formato del Accordion
   const convertirUsuariosSupabase = () => {
@@ -166,6 +169,10 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   };
 
   const proyectosConvertidos = convertirProyectosSupabase();
+  const totalProyectoPages = Math.ceil(proyectos.length / PROYECTOS_PER_PAGE);
+  const startProyectoIndex = (currentProyectoPage - 1) * PROYECTOS_PER_PAGE;
+  const endProyectoIndex = startProyectoIndex + PROYECTOS_PER_PAGE;
+  const currentProyectos = proyectos.slice(startProyectoIndex, endProyectoIndex);
 
   const sections: Section[] = [
     {
@@ -354,38 +361,70 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                     </div>
                   ) : section.content === 'projects' ? (
                     // Sección especial para proyectos
-                    <div className="space-y-3">
-                      {proyectos.map((proyecto) => (
-                        <div
-                          key={proyecto.id}
-                          className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-3"
-                          onClick={() => handleProyectoClick(proyecto)}
-                        >
-                          {/* Logo del proyecto */}
-                          <div className="w-12 h-12 flex-shrink-0 bg-white/10 rounded-lg overflow-hidden flex items-center justify-center">
-                            {proyecto.imagen_url ? (
-                              <img
-                                src={proyecto.imagen_url}
-                                alt={proyecto.nombre}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling!.classList.remove('hidden');
-                                }}
-                              />
-                            ) : null}
-                            <span className={`text-2xl ${proyecto.imagen_url ? 'hidden' : ''}`}>✏️</span>
-                          </div>
+                    <div>
+                      <div className="flex gap-2">
+                        {/* Lista de proyectos */}
+                        <div className="flex-1 space-y-3">
+                          {currentProyectos.map((proyecto) => (
+                            <div
+                              key={proyecto.id}
+                              className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-3"
+                              onClick={() => handleProyectoClick(proyecto)}
+                            >
+                              {/* Logo del proyecto */}
+                              <div className="w-12 h-12 flex-shrink-0 bg-white/10 rounded-lg overflow-hidden flex items-center justify-center">
+                                {proyecto.imagen_url ? (
+                                  <img
+                                    src={proyecto.imagen_url}
+                                    alt={proyecto.nombre}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      e.currentTarget.nextElementSibling!.classList.remove('hidden');
+                                    }}
+                                  />
+                                ) : null}
+                                <span className={`text-2xl ${proyecto.imagen_url ? 'hidden' : ''}`}>✏️</span>
+                              </div>
 
-                          {/* Nombre y estado */}
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-white font-medium text-sm truncate">{proyecto.nombre}</h4>
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getEstadoColor(getEstadoFromType(proyecto.type))}`}>
-                              {getEstadoFromType(proyecto.type)}
-                            </span>
-                          </div>
+                              {/* Nombre y estado */}
+                              <div className="flex-1 min-w-0">
+                                <h4
+                                  className="text-white font-medium text-sm truncate"
+                                  title={proyecto.nombre}
+                                >
+                                  {proyecto.nombre.length > 14
+                                    ? proyecto.nombre.substring(0, 14) + '...'
+                                    : proyecto.nombre}
+                                </h4>
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getEstadoColor(getEstadoFromType(proyecto.type))}`}>
+                                  {getEstadoFromType(proyecto.type)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+
+                        {/* Paginación vertical */}
+                        {totalProyectoPages > 1 && (
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => setCurrentProyectoPage(prev => Math.max(1, prev - 1))}
+                              disabled={currentProyectoPage === 1}
+                              className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
+                            >
+                              <ChevronUp size={14} className="text-white" />
+                            </button>
+                            <button
+                              onClick={() => setCurrentProyectoPage(prev => Math.min(totalProyectoPages, prev + 1))}
+                              disabled={currentProyectoPage === totalProyectoPages}
+                              className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
+                            >
+                              <ChevronDown size={14} className="text-white" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : section.content === 'resources' ? (
                     // Sección especial para recursos con cajitas pequeñas

@@ -30,6 +30,7 @@ import { Actividad } from '@/domain/entities/Actividad';
 import { Usuario } from '@/domain/entities/Usuario';
 import { Rol } from '@/domain/enums/Rol';
 import { Permiso } from '@/domain/enums/Permiso';
+import { Proyecto } from '@/domain/entities/Proyecto';
 
 type BoardHistoryItem = {
   id: string;
@@ -81,6 +82,226 @@ export default function Dashboard() {
     new Usuario('13', 'miguel.herrera@example.com', Rol.MIEMBRO, { nombre: 'Miguel Herrera', apellido: '', avatar: '', nivel: 5, correo: 'miguel.herrera@example.com', username: 'mherrera', bio: '', idea: '', marco: '' }, 93, 'auth13', false, 'org1', [Permiso.LEER, Permiso.ESCRIBIR], new Date(Date.now() - 1 * 60000)),
     new Usuario('14', 'daniela.vargas@example.com', Rol.MIEMBRO, { nombre: 'Daniela Vargas', apellido: '', avatar: '', nivel: 2, correo: 'daniela.vargas@example.com', username: 'dvargas', bio: '', idea: '', marco: '' }, 78, 'auth14', false, 'org1', [Permiso.LEER], new Date(Date.now() - 5 * 24 * 60 * 60000)),
     new Usuario('15', 'andres.silva@example.com', Rol.MIEMBRO, { nombre: 'Andrés Silva', apellido: '', avatar: '', nivel: 6, correo: 'andres.silva@example.com', username: 'asilva', bio: '', idea: '', marco: '' }, 94, 'auth15', false, 'org1', [Permiso.LEER, Permiso.ESCRIBIR], new Date(Date.now() - 20 * 60000))
+  ];
+
+  // Proyectos mock para testing
+  const mockProyectos: Proyecto[] = [
+    {
+      id: 1,
+      created_at: '2024-01-15T10:00:00Z',
+      nombre: 'E-Commerce Platform',
+      user_id: 'user1',
+      ip_creacion: '192.168.1.1',
+      pais_creacion: 'ES',
+      publico: true,
+      imagen_url: null,
+      description: 'Plataforma de comercio electrónico con carrito de compras',
+      style_prompt: 'modern, clean',
+      type: 'development',
+      utility: 'sales',
+      palette: 'blue',
+      colors: ['#3B82F6', '#1E40AF', '#60A5FA'],
+      timestamp: '2024-01-15T10:00:00Z',
+      producto: 'web'
+    },
+    {
+      id: 2,
+      created_at: '2024-02-20T14:30:00Z',
+      nombre: 'Mobile Banking App',
+      user_id: 'user2',
+      ip_creacion: '192.168.1.2',
+      pais_creacion: 'MX',
+      publico: false,
+      imagen_url: null,
+      description: 'Aplicación móvil para gestión bancaria',
+      style_prompt: 'professional, secure',
+      type: 'active',
+      utility: 'finance',
+      palette: 'green',
+      colors: ['#10B981', '#047857', '#34D399'],
+      timestamp: '2024-02-20T14:30:00Z',
+      producto: 'mobile'
+    },
+    {
+      id: 3,
+      created_at: '2024-03-10T09:15:00Z',
+      nombre: 'Social Network Dashboard',
+      user_id: 'user1',
+      ip_creacion: '192.168.1.3',
+      pais_creacion: 'AR',
+      publico: true,
+      imagen_url: null,
+      description: 'Dashboard para análisis de redes sociales',
+      style_prompt: 'vibrant, dynamic',
+      type: 'review',
+      utility: 'analytics',
+      palette: 'purple',
+      colors: ['#8B5CF6', '#6D28D9', '#A78BFA'],
+      timestamp: '2024-03-10T09:15:00Z',
+      producto: 'web'
+    },
+    {
+      id: 4,
+      created_at: '2024-04-05T16:45:00Z',
+      nombre: 'Healthcare Portal',
+      user_id: 'user3',
+      ip_creacion: '192.168.1.4',
+      pais_creacion: 'CO',
+      publico: false,
+      imagen_url: null,
+      description: 'Portal de gestión para centros de salud',
+      style_prompt: 'clean, medical',
+      type: 'completed',
+      utility: 'healthcare',
+      palette: 'teal',
+      colors: ['#14B8A6', '#0D9488', '#2DD4BF'],
+      timestamp: '2024-04-05T16:45:00Z',
+      producto: 'web'
+    },
+    {
+      id: 5,
+      created_at: '2024-05-12T11:20:00Z',
+      nombre: 'Food Delivery Service',
+      user_id: 'user2',
+      ip_creacion: '192.168.1.5',
+      pais_creacion: 'CL',
+      publico: true,
+      imagen_url: null,
+      description: 'Servicio de entrega de comida a domicilio',
+      style_prompt: 'appetizing, fast',
+      type: 'development',
+      utility: 'delivery',
+      palette: 'orange',
+      colors: ['#F59E0B', '#D97706', '#FBB040'],
+      timestamp: '2024-05-12T11:20:00Z',
+      producto: 'mobile'
+    },
+    {
+      id: 6,
+      created_at: '2024-06-18T13:00:00Z',
+      nombre: 'Real Estate Marketplace',
+      user_id: 'user1',
+      ip_creacion: '192.168.1.6',
+      pais_creacion: 'PE',
+      publico: true,
+      imagen_url: null,
+      description: 'Marketplace para compra y venta de propiedades',
+      style_prompt: 'elegant, trustworthy',
+      type: 'active',
+      utility: 'real-estate',
+      palette: 'indigo',
+      colors: ['#6366F1', '#4F46E5', '#818CF8'],
+      timestamp: '2024-06-18T13:00:00Z',
+      producto: 'web'
+    },
+    {
+      id: 7,
+      created_at: '2024-07-22T08:30:00Z',
+      nombre: 'Fitness Tracker',
+      user_id: 'user3',
+      ip_creacion: '192.168.1.7',
+      pais_creacion: 'UY',
+      publico: false,
+      imagen_url: null,
+      description: 'App para seguimiento de ejercicios y nutrición',
+      style_prompt: 'energetic, motivational',
+      type: 'development',
+      utility: 'fitness',
+      palette: 'red',
+      colors: ['#EF4444', '#DC2626', '#F87171'],
+      timestamp: '2024-07-22T08:30:00Z',
+      producto: 'mobile'
+    },
+    {
+      id: 8,
+      created_at: '2024-08-14T15:10:00Z',
+      nombre: 'Educational Platform',
+      user_id: 'user2',
+      ip_creacion: '192.168.1.8',
+      pais_creacion: 'EC',
+      publico: true,
+      imagen_url: null,
+      description: 'Plataforma de cursos online y aprendizaje',
+      style_prompt: 'educational, accessible',
+      type: 'review',
+      utility: 'education',
+      palette: 'yellow',
+      colors: ['#F59E0B', '#D97706', '#FBBF24'],
+      timestamp: '2024-08-14T15:10:00Z',
+      producto: 'web'
+    },
+    {
+      id: 9,
+      created_at: '2024-09-03T10:45:00Z',
+      nombre: 'Travel Booking System',
+      user_id: 'user1',
+      ip_creacion: '192.168.1.9',
+      pais_creacion: 'BO',
+      publico: true,
+      imagen_url: null,
+      description: 'Sistema de reservas para hoteles y vuelos',
+      style_prompt: 'wanderlust, adventurous',
+      type: 'completed',
+      utility: 'travel',
+      palette: 'cyan',
+      colors: ['#06B6D4', '#0891B2', '#22D3EE'],
+      timestamp: '2024-09-03T10:45:00Z',
+      producto: 'web'
+    },
+    {
+      id: 10,
+      created_at: '2024-10-20T12:00:00Z',
+      nombre: 'Music Streaming App',
+      user_id: 'user3',
+      ip_creacion: '192.168.1.10',
+      pais_creacion: 'VE',
+      publico: false,
+      imagen_url: null,
+      description: 'App de streaming de música y podcasts',
+      style_prompt: 'rhythmic, immersive',
+      type: 'active',
+      utility: 'entertainment',
+      palette: 'pink',
+      colors: ['#EC4899', '#DB2777', '#F472B6'],
+      timestamp: '2024-10-20T12:00:00Z',
+      producto: 'mobile'
+    },
+    {
+      id: 11,
+      created_at: '2024-11-08T09:30:00Z',
+      nombre: 'Project Management Tool',
+      user_id: 'user2',
+      ip_creacion: '192.168.1.11',
+      pais_creacion: 'CR',
+      publico: true,
+      imagen_url: null,
+      description: 'Herramienta de gestión de proyectos y tareas',
+      style_prompt: 'organized, efficient',
+      type: 'development',
+      utility: 'productivity',
+      palette: 'slate',
+      colors: ['#64748B', '#475569', '#94A3B8'],
+      timestamp: '2024-11-08T09:30:00Z',
+      producto: 'web'
+    },
+    {
+      id: 12,
+      created_at: '2024-12-01T14:20:00Z',
+      nombre: 'Smart Home Control',
+      user_id: 'user1',
+      ip_creacion: '192.168.1.12',
+      pais_creacion: 'PA',
+      publico: false,
+      imagen_url: null,
+      description: 'Control centralizado de dispositivos del hogar',
+      style_prompt: 'futuristic, smart',
+      type: 'review',
+      utility: 'iot',
+      palette: 'emerald',
+      colors: ['#10B981', '#059669', '#34D399'],
+      timestamp: '2024-12-01T14:20:00Z',
+      producto: 'mobile'
+    }
   ];
   // Lista de recursos inicial
   const [recursos, setRecursos] = useState<Resource[]>([
@@ -343,7 +564,7 @@ export default function Dashboard() {
       >
         {!rightPanelCollapsed && (
           <div className="p-4 pt-16">
-            <Accordion recursos={recursos} usuarios={mockUsuarios} onAddResource={handleAddResource} />
+            <Accordion recursos={recursos} usuarios={mockUsuarios} proyectos={mockProyectos} onAddResource={handleAddResource} />
           </div>
         )}
       </div>
