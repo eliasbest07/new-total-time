@@ -26,6 +26,7 @@ import {
 import { saveResource, type Resource, type NewResourceData } from './utils/resourceUtils';
 import ActividadesGrid from './components/ActividadesGrid';
 import Cube from './components/cubo-acordion';
+import { Actividad } from '@/domain/entities/Actividad';
 
 type BoardHistoryItem = {
   id: string;
@@ -396,7 +397,9 @@ export default function Dashboard() {
           }}
           onClick={() => setShowActividadDetails(true)}
         >
-          <ActividadesGrid />
+          <ActividadesGrid onShowDetails={function (actividad: Actividad): void {
+            //throw new Error('Function not implemented.');
+          } } />
         </div>
       </div>
 
