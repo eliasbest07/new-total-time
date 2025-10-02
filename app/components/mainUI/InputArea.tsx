@@ -24,7 +24,7 @@ export default function InputArea({
 
   const resetTextareaHeight = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = '24px'; // Altura base
+      textareaRef.current.style.height = 'auto';
     }
   };
 
