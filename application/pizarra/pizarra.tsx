@@ -64,6 +64,18 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     messages?: ChatMessage[];
   }
 
+  interface ProyectoData {
+    nombre: string;
+    description: string | null;
+    imagen_url: string | null;
+    type: string | null;
+    utility: string | null;
+    palette: string | null;
+    colors: string[] | null;
+    producto: string | null;
+    publico: boolean;
+  }
+
   interface Card {
     id: string;
     type: string;
@@ -78,6 +90,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     activityData?: ActivityData;
     misionData?: MisionData;
     usuarioData?: UsuarioData;
+    proyectoData?: ProyectoData;
   }
 
   const [cards, setCards] = useState<Card[]>([]);
@@ -121,6 +134,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [pastedImages, setPastedImages] = useState<{ [key: string]: string }>({});
 
   // Función para formatear timestamp
   const formatTimestamp = (timestamp: number) => {
@@ -159,69 +173,85 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     setIsDragOver(false);
     setIsReceivingDrag(false);
 
-    if (!canvasRef.current) return;
+    console.log('🎯 [PIZARRA DROP] Evento drop recibido');
+    console.log('📦 [PIZARRA DROP] dataTransfer types:', e.dataTransfer.types);
+    console.log('📁 [PIZARRA DROP] Archivos:', e.dataTransfer.files.length);
+
     if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left - panOffset.x;
     const y = e.clientY - rect.top - panOffset.y;
 
-    // Manejar archivos
-    if (e.dataTransfer.files.length > 0) {
-      const files = Array.from(e.dataTransfer.files);
-      files.forEach((file, index) => {
-        const newCard = {
-          id: generateUniqueId(`file-${index}`),
-          type: 'file',
-          title: (file as File).name,
-          content: `Tamaño: ${((file as File).size / 1024).toFixed(2)} KB`,
-          x: x + (index * 20),
-          y: y + (index * 20),
-          width: 200,
-          height: 120
-        };
-        setCards(prev => [...prev, newCard]);
-      });
-    }
+    console.log('📍 [PIZARRA DROP] Posición:', { x, y });
 
-    // Manejar recursos del accordion y actividades
+    // Manejar recursos del accordion y actividades PRIMERO (antes que archivos o texto)
     const resourceData = e.dataTransfer.getData('application/json');
+    console.log('🔍 [PIZARRA DROP] JSON data:', resourceData);
+
     if (resourceData) {
       try {
         const resource = JSON.parse(resourceData);
-        if (resource.type === 'resource') {
+        console.log('✅ [PIZARRA DROP] JSON parseado exitosamente:', resource);
+        console.log('🏷️ [PIZARRA DROP] Campos del recurso:', Object.keys(resource));
+
+        // Detectar tipo de recurso basado en sus campos
+        // PROYECTO: tiene 'nombre', 'colors', 'palette', etc.
+        if (resource.nombre && resource.colors && resource.palette !== undefined) {
+          console.log('📁 [PIZARRA DROP] Detectado PROYECTO por campos (nombre, colors, palette)');
+          console.log('📁 [PIZARRA DROP] Datos del proyecto:', resource);
           const newCard = {
-            id: generateUniqueId('resource'),
-            type: 'resource',
-            title: resource.name,
-            content: `Tipo: ${resource.resourceType}`,
+            id: generateUniqueId('proyecto'),
+            type: 'proyecto',
+            title: resource.nombre || 'Proyecto',
+            content: `Proyecto: ${resource.nombre}`,
             x: x,
             y: y,
-            width: 180,
-            height: 110,
-            fontSize: 18
+            width: 280,
+            height: 380,
+            fontSize: 14,
+            proyectoData: {
+              nombre: resource.nombre || 'Proyecto',
+              description: resource.description || null,
+              imagen_url: resource.imagen_url || null,
+              type: resource.type || null,
+              utility: resource.utility || null,
+              palette: resource.palette || null,
+              colors: resource.colors || null,
+              producto: resource.producto || null,
+              publico: resource.publico !== undefined ? resource.publico : true
+            }
           };
+          console.log('📁 [PIZARRA DROP] Card de proyecto creada:', newCard);
           setCards(prev => [...prev, newCard]);
           return;
-        } else if (resource.type === 'mision') {
+        }
+        // USUARIO: tiene 'name', 'avatar', 'color', 'online'
+        else if (resource.name && resource.avatar && resource.color && resource.online !== undefined) {
+          console.log('👤 [PIZARRA DROP] Detectado USUARIO por campos');
           const newCard = {
-            id: generateUniqueId('mision'),
-            type: 'mision',
-            title: resource.title || 'Nueva Misión',
-            content: `${resource.hours}h - ${resource.description || resource.title}`,
+            id: generateUniqueId('usuario'),
+            type: 'usuario',
+            title: resource.name || 'Usuario',
+            content: `Usuario: ${resource.name}`,
             x: x,
             y: y,
-            width: 250,
-            height: 300,
+            width: 280,
+            height: 400,
             fontSize: 18,
-            misionData: {
-              title: resource.title || 'Nueva Misión',
-              hours: resource.hours || 1,
-              description: resource.description || resource.title
+            usuarioData: {
+              name: resource.name || 'Usuario',
+              avatar: resource.avatar || 'US',
+              color: resource.color || 'bg-blue-500',
+              online: resource.online || false,
+              messages: []
             }
           };
           setCards(prev => [...prev, newCard]);
           return;
-        } else if (resource.type === 'actividad') {
+        }
+        // ACTIVIDAD: tiene 'subject', 'participants', 'date', 'time'
+        else if (resource.subject && resource.participants) {
+          console.log('📅 [PIZARRA DROP] Detectado ACTIVIDAD por campos');
           const newCard = {
             id: generateUniqueId('actividad'),
             type: 'actividad',
@@ -248,36 +278,80 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
           };
           setCards(prev => [...prev, newCard]);
           return;
-        } else if (resource.type === 'usuario') {
+        }
+        // MISIÓN: tiene 'title' y 'hours'
+        else if (resource.title && resource.hours !== undefined) {
+          console.log('🎯 [PIZARRA DROP] Detectado MISIÓN por campos');
           const newCard = {
-            id: generateUniqueId('usuario'),
-            type: 'usuario',
-            title: resource.name || 'Usuario',
-            content: `Usuario: ${resource.name}`,
+            id: generateUniqueId('mision'),
+            type: 'mision',
+            title: resource.title || 'Nueva Misión',
+            content: `${resource.hours}h - ${resource.description || resource.title}`,
             x: x,
             y: y,
-            width: 280,
-            height: 400,
+            width: 250,
+            height: 300,
             fontSize: 18,
-            usuarioData: {
-              name: resource.name || 'Usuario',
-              avatar: resource.avatar || 'US',
-              color: resource.color || 'bg-blue-500',
-              online: resource.online || false,
-              messages: []
+            misionData: {
+              title: resource.title || 'Nueva Misión',
+              hours: resource.hours || 1,
+              description: resource.description || resource.title
             }
           };
           setCards(prev => [...prev, newCard]);
           return;
         }
+        // RECURSO: tiene 'name' y 'resourceType'
+        else if (resource.name && resource.resourceType) {
+          console.log('📦 [PIZARRA DROP] Detectado RECURSO por campos');
+          const newCard = {
+            id: generateUniqueId('resource'),
+            type: 'resource',
+            title: resource.name,
+            content: `Tipo: ${resource.resourceType}`,
+            x: x,
+            y: y,
+            width: 180,
+            height: 110,
+            fontSize: 18
+          };
+          setCards(prev => [...prev, newCard]);
+          return;
+        } else {
+          console.log('⚠️ [PIZARRA DROP] Tipo de recurso no reconocido. Campos:', Object.keys(resource));
+        }
       } catch (error) {
-        console.log('No es un recurso JSON válido');
+        console.log('❌ [PIZARRA DROP] Error parseando JSON:', error);
       }
+    } else {
+      console.log('⚠️ [PIZARRA DROP] No hay datos JSON en el dataTransfer');
     }
 
-    // Manejar texto
+    // Manejar archivos
+    if (e.dataTransfer.files.length > 0) {
+      console.log('📂 [PIZARRA DROP] Procesando archivos');
+      const files = Array.from(e.dataTransfer.files);
+      files.forEach((file, index) => {
+        const newCard = {
+          id: generateUniqueId(`file-${index}`),
+          type: 'file',
+          title: (file as File).name,
+          content: `Tamaño: ${((file as File).size / 1024).toFixed(2)} KB`,
+          x: x + (index * 20),
+          y: y + (index * 20),
+          width: 200,
+          height: 120
+        };
+        setCards(prev => [...prev, newCard]);
+      });
+      return;
+    }
+
+    // Manejar texto (solo si no hay JSON ni archivos)
     const text = e.dataTransfer.getData('text/plain');
-    if (text && e.dataTransfer.files.length === 0) {
+    console.log('📝 [PIZARRA DROP] Texto plano:', text);
+    if (text) {
+      console.log('📝 [PIZARRA DROP] Creando card de texto');
       const newCard = {
         id: generateUniqueId('text'),
         type: 'text',
@@ -290,6 +364,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
       };
       setCards(prev => [...prev, newCard]);
     }
+
+    console.log('✨ [PIZARRA DROP] Proceso de drop completado');
   }, [panOffset]);
 
   // Funciones para mover cards dentro del canvas
@@ -487,6 +563,66 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
       };
     }
   }, [isPanning, draggedCard, isConnecting, handleGlobalMouseMove, handleGlobalMouseUp]);
+
+  // Manejar paste de imágenes desde el portapapeles
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    console.log('📋 [PIZARRA PASTE] Evento paste detectado');
+
+    const items = e.clipboardData?.items;
+    if (!items) {
+      console.log('⚠️ [PIZARRA PASTE] No hay items en el portapapeles');
+      return;
+    }
+
+    console.log('📋 [PIZARRA PASTE] Items en portapapeles:', items.length);
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      console.log('📋 [PIZARRA PASTE] Item tipo:', item.type);
+
+      // Verificar si es una imagen
+      if (item.type.indexOf('image') !== -1) {
+        console.log('🖼️ [PIZARRA PASTE] Imagen detectada!');
+        const blob = item.getAsFile();
+
+        if (blob) {
+          console.log('✅ [PIZARRA PASTE] Blob obtenido, creando URL');
+          const imageUrl = URL.createObjectURL(blob);
+
+          // Crear nueva card de imagen en el centro de la pizarra
+          const newCard = {
+            id: generateUniqueId('image'),
+            type: 'image',
+            title: 'Imagen pegada',
+            content: `Pegada: ${new Date().toLocaleTimeString()}`,
+            x: generatePosition(),
+            y: generatePosition(),
+            width: 300,
+            height: 200,
+            fontSize: 14
+          };
+
+          console.log('🖼️ [PIZARRA PASTE] Card creada:', newCard);
+
+          // Guardar la URL de la imagen
+          setPastedImages(prev => ({
+            ...prev,
+            [newCard.id]: imageUrl
+          }));
+
+          setCards(prev => [...prev, newCard]);
+          console.log('✅ [PIZARRA PASTE] Card añadida a la pizarra');
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [handlePaste]);
 
   // Funciones para resize de cards
   const handleResizeStart = useCallback((e: React.MouseEvent, cardId: string) => {
@@ -771,6 +907,8 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
           return '📅';
         case 'usuario':
           return '👤';
+        case 'proyecto':
+          return '📁';
         default:
           return '📋';
       }
@@ -802,6 +940,8 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
           return `${baseStyle} bg-green-50 border-green-300`;
         case 'usuario':
           return `${baseStyle} bg-purple-50 border-purple-300`;
+        case 'proyecto':
+          return `${baseStyle} bg-indigo-50 border-indigo-300`;
         default:
           return `${baseStyle} bg-white border-gray-200`;
       }
@@ -872,6 +1012,7 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
           card.type === 'todo' ? 'bg-orange-600' :
           card.type === 'text' ? 'bg-yellow-500' :
           card.type === 'usuario' ? 'bg-purple-600' :
+          card.type === 'proyecto' ? 'bg-indigo-600' :
           'bg-gray-600'
         }`}></div>
 
@@ -1381,6 +1522,198 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
               </button>
             </div>
           </div>
+        ) : card.type === 'proyecto' ? (
+          <div className="flex flex-col h-full w-full p-2 overflow-y-auto todo-scroll">
+            {/* Header con nombre e indicador público/privado */}
+            <div className="flex items-center gap-1.5 mb-1.5 flex-shrink-0">
+              <div style={{ fontSize: `${Math.max(14, (card.fontSize || 14) + 2)}px` }}>📁</div>
+              {editingTitle === card.id ? (
+                <input
+                  type="text"
+                  defaultValue={card.title}
+                  onBlur={(e) => updateCardTitle(card.id, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      updateCardTitle(card.id, e.currentTarget.value);
+                    }
+                    if (e.key === 'Escape') {
+                      setEditingTitle(null);
+                    }
+                  }}
+                  className="font-bold text-indigo-900 bg-transparent border-b border-indigo-400 focus:outline-none w-full text-sm"
+                  autoFocus
+                  data-todo-interactive
+                />
+              ) : (
+                <h3
+                  className="font-bold text-indigo-900 flex-1 leading-tight"
+                  style={{ fontSize: `${(card.fontSize || 14)}px` }}
+                >
+                  {card.proyectoData?.nombre || card.title}
+                </h3>
+              )}
+              {card.proyectoData?.publico !== undefined && (
+                <div
+                  className={`px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                    card.proyectoData.publico
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                  style={{ fontSize: '10px' }}
+                  title={card.proyectoData.publico ? 'Público' : 'Privado'}
+                >
+                  {card.proyectoData.publico ? '🌐' : '🔒'}
+                </div>
+              )}
+            </div>
+
+            {/* Imagen del proyecto con overlay de producto */}
+            <div className="mb-2 w-full rounded-lg overflow-hidden border-2 border-indigo-200 relative flex-shrink-0" style={{ height: '100px' }}>
+              {card.proyectoData?.imagen_url ? (
+                <img
+                  src={card.proyectoData.imagen_url}
+                  alt={card.proyectoData.nombre}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-indigo-200 via-indigo-300 to-indigo-400 flex items-center justify-center">
+                  <div
+                    className="text-indigo-700 font-bold"
+                    style={{ fontSize: `${(card.fontSize || 14) + 8}px` }}
+                  >
+                    📁
+                  </div>
+                </div>
+              )}
+              {/* Overlay de producto */}
+              {card.proyectoData?.producto && (
+                <div className="absolute top-1 right-1 bg-indigo-600/90 backdrop-blur-sm text-white px-1.5 py-0.5 rounded text-xs font-medium">
+                  {card.proyectoData.producto}
+                </div>
+              )}
+            </div>
+
+            {/* Descripción */}
+            {card.proyectoData?.description && (
+              <div className="mb-2 flex-shrink-0">
+                <p
+                  className="text-indigo-800 leading-snug line-clamp-2"
+                  style={{ fontSize: `${(card.fontSize || 14) - 2}px` }}
+                  title={card.proyectoData.description}
+                >
+                  {card.proyectoData.description}
+                </p>
+              </div>
+            )}
+
+            {/* Paleta de colores */}
+            {card.proyectoData?.colors && card.proyectoData.colors.length > 0 && (
+              <div className="mb-2 flex-shrink-0">
+                <div
+                  className="text-indigo-700 font-semibold mb-1"
+                  style={{ fontSize: `${(card.fontSize || 14) - 3}px` }}
+                >
+                  🎨 Colores
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {card.proyectoData.colors.slice(0, 6).map((color, index) => (
+                    <div
+                      key={index}
+                      className="rounded shadow-sm border border-indigo-200/50"
+                      style={{
+                        backgroundColor: color,
+                        width: '24px',
+                        height: '24px'
+                      }}
+                      title={color}
+                    />
+                  ))}
+                  {card.proyectoData.colors.length > 6 && (
+                    <div
+                      className="rounded shadow-sm border border-indigo-200 bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold"
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        fontSize: '10px'
+                      }}
+                      title={`+${card.proyectoData.colors.length - 6} colores más`}
+                    >
+                      +{card.proyectoData.colors.length - 6}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tags de tipo, utilidad y paleta */}
+            <div className="flex gap-1 mt-2 flex-wrap flex-shrink-0">
+              {card.proyectoData?.type && (
+                <div className="bg-indigo-600 text-white rounded-full px-2 py-0.5 text-xs font-semibold shadow-sm">
+                  {card.proyectoData.type}
+                </div>
+              )}
+              {card.proyectoData?.utility && (
+                <div className="bg-indigo-500 text-white rounded-full px-2 py-0.5 text-xs font-semibold shadow-sm">
+                  {card.proyectoData.utility}
+                </div>
+              )}
+              {card.proyectoData?.palette && (
+                <div className="bg-purple-500 text-white rounded-full px-2 py-0.5 text-xs font-semibold shadow-sm">
+                  {card.proyectoData.palette}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : card.type === 'image' ? (
+          <div className="flex flex-col h-full w-full p-2">
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+              <div style={{ fontSize: `${Math.max(16, (card.fontSize || 14) + 2)}px` }}>🖼️</div>
+              {editingTitle === card.id ? (
+                <input
+                  type="text"
+                  defaultValue={card.title}
+                  onBlur={(e) => updateCardTitle(card.id, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      updateCardTitle(card.id, e.currentTarget.value);
+                    }
+                    if (e.key === 'Escape') {
+                      setEditingTitle(null);
+                    }
+                  }}
+                  className="font-semibold text-gray-800 flex-1 bg-transparent border-b border-gray-400 focus:outline-none text-sm"
+                  autoFocus
+                  data-todo-interactive
+                />
+              ) : (
+                <h3
+                  className="font-semibold text-gray-800 flex-1 truncate"
+                  style={{ fontSize: `${card.fontSize || 14}px` }}
+                >
+                  {card.title}
+                </h3>
+              )}
+            </div>
+
+            {/* Imagen */}
+            <div className="flex-1 rounded-lg overflow-hidden border-2 border-pink-200 bg-pink-50 flex items-center justify-center">
+              {pastedImages[card.id] ? (
+                <img
+                  src={pastedImages[card.id]}
+                  alt={card.title}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="text-pink-400 text-4xl">🖼️</div>
+              )}
+            </div>
+
+            {/* Timestamp */}
+            <div className="text-xs text-gray-500 mt-1 flex-shrink-0">
+              {card.content}
+            </div>
+          </div>
         ) : (
           <div className="flex items-start gap-2 h-full">
             <div style={{ fontSize: `${Math.max(20, (card.fontSize || 18) + 8)}px` }}>{getCardIcon()}</div>
@@ -1682,6 +2015,12 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
         } else if (card.type === 'actividad') {
           baseWidth = 300;
           baseHeight = 250;
+        } else if (card.type === 'proyecto') {
+          baseWidth = 350;
+          baseHeight = 420;
+        } else if (card.type === 'usuario') {
+          baseWidth = 280;
+          baseHeight = 400;
         } else {
           baseWidth = 200;
           baseHeight = 120;
@@ -1710,10 +2049,20 @@ const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunn
   }, []);
 
   const deleteCard = useCallback((cardId: string) => {
+    // Limpiar URL de imagen si existe
+    if (pastedImages[cardId]) {
+      URL.revokeObjectURL(pastedImages[cardId]);
+      setPastedImages(prev => {
+        const newImages = { ...prev };
+        delete newImages[cardId];
+        return newImages;
+      });
+    }
+
     setCards(prev => prev.filter(card => card.id !== cardId));
     setConfirmDelete(null);
     setConfigOpenCard(null);
-  }, []);
+  }, [pastedImages]);
 
   useImperativeHandle(ref, () => ({
     addNoteCard,

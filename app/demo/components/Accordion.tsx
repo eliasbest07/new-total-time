@@ -368,8 +368,33 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                           {currentProyectos.map((proyecto) => (
                             <div
                               key={proyecto.id}
-                              className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-3"
-                              onClick={() => handleProyectoClick(proyecto)}
+                              className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing flex items-center gap-3"
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('text/plain', `Proyecto: ${proyecto.nombre}`);
+                                e.dataTransfer.setData('application/json', JSON.stringify({
+                                  type: 'proyecto',
+                                  nombre: proyecto.nombre,
+                                  description: proyecto.description,
+                                  imagen_url: proyecto.imagen_url,
+                                  type: proyecto.type,
+                                  utility: proyecto.utility,
+                                  palette: proyecto.palette,
+                                  colors: proyecto.colors,
+                                  producto: proyecto.producto,
+                                  publico: proyecto.publico
+                                }));
+                                e.currentTarget.style.opacity = '0.5';
+                              }}
+                              onDragEnd={(e) => {
+                                e.currentTarget.style.opacity = '1';
+                              }}
+                              onClick={(e) => {
+                                // Solo abrir detalles si no se está arrastrando
+                                if (!e.defaultPrevented) {
+                                  handleProyectoClick(proyecto);
+                                }
+                              }}
                             >
                               {/* Logo del proyecto */}
                               <div className="w-12 h-12 flex-shrink-0 bg-white/10 rounded-lg overflow-hidden flex items-center justify-center">
