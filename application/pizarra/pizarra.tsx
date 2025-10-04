@@ -8,6 +8,7 @@ import { useConnections } from './hooks/useConnections';
 import { useCardResize } from './hooks/useCardResize';
 import { usePasteImage } from './hooks/usePasteImage';
 import { useDropHandler } from './hooks/useDropHandler';
+import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 
@@ -32,6 +33,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
 
   const {
     connections,
+    setConnections,
     isConnecting,
     connectingFrom,
     mousePosition,
@@ -43,6 +45,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
   const {
     isPanning,
     panOffset,
+    setPanOffset,
     handleCanvasMouseDown: baseHandleCanvasMouseDown,
     handleGlobalMouseMove: panGlobalMouseMove,
     handleMouseUp: panHandleMouseUp
@@ -70,6 +73,20 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     handleDragOver,
     handleDrop
   } = useDropHandler(setCards, panOffset, canvasRef);
+
+  // LocalStorage para persistencia
+  const {
+    clearLocalStorage,
+    exportToJSON,
+    importFromJSON
+  } = usePizarraLocalStorage(
+    cards,
+    connections,
+    panOffset,
+    setCards,
+    setConnections,
+    setPanOffset
+  );
 
   // Funciones para actividades
   const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
@@ -411,6 +428,52 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
             Conectando desde: {cards.find(c => c.id === connectingFrom)?.title}
           </p>
         )}
+
+        {/* Controles de LocalStorage */}
+        <div className="flex gap-2 justify-center mt-2">
+          <button
+            onClick={clearLocalStorage}
+            className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+            title="Limpiar pizarra y localStorage"
+          >
+            🗑️ Limpiar Todo
+          </button>
+          <button
+            onClick={exportToJSON}
+            className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+            title="Exportar pizarra como JSON"
+          >
+            📤 Exportar
+          </button>
+          <button
+            onClick={() => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.json';
+              input.onchange = (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (e) => {
+                    try {
+                      const content = e.target?.result as string;
+                      importFromJSON(content);
+                      alert('✅ Pizarra importada exitosamente');
+                    } catch (error) {
+                      alert('❌ Error al importar: ' + error);
+                    }
+                  };
+                  reader.readAsText(file);
+                }
+              };
+              input.click();
+            }}
+            className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
+            title="Importar pizarra desde JSON"
+          >
+            📥 Importar
+          </button>
+        </div>
       </div>
 
       <style jsx>{`

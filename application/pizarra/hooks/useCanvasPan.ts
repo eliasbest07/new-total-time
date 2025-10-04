@@ -38,6 +38,7 @@ export const useCanvasPan = () => {
   return {
     isPanning,
     panOffset,
+    setPanOffset,
     handleCanvasMouseDown,
     handleGlobalMouseMove,
     handleMouseUp

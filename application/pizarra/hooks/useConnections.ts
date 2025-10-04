@@ -72,6 +72,7 @@ export const useConnections = () => {
 
   return {
     connections,
+    setConnections,
     isConnecting,
     connectingFrom,
     mousePosition,
