@@ -31,17 +31,25 @@ export const useConnections = () => {
         setIsConnecting(false);
         setConnectingFrom(null);
       } else {
-        const newConnection = {
-          id: generateUniqueId('connection'),
-          from: connectingFrom,
-          to: cardId
-        };
-        setConnections(prev => [...prev, newConnection]);
+        // Check if connection already exists (in either direction)
+        const connectionExists = connections.some(conn => 
+          (conn.from === connectingFrom && conn.to === cardId) ||
+          (conn.from === cardId && conn.to === connectingFrom)
+        );
+        
+        if (!connectionExists) {
+          const newConnection = {
+            id: `connection-${connectingFrom}-${cardId}-${Date.now()}`,
+            from: connectingFrom,
+            to: cardId
+          };
+          setConnections(prev => [...prev, newConnection]);
+        }
         setIsConnecting(false);
         setConnectingFrom(null);
       }
     }
-  }, [isConnecting, connectingFrom]);
+  }, [isConnecting, connectingFrom, connections]);
 
   const handleCardClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
     if (isConnecting &&
@@ -54,20 +62,32 @@ export const useConnections = () => {
         setIsConnecting(false);
         setConnectingFrom(null);
       } else {
-        const newConnection = {
-          id: generateUniqueId('connection'),
-          from: connectingFrom,
-          to: cardId
-        };
-        setConnections(prev => [...prev, newConnection]);
+        // Check if connection already exists (in either direction)
+        const connectionExists = connections.some(conn => 
+          (conn.from === connectingFrom && conn.to === cardId) ||
+          (conn.from === cardId && conn.to === connectingFrom)
+        );
+        
+        if (!connectionExists) {
+          const newConnection = {
+            id: `connection-${connectingFrom}-${cardId}-${Date.now()}`,
+            from: connectingFrom,
+            to: cardId
+          };
+          setConnections(prev => [...prev, newConnection]);
+        }
         setIsConnecting(false);
         setConnectingFrom(null);
       }
     }
-  }, [isConnecting, connectingFrom]);
+  }, [isConnecting, connectingFrom, connections]);
 
   const updateMousePosition = useCallback((x: number, y: number) => {
     setMousePosition({ x, y });
+  }, []);
+
+  const deleteConnection = useCallback((connectionId: string) => {
+    setConnections(prev => prev.filter(conn => conn.id !== connectionId));
   }, []);
 
   return {
@@ -78,6 +98,7 @@ export const useConnections = () => {
     mousePosition,
     handleConnectionPointClick,
     handleCardClick,
-    updateMousePosition
+    updateMousePosition,
+    deleteConnection
   };
 };

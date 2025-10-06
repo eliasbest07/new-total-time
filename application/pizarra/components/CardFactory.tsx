@@ -7,12 +7,14 @@ import { UsuarioCard } from './cards/UsuarioCard';
 import { ProyectoCard } from './cards/ProyectoCard';
 import { ImageCard } from './cards/ImageCard';
 import { GenericCard } from './cards/GenericCard';
+import { NoteCard } from './cards/NoteCard';
 
 interface CardFactoryProps {
   card: Card;
   editingTitle: string | null;
   editingTodo: { cardId: string; todoId: number } | null;
   updateCardTitle: (cardId: string, newTitle: string) => void;
+  updateCardContent: (cardId: string, newContent: string) => void;
   setEditingTitle: (id: string | null) => void;
   setEditingTodo: (edit: { cardId: string; todoId: number } | null) => void;
   toggleTodo: (cardId: string, todoId: number) => void;
@@ -31,6 +33,17 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
   const { card } = props;
 
   switch (card.type) {
+    case 'text':
+      return (
+        <NoteCard
+          card={card}
+          editingTitle={props.editingTitle}
+          updateCardTitle={props.updateCardTitle}
+          setEditingTitle={props.setEditingTitle}
+          updateCardContent={props.updateCardContent}
+        />
+      );
+
     case 'actividad':
       return (
         <ActivityCard

@@ -9,6 +9,7 @@ interface ConnectionLinesProps {
   isConnecting: boolean;
   connectingFrom: string | null;
   mousePosition: { x: number; y: number };
+  deleteConnection: (connectionId: string) => void;
 }
 
 export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
@@ -17,7 +18,8 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
   panOffset,
   isConnecting,
   connectingFrom,
-  mousePosition
+  mousePosition,
+  deleteConnection
 }) => {
   return (
     <svg
@@ -40,17 +42,42 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
         const fromEdge = getCardEdgePoint(fromCard, toCenterX, toCenterY);
         const toEdge = getCardEdgePoint(toCard, fromEdge.x, fromEdge.y);
 
+        // Position delete button at arrow start point
+        const deleteX = fromEdge.x;
+        const deleteY = fromEdge.y;
+
         return (
-          <line
-            key={connection.id}
-            x1={fromEdge.x}
-            y1={fromEdge.y}
-            x2={toEdge.x}
-            y2={toEdge.y}
-            stroke="#000000"
-            strokeWidth="3"
-            markerEnd="url(#arrowhead)"
-          />
+          <g key={connection.id}>
+            <line
+              x1={fromEdge.x}
+              y1={fromEdge.y}
+              x2={toEdge.x}
+              y2={toEdge.y}
+              stroke="#000000"
+              strokeWidth="3"
+              markerEnd="url(#arrowhead)"
+            />
+            {/* Delete button at arrow start */}
+            <foreignObject
+              x={deleteX - 10}
+              y={deleteY - 10}
+              width="20"
+              height="20"
+              className="pointer-events-auto"
+            >
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  deleteConnection(connection.id);
+                }}
+                className="w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs transition-colors shadow-lg"
+                title="Eliminar conexión"
+              >
+                ×
+              </button>
+            </foreignObject>
+          </g>
         );
       })}
 

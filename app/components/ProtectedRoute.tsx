@@ -9,22 +9,14 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { usuario, isLoading } = useAuth();
+  const { usuario } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !usuario) {
+    if (!usuario) {
       router.replace('/login');
     }
-  }, [usuario, isLoading, router]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
-      </div>
-    );
-  }
+  }, [usuario, router]);
 
   if (!usuario) {
     return null;

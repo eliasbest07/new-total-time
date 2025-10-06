@@ -605,6 +605,10 @@ export default function Dashboard() {
           tipoUsuario="manager"
           saludPorcentaje={85}
           fotoUrl="/total-time_logo.png"
+          showPizarraControls={true}
+          onClearStorage={() => pizarraRef.current?.clearStorage?.()}
+          onExportJSON={() => pizarraRef.current?.exportStorage?.()}
+          onImportJSON={(content) => pizarraRef.current?.importStorage?.(content)}
         />
       </div>
 

@@ -1,6 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useScreenshots } from '@/hooks/useScreenshots';
-import { Card, PizarraRef, PizarraProps } from './types';
+import { Card, PizarraRef, TodoItem, ActivityData, MisionData } from './types';
+
+interface PizarraProps {
+  onShowScreenshots?: (cardId: string) => void;
+}
 import { generateUniqueId, generatePosition } from './utils/idGenerator';
 import { useCardDrag } from './hooks/useCardDrag';
 import { useCanvasPan } from './hooks/useCanvasPan';
@@ -39,7 +43,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     mousePosition,
     handleConnectionPointClick: baseHandleConnectionPointClick,
     handleCardClick,
-    updateMousePosition
+    updateMousePosition,
+    deleteConnection
   } = useConnections();
 
   const {
@@ -217,6 +222,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     setEditingTitle(null);
   }, []);
 
+  const updateCardContent = useCallback((cardId: string, newContent: string) => {
+    setCards(prev => prev.map(card =>
+      card.id === cardId ? { ...card, content: newContent } : card
+    ));
+  }, []);
+
   const deleteCard = useCallback((cardId: string) => {
     if (pastedImages[cardId]) {
       URL.revokeObjectURL(pastedImages[cardId]);
@@ -266,8 +277,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
 
   useImperativeHandle(ref, () => ({
     addNoteCard,
-    addTodoCard
-  }), [addNoteCard, addTodoCard]);
+    addTodoCard,
+    clearStorage: clearLocalStorage,
+    exportStorage: exportToJSON,
+    importStorage: importFromJSON
+  }), [addNoteCard, addTodoCard, clearLocalStorage, exportToJSON, importFromJSON]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
@@ -344,6 +358,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
           isConnecting={isConnecting}
           connectingFrom={connectingFrom}
           mousePosition={mousePosition}
+          deleteConnection={deleteConnection}
         />
 
         {cards.length === 0 && (
@@ -392,6 +407,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
             setConfirmDelete={setConfirmDelete}
             deleteCard={deleteCard}
             updateCardTitle={updateCardTitle}
+            updateCardContent={updateCardContent}
             setEditingTodo={setEditingTodo}
             toggleTodo={toggleTodo}
             addTodoToCard={addTodoToCard}
@@ -429,51 +445,6 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
           </p>
         )}
 
-        {/* Controles de LocalStorage */}
-        <div className="flex gap-2 justify-center mt-2">
-          <button
-            onClick={clearLocalStorage}
-            className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
-            title="Limpiar pizarra y localStorage"
-          >
-            🗑️ Limpiar Todo
-          </button>
-          <button
-            onClick={exportToJSON}
-            className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-            title="Exportar pizarra como JSON"
-          >
-            📤 Exportar
-          </button>
-          <button
-            onClick={() => {
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = '.json';
-              input.onchange = (e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = (e) => {
-                    try {
-                      const content = e.target?.result as string;
-                      importFromJSON(content);
-                      alert('✅ Pizarra importada exitosamente');
-                    } catch (error) {
-                      alert('❌ Error al importar: ' + error);
-                    }
-                  };
-                  reader.readAsText(file);
-                }
-              };
-              input.click();
-            }}
-            className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
-            title="Importar pizarra desde JSON"
-          >
-            📥 Importar
-          </button>
-        </div>
       </div>
 
       <style jsx>{`
@@ -512,3 +483,4 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
 TestPizarra.displayName = 'TestPizarra';
 
 export default TestPizarra;
+export type { PizarraRef } from './types';

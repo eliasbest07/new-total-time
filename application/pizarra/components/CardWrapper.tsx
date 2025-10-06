@@ -28,6 +28,7 @@ interface CardWrapperProps {
   setConfirmDelete: (id: string | null) => void;
   deleteCard: (cardId: string) => void;
   updateCardTitle: (cardId: string, newTitle: string) => void;
+  updateCardContent: (cardId: string, newContent: string) => void;
   setEditingTodo: (edit: { cardId: string; todoId: number } | null) => void;
   toggleTodo: (cardId: string, todoId: number) => void;
   addTodoToCard: (cardId: string, text: string) => void;
@@ -76,6 +77,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         editingTitle={props.editingTitle}
         editingTodo={props.editingTodo}
         updateCardTitle={props.updateCardTitle}
+        updateCardContent={props.updateCardContent}
         setEditingTitle={props.setEditingTitle}
         setEditingTodo={props.setEditingTodo}
         toggleTodo={props.toggleTodo}

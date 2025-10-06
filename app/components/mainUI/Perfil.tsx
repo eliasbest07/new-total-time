@@ -13,6 +13,11 @@ interface PerfilProps {
     tipoUsuario?: 'admin' | 'manager' | 'empleado';
     saludPorcentaje?: number;
     fotoUrl?: string;
+    // Props para funciones de pizarra
+    onClearStorage?: () => void;
+    onExportJSON?: () => void;
+    onImportJSON?: (content: string) => void;
+    showPizarraControls?: boolean;
 }
 
 const Perfil = ({
@@ -20,7 +25,11 @@ const Perfil = ({
     empresa: empresaProp,
     tipoUsuario: tipoUsuarioProp,
     saludPorcentaje: saludPorcentajeProp,
-    fotoUrl: fotoUrlProp
+    fotoUrl: fotoUrlProp,
+    onClearStorage,
+    onExportJSON,
+    onImportJSON,
+    showPizarraControls = false
 }: PerfilProps = {}) => {
     const [menuAbierto, setMenuAbierto] = useState(false);
     const { usuario, clearUsuario } = useAuth();
@@ -118,9 +127,70 @@ const Perfil = ({
                             📊 Dashboard
                         </button>
 
+                        {/* Controles de Pizarra */}
+                        {showPizarraControls && (
+                            <>
+                                <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+                                    <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Controles de Pizarra</p>
+                                </div>
+                                
+                                <button
+                                    onClick={() => {
+                                        onClearStorage?.();
+                                        setMenuAbierto(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-red-600"
+                                    title="Limpiar pizarra y localStorage"
+                                >
+                                    🗑️ Limpiar Todo
+                                </button>
+                                
+                                <button
+                                    onClick={() => {
+                                        onExportJSON?.();
+                                        setMenuAbierto(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-blue-600"
+                                    title="Exportar pizarra como JSON"
+                                >
+                                    📤 Exportar
+                                </button>
+                                
+                                <button
+                                    onClick={() => {
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = '.json';
+                                        input.onchange = (e) => {
+                                            const file = (e.target as HTMLInputElement).files?.[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onload = (e) => {
+                                                    try {
+                                                        const content = e.target?.result as string;
+                                                        onImportJSON?.(content);
+                                                        alert('✅ Pizarra importada exitosamente');
+                                                    } catch (error) {
+                                                        alert('❌ Error al importar: ' + error);
+                                                    }
+                                                };
+                                                reader.readAsText(file);
+                                            }
+                                        };
+                                        input.click();
+                                        setMenuAbierto(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-green-600"
+                                    title="Importar pizarra desde JSON"
+                                >
+                                    📥 Importar
+                                </button>
+                            </>
+                        )}
+
                         <button
                             onClick={handleLogout}
-                            className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-red-600"
+                            className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-red-600 border-t border-gray-200"
                         >
                             🚪 Cerrar Sesión
                         </button>

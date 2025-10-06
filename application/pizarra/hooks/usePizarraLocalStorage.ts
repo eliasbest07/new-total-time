@@ -21,6 +21,29 @@ export const usePizarraLocalStorage = (
   setPanOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>
 ) => {
 
+  // Función helper para validar y parsear JSON
+  const safeJsonParse = (jsonString: string | null, fallback: any = null) => {
+    if (!jsonString || jsonString.trim() === '') {
+      return fallback;
+    }
+
+    try {
+      // Verificar que el string comience y termine correctamente
+      const trimmed = jsonString.trim();
+      if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+        console.warn('❌ [PIZARRA STORAGE] JSON no válido - no comienza con { o [');
+        return fallback;
+      }
+
+      const parsed = JSON.parse(trimmed);
+      return parsed;
+    } catch (error) {
+      console.error('❌ [PIZARRA STORAGE] Error parseando JSON:', error);
+      console.error('❌ [PIZARRA STORAGE] JSON problemático:', jsonString.substring(0, 200) + '...');
+      return fallback;
+    }
+  };
+
   // Cargar datos desde localStorage al montar
   const loadFromLocalStorage = useCallback(() => {
     try {
@@ -29,48 +52,103 @@ export const usePizarraLocalStorage = (
       const savedPanOffset = localStorage.getItem(PAN_OFFSET_STORAGE_KEY);
 
       if (savedCards) {
-        const parsedCards = JSON.parse(savedCards) as Card[];
-        console.log('📦 [PIZARRA STORAGE] Cards cargadas desde localStorage:', parsedCards.length);
+        const parsedCards = safeJsonParse(savedCards, []) as Card[];
+        if (parsedCards && Array.isArray(parsedCards)) {
+          console.log('📦 [PIZARRA STORAGE] Cards cargadas desde localStorage:', parsedCards.length);
 
-        // Restaurar Date objects en ChatMessages
-        const cardsWithDates = parsedCards.map(card => {
-          if (card.usuarioData?.messages) {
-            return {
-              ...card,
-              usuarioData: {
-                ...card.usuarioData,
-                messages: card.usuarioData.messages.map(msg => ({
-                  ...msg,
-                  timestamp: new Date(msg.timestamp)
-                }))
+          // Restaurar Date objects en ChatMessages
+          const cardsWithDates = parsedCards.map(card => {
+            try {
+              if (card.usuarioData?.messages) {
+                return {
+                  ...card,
+                  usuarioData: {
+                    ...card.usuarioData,
+                    messages: card.usuarioData.messages.map(msg => {
+                      try {
+                        return {
+                          ...msg,
+                          timestamp: new Date(msg.timestamp)
+                        };
+                      } catch (dateError) {
+                        console.warn('❌ [PIZARRA STORAGE] Error parseando fecha en mensaje:', dateError);
+                        return {
+                          ...msg,
+                          timestamp: new Date() // Fallback a fecha actual
+                        };
+                      }
+                    })
+                  }
+                };
               }
-            };
-          }
-          return card;
-        });
+              return card;
+            } catch (cardError) {
+              console.warn('❌ [PIZARRA STORAGE] Error procesando card:', cardError);
+              return card;
+            }
+          });
 
-        setCards(cardsWithDates);
+          setCards(cardsWithDates);
+        } else {
+          console.warn('❌ [PIZARRA STORAGE] Cards no válidas, usando array vacío');
+          localStorage.removeItem(PIZARRA_STORAGE_KEY);
+        }
       }
 
       if (savedConnections) {
-        const parsedConnections = JSON.parse(savedConnections) as Connection[];
-        console.log('🔗 [PIZARRA STORAGE] Conexiones cargadas desde localStorage:', parsedConnections.length);
-        setConnections(parsedConnections);
+        const parsedConnections = safeJsonParse(savedConnections, []) as Connection[];
+        if (parsedConnections && Array.isArray(parsedConnections)) {
+          console.log('🔗 [PIZARRA STORAGE] Conexiones cargadas desde localStorage:', parsedConnections.length);
+          setConnections(parsedConnections);
+        } else {
+          console.warn('❌ [PIZARRA STORAGE] Conexiones no válidas, usando array vacío');
+          localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
+        }
       }
 
       if (savedPanOffset) {
-        const parsedPanOffset = JSON.parse(savedPanOffset);
-        console.log('🗺️ [PIZARRA STORAGE] Pan offset cargado desde localStorage:', parsedPanOffset);
-        setPanOffset(parsedPanOffset);
+        const parsedPanOffset = safeJsonParse(savedPanOffset, { x: 0, y: 0 });
+        if (parsedPanOffset && typeof parsedPanOffset === 'object' && 'x' in parsedPanOffset && 'y' in parsedPanOffset) {
+          console.log('🗺️ [PIZARRA STORAGE] Pan offset cargado desde localStorage:', parsedPanOffset);
+          setPanOffset(parsedPanOffset);
+        } else {
+          console.warn('❌ [PIZARRA STORAGE] Pan offset no válido, usando {x: 0, y: 0}');
+          localStorage.removeItem(PAN_OFFSET_STORAGE_KEY);
+        }
       }
     } catch (error) {
-      console.error('❌ [PIZARRA STORAGE] Error cargando desde localStorage:', error);
+      console.error('❌ [PIZARRA STORAGE] Error crítico cargando desde localStorage:', error);
+      // Limpiar localStorage corrupto
+      try {
+        localStorage.removeItem(PIZARRA_STORAGE_KEY);
+        localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
+        localStorage.removeItem(PAN_OFFSET_STORAGE_KEY);
+        console.log('🗑️ [PIZARRA STORAGE] localStorage corrupto limpiado');
+      } catch (cleanError) {
+        console.error('❌ [PIZARRA STORAGE] Error limpiando localStorage:', cleanError);
+      }
     }
   }, [setCards, setConnections, setPanOffset]);
 
   // Guardar datos en localStorage cuando cambien
   const saveToLocalStorage = useCallback(() => {
     try {
+      // Validar datos antes de guardar
+      if (!Array.isArray(cards)) {
+        console.error('❌ [PIZARRA STORAGE] Cards no es un array válido');
+        return;
+      }
+      
+      if (!Array.isArray(connections)) {
+        console.error('❌ [PIZARRA STORAGE] Connections no es un array válido');
+        return;
+      }
+      
+      if (!panOffset || typeof panOffset.x !== 'number' || typeof panOffset.y !== 'number') {
+        console.error('❌ [PIZARRA STORAGE] PanOffset no es un objeto válido');
+        return;
+      }
+
       const data: PizarraStorageData = {
         cards,
         connections,
@@ -78,9 +156,14 @@ export const usePizarraLocalStorage = (
         lastSaved: new Date().toISOString()
       };
 
-      localStorage.setItem(PIZARRA_STORAGE_KEY, JSON.stringify(cards));
-      localStorage.setItem(CONNECTIONS_STORAGE_KEY, JSON.stringify(connections));
-      localStorage.setItem(PAN_OFFSET_STORAGE_KEY, JSON.stringify(panOffset));
+      // Intentar stringify con manejo de errores
+      const cardsJson = JSON.stringify(cards);
+      const connectionsJson = JSON.stringify(connections);
+      const panOffsetJson = JSON.stringify(panOffset);
+      
+      localStorage.setItem(PIZARRA_STORAGE_KEY, cardsJson);
+      localStorage.setItem(CONNECTIONS_STORAGE_KEY, connectionsJson);
+      localStorage.setItem(PAN_OFFSET_STORAGE_KEY, panOffsetJson);
 
       console.log('💾 [PIZARRA STORAGE] Datos guardados en localStorage:', {
         cards: cards.length,
@@ -89,6 +172,27 @@ export const usePizarraLocalStorage = (
       });
     } catch (error) {
       console.error('❌ [PIZARRA STORAGE] Error guardando en localStorage:', error);
+      
+      // Si hay error por memoria llena, intentar limpiar y guardar solo lo esencial
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        console.warn('⚠️ [PIZARRA STORAGE] Cuota de localStorage excedida, limpiando datos antiguos');
+        try {
+          // Limpiar otros datos no esenciales
+          const allKeys = Object.keys(localStorage);
+          allKeys.forEach(key => {
+            if (!key.startsWith('pizarra-') && !key.startsWith('user-')) {
+              localStorage.removeItem(key);
+            }
+          });
+          
+          // Intentar guardar de nuevo
+          localStorage.setItem(PIZARRA_STORAGE_KEY, JSON.stringify(cards));
+          localStorage.setItem(CONNECTIONS_STORAGE_KEY, JSON.stringify(connections));
+          localStorage.setItem(PAN_OFFSET_STORAGE_KEY, JSON.stringify(panOffset));
+        } catch (retryError) {
+          console.error('❌ [PIZARRA STORAGE] Error en segundo intento de guardado:', retryError);
+        }
+      }
     }
   }, [cards, connections, panOffset]);
 
@@ -133,7 +237,11 @@ export const usePizarraLocalStorage = (
   // Importar datos desde JSON
   const importFromJSON = useCallback((jsonString: string) => {
     try {
-      const data = JSON.parse(jsonString) as PizarraStorageData;
+      const data = safeJsonParse(jsonString, null) as PizarraStorageData;
+      
+      if (!data) {
+        throw new Error('JSON no válido o vacío');
+      }
 
       if (data.cards) {
         const cardsWithDates = data.cards.map(card => {
@@ -172,6 +280,22 @@ export const usePizarraLocalStorage = (
     }
   }, [setCards, setConnections, setPanOffset, saveToLocalStorage]);
 
+  // Función para forzar limpieza de localStorage
+  const forceCleanStorage = useCallback(() => {
+    console.log('🗑️ [PIZARRA STORAGE] Forzando limpieza de localStorage...');
+    try {
+      localStorage.removeItem(PIZARRA_STORAGE_KEY);
+      localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
+      localStorage.removeItem(PAN_OFFSET_STORAGE_KEY);
+      setCards([]);
+      setConnections([]);
+      setPanOffset({ x: 0, y: 0 });
+      console.log('✅ [PIZARRA STORAGE] localStorage forzosamente limpiado');
+    } catch (error) {
+      console.error('❌ [PIZARRA STORAGE] Error en limpieza forzosa:', error);
+    }
+  }, [setCards, setConnections, setPanOffset]);
+
   // Cargar al montar el componente
   useEffect(() => {
     loadFromLocalStorage();
@@ -193,6 +317,7 @@ export const usePizarraLocalStorage = (
     saveToLocalStorage,
     clearLocalStorage,
     exportToJSON,
-    importFromJSON
+    importFromJSON,
+    forceCleanStorage
   };
 };
