@@ -162,12 +162,25 @@ export class SupabaseSalaRepository implements SalaRepository {
             // console.log('✅ Suscripción realtime activa');
             this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            if (status === 'CHANNEL_ERROR') {
-              // console.error('❌ Error en canal realtime');
-            } else if (status === 'TIMED_OUT') {
-              // console.error('⏰ Timeout en suscripción realtime');
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            
+            // Solo mostrar error si hemos alcanzado el máximo de intentos
+            if (attempts >= this.maxReconnectAttempts - 1) {
+              if (status === 'CHANNEL_ERROR') {
+                console.error('❌ Error en canal realtime salas - máximo de reintentos alcanzado');
+              } else if (status === 'TIMED_OUT') {
+                console.error('⏰ Timeout en suscripción realtime salas - máximo de reintentos alcanzado');
+              }
             } else {
-              // console.log('🔒 Canal realtime cerrado');
+              if (status === 'CHANNEL_ERROR') {
+                console.log('⚠️ Error temporal en canal realtime salas, reintentando...');
+              } else if (status === 'TIMED_OUT') {
+                console.log('⚠️ Timeout temporal en suscripción realtime salas, reintentando...');
+              }
+            }
+            
+            if (status === 'CLOSED') {
+              console.log('🔒 Canal realtime salas cerrado');
             }
 
             // Intentar reconexión

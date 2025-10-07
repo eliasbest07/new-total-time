@@ -211,11 +211,24 @@ export class SupabaseMisionRepository implements MisionRepository {
             console.log('✅ Suscripción realtime misiones activa');
             this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            if (status === 'CHANNEL_ERROR') {
-              console.error('❌ Error en canal realtime misiones');
-            } else if (status === 'TIMED_OUT') {
-              console.error('⏰ Timeout en suscripción realtime misiones');
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            
+            // Solo mostrar error si hemos alcanzado el máximo de intentos
+            if (attempts >= this.maxReconnectAttempts - 1) {
+              if (status === 'CHANNEL_ERROR') {
+                console.error('❌ Error en canal realtime misiones - máximo de reintentos alcanzado');
+              } else if (status === 'TIMED_OUT') {
+                console.error('⏰ Timeout en suscripción realtime misiones - máximo de reintentos alcanzado');
+              }
             } else {
+              if (status === 'CHANNEL_ERROR') {
+                console.log('⚠️ Error temporal en canal realtime misiones, reintentando...');
+              } else if (status === 'TIMED_OUT') {
+                console.log('⚠️ Timeout temporal en suscripción realtime misiones, reintentando...');
+              }
+            }
+            
+            if (status === 'CLOSED') {
               console.log('🔒 Canal realtime misiones cerrado');
             }
 
@@ -271,11 +284,24 @@ export class SupabaseMisionRepository implements MisionRepository {
             console.log('✅ Suscripción realtime misiones activa');
             this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            if (status === 'CHANNEL_ERROR') {
-              console.error('❌ Error en canal realtime misiones');
-            } else if (status === 'TIMED_OUT') {
-              console.error('⏰ Timeout en suscripción realtime misiones');
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            
+            // Solo mostrar error si hemos alcanzado el máximo de intentos
+            if (attempts >= this.maxReconnectAttempts - 1) {
+              if (status === 'CHANNEL_ERROR') {
+                console.error('❌ Error en canal realtime misiones - máximo de reintentos alcanzado');
+              } else if (status === 'TIMED_OUT') {
+                console.error('⏰ Timeout en suscripción realtime misiones - máximo de reintentos alcanzado');
+              }
             } else {
+              if (status === 'CHANNEL_ERROR') {
+                console.log('⚠️ Error temporal en canal realtime misiones, reintentando...');
+              } else if (status === 'TIMED_OUT') {
+                console.log('⚠️ Timeout temporal en suscripción realtime misiones, reintentando...');
+              }
+            }
+            
+            if (status === 'CLOSED') {
               console.log('🔒 Canal realtime misiones cerrado');
             }
 
