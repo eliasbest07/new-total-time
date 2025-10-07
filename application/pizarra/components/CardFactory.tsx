@@ -22,6 +22,7 @@ interface CardFactoryProps {
   deleteTodoFromCard: (cardId: string, todoId: number) => void;
   updateTodoInCard: (cardId: string, todoId: number, newText: string) => void;
   handleActivityPlayPause: (cardId: string, isRunning: boolean) => void;
+  handleMisionPlayPause: (cardId: string, isRunning: boolean) => void;
   onShowScreenshots?: (cardId: string) => void;
   screenshots: any[];
   isCapturing: boolean;
@@ -81,6 +82,9 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           editingTitle={props.editingTitle}
           updateCardTitle={props.updateCardTitle}
           setEditingTitle={props.setEditingTitle}
+          handleMisionPlayPause={props.handleMisionPlayPause}
+          screenshots={props.screenshots}
+          isCapturing={props.isCapturing}
         />
       );
 

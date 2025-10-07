@@ -18,6 +18,8 @@ export interface MisionData {
   title: string;
   hours: number;
   description: string;
+  isRunning?: boolean;
+  lastCaptureUrl?: string;
 }
 
 export interface Card {

@@ -122,6 +122,42 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     }
   }, [isCapturing, startCapturing, stopCapturing]);
 
+  // Funciones para misiones
+  const handleMisionPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
+    console.log('🎯 [MISION PLAY/PAUSE] Botón presionado en tarjeta:', cardId);
+    const newRunningState = !currentIsRunning;
+
+    setCards(prev => prev.map(c =>
+      c.id === cardId && c.misionData
+        ? { ...c, misionData: { ...c.misionData, isRunning: newRunningState } }
+        : c
+    ));
+
+    if (newRunningState && !isCapturing) {
+      try {
+        const misionId = cardId.split('-')[1] || '1';
+        await startCapturing({
+          userId: 'demo-user',
+          actividadId: misionId,
+          misionActividad: 'mision-' + misionId,
+          onCaptureUpdate: (url: string) => {
+            // Actualizar la última captura en la card
+            setCards(prev => prev.map(c =>
+              c.id === cardId && c.misionData
+                ? { ...c, misionData: { ...c.misionData, lastCaptureUrl: url } }
+                : c
+            ));
+          }
+        });
+        console.log('✅ Captura de misión iniciada exitosamente');
+      } catch (error) {
+        console.error('❌ Error iniciando captura de misión:', error);
+      }
+    } else if (!newRunningState && isCapturing) {
+      stopCapturing();
+    }
+  }, [isCapturing, startCapturing, stopCapturing]);
+
   // Funciones para todos
   const toggleTodo = useCallback((cardId: string, todoId: number) => {
     setCards(prev => prev.map(card =>
@@ -414,6 +450,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
             deleteTodoFromCard={deleteTodoFromCard}
             updateTodoInCard={updateTodoInCard}
             handleActivityPlayPause={handleActivityPlayPause}
+            handleMisionPlayPause={handleMisionPlayPause}
             onShowScreenshots={onShowScreenshots}
             screenshots={screenshots}
             isCapturing={isCapturing}

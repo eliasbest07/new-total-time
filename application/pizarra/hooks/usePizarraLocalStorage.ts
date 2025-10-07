@@ -31,15 +31,15 @@ export const usePizarraLocalStorage = (
       // Verificar que el string comience y termine correctamente
       const trimmed = jsonString.trim();
       if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
-        console.warn('❌ [PIZARRA STORAGE] JSON no válido - no comienza con { o [');
+        // console.warn('❌ [PIZARRA STORAGE] JSON no válido - no comienza con { o [');
         return fallback;
       }
 
       const parsed = JSON.parse(trimmed);
       return parsed;
     } catch (error) {
-      console.error('❌ [PIZARRA STORAGE] Error parseando JSON:', error);
-      console.error('❌ [PIZARRA STORAGE] JSON problemático:', jsonString.substring(0, 200) + '...');
+      // console.error('❌ [PIZARRA STORAGE] Error parseando JSON:', error);
+      // console.error('❌ [PIZARRA STORAGE] JSON problemático:', jsonString.substring(0, 200) + '...');
       return fallback;
     }
   };

@@ -210,7 +210,7 @@ const Ventana = ({
 
   // Centrar ventana al abrir
   useEffect(() => {
-    console.log('Ventana - isOpen cambió:', isOpen);
+    // console.log('Ventana - isOpen cambió:', isOpen);
     if (isOpen && ventanaRef.current) {
       const centerX = (window.innerWidth - size.width) / 2;
       const centerY = (window.innerHeight - size.height) / 2;
@@ -244,11 +244,11 @@ const Ventana = ({
   }, [defaultMaximized, hasAppliedDefaultMaximize, isOpen, minHeight, minWidth]);
 
   if (!isOpen && !isClosing) {
-    console.log('Ventana no se renderiza porque isOpen es:', isOpen);
+    // console.log('Ventana no se renderiza porque isOpen es:', isOpen);
     return null;
   }
-  
-  console.log('Ventana se está renderizando con isOpen:', isOpen);
+
+  // console.log('Ventana se está renderizando con isOpen:', isOpen);
 
   return (
     <>

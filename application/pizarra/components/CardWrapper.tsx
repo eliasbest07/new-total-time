@@ -35,6 +35,7 @@ interface CardWrapperProps {
   deleteTodoFromCard: (cardId: string, todoId: number) => void;
   updateTodoInCard: (cardId: string, todoId: number, newText: string) => void;
   handleActivityPlayPause: (cardId: string, isRunning: boolean) => void;
+  handleMisionPlayPause: (cardId: string, isRunning: boolean) => void;
   onShowScreenshots?: (cardId: string) => void;
   screenshots: any[];
   isCapturing: boolean;
@@ -85,6 +86,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         deleteTodoFromCard={props.deleteTodoFromCard}
         updateTodoInCard={props.updateTodoInCard}
         handleActivityPlayPause={props.handleActivityPlayPause}
+        handleMisionPlayPause={props.handleMisionPlayPause}
         onShowScreenshots={props.onShowScreenshots}
         screenshots={props.screenshots}
         isCapturing={props.isCapturing}

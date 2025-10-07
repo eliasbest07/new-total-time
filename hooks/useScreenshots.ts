@@ -13,6 +13,7 @@ interface UseScreenshotsReturn {
     misionActividad: string;
     totalTrabajadoHoy?: string;
     tiempoTareaActual?: string;
+    onCaptureUpdate?: (url: string) => void;
   }) => Promise<void>;
   stopCapturing: () => void;
   clearScreenshots: () => Promise<void>;
@@ -39,6 +40,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     misionActividad: string;
     totalTrabajadoHoy?: string;
     tiempoTareaActual?: string;
+    onCaptureUpdate?: (url: string) => void;
   } | null>(null);
 
   // Subir imagen a Supabase Storage
@@ -69,6 +71,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     misionActividad: string;
     totalTrabajadoHoy?: string;
     tiempoTareaActual?: string;
+    onCaptureUpdate?: (url: string) => void;
   }) => {
     try {
       setError(null);
@@ -118,8 +121,13 @@ export const useScreenshots = (): UseScreenshotsReturn => {
           });
 
           setScreenshots(prev => [newCapture, ...prev]);
+
+          // Notificar la nueva captura
+          if (params.onCaptureUpdate) {
+            params.onCaptureUpdate(url);
+          }
         }
-      }, 50000); // cada 10s
+      }, 300000); // cada 5 minutos
 
     } catch (err: any) {
       setError(err.message);
