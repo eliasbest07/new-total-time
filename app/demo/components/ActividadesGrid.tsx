@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Camera, X, Trash2 } from 'lucide-react';
-import { useActividades } from '@/hooks/useActividades';
-import { useAuth } from '@/app/contexts/AuthContext';
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { Actividad } from '@/domain/entities/Actividad';
 
@@ -12,6 +10,8 @@ interface ActividadCardProps {
 }
 
 interface ActividadesGridProps {
+  actividades: Actividad[];
+  loading?: boolean;
   onShowDetails: (actividad: Actividad) => void;
 }
 
@@ -343,11 +343,7 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index, onShowD
   );
 };
 
-export default function ActividadesGrid({ onShowDetails }: ActividadesGridProps) {
-  const { usuario } = useAuth();
-  const { actividades, loading, error } = useActividades(usuario?.id || null);
-
-
+export default function ActividadesGrid({ actividades, loading = false, onShowDetails }: ActividadesGridProps) {
   if (loading) {
     return (
       <div className="flex gap-2">
@@ -358,15 +354,7 @@ export default function ActividadesGrid({ onShowDetails }: ActividadesGridProps)
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-500/20 rounded-xl p-4 text-red-200 text-sm">
-        Error: {error}
-      </div>
-    );
-  }
-
-  if (actividades.length === 0) {
+  if (!actividades || actividades.length === 0) {
     return (
       <div className="bg-slate-600/50 rounded-xl p-4 w-19 h-19 flex items-center justify-center shadow-lg">
         <div className="text-white/70 text-xs text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import Perfil from '@/app/components/mainUI/Perfil';
 import RelojActual from '@/app/components/mainUI/RelojActual';
 import Ventana from './components/Ventana';
@@ -8,6 +8,9 @@ import Accordion from './components/Accordion';
 import AddResourceForm from './components/AddResourceForm';
 import Sala from './components/Sala';
 import Pizarra, { PizarraRef } from '@/application/pizarra/pizarra';
+import { useAuth } from '@/app/contexts/AuthContext';
+import { useOrganizacion } from '@/hooks/useOrganizacion';
+import { useProyectos } from '@/hooks/useProyectos';
 
 import {
   FileText,
@@ -52,6 +55,12 @@ type BoardHistorySnapshot = {
 };
 
 export default function Dashboard() {
+  // Auth y datos de usuario
+  const { usuario } = useAuth();
+  const { organizacion, loading: loadingOrg } = useOrganizacion(usuario?.id || null);
+  const { proyectos, loading: loadingProyectos } = useProyectos(organizacion?.id || null);
+
+  // Estado de UI
   const [ventanaAbierta, setVentanaAbierta] = useState(false);
   const [showSalaModal, setShowSalaModal] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
@@ -64,6 +73,9 @@ export default function Dashboard() {
   const [inputText, setInputText] = useState('');
   const [showButtons, setShowButtons] = useState(false);
   const pizarraRef = useRef<PizarraRef>(null);
+
+  // Estado para filtrado de proyectos
+  const [selectedProyectoId, setSelectedProyectoId] = useState<number | null>(null);
 
   // Usuarios mock para testing
   const mockUsuarios: Usuario[] = [
@@ -470,8 +482,31 @@ export default function Dashboard() {
     setShowHistoryModal(true);
   };
 
+  // Obtener misiones y actividades del proyecto seleccionado
+  const misiones = useMemo(() => {
+    if (!selectedProyectoId) {
+      // Si no hay proyecto seleccionado, retornar todas las misiones de todos los proyectos
+      return proyectos.flatMap(p => p.misiones || []);
+    }
+    const proyecto = proyectos.find(p => p.id === selectedProyectoId);
+    return proyecto?.misiones || [];
+  }, [selectedProyectoId, proyectos]);
+
+  const actividades = useMemo(() => {
+    if (!selectedProyectoId) {
+      // Si no hay proyecto seleccionado, retornar todas las actividades de todos los proyectos
+      return proyectos.flatMap(p => p.actividades || []);
+    }
+    const proyecto = proyectos.find(p => p.id === selectedProyectoId);
+    return proyecto?.actividades || [];
+  }, [selectedProyectoId, proyectos]);
+
   const handleAddResource = (): void => {
     setShowAddResourceModal(true);
+  };
+
+  const handleProyectoClick = (proyectoId: number): void => {
+    setSelectedProyectoId(proyectoId);
   };
 
   const handleSaveResource = (newResourceData: NewResourceData): void => {
@@ -564,7 +599,13 @@ export default function Dashboard() {
       >
         {!rightPanelCollapsed && (
           <div className="p-4 pt-16">
-            <Accordion recursos={recursos} usuarios={mockUsuarios} proyectos={mockProyectos} onAddResource={handleAddResource} />
+            <Accordion
+              recursos={recursos}
+              usuarios={mockUsuarios}
+              proyectos={proyectos}
+              onAddResource={handleAddResource}
+              onProyectoClick={handleProyectoClick}
+            />
           </div>
         )}
       </div>
@@ -644,9 +685,13 @@ export default function Dashboard() {
           }}
           onClick={() => setShowActividadDetails(true)}
         >
-          <ActividadesGrid onShowDetails={function (actividad: Actividad): void {
-            //throw new Error('Function not implemented.');
-          } } />
+          <ActividadesGrid
+            actividades={actividades}
+            loading={loadingProyectos}
+            onShowDetails={(actividad: Actividad) => {
+              // Manejar detalles de actividad
+            }}
+          />
         </div>
       </div>
 

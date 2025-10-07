@@ -1,12 +1,15 @@
 import React from 'react';
 import { Target, Clock, Calendar } from 'lucide-react';
-import { useMisiones } from '@/hooks/useMisiones';
-import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { Mision } from '@/domain/entities/Mision';
 
 interface MisionCardProps {
   mision: Mision;
   onClick?: () => void;
+}
+
+interface MisionesGridProps {
+  misiones: Mision[];
+  loading?: boolean;
 }
 
 const MisionCard: React.FC<MisionCardProps> = ({ mision, onClick }) => {
@@ -95,16 +98,7 @@ const MisionCard: React.FC<MisionCardProps> = ({ mision, onClick }) => {
   );
 };
 
-export default function MisionesGrid() {
-  // Obtener el ID numérico del usuario desde la tabla usuario
-  const { usuarioId, loading: loadingUsuario, error: errorUsuario } = useUsuarioId();
-  const { misiones, loading: loadingMisiones, error: errorMisiones } = useMisiones(usuarioId);
-
-  console.log('🔍 ID numérico del usuario:', usuarioId);
-
-  const loading = loadingUsuario || loadingMisiones;
-  const error = errorUsuario || errorMisiones;
-
+export default function MisionesGrid({ misiones, loading = false }: MisionesGridProps) {
   if (loading) {
     return (
       <div className="flex gap-2">
@@ -115,15 +109,7 @@ export default function MisionesGrid() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-500/20 rounded-xl p-4 text-red-200 text-sm min-w-48">
-        Error: {error}
-      </div>
-    );
-  }
-
-  if (misiones.length === 0) {
+  if (!misiones || misiones.length === 0) {
     return (
       <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 min-w-48 flex items-center justify-center">
         <div className="text-white/70 text-xs text-center">

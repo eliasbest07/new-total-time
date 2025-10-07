@@ -56,10 +56,11 @@ interface AccordionProps {
   proyectos?: import('@/domain/entities/Proyecto').Proyecto[];
   usuarios?: Usuario[];
   onAddResource: () => void;
+  onProyectoClick?: (proyectoId: number) => void;
 }
 
 // Componente Principal
-const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuarios = [], onAddResource }) => {
+const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuarios = [], onAddResource, onProyectoClick }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showAllUsers, setShowAllUsers] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -208,8 +209,10 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   };
 
   const handleProyectoClick = (proyecto: Proyecto) => {
-    setSelectedProyecto(proyecto);
-    setShowProyectoDetails(true);
+    // Solo notificar al componente padre para filtrar misiones y actividades
+    if (onProyectoClick) {
+      onProyectoClick(proyecto.id);
+    }
   };
 
   const getEstadoColor = (estado: string) => {

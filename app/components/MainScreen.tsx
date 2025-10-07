@@ -18,7 +18,8 @@ import { useRecursos } from "@/hooks/useRecursos";
 import { useProyectos } from "@/hooks/useProyectos";
 import { useUsuariosOrganizacion } from "@/hooks/useUsuariosOrganizacion";
 import { useAuth } from "@/app/contexts/AuthContext";
-import { useEffect } from "react";
+import { useOrganizacion } from "@/hooks/useOrganizacion";
+import { useEffect, useMemo } from "react";
 import { FileText, Link, Code, Image, Video, Download } from "lucide-react";
 import AgregarRecursoModal from "./modals/AgregarRecursoModal";
 import { Actividad } from "@/domain/entities/Actividad";
@@ -39,9 +40,28 @@ export default function MainScreen() {
   const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
 
   const { usuario } = useAuth();
+  const { organizacion, loading: loadingOrg } = useOrganizacion(usuario?.id || null);
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
-  const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos(usuario?.id || null);
+  const { proyectos, loading: loadingProyectos } = useProyectos(organizacion?.id || null);
   const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
+  const [selectedProyectoId, setSelectedProyectoId] = useState<number | null>(null);
+
+  // Filter misiones and actividades by selected project
+  const misiones = useMemo(() => {
+    if (!selectedProyectoId) {
+      return proyectos.flatMap(p => p.misiones || []);
+    }
+    const proyecto = proyectos.find(p => p.id === selectedProyectoId);
+    return proyecto?.misiones || [];
+  }, [selectedProyectoId, proyectos]);
+
+  const actividades = useMemo(() => {
+    if (!selectedProyectoId) {
+      return proyectos.flatMap(p => p.actividades || []);
+    }
+    const proyecto = proyectos.find(p => p.id === selectedProyectoId);
+    return proyecto?.actividades || [];
+  }, [selectedProyectoId, proyectos]);
 
   // Hook para screenshots
   const {
@@ -126,11 +146,11 @@ export default function MainScreen() {
   useEffect(() => {
     console.log('📁 MainScreen - Estado proyectos:', {
       usuario: usuario?.id,
-      proyectosLoading,
-      proyectosSupabaseLength: proyectosSupabase?.length,
-      proyectosSupabase
+      loadingProyectos,
+      proyectosLength: proyectos?.length,
+      proyectos
     });
-  }, [proyectosSupabase, proyectosLoading]);
+  }, [proyectos, loadingProyectos]);
 
   // Log para usuarios de organización
   useEffect(() => {
@@ -248,9 +268,10 @@ export default function MainScreen() {
           <div className="p-4 pt-16 z-10">
             <Accordion
               recursos={recursos}
-              proyectos={proyectosSupabase}
+              proyectos={proyectos}
               usuarios={usuariosOrganizacion}
               onAddResource={handleAddResource}
+              onProyectoClick={(proyectoId) => setSelectedProyectoId(proyectoId)}
             />
           </div>
         )}
@@ -268,7 +289,11 @@ export default function MainScreen() {
           }}
           onClick={() => setShowActividadDetails(true)}
         >
-          <ActividadesGrid onShowDetails={handleShowActividadDetails} />
+          <ActividadesGrid
+            actividades={actividades}
+            loading={loadingProyectos}
+            onShowDetails={handleShowActividadDetails}
+          />
         </div>
       </div>
 
@@ -279,7 +304,11 @@ export default function MainScreen() {
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Misiones 🎯
         </h2>
-        <MisionesCompact onShowDetails={handleShowMisionDetails} />
+        <MisionesCompact
+          misiones={misiones}
+          loading={loadingProyectos}
+          onShowDetails={handleShowMisionDetails}
+        />
       </div>
 
       {/* Modal para agregar recurso */}

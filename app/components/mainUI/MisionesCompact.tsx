@@ -1,6 +1,4 @@
 import React from 'react';
-import { useMisiones } from '@/hooks/useMisiones';
-import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { Mision } from '@/domain/entities/Mision';
 
 interface MisionCompactCardProps {
@@ -9,6 +7,8 @@ interface MisionCompactCardProps {
 }
 
 interface MisionesCompactProps {
+  misiones: Mision[];
+  loading?: boolean;
   onShowDetails?: (mision: Mision) => void;
 }
 
@@ -102,13 +102,7 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
   );
 };
 
-export default function MisionesCompact({ onShowDetails }: MisionesCompactProps) {
-  const { usuarioId, loading: loadingUsuario, error: errorUsuario } = useUsuarioId();
-  const { misiones, loading: loadingMisiones, error: errorMisiones } = useMisiones(usuarioId);
-
-  const loading = loadingUsuario || loadingMisiones;
-  const error = errorUsuario || errorMisiones;
-
+export default function MisionesCompact({ misiones, loading = false, onShowDetails }: MisionesCompactProps) {
   if (loading) {
     return (
       <div className="relative bg-green-600 w-19 h-19 rounded-xl shadow-lg overflow-hidden flex items-center justify-center">
@@ -117,15 +111,7 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
     );
   }
 
-  if (error) {
-    return (
-      <div className="relative bg-green-600/50 w-19 h-19 rounded-xl shadow-lg overflow-hidden flex items-center justify-center">
-        <div className="text-white/70 text-xs text-center">Error</div>
-      </div>
-    );
-  }
-
-  if (misiones.length === 0) {
+  if (!misiones || misiones.length === 0) {
     return (
       <div className="relative bg-green-600/50 w-19 h-19 rounded-xl shadow-lg overflow-hidden flex items-center justify-center">
         <div className="text-white/70 text-xs text-center">Sin misiones</div>
@@ -136,8 +122,8 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
   return (
     <div className="flex gap-2">
       {misiones.slice(0, 3).map((mision) => (
-        <MisionCompactCard 
-          key={mision.id} 
+        <MisionCompactCard
+          key={mision.id}
           mision={mision}
           onClick={() => {
             console.log('Misión seleccionada:', mision);

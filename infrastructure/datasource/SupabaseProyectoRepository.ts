@@ -1,6 +1,8 @@
 import { supabase } from "@/infrastructure/services/SupabaseClient";
 import { ProyectoRepository } from "@/infrastructure/repositories/ProyectoRepository";
 import { Proyecto } from "@/domain/entities/Proyecto";
+import { Mision } from "@/domain/entities/Mision";
+import { Actividad } from "@/domain/entities/Actividad";
 
 export class SupabaseProyectoRepository implements ProyectoRepository {
 
@@ -123,6 +125,69 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
     } catch (error) {
       console.error('❌ Error en getProyectoById:', error);
       return null;
+    }
+  }
+
+  async getProyectosByOrganizacion(organizacionId: string): Promise<Proyecto[]> {
+    try {
+      console.log('📁 Obteniendo proyectos para organización:', organizacionId);
+
+      // Primero obtenemos los IDs de proyectos de la organización
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizacion')
+        .select('id_proyectos')
+        .eq('id', organizacionId)
+        .single();
+
+      if (orgError || !orgData?.id_proyectos || orgData.id_proyectos.length === 0) {
+        console.log('ℹ️ No hay proyectos en esta organización');
+        return [];
+      }
+
+      // Obtenemos los proyectos por sus IDs
+      const { data: proyectosData, error: proyectosError } = await supabase
+        .from('proyectos')
+        .select('*')
+        .in('id', orgData.id_proyectos)
+        .order('created_at', { ascending: false });
+
+      if (proyectosError) {
+        console.error('❌ Error obteniendo proyectos:', proyectosError);
+        return [];
+      }
+
+      const proyectos: Proyecto[] = proyectosData || [];
+
+      // Populamos misiones y actividades para cada proyecto
+      await Promise.all(proyectos.map(async (proyecto) => {
+        // Cargar misiones
+        if (proyecto.id_misiones && proyecto.id_misiones.length > 0) {
+          const { data: misionesData } = await supabase
+            .from('misiones')
+            .select('*')
+            .in('id', proyecto.id_misiones);
+          proyecto.misiones = misionesData || [];
+        } else {
+          proyecto.misiones = [];
+        }
+
+        // Cargar actividades
+        if (proyecto.id_actividades && proyecto.id_actividades.length > 0) {
+          const { data: actividadesData } = await supabase
+            .from('actividades')
+            .select('*')
+            .in('id', proyecto.id_actividades);
+          proyecto.actividades = actividadesData || [];
+        } else {
+          proyecto.actividades = [];
+        }
+      }));
+
+      console.log('✅ Proyectos con misiones y actividades cargados:', proyectos.length);
+      return proyectos;
+    } catch (error) {
+      console.error('❌ Error en getProyectosByOrganizacion:', error);
+      return [];
     }
   }
 }

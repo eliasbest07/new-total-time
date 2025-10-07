@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Proyecto } from '@/domain/entities/Proyecto';
 import { SupabaseProyectoRepository } from '@/infrastructure/datasource/SupabaseProyectoRepository';
 
-export const useProyectos = (userId: string | null) => {
+export const useProyectos = (organizacionId: string | null) => {
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -10,29 +10,29 @@ export const useProyectos = (userId: string | null) => {
   const proyectoRepository = new SupabaseProyectoRepository();
 
   const loadProyectos = useCallback(async () => {
-    console.log('📁 useProyectos - loadProyectos llamado con userId:', userId);
-    
-    if (!userId) {
-      console.log('📁 useProyectos - No hay userId, limpiando proyectos');
+    // console.log('📁 useProyectos - loadProyectos llamado con organizacionId:', organizacionId);
+
+    if (!organizacionId) {
+      // console.log('📁 useProyectos - No hay organizacionId, limpiando proyectos');
       setProyectos([]);
       setLoading(false);
       return;
     }
 
     try {
-      console.log('📁 useProyectos - Iniciando carga de proyectos para usuario:', userId);
+      // console.log('📁 useProyectos - Iniciando carga de proyectos para organización:', organizacionId);
       setLoading(true);
       setError(null);
-      const proyectosData = await proyectoRepository.getProyectosByUsuario(userId);
-      console.log('📁 useProyectos - Proyectos obtenidos:', proyectosData);
+      const proyectosData = await proyectoRepository.getProyectosByOrganizacion(organizacionId);
+      // console.log('📁 useProyectos - Proyectos obtenidos:', proyectosData);
       setProyectos(proyectosData);
     } catch (err) {
-      console.error('📁 useProyectos - Error cargando proyectos:', err);
+      // console.error('📁 useProyectos - Error cargando proyectos:', err);
       setError('Error al cargar proyectos');
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [organizacionId]);
 
   const createProyecto = async (proyectoData: Omit<Proyecto, 'id' | 'created_at'>) => {
     try {
@@ -82,21 +82,21 @@ export const useProyectos = (userId: string | null) => {
     }
   };
 
-  // Cargar proyectos cuando cambia el usuario (sin realtime)
+  // Cargar proyectos cuando cambia la organización
   useEffect(() => {
-    console.log('📁 useProyectos - useEffect ejecutado con userId:', userId);
-    
-    if (!userId) {
-      console.log('📁 useProyectos - No hay usuario, limpiando proyectos');
+    // console.log('📁 useProyectos - useEffect ejecutado con organizacionId:', organizacionId);
+
+    if (!organizacionId) {
+      // console.log('📁 useProyectos - No hay organización, limpiando proyectos');
       setProyectos([]);
       setLoading(false);
       return;
     }
 
-    console.log('📁 useProyectos - Cargando proyectos para usuario:', userId);
+    // console.log('📁 useProyectos - Cargando proyectos para organización:', organizacionId);
     // Cargar proyectos iniciales
     loadProyectos();
-  }, [userId, loadProyectos]);
+  }, [organizacionId, loadProyectos]);
 
   return {
     proyectos,
