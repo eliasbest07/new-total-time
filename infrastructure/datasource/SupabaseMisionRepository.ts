@@ -1,0 +1,379 @@
+import { supabase } from "@/infrastructure/services/SupabaseClient";
+import { MisionRepository } from "@/infrastructure/repositories/MisionRepository";
+import { Mision } from "@/domain/entities/Mision";
+import { RealtimeChannel } from "@supabase/supabase-js";
+
+interface RealtimeCallbacks {
+  onMisionesUpdated: (misiones: Mision[]) => void;
+  onError: (error: string) => void;
+}
+
+export class SupabaseMisionRepository implements MisionRepository {
+  private reconnectAttempts: Map<string, number> = new Map();
+  private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  private maxReconnectAttempts = Infinity; // Intentar indefinidamente
+  private baseReconnectDelay = 1000; // 1 segundo inicial
+  private maxReconnectDelay = 30000; // 30 segundos máximo
+
+  async getAllMisiones(): Promise<Mision[]> {
+    try {
+      console.log('🎯 Obteniendo todas las misiones');
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout en getAllMisiones')), 5000);
+      });
+
+      const queryPromise = supabase
+        .from('misiones')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
+      if (error) {
+        console.error('❌ Error obteniendo todas las misiones:', error);
+        return [];
+      }
+
+      const misiones = data || [];
+      console.log('✅ Todas las misiones encontradas:', misiones.length);
+      return misiones;
+    } catch (error) {
+      console.error('❌ Error en getAllMisiones:', error);
+      return [];
+    }
+  }
+
+  async getMisionesByUsuario(idUsuario: number): Promise<Mision[]> {
+    try {
+      console.log('🎯 Obteniendo misiones para usuario:', idUsuario);
+      console.log('🎯 Tipo de idUsuario:', typeof idUsuario);
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout en getMisionesByUsuario')), 5000);
+      });
+
+      const queryPromise = supabase
+        .from('misiones')
+        .select('*')
+        .eq('id_usuario', idUsuario)
+        .order('created_at', { ascending: false });
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
+      console.log('🎯 Respuesta de Supabase misiones:', { data, error });
+
+      if (error) {
+        console.error('❌ Error obteniendo misiones:', error);
+        console.error('❌ Detalles del error:', error.message, error.code, error.details);
+        return [];
+      }
+
+      const misiones = data || [];
+      console.log('✅ Misiones encontradas:', misiones.length);
+      console.log('✅ Misiones data:', misiones);
+      return misiones;
+    } catch (error) {
+      console.error('❌ Error en getMisionesByUsuario:', error);
+      return [];
+    }
+  }
+
+  async createMision(mision: Omit<Mision, 'id' | 'created_at'>): Promise<Mision | null> {
+    try {
+      console.log('➕ Creando nueva misión:', mision);
+
+      const { data, error } = await supabase
+        .from('misiones')
+        .insert([mision])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error creando misión:', error);
+        return null;
+      }
+
+      console.log('✅ Misión creada exitosamente:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error en createMision:', error);
+      return null;
+    }
+  }
+
+  async updateMision(id: number, mision: Partial<Mision>): Promise<Mision | null> {
+    try {
+      console.log('✏️ Actualizando misión:', id, mision);
+
+      const { data, error } = await supabase
+        .from('misiones')
+        .update(mision)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error actualizando misión:', error);
+        return null;
+      }
+
+      console.log('✅ Misión actualizada exitosamente:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error en updateMision:', error);
+      return null;
+    }
+  }
+
+  async deleteMision(id: number): Promise<boolean> {
+    try {
+      console.log('🗑️ Eliminando misión:', id);
+
+      const { error } = await supabase
+        .from('misiones')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('❌ Error eliminando misión:', error);
+        return false;
+      }
+
+      console.log('✅ Misión eliminada exitosamente');
+      return true;
+    } catch (error) {
+      console.error('❌ Error en deleteMision:', error);
+      return false;
+    }
+  }
+
+  async getMisionById(id: number): Promise<Mision | null> {
+    try {
+      console.log('🔍 Obteniendo misión por ID:', id);
+
+      const { data, error } = await supabase
+        .from('misiones')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('❌ Error obteniendo misión:', error);
+        return null;
+      }
+
+      console.log('✅ Misión encontrada:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error en getMisionById:', error);
+      return null;
+    }
+  }
+
+  // Suscribirse a cambios en tiempo real de todas las misiones
+  subscribeToAllMisionesChanges(callbacks: RealtimeCallbacks): RealtimeChannel {
+    const channelName = 'misiones-all';
+    console.log('📡 Iniciando suscripción realtime para todas las misiones');
+
+    const setupChannel = (): RealtimeChannel => {
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'misiones'
+          },
+          async (payload) => {
+            console.log('📡 Cambio detectado en misiones:', payload);
+
+            try {
+              const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout en realtime update')), 5000);
+              });
+
+              const updatePromise = this.getAllMisiones();
+              const nuevasMisiones = await Promise.race([updatePromise, timeoutPromise]);
+
+              callbacks.onMisionesUpdated(nuevasMisiones);
+            } catch (error) {
+              console.error('❌ Error procesando cambio de misiones:', error);
+              callbacks.onError('Error al procesar cambios de misiones');
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('📡 Estado de suscripción realtime misiones:', status);
+
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Suscripción realtime misiones activa');
+            this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            
+            // Solo mostrar error si hemos alcanzado el máximo de intentos
+            if (attempts >= this.maxReconnectAttempts - 1) {
+              if (status === 'CHANNEL_ERROR') {
+                console.error('❌ Error en canal realtime misiones - máximo de reintentos alcanzado');
+              } else if (status === 'TIMED_OUT') {
+                console.error('⏰ Timeout en suscripción realtime misiones - máximo de reintentos alcanzado');
+              }
+            } else {
+              if (status === 'CHANNEL_ERROR') {
+                console.log('⚠️ Error temporal en canal realtime misiones, reintentando...');
+              } else if (status === 'TIMED_OUT') {
+                console.log('⚠️ Timeout temporal en suscripción realtime misiones, reintentando...');
+              }
+            }
+            
+            if (status === 'CLOSED') {
+              console.log('🔒 Canal realtime misiones cerrado');
+            }
+
+            // Intentar reconexión
+            this.handleReconnect(channelName, () => this.subscribeToAllMisionesChanges(callbacks), callbacks);
+          }
+        });
+
+      return channel;
+    };
+
+    return setupChannel();
+  }
+
+  // Suscribirse a cambios en tiempo real de misiones del usuario
+  subscribeToMisionesChanges(idUsuario: number, callbacks: RealtimeCallbacks): RealtimeChannel {
+    const channelName = `misiones-usuario-${idUsuario}`;
+    console.log('📡 Iniciando suscripción realtime para misiones del usuario:', idUsuario);
+
+    const setupChannel = (): RealtimeChannel => {
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'misiones',
+            filter: `id_usuario=eq.${idUsuario}`
+          },
+          async (payload) => {
+            console.log('📡 Cambio detectado en misiones:', payload);
+
+            try {
+              const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout en realtime update')), 5000);
+              });
+
+              const updatePromise = this.getMisionesByUsuario(idUsuario);
+              const nuevasMisiones = await Promise.race([updatePromise, timeoutPromise]);
+
+              callbacks.onMisionesUpdated(nuevasMisiones);
+            } catch (error) {
+              console.error('❌ Error procesando cambio de misiones:', error);
+              callbacks.onError('Error al procesar cambios de misiones');
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('📡 Estado de suscripción realtime misiones:', status);
+
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Suscripción realtime misiones activa');
+            this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            
+            // Solo mostrar error si hemos alcanzado el máximo de intentos
+            if (attempts >= this.maxReconnectAttempts - 1) {
+              if (status === 'CHANNEL_ERROR') {
+                console.error('❌ Error en canal realtime misiones - máximo de reintentos alcanzado');
+              } else if (status === 'TIMED_OUT') {
+                console.error('⏰ Timeout en suscripción realtime misiones - máximo de reintentos alcanzado');
+              }
+            } else {
+              if (status === 'CHANNEL_ERROR') {
+                console.log('⚠️ Error temporal en canal realtime misiones, reintentando...');
+              } else if (status === 'TIMED_OUT') {
+                console.log('⚠️ Timeout temporal en suscripción realtime misiones, reintentando...');
+              }
+            }
+            
+            if (status === 'CLOSED') {
+              console.log('🔒 Canal realtime misiones cerrado');
+            }
+
+            // Intentar reconexión
+            this.handleReconnect(channelName, () => this.subscribeToMisionesChanges(idUsuario, callbacks), callbacks);
+          }
+        });
+
+      return channel;
+    };
+
+    return setupChannel();
+  }
+
+  // Manejador de reconexión con backoff exponencial
+  private handleReconnect(
+    channelName: string,
+    reconnectFn: () => RealtimeChannel,
+    callbacks: RealtimeCallbacks
+  ): void {
+    // Limpiar timeout anterior si existe
+    const existingTimeout = this.reconnectTimeouts.get(channelName);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    const attempts = this.reconnectAttempts.get(channelName) || 0;
+
+    if (attempts < this.maxReconnectAttempts) {
+      // Calcular delay con backoff exponencial
+      const delay = Math.min(
+        this.baseReconnectDelay * Math.pow(2, attempts),
+        this.maxReconnectDelay
+      );
+
+      console.log(`🔄 Reintentando reconexión ${channelName} en ${delay}ms (intento ${attempts + 1})`);
+
+      const timeout = setTimeout(async () => {
+        this.reconnectAttempts.set(channelName, attempts + 1);
+
+        try {
+          // Remover canal anterior antes de reconectar
+          await supabase.removeChannel(supabase.channel(channelName));
+        } catch (error) {
+          console.error('Error removiendo canal anterior:', error);
+        }
+
+        // Intentar reconectar
+        reconnectFn();
+      }, delay);
+
+      this.reconnectTimeouts.set(channelName, timeout);
+    } else {
+      console.error(`❌ Máximo de intentos de reconexión alcanzado para ${channelName}`);
+      callbacks.onError('No se pudo restablecer la conexión realtime después de múltiples intentos');
+    }
+  }
+
+  // Desuscribirse de cambios en tiempo real
+  unsubscribeFromChanges(channel: RealtimeChannel): Promise<void> {
+    console.log('🧹 Desuscribiendo canal realtime misiones');
+
+    // Limpiar timeouts de reconexión
+    this.reconnectTimeouts.forEach((timeout) => clearTimeout(timeout));
+    this.reconnectTimeouts.clear();
+    this.reconnectAttempts.clear();
+
+    return supabase.removeChannel(channel).then(() => {
+      console.log('✅ Canal realtime misiones removido exitosamente');
+    }).catch((error) => {
+      console.error('❌ Error removiendo canal realtime misiones:', error);
+      throw error;
+    });
+  }
+}

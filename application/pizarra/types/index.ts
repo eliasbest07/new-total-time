@@ -1,0 +1,83 @@
+export interface TodoItem {
+  id: number;
+  text: string;
+  completed: boolean;
+}
+
+export interface ActivityData {
+  subject: string;
+  participants: { name: string; initial: string; color: string }[];
+  date: string;
+  time: string;
+  duration: number; // en minutos
+  isRunning: boolean;
+  timeLeft: number; // en segundos
+}
+
+export interface MisionData {
+  title: string;
+  hours: number;
+  description: string;
+}
+
+export interface ChatMessage {
+  id: number;
+  text: string;
+  sender: 'me' | 'other';
+  timestamp: Date;
+}
+
+export interface UsuarioData {
+  name: string;
+  avatar: string;
+  color: string;
+  online: boolean;
+  messages?: ChatMessage[];
+}
+
+export interface ProyectoData {
+  nombre: string;
+  description: string | null;
+  imagen_url: string | null;
+  type: string | null;
+  utility: string | null;
+  palette: string | null;
+  colors: string[] | null;
+  producto: string | null;
+  publico: boolean;
+}
+
+export interface Card {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  todos?: TodoItem[];
+  fontSize?: number;
+  activityData?: ActivityData;
+  misionData?: MisionData;
+  usuarioData?: UsuarioData;
+  proyectoData?: ProyectoData;
+}
+
+export interface Connection {
+  id: string;
+  from: string | null;
+  to: string;
+}
+
+export interface PizarraRef {
+  addNoteCard: (text: string) => void;
+  addTodoCard: (text: string) => void;
+  clearStorage?: () => void;
+  exportStorage?: () => void;
+  importStorage?: (content: string) => void;
+}
+
+export interface PizarraProps {
+  onShowScreenshots?: (cardId: string) => void;
+}
