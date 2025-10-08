@@ -5,5 +5,5 @@ export interface Sala {
   descripcion: string | null;
   id_posts: string[] | null;
   id_organizacion: string | null;
-  activa?: boolean; // Campo adicional para el UI
+  activa?: boolean;
 }

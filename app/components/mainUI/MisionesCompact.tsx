@@ -120,19 +120,20 @@ export default function MisionesCompact({ misiones, loading = false, onShowDetai
   }
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 pointer-events-none">
       {misiones.slice(0, 3).map((mision) => (
-        <MisionCompactCard
-          key={mision.id}
-          mision={mision}
-          onClick={() => {
-            console.log('Misión seleccionada:', mision);
-            console.log('onShowDetails function:', onShowDetails);
-            if (onShowDetails) {
-              onShowDetails(mision);
-            }
-          }}
-        />
+        <div key={mision.id} className="pointer-events-auto">
+          <MisionCompactCard
+            mision={mision}
+            onClick={() => {
+              console.log('Misión seleccionada:', mision);
+              console.log('onShowDetails function:', onShowDetails);
+              if (onShowDetails) {
+                onShowDetails(mision);
+              }
+            }}
+          />
+        </div>
       ))}
     </div>
   );
