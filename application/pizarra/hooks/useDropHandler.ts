@@ -118,6 +118,7 @@ export const useDropHandler = (
             height: 400,
             fontSize: 18,
             usuarioData: {
+              userId: resource.userId || '',
               name: resource.name || 'Usuario',
               avatar: resource.avatar || 'US',
               color: resource.color || 'bg-blue-500',

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Card, ChatMessage } from '../../types/index';
+import { useAuth } from '@/app/contexts/AuthContext';
+import { useChatMessages } from '@/hooks/useChatMessages';
 
 interface UsuarioCardProps {
   card: Card;
@@ -16,6 +18,45 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
   setEditingTitle,
   setCards
 }) => {
+  const { usuario } = useAuth();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Hook para manejar mensajes en tiempo real con Supabase
+  const {
+    mensajes,
+    loading,
+    error,
+    sending,
+    enviarMensaje
+  } = useChatMessages(
+    usuario?.userAuth || null,
+    card.usuarioData?.userId || null
+  );
+
+  // Auto-scroll al final cuando hay nuevos mensajes
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [mensajes]);
+
+  // Manejar el scroll solo dentro del contenedor
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const element = e.currentTarget;
+    const isScrollable = element.scrollHeight > element.clientHeight;
+
+    if (isScrollable) {
+      // Prevenir scroll de la página solo si estamos dentro del contenedor
+      const atTop = element.scrollTop === 0 && e.deltaY < 0;
+      const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight && e.deltaY > 0;
+
+      if (!atTop && !atBottom) {
+        e.preventDefault();
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-full w-full p-3">
       {/* Header con avatar y nombre */}
@@ -70,96 +111,101 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
       </div>
 
       {/* Mensajes del chat */}
-      <div className="flex-1 overflow-y-auto mb-2 space-y-1.5 min-h-0"
+      <div
+        className="flex-1 overflow-y-auto mb-2 space-y-1.5 min-h-0 scroll-smooth"
         style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
+        onWheel={handleWheel}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
-        {(card.usuarioData?.messages || []).map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[75%] rounded-lg px-2 py-1 ${message.sender === 'me'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-purple-100 text-purple-900'
-                }`}
-            >
-              <p className="break-words">{message.text}</p>
-            </div>
+        {loading && (
+          <div className="text-center text-purple-400 text-sm py-2">
+            Cargando mensajes...
           </div>
-        ))}
+        )}
+        {error && (
+          <div className="text-center text-red-500 text-sm py-2">
+            {error}
+          </div>
+        )}
+        {!loading && mensajes.map((mensaje) => {
+          const esMio = mensaje.idEmisor === usuario?.userAuth;
+          return (
+            <div
+              key={mensaje.id}
+              className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[75%] rounded-lg px-2 py-1 ${
+                  esMio
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-purple-100 text-purple-900'
+                }`}
+              >
+                <p className="break-words">{mensaje.texto}</p>
+                <span className="text-xs opacity-70">
+                  {mensaje.createdAt.toLocaleTimeString('es-ES', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input de mensaje */}
       <div className="flex gap-1" data-todo-interactive>
         <input
           type="text"
-          placeholder="Escribe un mensaje..."
-          onKeyDown={(e) => {
+          placeholder={sending ? 'Enviando...' : 'Escribe un mensaje...'}
+          disabled={sending || !card.usuarioData?.userId}
+          onKeyDown={async (e) => {
             e.stopPropagation();
-            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-              const newMessage: ChatMessage = {
-                id: Date.now(),
-                text: e.currentTarget.value.trim(),
-                sender: 'me',
-                timestamp: new Date()
-              };
-              setCards(prev => prev.map(c =>
-                c.id === card.id && c.usuarioData
-                  ? {
-                      ...c,
-                      usuarioData: {
-                        ...c.usuarioData,
-                        messages: [...(c.usuarioData.messages || []), newMessage]
-                      }
-                    }
-                  : c
-              ));
+            if (e.key === 'Enter' && e.currentTarget.value.trim() && !sending) {
+              const texto = e.currentTarget.value.trim();
               e.currentTarget.value = '';
+              try {
+                await enviarMensaje(texto);
+              } catch (error) {
+                console.error('Error enviando mensaje:', error);
+              }
             }
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           onFocus={(e) => e.stopPropagation()}
-          className="flex-1 px-2 py-1.5 border border-purple-300 rounded-lg focus:border-purple-500 focus:outline-none bg-white text-black"
+          className="flex-1 px-2 py-1.5 border border-purple-300 rounded-lg focus:border-purple-500 focus:outline-none bg-white text-black disabled:bg-gray-100 disabled:cursor-not-allowed"
           style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
           data-todo-interactive
         />
         <button
-          onClick={(e) => {
+          onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
             const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-            if (input && input.value.trim()) {
-              const newMessage: ChatMessage = {
-                id: Date.now(),
-                text: input.value.trim(),
-                sender: 'me',
-                timestamp: new Date()
-              };
-              setCards(prev => prev.map(c =>
-                c.id === card.id && c.usuarioData
-                  ? {
-                      ...c,
-                      usuarioData: {
-                        ...c.usuarioData,
-                        messages: [...(c.usuarioData.messages || []), newMessage]
-                      }
-                    }
-                  : c
-              ));
+            if (input && input.value.trim() && !sending) {
+              const texto = input.value.trim();
               input.value = '';
+              try {
+                await enviarMensaje(texto);
+              } catch (error) {
+                console.error('Error enviando mensaje:', error);
+              }
             }
           }}
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
           }}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center justify-center"
+          disabled={sending || !card.usuarioData?.userId}
+          className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg transition-colors duration-200 flex items-center justify-center"
           style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
           data-todo-interactive
         >
-          💬
+          {sending ? '⏳' : '💬'}
         </button>
       </div>
     </div>

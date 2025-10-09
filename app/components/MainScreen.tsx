@@ -1,7 +1,7 @@
 "use client";
 
 import Pizarra, { PizarraRef } from "@/application/pizarra/pizarra";
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import Ventana from "@/app/demo/components/Ventana";
 import { useScreenshots } from "@/hooks/useScreenshots";
 
@@ -42,6 +42,44 @@ export default function MainScreen() {
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos(usuario?.id || null);
   const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
+
+  // Filtrar usuarios de la organización excluyendo al usuario actual
+  const usuariosFiltrados = useMemo(() => {
+    console.log('🔍 Filtrado de usuarios - Usuario actual:', {
+      id: usuario?.id,
+      userAuth: usuario?.userAuth,
+      nombre: usuario?.getNombreCompleto(),
+      email: usuario?.email
+    });
+
+    console.log('🔍 Filtrado de usuarios - Todos los usuarios de la organización:',
+      usuariosOrganizacion.map(u => ({
+        id: u.id,
+        userAuth: u.userAuth,
+        nombre: u.getNombreCompleto(),
+        email: u.email
+      }))
+    );
+
+    if (!usuario) return usuariosOrganizacion;
+
+    const filtrados = usuariosOrganizacion.filter(u => {
+      // Comparar por email ya que los IDs pueden ser diferentes (uno es userAuth UUID, otro es id de tabla)
+      const esDiferente = u.email !== usuario.email;
+      console.log(`🔍 Comparando ${u.getNombreCompleto()} (email: ${u.email}) con usuario actual (email: ${usuario.email}): ${esDiferente ? 'INCLUIR' : 'EXCLUIR'}`);
+      return esDiferente;
+    });
+
+    console.log('🔍 Usuarios filtrados (resultado final):',
+      filtrados.map(u => ({
+        id: u.id,
+        nombre: u.getNombreCompleto(),
+        email: u.email
+      }))
+    );
+
+    return filtrados;
+  }, [usuariosOrganizacion, usuario]);
 
   // Hook para screenshots
   const {
@@ -249,7 +287,7 @@ export default function MainScreen() {
             <Accordion
               recursos={recursos}
               proyectos={proyectosSupabase}
-              usuarios={usuariosOrganizacion}
+              usuarios={usuariosFiltrados}
               onAddResource={handleAddResource}
             />
           </div>

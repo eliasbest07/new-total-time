@@ -76,6 +76,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   const convertirUsuariosSupabase = () => {
     return usuarios.map((usuario, index) => ({
       id: parseInt(usuario.id) || index,
+      userAuth: usuario.userAuth, // UUID para Supabase
       name: usuario.getNombreCompleto(),
       status: getStatusFromActivity(usuario.ultimaActividad),
       avatar: getAvatarFromName(usuario.getNombreCompleto()),
@@ -296,6 +297,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                               e.dataTransfer.setData('text/plain', `Usuario: ${user.name}`);
                               e.dataTransfer.setData('application/json', JSON.stringify({
                                 type: 'usuario',
+                                userId: user.userAuth,
                                 name: user.name,
                                 avatar: user.avatar,
                                 color: user.color,

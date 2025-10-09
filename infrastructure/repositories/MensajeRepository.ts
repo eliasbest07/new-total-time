@@ -1,0 +1,15 @@
+import { Mensaje } from "@/domain/entities/Mensaje";
+
+export interface MensajeRepository {
+  // Obtener conversación entre dos usuarios
+  getConversacion(userId1: string, userId2: string): Promise<Mensaje[]>;
+
+  // Enviar un mensaje
+  enviarMensaje(idEmisor: string, idReceptor: string, texto: string): Promise<Mensaje | null>;
+
+  // Marcar mensaje como leído
+  marcarComoLeido(mensajeId: string): Promise<boolean>;
+
+  // Marcar todos los mensajes de una conversación como leídos
+  marcarConversacionComoLeida(userId: string, otroUserId: string): Promise<boolean>;
+}

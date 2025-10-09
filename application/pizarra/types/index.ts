@@ -28,6 +28,7 @@ export interface ChatMessage {
 }
 
 export interface UsuarioData {
+  userId: string; // userAuth del usuario para identificarlo en Supabase
   name: string;
   avatar: string;
   color: string;
