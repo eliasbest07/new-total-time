@@ -13,7 +13,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       });
 
       const queryPromise = supabase
-        .from('proyectos')
+        .from('proyecto')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
@@ -34,12 +34,136 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
     }
   }
 
+  async getProyectosByOrganizacion(organizacionId: string): Promise<Proyecto[]> {
+    try {
+      console.log('📁 Obteniendo proyectos para organización:', organizacionId);
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout en getProyectosByOrganizacion')), 5000);
+      });
+
+      // Primero obtener la organización para conseguir el array de proyectos
+      const organizacionQuery = supabase
+        .from('organizacion')
+        .select('proyectos')
+        .eq('id', organizacionId)
+        .maybeSingle();
+
+      const { data: organizacionData, error: organizacionError } = await Promise.race([organizacionQuery, timeoutPromise]);
+
+      if (organizacionError) {
+        console.error('❌ Error obteniendo organización:', organizacionError);
+        return [];
+      }
+
+      if (!organizacionData) {
+        console.log('⚠️ No se encontró la organización con ID:', organizacionId);
+        return [];
+      }
+
+      const proyectosIds = organizacionData?.proyectos || [];
+      
+      if (proyectosIds.length === 0) {
+        console.log('✅ No hay proyectos en esta organización');
+        return [];
+      }
+
+      // Ahora obtener los proyectos usando los IDs
+      const proyectosQuery = supabase
+        .from('proyecto')
+        .select('*')
+        .in('id', proyectosIds)
+        .order('created_at', { ascending: false });
+
+      const { data, error } = await Promise.race([proyectosQuery, timeoutPromise]);
+
+      if (error) {
+        console.error('❌ Error obteniendo proyectos por organización:', error);
+        return [];
+      }
+
+      const proyectos = data || [];
+      console.log('✅ Proyectos de organización encontrados:', proyectos.length);
+      return proyectos;
+    } catch (error) {
+      console.error('❌ Error en getProyectosByOrganizacion:', error);
+      return [];
+    }
+  }
+
+  async getProyectosByCurrentUser(): Promise<Proyecto[]> {
+    try {
+      console.log('📁 Obteniendo proyectos del usuario autenticado');
+
+      // Obtener la organización del usuario actual
+      const organizacionId = await this.getUserOrganizationId();
+      
+      if (!organizacionId) {
+        console.log('⚠️ Usuario no tiene organización asignada');
+        return [];
+      }
+
+      // Usar el método existente para obtener proyectos por organización
+      return await this.getProyectosByOrganizacion(organizacionId);
+    } catch (error) {
+      console.error('❌ Error en getProyectosByCurrentUser:', error);
+      return [];
+    }
+  }
+
+  async getUserOrganizationId(): Promise<string | null> {
+    try {
+      console.log('👤 Obteniendo organización del usuario autenticado');
+
+      // Obtener el usuario autenticado actual
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('❌ Error obteniendo usuario autenticado:', authError);
+        return null;
+      }
+
+      console.log('👤 Usuario autenticado ID:', user.id);
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout en getUserOrganizationId')), 5000);
+      });
+
+      // Obtener la organización del usuario desde la tabla usuario
+      const userQuery = supabase
+        .from('usuario')
+        .select('id_organizacion')
+        .eq('id_usuario', user.id)
+        .maybeSingle();
+
+      const { data: userData, error: userError } = await Promise.race([userQuery, timeoutPromise]);
+
+      if (userError) {
+        console.error('❌ Error obteniendo datos del usuario:', userError);
+        return null;
+      }
+
+      if (!userData) {
+        console.log('⚠️ No se encontró el usuario en la tabla usuario');
+        return null;
+      }
+
+      const organizacionId = userData.id_organizacion;
+      console.log('✅ ID de organización obtenido:', organizacionId);
+      
+      return organizacionId;
+    } catch (error) {
+      console.error('❌ Error en getUserOrganizationId:', error);
+      return null;
+    }
+  }
+
   async createProyecto(proyecto: Omit<Proyecto, 'id' | 'created_at'>): Promise<Proyecto | null> {
     try {
       console.log('➕ Creando nuevo proyecto:', proyecto);
 
       const { data, error } = await supabase
-        .from('proyectos')
+        .from('proyecto')
         .insert([proyecto])
         .select()
         .single();
@@ -62,7 +186,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       console.log('✏️ Actualizando proyecto:', id, proyecto);
 
       const { data, error } = await supabase
-        .from('proyectos')
+        .from('proyecto')
         .update(proyecto)
         .eq('id', id)
         .select()
@@ -86,7 +210,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       console.log('🗑️ Eliminando proyecto:', id);
 
       const { error } = await supabase
-        .from('proyectos')
+        .from('proyecto')
         .delete()
         .eq('id', id);
 
@@ -108,7 +232,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       console.log('🔍 Obteniendo proyecto por ID:', id);
 
       const { data, error } = await supabase
-        .from('proyectos')
+        .from('proyecto')
         .select('*')
         .eq('id', id)
         .single();
