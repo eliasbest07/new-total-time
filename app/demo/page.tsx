@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import Perfil from '@/app/components/mainUI/Perfil';
 import RelojActual from '@/app/components/mainUI/RelojActual';
 import Ventana from './components/Ventana';
@@ -102,7 +102,9 @@ export default function Dashboard() {
       palette: 'blue',
       colors: ['#3B82F6', '#1E40AF', '#60A5FA'],
       timestamp: '2024-01-15T10:00:00Z',
-      producto: 'web'
+      producto: 'web',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 2,
@@ -120,7 +122,9 @@ export default function Dashboard() {
       palette: 'green',
       colors: ['#10B981', '#047857', '#34D399'],
       timestamp: '2024-02-20T14:30:00Z',
-      producto: 'mobile'
+      producto: 'mobile',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 3,
@@ -138,7 +142,9 @@ export default function Dashboard() {
       palette: 'purple',
       colors: ['#8B5CF6', '#6D28D9', '#A78BFA'],
       timestamp: '2024-03-10T09:15:00Z',
-      producto: 'web'
+      producto: 'web',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 4,
@@ -156,7 +162,9 @@ export default function Dashboard() {
       palette: 'teal',
       colors: ['#14B8A6', '#0D9488', '#2DD4BF'],
       timestamp: '2024-04-05T16:45:00Z',
-      producto: 'web'
+      producto: 'web',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 5,
@@ -174,7 +182,9 @@ export default function Dashboard() {
       palette: 'orange',
       colors: ['#F59E0B', '#D97706', '#FBB040'],
       timestamp: '2024-05-12T11:20:00Z',
-      producto: 'mobile'
+      producto: 'mobile',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 6,
@@ -192,7 +202,9 @@ export default function Dashboard() {
       palette: 'indigo',
       colors: ['#6366F1', '#4F46E5', '#818CF8'],
       timestamp: '2024-06-18T13:00:00Z',
-      producto: 'web'
+      producto: 'web',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 7,
@@ -210,7 +222,9 @@ export default function Dashboard() {
       palette: 'red',
       colors: ['#EF4444', '#DC2626', '#F87171'],
       timestamp: '2024-07-22T08:30:00Z',
-      producto: 'mobile'
+      producto: 'mobile',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 8,
@@ -228,7 +242,9 @@ export default function Dashboard() {
       palette: 'yellow',
       colors: ['#F59E0B', '#D97706', '#FBBF24'],
       timestamp: '2024-08-14T15:10:00Z',
-      producto: 'web'
+      producto: 'web',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 9,
@@ -246,7 +262,9 @@ export default function Dashboard() {
       palette: 'cyan',
       colors: ['#06B6D4', '#0891B2', '#22D3EE'],
       timestamp: '2024-09-03T10:45:00Z',
-      producto: 'web'
+      producto: 'web',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 10,
@@ -264,7 +282,9 @@ export default function Dashboard() {
       palette: 'pink',
       colors: ['#EC4899', '#DB2777', '#F472B6'],
       timestamp: '2024-10-20T12:00:00Z',
-      producto: 'mobile'
+      producto: 'mobile',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 11,
@@ -282,7 +302,9 @@ export default function Dashboard() {
       palette: 'slate',
       colors: ['#64748B', '#475569', '#94A3B8'],
       timestamp: '2024-11-08T09:30:00Z',
-      producto: 'web'
+      producto: 'web',
+      id_misiones: null,
+      id_actividades: null
     },
     {
       id: 12,
@@ -300,7 +322,9 @@ export default function Dashboard() {
       palette: 'emerald',
       colors: ['#10B981', '#059669', '#34D399'],
       timestamp: '2024-12-01T14:20:00Z',
-      producto: 'mobile'
+      producto: 'mobile',
+      id_misiones: null,
+      id_actividades: null
     }
   ];
   // Lista de recursos inicial
