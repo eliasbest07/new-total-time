@@ -5,7 +5,8 @@ import { generateUniqueId } from '../utils/idGenerator';
 export const useDropHandler = (
   setCards: React.Dispatch<React.SetStateAction<Card[]>>,
   panOffset: { x: number; y: number },
-  canvasRef: React.RefObject<HTMLDivElement>
+  canvasRef: React.RefObject<HTMLDivElement>,
+  cards: Card[]
 ) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isReceivingDrag, setIsReceivingDrag] = useState(false);
@@ -44,6 +45,7 @@ export const useDropHandler = (
     const x = e.clientX - rect.left - panOffset.x;
     const y = e.clientY - rect.top - panOffset.y;
 
+    const existingIds = cards.map(card => card.id);
     const resourceData = e.dataTransfer.getData('application/json');
 
     if (resourceData) {
@@ -56,8 +58,16 @@ export const useDropHandler = (
         // ACTIVIDAD - Detectar PRIMERO por type === 'actividad' O por subject + duration
         if (resource.type === 'actividad' || (resource.subject && resource.duration !== undefined)) {
           console.log('📅 [PIZARRA DROP] Detectado ACTIVIDAD');
+          
+          // Verificar si ya existe una card de actividad
+          const hasActividad = cards.some(card => card.type === 'actividad');
+          if (hasActividad) {
+            console.log('⚠️ [PIZARRA DROP] Ya existe una card de actividad, no se puede agregar otra');
+            return;
+          }
+          
           setCards(prev => [...prev, {
-            id: generateUniqueId('actividad'),
+            id: generateUniqueId('actividad', existingIds),
             type: 'actividad',
             title: resource.subject || 'Actividad',
             content: `Reunión: ${resource.subject}`,
@@ -83,7 +93,7 @@ export const useDropHandler = (
         else if (resource.nombre && resource.colors && resource.palette !== undefined) {
           console.log('📁 [PIZARRA DROP] Detectado PROYECTO');
           setCards(prev => [...prev, {
-            id: generateUniqueId('proyecto'),
+            id: generateUniqueId('proyecto', existingIds),
             type: 'proyecto',
             title: resource.nombre || 'Proyecto',
             content: `Proyecto: ${resource.nombre}`,
@@ -109,7 +119,7 @@ export const useDropHandler = (
         else if (resource.name && resource.avatar && resource.color && resource.online !== undefined) {
           console.log('👤 [PIZARRA DROP] Detectado USUARIO');
           setCards(prev => [...prev, {
-            id: generateUniqueId('usuario'),
+            id: generateUniqueId('usuario', existingIds),
             type: 'usuario',
             title: resource.name || 'Usuario',
             content: `Usuario: ${resource.name}`,
@@ -131,8 +141,16 @@ export const useDropHandler = (
         // MISIÓN
         else if (resource.title && resource.hours !== undefined) {
           console.log('🎯 [PIZARRA DROP] Detectado MISIÓN');
+          
+          // Verificar si ya existe una card de misión
+          const hasMision = cards.some(card => card.type === 'mision');
+          if (hasMision) {
+            console.log('⚠️ [PIZARRA DROP] Ya existe una card de misión, no se puede agregar otra');
+            return;
+          }
+          
           setCards(prev => [...prev, {
-            id: generateUniqueId('mision'),
+            id: generateUniqueId('mision', existingIds),
             type: 'mision',
             title: resource.title || 'Nueva Misión',
             content: `${resource.hours}h - ${resource.description || resource.title}`,
@@ -152,7 +170,7 @@ export const useDropHandler = (
         else if (resource.name && resource.resourceType) {
           console.log('📦 [PIZARRA DROP] Detectado RECURSO');
           setCards(prev => [...prev, {
-            id: generateUniqueId('resource'),
+            id: generateUniqueId('resource', existingIds),
             type: 'resource',
             title: resource.name,
             content: `Tipo: ${resource.resourceType}`,
@@ -174,7 +192,7 @@ export const useDropHandler = (
       const files = Array.from(e.dataTransfer.files);
       files.forEach((file, index) => {
         setCards(prev => [...prev, {
-          id: generateUniqueId(`file-${index}`),
+          id: generateUniqueId(`file-${index}`, existingIds),
           type: 'file',
           title: (file as File).name,
           content: `Tamaño: ${((file as File).size / 1024).toFixed(2)} KB`,
@@ -192,7 +210,7 @@ export const useDropHandler = (
     if (text) {
       console.log('📝 [PIZARRA DROP] Creando card de texto');
       setCards(prev => [...prev, {
-        id: generateUniqueId('text'),
+        id: generateUniqueId('text', existingIds),
         type: 'text',
         title: 'Texto',
         content: text.length > 50 ? text.substring(0, 50) + '...' : text,
@@ -201,7 +219,7 @@ export const useDropHandler = (
         height: 100
       }]);
     }
-  }, [panOffset, canvasRef, setCards]);
+  }, [panOffset, canvasRef, setCards, cards]);
 
   return {
     isDragOver,

@@ -31,6 +31,7 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
   };
 
   const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     console.log('MisionCompactCard clicked:', mision.nombre);
     if (onClick) {
       onClick();
@@ -137,7 +138,7 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
     <div className="flex gap-2">
       {misiones.slice(0, 3).map((mision) => (
         <MisionCompactCard 
-          key={mision.id} 
+          key={mision.id}
           mision={mision}
           onClick={() => {
             console.log('Misión seleccionada:', mision);

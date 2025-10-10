@@ -248,7 +248,12 @@ export default function MainScreen() {
 
       {/* estos dos componentes abajo estan dentro de demo, tiene que estar afuera para ser usados en cualquier parte */}
       <div className="mb-8 px-2 z-30 pointer-events-auto w-fit">
-        <Perfil />
+        <Perfil 
+          showPizarraControls={true}
+          onClearStorage={() => pizarraRef.current?.clearStorage?.()}
+          onExportJSON={() => pizarraRef.current?.exportStorage?.()}
+          onImportJSON={(content) => pizarraRef.current?.importStorage?.(content)}
+        />
       </div>
 
       <div className="pointer-events-auto " style={{ position: 'absolute', top: '0.5rem', left: '9rem', zIndex: 30 }}>
@@ -299,13 +304,7 @@ export default function MainScreen() {
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Actividades 🗓️
         </h2>
-        <div
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('text/plain', 'Actividades - Elemento arrastrado desde la interfaz');
-          }}
-          onClick={() => setShowActividadDetails(true)}
-        >
+        <div onClick={() => setShowActividadDetails(true)}>
           <ActividadesGrid onShowDetails={handleShowActividadDetails} />
         </div>
       </div>
@@ -317,7 +316,9 @@ export default function MainScreen() {
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Misiones 🎯
         </h2>
-        <MisionesCompact onShowDetails={handleShowMisionDetails} />
+        <div onClick={() => setShowMisionDetails(true)}>
+          <MisionesCompact onShowDetails={handleShowMisionDetails} />
+        </div>
       </div>
 
       {/* Modal para agregar recurso */}

@@ -77,7 +77,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     handleDragLeave,
     handleDragOver,
     handleDrop
-  } = useDropHandler(setCards, panOffset, canvasRef);
+  } = useDropHandler(setCards, panOffset, canvasRef, cards);
 
   // LocalStorage para persistencia
   const {
@@ -281,8 +281,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
 
   // Funciones públicas expuestas via ref
   const addNoteCard = useCallback((text: string) => {
+    const existingIds = cards.map(card => card.id);
     const newCard = {
-      id: generateUniqueId('note'),
+      id: generateUniqueId('note', existingIds),
       type: 'text',
       title: 'Nota',
       content: text.length > 100 ? text.substring(0, 100) + '...' : text,
@@ -293,11 +294,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
       fontSize: 18
     };
     setCards(prev => [...prev, newCard]);
-  }, []);
+  }, [cards]);
 
   const addTodoCard = useCallback((text: string) => {
+    const existingIds = cards.map(card => card.id);
     const newCard = {
-      id: generateUniqueId('todo'),
+      id: generateUniqueId('todo', existingIds),
       type: 'todo',
       title: 'Lista de Tareas',
       content: `Iniciado con: ${text}`,
@@ -309,7 +311,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
       todos: [{ id: 1, text: text, completed: false }]
     };
     setCards(prev => [...prev, newCard]);
-  }, []);
+  }, [cards]);
 
   useImperativeHandle(ref, () => ({
     addNoteCard,

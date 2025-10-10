@@ -1,3 +1,6 @@
+import { Actividad } from "./Actividad";
+import { Mision } from "./Mision";
+
 export interface Proyecto {
   id: number;
   created_at: string;
@@ -15,4 +18,8 @@ export interface Proyecto {
   colors: string[] | null;
   timestamp: string | null;
   producto: string | null;
+   id_misiones: number[] | null; // bigint[]
+  id_actividades: number[] | null; // bigint[]
+  misiones?: Mision[]; // Array de misiones populado
+  actividades?: Actividad[];
 }

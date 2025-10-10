@@ -620,15 +620,11 @@ export default function Dashboard() {
       {/* Header - Left section - Perfil */}
       <div className="mb-8 px-2 z-50 pointer-events-auto w-fit">
         <Perfil
-          nombre="Elias Montilla"
-          empresa="Total Time Solutions"
+          nombre="Usuario Demo"
+          empresa="Total Time Demo"
           tipoUsuario="manager"
           saludPorcentaje={85}
           fotoUrl="/total-time_logo.png"
-          showPizarraControls={true}
-          onClearStorage={() => pizarraRef.current?.clearStorage?.()}
-          onExportJSON={() => pizarraRef.current?.exportStorage?.()}
-          onImportJSON={(content) => pizarraRef.current?.importStorage?.(content)}
         />
       </div>
 
