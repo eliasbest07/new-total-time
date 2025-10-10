@@ -113,7 +113,7 @@ const Perfil = ({
 
             {/* Menú desplegable */}
             {menuAbierto && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-[100]">
                     <div className="p-4 border-b border-gray-200">
                         <p className="text-sm text-gray-600">Empresa:</p>
                         <p className="font-medium text-gray-900">{empresa}</p>
@@ -201,7 +201,7 @@ const Perfil = ({
             {/* Overlay para cerrar el menú al hacer clic fuera */}
             {menuAbierto && (
                 <div
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-[90]"
                     onClick={() => setMenuAbierto(false)}
                 />
             )}

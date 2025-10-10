@@ -40,7 +40,7 @@ export default function MainScreen() {
 
   const { usuario } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
-  const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos(usuario?.id || null);
+  const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos();
   const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
 
   // Filtrar usuarios de la organización excluyendo al usuario actual

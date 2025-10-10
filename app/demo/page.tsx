@@ -24,9 +24,11 @@ import {
   Send
 } from 'lucide-react';
 import { saveResource, type Resource, type NewResourceData } from './utils/resourceUtils';
-import ActividadesGrid from './components/ActividadesGrid';
+import ActividadesGridMock from './components/ActividadesGridMock';
+import MisionesCompactMock from './components/MisionesCompactMock';
 import Cube from './components/cubo-acordion';
 import { Actividad } from '@/domain/entities/Actividad';
+import { Mision } from '@/domain/entities/Mision';
 import { Usuario } from '@/domain/entities/Usuario';
 import { Rol } from '@/domain/enums/Rol';
 import { Permiso } from '@/domain/enums/Permiso';
@@ -82,6 +84,113 @@ export default function Dashboard() {
     new Usuario('13', 'miguel.herrera@example.com', Rol.MIEMBRO, { nombre: 'Miguel Herrera', apellido: '', avatar: '', nivel: 5, correo: 'miguel.herrera@example.com', username: 'mherrera', bio: '', idea: '', marco: '' }, 93, 'auth13', false, 'org1', [Permiso.PUBLICAR_EN_SALA, Permiso.TOMAR_DE_PIZARRA], new Date(Date.now() - 1 * 60000)),
     new Usuario('14', 'daniela.vargas@example.com', Rol.MIEMBRO, { nombre: 'Daniela Vargas', apellido: '', avatar: '', nivel: 2, correo: 'daniela.vargas@example.com', username: 'dvargas', bio: '', idea: '', marco: '' }, 78, 'auth14', false, 'org1', [Permiso.VER_CAPTURAS_USUARIO], new Date(Date.now() - 5 * 24 * 60 * 60000)),
     new Usuario('15', 'andres.silva@example.com', Rol.MIEMBRO, { nombre: 'Andrés Silva', apellido: '', avatar: '', nivel: 6, correo: 'andres.silva@example.com', username: 'asilva', bio: '', idea: '', marco: '' }, 94, 'auth15', false, 'org1', [Permiso.PUBLICAR_EN_SALA, Permiso.TOMAR_DE_PIZARRA], new Date(Date.now() - 20 * 60000))
+  ];
+
+  // Actividades mock para testing - con horas dinámicas futuras
+  const now = new Date();
+  const getActividadTime = (hoursFromNow: number) => {
+    const futureTime = new Date(now.getTime() + hoursFromNow * 60 * 60 * 1000);
+    return futureTime.toISOString();
+  };
+
+  const mockActividades: Actividad[] = [
+    {
+      id: 1,
+      created_at: '2025-10-09T08:00:00Z',
+      id_usuario: '1',
+      descripcion: 'Reunión de equipo - Planificación Sprint 24',
+      fecha: now.toISOString().split('T')[0],
+      hora_inicio: getActividadTime(1),
+      cant_horas: 2,
+      captures: '',
+      link: 'https://meet.google.com/abc-defg-hij',
+      tiempo_dedicado: 0
+    },
+    {
+      id: 2,
+      created_at: '2025-10-09T08:00:00Z',
+      id_usuario: '1',
+      descripcion: 'Desarrollo de API REST para módulo de usuarios',
+      fecha: now.toISOString().split('T')[0],
+      hora_inicio: getActividadTime(3),
+      cant_horas: 4,
+      captures: '',
+      link: '',
+      tiempo_dedicado: 0
+    },
+    {
+      id: 3,
+      created_at: '2025-10-09T08:00:00Z',
+      id_usuario: '1',
+      descripcion: 'Code Review - PR #245',
+      fecha: now.toISOString().split('T')[0],
+      hora_inicio: getActividadTime(5),
+      cant_horas: 1,
+      captures: '',
+      link: 'https://github.com/proyecto/pr/245',
+      tiempo_dedicado: 0
+    },
+    {
+      id: 4,
+      created_at: '2025-10-09T08:00:00Z',
+      id_usuario: '2',
+      descripcion: 'Diseño de mockups para dashboard',
+      fecha: now.toISOString().split('T')[0],
+      hora_inicio: getActividadTime(0.5),
+      cant_horas: 3,
+      captures: '',
+      link: 'https://figma.com/design/dashboard',
+      tiempo_dedicado: 0
+    },
+    {
+      id: 5,
+      created_at: '2025-10-09T08:00:00Z',
+      id_usuario: '2',
+      descripcion: 'Testing de integración - Módulo de pagos',
+      fecha: now.toISOString().split('T')[0],
+      hora_inicio: getActividadTime(7),
+      cant_horas: 2,
+      captures: '',
+      link: '',
+      tiempo_dedicado: 0
+    }
+  ];
+
+  // Misiones mock para testing
+  const mockMisiones: Mision[] = [
+    {
+      id: 1,
+      created_at: '2025-10-09T08:00:00Z',
+      nombre: 'Implementar autenticación OAuth',
+      descripcion: 'Desarrollar sistema de autenticación con Google y GitHub OAuth para mejorar la seguridad del login',
+      horas: 12,
+      fecha_start: '2025-10-09T09:00:00Z',
+      fecha_end: '2025-10-11T18:00:00Z',
+      id_usuario: 1,
+      id_proyecto: 1
+    },
+    {
+      id: 2,
+      created_at: '2025-10-09T08:00:00Z',
+      nombre: 'Optimizar rendimiento base de datos',
+      descripcion: 'Analizar y optimizar las queries más lentas, crear índices necesarios y mejorar tiempos de respuesta',
+      horas: 8,
+      fecha_start: '2025-10-10T09:00:00Z',
+      fecha_end: '2025-10-11T17:00:00Z',
+      id_usuario: 2,
+      id_proyecto: 2
+    },
+    {
+      id: 3,
+      created_at: '2025-10-09T08:00:00Z',
+      nombre: 'Diseñar sistema de notificaciones',
+      descripcion: 'Crear flujo completo de notificaciones push y email para eventos importantes del sistema',
+      horas: 15,
+      fecha_start: '2025-10-11T09:00:00Z',
+      fecha_end: '2025-10-14T17:00:00Z',
+      id_usuario: 1,
+      id_proyecto: 1
+    }
   ];
 
   // Proyectos mock para testing
@@ -660,12 +769,19 @@ export default function Dashboard() {
           }}
           onClick={() => setShowActividadDetails(true)}
         >
-          <ActividadesGrid onShowDetails={() => {}} />
+          <ActividadesGridMock actividades={mockActividades} onShowDetails={() => {}} />
         </div>
       </div>
 
-
-
+      {/* Missions positioned at fixed location */}
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 40 }}>
+        <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+          Misiones 🎯
+        </h2>
+        <div onClick={() => setShowMisionDetails(true)}>
+          <MisionesCompactMock misiones={mockMisiones} onShowDetails={() => {}} />
+        </div>
+      </div>
 
       {/* Chart positioned at bottom left */}
       <div
