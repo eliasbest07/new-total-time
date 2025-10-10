@@ -1,10 +1,13 @@
 export interface Comentario {
-  id: number;
-  autor: string;
-  avatar?: string;
+  id: string;
   contenido: string;
-  fecha: Date;
-  respuestas?: number;
-  id_sala?: number;
-  id_usuario?: string;
+  created_at: string;
+  edited_at: string | null;
+  likes_count: number;
+  dislikes_count: number;
+  idUsuario: number | null;
+  // Datos del usuario (join)
+  usuario?: {
+    nombre: string | null;
+  };
 }

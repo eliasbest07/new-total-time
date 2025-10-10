@@ -66,7 +66,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
       </div>
 
       {/* Sección central con botón de play e imagen */}
-      <div className="flex-1 flex flex-col justify-center items-center gap-2">
+      <div className="flex-1 flex flex-col justify-center items-center gap-2 data-todo-interactive">
         {/* Botón de play/pause centrado */}
         <button
           className="bg-green-600 hover:bg-green-700 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors duration-200 shadow-lg hover:shadow-xl"
@@ -87,7 +87,10 @@ export const MisionCard: React.FC<MisionCardProps> = ({
         </button>
 
         {/* Imagen aspecto 16x9 - Muestra última captura */}
-        <div className="bg-green-200 rounded border-2 border-green-300 overflow-hidden w-40" style={{ aspectRatio: '16/9' }}>
+        <div
+          className="bg-green-200 rounded border-2 border-green-300 overflow-hidden w-40"
+          style={{ aspectRatio: '16/9' }}
+        >
           {card.misionData?.lastCaptureUrl ? (
             <img
               src={card.misionData.lastCaptureUrl}
