@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Camera, X, Trash2 } from 'lucide-react';
+import { Play, Pause, Camera, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useActividades } from '@/hooks/useActividades';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useScreenshots } from '@/hooks/useScreenshots';
@@ -361,7 +361,9 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index, onShowD
 export default function ActividadesGrid({ onShowDetails }: ActividadesGridProps) {
   const { usuario } = useAuth();
   const { actividades, loading, error } = useActividades(usuario?.id || null);
-
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 2;
+  const totalPages = Math.ceil(actividades.length / itemsPerPage);
 
   if (loading) {
     return (
@@ -391,16 +393,72 @@ export default function ActividadesGrid({ onShowDetails }: ActividadesGridProps)
     );
   }
 
+  const startIndex = currentPage * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentActividades = actividades.slice(startIndex, endIndex);
+
+  const handlePrevPage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const canGoPrev = currentPage > 0;
+  const canGoNext = currentPage < totalPages - 1;
+
   return (
-    <div className="flex gap-2 flex-wrap">
-      {actividades.map((actividad, index) => (
-        <ActividadCard
-          key={actividad.id}
-          actividad={actividad}
-          index={index}
-          onShowDetails={onShowDetails}
-        />
-      ))}
+    <div className="flex items-center gap-2">
+      {/* Botón anterior */}
+      {actividades.length > itemsPerPage && (
+        <button
+          onClick={handlePrevPage}
+          disabled={!canGoPrev}
+          className={`rounded-lg p-1 transition-colors ${
+            canGoPrev
+              ? 'bg-slate-600/50 hover:bg-slate-600 cursor-pointer'
+              : 'bg-slate-600/20 cursor-not-allowed opacity-50'
+          }`}
+          title="Anterior"
+        >
+          <ChevronLeft size={16} className="text-white" />
+        </button>
+      )}
+
+      {/* Cards de actividades */}
+      <div className="flex gap-2">
+        {currentActividades.map((actividad, index) => (
+          <ActividadCard
+            key={actividad.id}
+            actividad={actividad}
+            index={startIndex + index}
+            onShowDetails={onShowDetails}
+          />
+        ))}
+      </div>
+
+      {/* Botón siguiente */}
+      {actividades.length > itemsPerPage && (
+        <button
+          onClick={handleNextPage}
+          disabled={!canGoNext}
+          className={`rounded-lg p-1 transition-colors ${
+            canGoNext
+              ? 'bg-slate-600/50 hover:bg-slate-600 cursor-pointer'
+              : 'bg-slate-600/20 cursor-not-allowed opacity-50'
+          }`}
+          title="Siguiente"
+        >
+          <ChevronRight size={16} className="text-white" />
+        </button>
+      )}
     </div>
   );
 }

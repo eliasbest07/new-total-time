@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { Mision } from '@/domain/entities/Mision';
@@ -106,6 +107,9 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
 export default function MisionesCompact({ onShowDetails }: MisionesCompactProps) {
   const { usuarioId, loading: loadingUsuario, error: errorUsuario } = useUsuarioId();
   const { misiones, loading: loadingMisiones, error: errorMisiones } = useMisiones(usuarioId);
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 2;
+  const totalPages = Math.ceil(misiones.length / itemsPerPage);
 
   const loading = loadingUsuario || loadingMisiones;
   const error = errorUsuario || errorMisiones;
@@ -134,21 +138,77 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
     );
   }
 
+  const startIndex = currentPage * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentMisiones = misiones.slice(startIndex, endIndex);
+
+  const handlePrevPage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const canGoPrev = currentPage > 0;
+  const canGoNext = currentPage < totalPages - 1;
+
   return (
-    <div className="flex gap-2">
-      {misiones.slice(0, 3).map((mision) => (
-        <MisionCompactCard 
-          key={mision.id}
-          mision={mision}
-          onClick={() => {
-            console.log('Misión seleccionada:', mision);
-            console.log('onShowDetails function:', onShowDetails);
-            if (onShowDetails) {
-              onShowDetails(mision);
-            }
-          }}
-        />
-      ))}
+    <div className="flex items-center gap-2">
+      {/* Botón anterior */}
+      {misiones.length > itemsPerPage && (
+        <button
+          onClick={handlePrevPage}
+          disabled={!canGoPrev}
+          className={`rounded-lg p-1 transition-colors ${
+            canGoPrev
+              ? 'bg-green-600/50 hover:bg-green-600 cursor-pointer'
+              : 'bg-green-600/20 cursor-not-allowed opacity-50'
+          }`}
+          title="Anterior"
+        >
+          <ChevronLeft size={16} className="text-white" />
+        </button>
+      )}
+
+      {/* Cards de misiones */}
+      <div className="flex gap-2">
+        {currentMisiones.map((mision) => (
+          <MisionCompactCard
+            key={mision.id}
+            mision={mision}
+            onClick={() => {
+              console.log('Misión seleccionada:', mision);
+              console.log('onShowDetails function:', onShowDetails);
+              if (onShowDetails) {
+                onShowDetails(mision);
+              }
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Botón siguiente */}
+      {misiones.length > itemsPerPage && (
+        <button
+          onClick={handleNextPage}
+          disabled={!canGoNext}
+          className={`rounded-lg p-1 transition-colors ${
+            canGoNext
+              ? 'bg-green-600/50 hover:bg-green-600 cursor-pointer'
+              : 'bg-green-600/20 cursor-not-allowed opacity-50'
+          }`}
+          title="Siguiente"
+        >
+          <ChevronRight size={16} className="text-white" />
+        </button>
+      )}
     </div>
   );
 }

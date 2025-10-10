@@ -304,9 +304,7 @@ export default function MainScreen() {
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Actividades 🗓️
         </h2>
-        <div onClick={() => setShowActividadDetails(true)}>
-          <ActividadesGrid onShowDetails={handleShowActividadDetails} />
-        </div>
+        <ActividadesGrid onShowDetails={handleShowActividadDetails} />
       </div>
 
 
@@ -316,9 +314,7 @@ export default function MainScreen() {
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Misiones 🎯
         </h2>
-        <div onClick={() => setShowMisionDetails(true)}>
-          <MisionesCompact onShowDetails={handleShowMisionDetails} />
-        </div>
+        <MisionesCompact onShowDetails={handleShowMisionDetails} />
       </div>
 
       {/* Modal para agregar recurso */}

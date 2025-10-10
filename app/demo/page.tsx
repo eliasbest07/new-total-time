@@ -761,16 +761,7 @@ export default function Dashboard() {
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Actividades 🗓️
         </h2>
-        <div
-          // className="bg-white/20 rounded-lg cursor-grab flex items-center justify-center text-xs text-white font-medium hover:bg-white/30 transition-colors"
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('text/plain', 'Actividades - Elemento arrastrado desde la interfaz');
-          }}
-          onClick={() => setShowActividadDetails(true)}
-        >
-          <ActividadesGridMock actividades={mockActividades} onShowDetails={() => {}} />
-        </div>
+        <ActividadesGridMock actividades={mockActividades} onShowDetails={(actividad) => setShowActividadDetails(true)} />
       </div>
 
       {/* Missions positioned at fixed location */}
@@ -778,9 +769,7 @@ export default function Dashboard() {
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Misiones 🎯
         </h2>
-        <div onClick={() => setShowMisionDetails(true)}>
-          <MisionesCompactMock misiones={mockMisiones} onShowDetails={() => {}} />
-        </div>
+        <MisionesCompactMock misiones={mockMisiones} onShowDetails={(mision) => setShowMisionDetails(true)} />
       </div>
 
       {/* Chart positioned at bottom left */}
