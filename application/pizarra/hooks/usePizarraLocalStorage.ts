@@ -1,10 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { Card, Connection } from '../types/index';
 
-const PIZARRA_STORAGE_KEY = 'pizarra-cards-v1';
-const CONNECTIONS_STORAGE_KEY = 'pizarra-connections-v1';
-const PAN_OFFSET_STORAGE_KEY = 'pizarra-pan-offset-v1';
-
 interface PizarraStorageData {
   cards: Card[];
   connections: Connection[];
@@ -18,8 +14,13 @@ export const usePizarraLocalStorage = (
   panOffset: { x: number; y: number },
   setCards: React.Dispatch<React.SetStateAction<Card[]>>,
   setConnections: React.Dispatch<React.SetStateAction<Connection[]>>,
-  setPanOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>
+  setPanOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>,
+  storagePrefix: string = 'real'
 ) => {
+  // Generar claves de almacenamiento con prefijo
+  const PIZARRA_STORAGE_KEY = `pizarra-${storagePrefix}-cards-v1`;
+  const CONNECTIONS_STORAGE_KEY = `pizarra-${storagePrefix}-connections-v1`;
+  const PAN_OFFSET_STORAGE_KEY = `pizarra-${storagePrefix}-pan-offset-v1`;
 
   // Función helper para validar y parsear JSON
   const safeJsonParse = (jsonString: string | null, fallback: any = null) => {

@@ -659,8 +659,8 @@ export default function Dashboard() {
       className="relative overflow-hidden flex flex-col"
       style={{ height: 'calc(100vh - 1rem)', padding: '0.5rem' }}
     >
-      <div className="absolute inset-0 z-30">
-        <Pizarra ref={pizarraRef} />
+      <div className="absolute inset-0" style={{ zIndex: 10 }}>
+        <Pizarra ref={pizarraRef} storagePrefix="demo" />
       </div>
 
       {/* Toggle Button - Always visible */}
@@ -757,7 +757,7 @@ export default function Dashboard() {
       </div>
 
       {/* Activities positioned at fixed location */}
-      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 30 }}>
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 20 }}>
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Actividades 🗓️
         </h2>
@@ -765,7 +765,7 @@ export default function Dashboard() {
       </div>
 
       {/* Missions positioned at fixed location */}
-      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 40 }}>
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 20 }}>
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Misiones 🎯
         </h2>

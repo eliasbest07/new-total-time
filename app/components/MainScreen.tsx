@@ -242,8 +242,8 @@ export default function MainScreen() {
       className="relative overflow-hidden flex flex-col"
       style={{ height: 'calc(100vh - 1rem)', padding: '0.5rem' }}>
 
-      <div className="absolute inset-0 z-30">
-        <Pizarra ref={pizarraRef} onShowScreenshots={handleShowScreenshots} />
+      <div className="absolute inset-0" style={{ zIndex: 10 }}>
+        <Pizarra ref={pizarraRef} onShowScreenshots={handleShowScreenshots} storagePrefix="real" />
       </div>
 
       {/* estos dos componentes abajo estan dentro de demo, tiene que estar afuera para ser usados en cualquier parte */}
@@ -300,7 +300,7 @@ export default function MainScreen() {
       </div>
 
       {/* Activities positioned at fixed location */}
-      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 30 }}>
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '15rem', left: '1rem', zIndex: 20 }}>
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Actividades 🗓️
         </h2>
@@ -310,7 +310,7 @@ export default function MainScreen() {
 
 
       {/* Missions positioned at fixed location */}
-      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 40 }}>
+      <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 20 }}>
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Misiones 🎯
         </h2>

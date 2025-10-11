@@ -4,6 +4,7 @@ import { Card, PizarraRef, TodoItem, ActivityData, MisionData } from './types/in
 
 interface PizarraProps {
   onShowScreenshots?: (cardId: string) => void;
+  storagePrefix?: string;
 }
 import { generateUniqueId, generatePosition } from './utils/idGenerator';
 import { useCardDrag } from './hooks/useCardDrag';
@@ -16,7 +17,7 @@ import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots }, ref) => {
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real' }, ref) => {
   const [cards, setCards] = useState<Card[]>([]);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [editingTodo, setEditingTodo] = useState<{ cardId: string, todoId: number } | null>(null);
@@ -90,7 +91,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots },
     panOffset,
     setCards,
     setConnections,
-    setPanOffset
+    setPanOffset,
+    storagePrefix
   );
 
   // Funciones para actividades
