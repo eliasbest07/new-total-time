@@ -1,7 +1,7 @@
 export interface Post {
   id: string;
   created_at: string;
-  creado_por: string | null; // UUID del usuario que creó el post (campo real en DB)
+  id_usuario: number | null; // ID numérico del usuario que creó el post (campo real en DB)
   id_sala: number | null;
   contenido: string | null;
   id_comentarios: string[] | null;

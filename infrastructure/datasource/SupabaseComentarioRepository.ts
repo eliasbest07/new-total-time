@@ -28,20 +28,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
       // Obtener los comentarios paginados
       const { data, error } = await supabase
         .from('comentario_sala')
-        .select(`
-          id,
-          contenido,
-          created_at,
-          edited_at,
-          likes_count,
-          dislikes_count,
-          "idUsuario",
-          usuario:"idUsuario" (
-            profile (
-              nombre
-            )
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -50,18 +37,39 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         return { comentarios: [], total: 0, hasMore: false };
       }
 
-      const comentarios: Comentario[] = (data || []).map(item => ({
-        id: item.id,
-        contenido: item.contenido || '',
-        created_at: item.created_at,
-        edited_at: item.edited_at,
-        likes_count: item.likes_count || 0,
-        dislikes_count: item.dislikes_count || 0,
-        idUsuario: item.idUsuario,
-        usuario: item.usuario && item.usuario.profile ? {
-          nombre: item.usuario.profile.nombre
-        } : undefined
-      }));
+      if (!data || data.length === 0) {
+        return { comentarios: [], total: count || 0, hasMore: false };
+      }
+
+      // Obtener los IDs únicos de usuarios
+      const userIds = [...new Set(data.map(c => (c as any).idUsuario || (c as any)['idUsuario']).filter(id => id !== null))];
+
+      // Obtener los datos de los usuarios si hay IDs
+      let usuariosMap = new Map();
+      if (userIds.length > 0) {
+        const { data: usuarios, error: userError } = await supabase
+          .from('usuario')
+          .select('id, nombre')
+          .in('id', userIds);
+
+        if (!userError && usuarios) {
+          usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre }]));
+        }
+      }
+
+      const comentarios: Comentario[] = data.map(item => {
+        const idUsuario = (item as any).idUsuario || (item as any)['idUsuario'];
+        return {
+          id: item.id,
+          contenido: item.contenido || '',
+          created_at: item.created_at,
+          edited_at: item.edited_at,
+          likes_count: item.likes_count || 0,
+          dislikes_count: item.dislikes_count || 0,
+          idUsuario: idUsuario,
+          usuario: idUsuario ? usuariosMap.get(idUsuario) : undefined
+        };
+      });
 
       const total = count || 0;
       const hasMore = offset + limit < total;
@@ -78,33 +86,43 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
   async createComentario(contenido: string, usuarioId: number): Promise<Comentario | null> {
     try {
       console.log('✍️ Creando comentario para usuario:', usuarioId);
+      console.log('📝 Contenido:', contenido);
+
+      const insertData = {
+        idUsuario: usuarioId,
+        contenido: contenido
+      };
+      console.log('📦 Datos a insertar:', insertData);
 
       const { data, error } = await supabase
         .from('comentario_sala')
-        .insert({
-          "idUsuario": usuarioId,
-          contenido: contenido
-        })
-        .select(`
-          id,
-          contenido,
-          created_at,
-          edited_at,
-          likes_count,
-          dislikes_count,
-          "idUsuario",
-          usuario:"idUsuario" (
-            profile (
-              nombre
-            )
-          )
-        `)
+        .insert(insertData)
+        .select('*')
         .single();
+
+      console.log('📊 Respuesta de insert:', { data, error });
 
       if (error) {
         console.error('❌ Error creando comentario:', error);
+        console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
         return null;
       }
+
+      if (!data) {
+        console.error('❌ No se recibieron datos después del insert');
+        return null;
+      }
+
+      // Obtener el nombre del usuario
+      const { data: usuario, error: userError } = await supabase
+        .from('usuario')
+        .select('nombre')
+        .eq('id', usuarioId)
+        .single();
+
+      console.log('📊 Respuesta de usuario:', { data: usuario, error: userError });
+
+      const idUsuarioFromData = (data as any).idUsuario || (data as any)['idUsuario'];
 
       const comentario: Comentario = {
         id: data.id,
@@ -113,16 +131,15 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         edited_at: data.edited_at,
         likes_count: data.likes_count || 0,
         dislikes_count: data.dislikes_count || 0,
-        idUsuario: data.idUsuario,
-        usuario: data.usuario && data.usuario.profile ? {
-          nombre: data.usuario.profile.nombre
-        } : undefined
+        idUsuario: idUsuarioFromData,
+        usuario: usuario ? { nombre: usuario.nombre } : undefined
       };
 
       console.log('✅ Comentario creado:', comentario);
       return comentario;
     } catch (error) {
       console.error('❌ Error en createComentario:', error);
+      console.error('❌ Stack trace:', error);
       return null;
     }
   }

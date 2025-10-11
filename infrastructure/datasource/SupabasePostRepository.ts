@@ -21,8 +21,8 @@ export class SupabasePostRepository implements PostRepository {
         return [];
       }
 
-      // Obtenemos los UUIDs únicos de usuarios
-      const userUUIDs = [...new Set(posts.map(p => p.creado_por).filter(id => id !== null))];
+      // Obtenemos los IDs únicos de usuarios
+      const userUUIDs = [...new Set(posts.map(p => p.id_usuario).filter(id => id !== null))];
 
       if (userUUIDs.length === 0) {
         // Si no hay usuarios, devolvemos posts sin datos de usuario
@@ -67,7 +67,7 @@ export class SupabasePostRepository implements PostRepository {
         edited_at: null, // Campo virtual para fecha de edición
         likes_count: 0, // Campo virtual para likes
         dislikes_count: 0, // Campo virtual para dislikes
-        usuario: post.creado_por ? usuariosMap.get(post.creado_por) : undefined
+        usuario: post.id_usuario ? usuariosMap.get(post.id_usuario) : undefined
       }));
 
       return postsWithExtraFields;
@@ -83,7 +83,7 @@ export class SupabasePostRepository implements PostRepository {
       const postData = {
         id_sala: post.id_sala,
         contenido: post.contenido,
-        creado_por: post.creado_por
+        id_usuario: post.id_usuario
       };
 
       console.log('📝 Creando post con datos:', postData);

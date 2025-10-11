@@ -1,18 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, MessageCircle, Calendar, Send, Plus, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageCircle, Calendar, Send, Plus, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Trash2, Edit2, X, Check } from "lucide-react";
 import { Sala } from "@/domain/entities/Sala";
 import { usePosts } from "@/hooks/usePosts";
 import { Post } from "@/domain/entities/Post";
 import { useComentarios } from "@/hooks/useComentarios";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { useUsuarioId } from "@/hooks/useUsuarioId";
 import { SupabasePostRepository } from "@/infrastructure/datasource/SupabasePostRepository";
 import { SupabaseComentarioRepository } from "@/infrastructure/datasource/SupabaseComentarioRepository";
 
 // Componente interno para mostrar comentarios de un post
-function ComentariosSection({ comentarioIds }: { comentarioIds: string[] }) {
+function ComentariosSection({
+  postId,
+  comentarioIds,
+  commentContent,
+  onCommentContentChange,
+  onAddComment,
+  isCreatingComment
+}: {
+  postId: string;
+  comentarioIds: string[];
+  commentContent: string;
+  onCommentContentChange: (content: string) => void;
+  onAddComment: (postId: string) => void;
+  isCreatingComment: boolean;
+}) {
   const { comentarios, loading, error } = useComentarios(comentarioIds);
+  const [showCommentForm, setShowCommentForm] = useState(false);
 
   const formatearFecha = (fecha: string) => {
     return new Date(fecha).toLocaleDateString('es-ES', {
@@ -83,6 +99,8 @@ function ComentariosSection({ comentarioIds }: { comentarioIds: string[] }) {
           })}
         </div>
       )}
+
+      
     </div>
   );
 }
@@ -94,6 +112,7 @@ interface SalaDetalleProps {
 export default function SalaDetalle({ sala }: SalaDetalleProps) {
   const { posts, loading, error, refetch } = usePosts(sala.id);
   const { usuario } = useAuth();
+  const { usuarioId } = useUsuarioId();
   const [currentPage, setCurrentPage] = useState(1);
   const postsPorPagina = 3;
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
@@ -109,6 +128,16 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   const [commentingOnPost, setCommentingOnPost] = useState<string | null>(null);
   const [newCommentContent, setNewCommentContent] = useState('');
   const [creatingComment, setCreatingComment] = useState(false);
+
+  // Estados para modal de eliminación
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<{ id: string; userId: number | null } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Estados para editar posts
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editedContent, setEditedContent] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const totalPaginas = Math.ceil(posts.length / postsPorPagina);
   const indiceInicio = (currentPage - 1) * postsPorPagina;
@@ -133,7 +162,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   };
 
   const handleCreatePost = async () => {
-    if (!usuario?.id || !newPostContent.trim()) {
+    if (!usuarioId || !newPostContent.trim()) {
       alert('Debes escribir algo para publicar');
       return;
     }
@@ -143,7 +172,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
       const newPost = await postRepository.createPost({
         id_sala: sala.id,
         contenido: newPostContent,
-        creado_por: usuario.id, // Usar el UUID directamente
+        id_usuario: usuarioId, // Usar el ID numérico del usuario
         id_comentarios: [],
         edited_at: null,
         likes_count: 0,
@@ -163,19 +192,129 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
     }
   };
 
+  const handleDeletePost = (postId: string, postUserId: number | null) => {
+    // Verificar que el usuario sea el dueño del post
+    if (!usuarioId || postUserId !== usuarioId) {
+      return;
+    }
+
+    // Mostrar modal de confirmación
+    setPostToDelete({ id: postId, userId: postUserId });
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeletePost = async () => {
+    if (!postToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const success = await postRepository.deletePost(postToDelete.id);
+
+      if (success) {
+        console.log('✅ Post eliminado exitosamente');
+        setShowDeleteModal(false);
+        setPostToDelete(null);
+        refetch(); // Refrescar la lista de posts
+      } else {
+        alert('Error al eliminar el post');
+      }
+    } catch (error) {
+      console.error('Error eliminando post:', error);
+      alert('Error al eliminar el post');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const cancelDeletePost = () => {
+    setShowDeleteModal(false);
+    setPostToDelete(null);
+  };
+
+  const handleEditPost = (postId: string, currentContent: string, postUserId: number | null) => {
+    // Verificar que el usuario sea el dueño del post
+    if (!usuarioId || postUserId !== usuarioId) {
+      return;
+    }
+
+    // Activar modo de edición
+    setEditingPostId(postId);
+    setEditedContent(currentContent || '');
+  };
+
+  const handleSaveEdit = async (postId: string) => {
+    if (!editedContent.trim()) {
+      alert('El contenido no puede estar vacío');
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      const updatedPost = await postRepository.updatePost(postId, {
+        contenido: editedContent,
+      });
+
+      if (updatedPost) {
+        console.log('✅ Post actualizado exitosamente');
+        setEditingPostId(null);
+        setEditedContent('');
+        refetch(); // Refrescar la lista de posts
+      } else {
+        alert('Error al actualizar el post');
+      }
+    } catch (error) {
+      console.error('Error actualizando post:', error);
+      alert('Error al actualizar el post');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPostId(null);
+    setEditedContent('');
+  };
+
   const handleCreateComment = async (postId: string) => {
-    if (!usuario?.id || !newCommentContent.trim()) {
+    if (!usuarioId || !newCommentContent.trim()) {
       alert('Debes escribir algo para comentar');
       return;
     }
 
     setCreatingComment(true);
     try {
-      // Aquí necesitarías crear el comentario y actualizar el array de id_comentarios del post
-      // Por ahora esto es un placeholder
-      alert('Funcionalidad de comentarios pendiente de implementar en el repositorio');
-      setNewCommentContent('');
-      setCommentingOnPost(null);
+      // Crear el comentario usando el repositorio
+      const nuevoComentario = await comentarioRepository.createComentario(newCommentContent, usuarioId);
+
+      if (!nuevoComentario) {
+        alert('Error al crear el comentario');
+        return;
+      }
+
+      console.log('✅ Comentario creado:', nuevoComentario);
+
+      // Obtener el post actual
+      const postActual = posts.find(p => p.id === postId);
+      if (!postActual) {
+        alert('No se encontró el post');
+        return;
+      }
+
+      // Actualizar el array de id_comentarios del post
+      const comentariosActualizados = [...(postActual.id_comentarios || []), nuevoComentario.id];
+
+      const postActualizado = await postRepository.updatePost(postId, {
+        id_comentarios: comentariosActualizados,
+      });
+
+      if (postActualizado) {
+        console.log('✅ Post actualizado con nuevo comentario');
+        setNewCommentContent('');
+        setCommentingOnPost(null);
+        refetch(); // Refrescar la lista de posts
+      } else {
+        alert('Error al actualizar el post con el comentario');
+      }
     } catch (error) {
       console.error('Error creando comentario:', error);
       alert('Error al crear el comentario');
@@ -374,54 +513,128 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
 
                       {/* Contenido del post */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold text-gray-900 text-sm">
-                            {nombreUsuario}
-                          </span>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                          {formatearFecha(post.created_at)}
-                        </span>
-                        {post.edited_at && (
-                          <span className="text-xs text-gray-400 italic">
-                            (editado)
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="text-gray-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">
-                        {post.contenido || 'Sin contenido'}
-                      </p>
-
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 text-xs text-gray-500 px-2 py-1">
-                          <ThumbsUp className="w-3 h-3" />
-                          <span>{post.likes_count || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-gray-500 px-2 py-1">
-                          <ThumbsDown className="w-3 h-3" />
-                          <span>{post.dislikes_count || 0}</span>
-                        </div>
-                        {post.id_comentarios && post.id_comentarios.length > 0 && (
-                          <button
-                            onClick={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
-                            className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-full transition-colors"
-                          >
-                            <MessageCircle className="w-3 h-3" />
-                            {post.id_comentarios.length} comentario{post.id_comentarios.length !== 1 ? 's' : ''}
-                            {expandedPostId === post.id ? (
-                              <ChevronUp className="w-3 h-3" />
-                            ) : (
-                              <ChevronDown className="w-3 h-3" />
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900 text-sm">
+                              {nombreUsuario}
+                            </span>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                              {formatearFecha(post.created_at)}
+                            </span>
+                            {post.edited_at && (
+                              <span className="text-xs text-gray-400 italic">
+                                (editado)
+                              </span>
                             )}
-                          </button>
+                          </div>
+
+                          {/* Botones de editar y eliminar - solo visibles para el autor del post */}
+                          {usuarioId && post.id_usuario === usuarioId && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleEditPost(post.id, post.contenido || '', post.id_usuario)}
+                                className="flex items-center gap-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors"
+                                title="Editar post"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                <span className="text-xs font-medium">Editar</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeletePost(post.id, post.id_usuario)}
+                                className="flex items-center gap-1 text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors"
+                                title="Eliminar post"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span className="text-xs font-medium">Eliminar</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Contenido del post o modo de edición */}
+                        {editingPostId === post.id ? (
+                          <div className="mb-3">
+                            <textarea
+                              value={editedContent}
+                              onChange={(e) => setEditedContent(e.target.value)}
+                              className="w-full p-3 text-gray-900 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm leading-relaxed resize-none"
+                              rows={4}
+                              autoFocus
+                            />
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-xs text-gray-500">{editedContent.length} caracteres</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={handleCancelEdit}
+                                  disabled={isSavingEdit}
+                                  className="flex items-center gap-1 px-3 py-1.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium disabled:opacity-50"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  Cancelar
+                                </button>
+                                <button
+                                  onClick={() => handleSaveEdit(post.id)}
+                                  disabled={isSavingEdit || !editedContent.trim()}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {isSavingEdit ? (
+                                    <>
+                                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                      Guardando...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Check className="w-3.5 h-3.5" />
+                                      Guardar
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-gray-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">
+                            {post.contenido || 'Sin contenido'}
+                          </p>
                         )}
+
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1 text-xs text-gray-500 px-2 py-1">
+                            <ThumbsUp className="w-3 h-3" />
+                            <span>{post.likes_count || 0}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-gray-500 px-2 py-1">
+                            <ThumbsDown className="w-3 h-3" />
+                            <span>{post.dislikes_count || 0}</span>
+                          </div>
+                          {post.id_comentarios && post.id_comentarios.length > 0 && (
+                            <button
+                              onClick={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
+                              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-full transition-colors"
+                            >
+                              <MessageCircle className="w-3 h-3" />
+                              {post.id_comentarios.length} comentario{post.id_comentarios.length !== 1 ? 's' : ''}
+                              {expandedPostId === post.id ? (
+                                <ChevronUp className="w-3 h-3" />
+                              ) : (
+                                <ChevronDown className="w-3 h-3" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
                     {/* Sección de comentarios expandible */}
-                    {expandedPostId === post.id && post.id_comentarios && post.id_comentarios.length > 0 && (
-                      <ComentariosSection comentarioIds={post.id_comentarios} />
+                    {expandedPostId === post.id && (
+                      <ComentariosSection
+                        postId={post.id}
+                        comentarioIds={post.id_comentarios || []}
+                        commentContent={newCommentContent}
+                        onCommentContentChange={setNewCommentContent}
+                        onAddComment={handleCreateComment}
+                        isCreatingComment={creatingComment}
+                      />
                     )}
                   </div>
                 );
@@ -471,6 +684,64 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
               >
                 Siguiente
                 <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-20 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transform transition-all animate-scaleIn">
+            {/* Header del modal */}
+            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Eliminar Post</h3>
+                  <p className="text-red-100 text-sm">Esta acción no se puede deshacer</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Contenido del modal */}
+            <div className="p-6">
+              <p className="text-gray-700 text-base leading-relaxed mb-2">
+                ¿Estás seguro de que deseas eliminar este post?
+              </p>
+              <p className="text-gray-500 text-sm">
+                El post y todos sus comentarios se eliminarán permanentemente.
+              </p>
+            </div>
+
+            {/* Footer con botones */}
+            <div className="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={cancelDeletePost}
+                disabled={isDeleting}
+                className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeletePost}
+                disabled={isDeleting}
+                className="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all font-medium text-sm shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar
+                  </>
+                )}
               </button>
             </div>
           </div>
