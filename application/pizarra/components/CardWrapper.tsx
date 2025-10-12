@@ -17,6 +17,7 @@ interface CardWrapperProps {
   editingTodo: { cardId: string; todoId: number } | null;
   configOpenCard: string | null;
   confirmDelete: string | null;
+  cardZIndex: number;
   handleCardMouseDown: (e: React.MouseEvent<HTMLDivElement>, card: Card) => void;
   setHoveredCard: (id: string | null) => void;
   handleCardClick: (e: React.MouseEvent<HTMLDivElement>, cardId: string) => void;
@@ -41,6 +42,7 @@ interface CardWrapperProps {
   isCapturing: boolean;
   setCards: React.Dispatch<React.SetStateAction<Card[]>>;
   pastedImages: { [key: string]: string };
+  bringCardToFront: (cardId: string) => void;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -50,7 +52,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
     <div
       className={`
         ${getCardStyle(card.type)}
-        ${props.draggedCard === card.id ? 'shadow-2xl border-blue-500 z-10' : ''}
+        ${props.draggedCard === card.id ? 'shadow-2xl border-blue-500' : ''}
         ${props.isConnecting && props.connectingFrom === card.id ? 'ring-4 ring-blue-400' : ''}
         ${props.hoveredCard === card.id ? 'ring-2 ring-gray-300' : ''}
       `}
@@ -59,12 +61,19 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         top: card.y,
         width: card.width,
         height: card.height,
-        transform: `translate(${props.panOffset.x}px, ${props.panOffset.y}px)`
+        transform: `translate(${props.panOffset.x}px, ${props.panOffset.y}px)`,
+        zIndex: props.cardZIndex
       }}
-      onMouseDown={(e) => props.handleCardMouseDown(e, card)}
+      onMouseDown={(e) => {
+        props.bringCardToFront(card.id);
+        props.handleCardMouseDown(e, card);
+      }}
       onMouseEnter={() => props.setHoveredCard(card.id)}
       onMouseLeave={() => props.setHoveredCard(null)}
-      onClick={(e) => props.handleCardClick(e, card.id)}
+      onClick={(e) => {
+        props.bringCardToFront(card.id);
+        props.handleCardClick(e, card.id);
+      }}
     >
       {/* Resize handles */}
       <ResizeHandles cardId={card.id} onResizeStart={props.handleResizeStart} />

@@ -24,6 +24,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   const [configOpenCard, setConfigOpenCard] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [cardZIndices, setCardZIndices] = useState<{ [cardId: string]: number }>({});
+  const [maxZIndex, setMaxZIndex] = useState(1);
 
   const canvasRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
 
@@ -56,6 +58,32 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleGlobalMouseMove: panGlobalMouseMove,
     handleMouseUp: panHandleMouseUp
   } = useCanvasPan();
+
+  const bringCardToFront = useCallback((cardId: string) => {
+    const newZIndex = maxZIndex + 1;
+    setCardZIndices(prev => ({ ...prev, [cardId]: newZIndex }));
+    setMaxZIndex(newZIndex);
+  }, [maxZIndex]);
+
+  const navigateToCard = useCallback((cardId: string) => {
+    const card = cards.find(c => c.id === cardId);
+    if (!card || !canvasRef.current) return;
+
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const canvasCenterX = canvasRect.width / 2;
+    const canvasCenterY = canvasRect.height / 2;
+
+    const cardCenterX = card.x + card.width / 2;
+    const cardCenterY = card.y + card.height / 2;
+
+    const newPanX = canvasCenterX - cardCenterX;
+    const newPanY = canvasCenterY - cardCenterY;
+
+    setPanOffset({ x: newPanX, y: newPanY });
+
+    // Also bring the card to front
+    bringCardToFront(cardId);
+  }, [cards, bringCardToFront, setPanOffset]);
 
   const {
     draggedCard,
@@ -399,6 +427,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           connectingFrom={connectingFrom}
           mousePosition={mousePosition}
           deleteConnection={deleteConnection}
+          navigateToCard={navigateToCard}
         />
 
         {cards.length === 0 && (
@@ -436,6 +465,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             editingTodo={editingTodo}
             configOpenCard={configOpenCard}
             confirmDelete={confirmDelete}
+            cardZIndex={cardZIndices[card.id] || 1}
             handleCardMouseDown={handleCardMouseDown}
             setHoveredCard={setHoveredCard}
             handleCardClick={handleCardClick}
@@ -460,6 +490,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             isCapturing={isCapturing}
             setCards={setCards}
             pastedImages={pastedImages}
+            bringCardToFront={bringCardToFront}
           />
         ))}
 

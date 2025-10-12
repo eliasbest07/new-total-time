@@ -31,12 +31,11 @@ export const useConnections = () => {
         setIsConnecting(false);
         setConnectingFrom(null);
       } else {
-        // Check if connection already exists (in either direction)
-        const connectionExists = connections.some(conn => 
-          (conn.from === connectingFrom && conn.to === cardId) ||
-          (conn.from === cardId && conn.to === connectingFrom)
+        // Allow multiple connections - just check if exact same connection exists
+        const connectionExists = connections.some(conn =>
+          conn.from === connectingFrom && conn.to === cardId
         );
-        
+
         if (!connectionExists) {
           const newConnection = {
             id: `connection-${connectingFrom}-${cardId}-${Date.now()}`,
@@ -62,12 +61,11 @@ export const useConnections = () => {
         setIsConnecting(false);
         setConnectingFrom(null);
       } else {
-        // Check if connection already exists (in either direction)
-        const connectionExists = connections.some(conn => 
-          (conn.from === connectingFrom && conn.to === cardId) ||
-          (conn.from === cardId && conn.to === connectingFrom)
+        // Allow multiple connections - just check if exact same connection exists
+        const connectionExists = connections.some(conn =>
+          conn.from === connectingFrom && conn.to === cardId
         );
-        
+
         if (!connectionExists) {
           const newConnection = {
             id: `connection-${connectingFrom}-${cardId}-${Date.now()}`,

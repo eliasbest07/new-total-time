@@ -10,6 +10,7 @@ interface ConnectionLinesProps {
   connectingFrom: string | null;
   mousePosition: { x: number; y: number };
   deleteConnection: (connectionId: string) => void;
+  navigateToCard?: (cardId: string) => void;
 }
 
 export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
@@ -19,11 +20,13 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
   isConnecting,
   connectingFrom,
   mousePosition,
-  deleteConnection
+  deleteConnection,
+  navigateToCard
 }) => {
+  const [hoveredConnection, setHoveredConnection] = React.useState<string | null>(null);
   return (
     <svg
-      className="absolute inset-0 pointer-events-none z-40 w-full h-full"
+      className="absolute inset-0 pointer-events-none z-0 w-full h-full"
       style={{
         transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
         overflow: 'visible'
@@ -47,36 +50,86 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
         const deleteY = fromEdge.y;
 
         return (
-          <g key={connection.id}>
+          <g
+            key={connection.id}
+            onMouseEnter={() => setHoveredConnection(connection.id)}
+            onMouseLeave={() => setHoveredConnection(null)}
+          >
+            {/* Clickable invisible line for better interaction */}
             <line
               x1={fromEdge.x}
               y1={fromEdge.y}
               x2={toEdge.x}
               y2={toEdge.y}
-              stroke="#000000"
+              stroke="transparent"
+              strokeWidth="20"
+              className="pointer-events-auto cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (navigateToCard) {
+                  navigateToCard(connection.to);
+                }
+              }}
+            />
+            {/* Visible line */}
+            <line
+              x1={fromEdge.x}
+              y1={fromEdge.y}
+              x2={toEdge.x}
+              y2={toEdge.y}
+              stroke={hoveredConnection === connection.id ? "#3b82f6" : "#000000"}
               strokeWidth="3"
               markerEnd="url(#arrowhead)"
+              className="pointer-events-none"
             />
-            {/* Delete button at arrow start */}
-            <foreignObject
-              x={deleteX - 10}
-              y={deleteY - 10}
-              width="20"
-              height="20"
-              className="pointer-events-auto"
-            >
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  deleteConnection(connection.id);
-                }}
-                className="w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs transition-colors shadow-lg"
-                title="Eliminar conexión"
-              >
-                ×
-              </button>
-            </foreignObject>
+            {/* Buttons - only visible on hover */}
+            {hoveredConnection === connection.id && (
+              <>
+                {/* Delete button at arrow start */}
+                <foreignObject
+                  x={deleteX - 5}
+                  y={deleteY - 7}
+                  width="20"
+                  height="20"
+                  className="pointer-events-auto"
+                >
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      deleteConnection(connection.id);
+                    }}
+                    className="w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs transition-colors shadow-lg"
+                    title="Eliminar conexión"
+                  >
+                    ×
+                  </button>
+                </foreignObject>
+                {/* Navigate button to origin - at destination point */}
+                <foreignObject
+                  x={toEdge.x - 22}
+                  y={toEdge.y - 22}
+                  width="20"
+                  height="20"
+                  className="pointer-events-auto"
+                >
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (navigateToCard && connection.from) {
+                        navigateToCard(connection.from);
+                      }
+                    }}
+                    className="w-5 h-5 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-xs transition-colors shadow-lg"
+                    title="Navegar al origen"
+                  >
+                    ←
+                  </button>
+                </foreignObject>
+              </>
+            )}
           </g>
         );
       })}
