@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, MessageCircle, Calendar, Send, Plus, ThumbsU
 import { Sala } from "@/domain/entities/Sala";
 import { usePosts } from "@/hooks/usePosts";
 import { Post } from "@/domain/entities/Post";
-import { useComentarios } from "@/hooks/useComentarios";
+import { useComentariosByPost } from "@/hooks/useComentarios";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
 import { SupabasePostRepository } from "@/infrastructure/datasource/SupabasePostRepository";
@@ -14,20 +14,22 @@ import { SupabaseComentarioRepository } from "@/infrastructure/datasource/Supaba
 // Componente interno para mostrar comentarios de un post
 function ComentariosSection({
   postId,
-  comentarioIds,
   commentContent,
   onCommentContentChange,
   onAddComment,
-  isCreatingComment
+  isCreatingComment,
+  onLikeComment,
+  onDislikeComment
 }: {
   postId: string;
-  comentarioIds: string[];
   commentContent: string;
   onCommentContentChange: (content: string) => void;
   onAddComment: (postId: string) => void;
   isCreatingComment: boolean;
+  onLikeComment: (comentarioId: string) => void;
+  onDislikeComment: (comentarioId: string) => void;
 }) {
-  const { comentarios, loading, error } = useComentarios(comentarioIds);
+  const { comentarios, loading, error } = useComentariosByPost(postId);
   const [showCommentForm, setShowCommentForm] = useState(false);
 
   const formatearFecha = (fecha: string) => {
@@ -40,10 +42,10 @@ function ComentariosSection({
   };
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-200">
-      <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
-        <MessageCircle className="w-3 h-3" />
-        Comentarios:
+    <div className="pt-4">
+      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1">
+        <MessageCircle className="w-4 h-4" />
+        Comentarios
       </h4>
 
       {loading ? (
@@ -83,14 +85,22 @@ function ComentariosSection({
                       {comentario.contenido}
                     </p>
                     <div className="flex items-center gap-3 mt-1">
-                      <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                      <button
+                        onClick={() => onLikeComment(comentario.id)}
+                        className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors cursor-pointer"
+                        title="Me gusta"
+                      >
                         <ThumbsUp className="w-2.5 h-2.5" />
                         <span>{comentario.likes_count || 0}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                      </button>
+                      <button
+                        onClick={() => onDislikeComment(comentario.id)}
+                        className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-red-600 transition-colors cursor-pointer"
+                        title="No me gusta"
+                      >
                         <ThumbsDown className="w-2.5 h-2.5" />
                         <span>{comentario.dislikes_count || 0}</span>
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -100,7 +110,61 @@ function ComentariosSection({
         </div>
       )}
 
-      
+      {/* Formulario para agregar comentario */}
+      <div className="mt-3 pt-3 border-t border-gray-200">
+        {!showCommentForm ? (
+          <button
+            onClick={() => setShowCommentForm(true)}
+            className="w-full text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center justify-center gap-1 py-2 hover:bg-blue-50 rounded-lg transition-colors"
+          >
+            <MessageCircle className="w-3 h-3" />
+            Agregar comentario
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <textarea
+              value={commentContent}
+              onChange={(e) => onCommentContentChange(e.target.value)}
+              placeholder="Escribe tu comentario..."
+              className="w-full p-2 text-xs text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+              autoFocus
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowCommentForm(false);
+                  onCommentContentChange('');
+                }}
+                disabled={isCreatingComment}
+                className="px-3 py-1.5 text-xs text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  onAddComment(postId);
+                  setShowCommentForm(false);
+                }}
+                disabled={isCreatingComment || !commentContent.trim()}
+                className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              >
+                {isCreatingComment ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3 h-3" />
+                    Comentar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -162,7 +226,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   };
 
   const handleCreatePost = async () => {
-    if (!usuarioId || !newPostContent.trim()) {
+    if (!usuario?.id || !newPostContent.trim()) {
       alert('Debes escribir algo para publicar');
       return;
     }
@@ -172,7 +236,8 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
       const newPost = await postRepository.createPost({
         id_sala: sala.id,
         contenido: newPostContent,
-        id_usuario: usuarioId, // Usar el ID numérico del usuario
+        creado_por: usuario.id, // UUID del usuario autenticado
+        id_usuario: usuarioId, // Mantener compatibilidad
         id_comentarios: [],
         edited_at: null,
         likes_count: 0,
@@ -193,12 +258,10 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   };
 
   const handleDeletePost = (postId: string, postUserId: number | null) => {
-    // Verificar que el usuario sea el dueño del post
     if (!usuarioId || postUserId !== usuarioId) {
       return;
     }
 
-    // Mostrar modal de confirmación
     setPostToDelete({ id: postId, userId: postUserId });
     setShowDeleteModal(true);
   };
@@ -214,7 +277,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
         console.log('✅ Post eliminado exitosamente');
         setShowDeleteModal(false);
         setPostToDelete(null);
-        refetch(); // Refrescar la lista de posts
+        refetch();
       } else {
         alert('Error al eliminar el post');
       }
@@ -232,12 +295,10 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   };
 
   const handleEditPost = (postId: string, currentContent: string, postUserId: number | null) => {
-    // Verificar que el usuario sea el dueño del post
     if (!usuarioId || postUserId !== usuarioId) {
       return;
     }
 
-    // Activar modo de edición
     setEditingPostId(postId);
     setEditedContent(currentContent || '');
   };
@@ -258,7 +319,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
         console.log('✅ Post actualizado exitosamente');
         setEditingPostId(null);
         setEditedContent('');
-        refetch(); // Refrescar la lista de posts
+        refetch();
       } else {
         alert('Error al actualizar el post');
       }
@@ -283,38 +344,26 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
 
     setCreatingComment(true);
     try {
-      // Crear el comentario usando el repositorio
-      const nuevoComentario = await comentarioRepository.createComentario(newCommentContent, usuarioId);
+      // Crear comentario con id_post
+      const nuevoComentario = await comentarioRepository.createComentario(
+        newCommentContent,
+        usuarioId,
+        postId // Pasar el ID del post
+      );
 
       if (!nuevoComentario) {
         alert('Error al crear el comentario');
         return;
       }
 
-      console.log('✅ Comentario creado:', nuevoComentario);
+      console.log('✅ Comentario creado con id_post:', nuevoComentario);
 
-      // Obtener el post actual
-      const postActual = posts.find(p => p.id === postId);
-      if (!postActual) {
-        alert('No se encontró el post');
-        return;
-      }
+      // Limpiar el formulario y refrescar
+      setNewCommentContent('');
+      setCommentingOnPost(null);
 
-      // Actualizar el array de id_comentarios del post
-      const comentariosActualizados = [...(postActual.id_comentarios || []), nuevoComentario.id];
-
-      const postActualizado = await postRepository.updatePost(postId, {
-        id_comentarios: comentariosActualizados,
-      });
-
-      if (postActualizado) {
-        console.log('✅ Post actualizado con nuevo comentario');
-        setNewCommentContent('');
-        setCommentingOnPost(null);
-        refetch(); // Refrescar la lista de posts
-      } else {
-        alert('Error al actualizar el post con el comentario');
-      }
+      // Refrescar posts para actualizar el contador de comentarios si es necesario
+      refetch();
     } catch (error) {
       console.error('Error creando comentario:', error);
       alert('Error al crear el comentario');
@@ -323,35 +372,78 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
     }
   };
 
+  const handleLikeComment = async (comentarioId: string) => {
+    if (!usuarioId) {
+      alert('Debes estar autenticado para dar like');
+      return;
+    }
+
+    try {
+      const success = await comentarioRepository.toggleLike(comentarioId, usuarioId);
+      if (success) {
+        console.log('✅ Like agregado al comentario');
+        refetch(); // Refrescar para actualizar los contadores
+      } else {
+        alert('Error al dar like al comentario');
+      }
+    } catch (error) {
+      console.error('Error dando like:', error);
+      alert('Error al dar like al comentario');
+    }
+  };
+
+  const handleDislikeComment = async (comentarioId: string) => {
+    if (!usuarioId) {
+      alert('Debes estar autenticado para dar dislike');
+      return;
+    }
+
+    try {
+      const success = await comentarioRepository.toggleDislike(comentarioId, usuarioId);
+      if (success) {
+        console.log('✅ Dislike agregado al comentario');
+        refetch(); // Refrescar para actualizar los contadores
+      } else {
+        alert('Error al dar dislike al comentario');
+      }
+    } catch (error) {
+      console.error('Error dando dislike:', error);
+      alert('Error al dar dislike al comentario');
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
-      {/* Header de la sala */}
+      {/* Header de la sala - ACTUALIZADO */}
       <div className="border-b border-gray-200 pb-4 mb-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">💬</span>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {sala.nombre || 'Sala sin nombre'}
-              </h1>
+        <div className="flex items-start justify-between mb-2">
+          {/* Lado izquierdo - Título e ícono */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-lg">💬</span>
             </div>
-            <p className="text-gray-600 text-sm leading-relaxed mb-3">
-              {sala.descripcion || 'Sin descripción'}
-            </p>
-            <div className="flex items-center gap-4 text-xs text-gray-500">
-              <div className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                <span>Creada el {formatearFecha(sala.created_at)}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <MessageCircle className="w-3 h-3" />
-                <span>{posts.length} posts</span>
-              </div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {sala.nombre || 'Sala sin nombre'}
+            </h1>
+          </div>
+
+          {/* Lado derecho - Fecha y número de posts */}
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+              <Calendar className="w-4 h-4 text-gray-600" />
+              <span className="font-medium">Creada el {formatearFecha(sala.created_at)}</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+              <MessageCircle className="w-4 h-4 text-blue-600" />
+              <span className="font-medium text-blue-700">{posts.length} posts</span>
             </div>
           </div>
         </div>
+
+        {/* Descripción - debajo del título */}
+        <p className="text-gray-600 text-sm leading-relaxed ml-13">
+          {sala.descripcion || 'Sin descripción'}
+        </p>
       </div>
 
       {/* Crear nuevo post - Estilo Instagram */}
@@ -487,32 +579,32 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
                 const iniciales = post.usuario?.nombre?.substring(0, 2).toUpperCase() || 'U';
 
                 return (
-                  <div key={post.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 hover:border-gray-300">
-                    <div className="flex items-start gap-3">
-                      {/* Avatar del usuario */}
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm overflow-hidden">
-                        {post.usuario?.avatar ? (
-                          <img 
-                            src={post.usuario.avatar} 
-                            alt={nombreUsuario}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              // Si la imagen falla, mostrar las iniciales
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              target.parentElement!.className = "w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm";
-                              target.parentElement!.textContent = iniciales;
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                            {iniciales}
-                          </div>
-                        )}
-                      </div>
+                  <div key={post.id} className="bg-white border border-gray-200 rounded-xl hover:shadow-md transition-all duration-200 hover:border-gray-300">
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        {/* Avatar del usuario */}
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm overflow-hidden">
+                          {post.usuario?.avatar ? (
+                            <img
+                              src={post.usuario.avatar}
+                              alt={nombreUsuario}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.parentElement!.className = "w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm";
+                                target.parentElement!.textContent = iniciales;
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                              {iniciales}
+                            </div>
+                          )}
+                        </div>
 
-                      {/* Contenido del post */}
-                      <div className="flex-1 min-w-0">
+                        {/* Contenido del post */}
+                        <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-900 text-sm">
@@ -528,7 +620,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
                             )}
                           </div>
 
-                          {/* Botones de editar y eliminar - solo visibles para el autor del post */}
+                          {/* Botones de editar y eliminar */}
                           {usuarioId && post.id_usuario === usuarioId && (
                             <div className="flex items-center gap-2">
                               <button
@@ -607,34 +699,39 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
                             <ThumbsDown className="w-3 h-3" />
                             <span>{post.dislikes_count || 0}</span>
                           </div>
-                          {post.id_comentarios && post.id_comentarios.length > 0 && (
-                            <button
-                              onClick={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
-                              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-full transition-colors"
-                            >
-                              <MessageCircle className="w-3 h-3" />
-                              {post.id_comentarios.length} comentario{post.id_comentarios.length !== 1 ? 's' : ''}
-                              {expandedPostId === post.id ? (
-                                <ChevronUp className="w-3 h-3" />
-                              ) : (
-                                <ChevronDown className="w-3 h-3" />
-                              )}
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
+                            className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-full transition-colors"
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            {post.id_comentarios && post.id_comentarios.length > 0
+                              ? `${post.id_comentarios.length} comentario${post.id_comentarios.length !== 1 ? 's' : ''}`
+                              : 'Comentarios'
+                            }
+                            {expandedPostId === post.id ? (
+                              <ChevronUp className="w-3 h-3" />
+                            ) : (
+                              <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
                         </div>
+                      </div>
                       </div>
                     </div>
 
-                    {/* Sección de comentarios expandible */}
+                    {/* Sección de comentarios expandible - ocupa todo el ancho */}
                     {expandedPostId === post.id && (
-                      <ComentariosSection
-                        postId={post.id}
-                        comentarioIds={post.id_comentarios || []}
-                        commentContent={newCommentContent}
-                        onCommentContentChange={setNewCommentContent}
-                        onAddComment={handleCreateComment}
-                        isCreatingComment={creatingComment}
-                      />
+                      <div className="border-t border-gray-200 px-4 pb-4">
+                        <ComentariosSection
+                          postId={post.id}
+                          commentContent={newCommentContent}
+                          onCommentContentChange={setNewCommentContent}
+                          onAddComment={handleCreateComment}
+                          isCreatingComment={creatingComment}
+                          onLikeComment={handleLikeComment}
+                          onDislikeComment={handleDislikeComment}
+                        />
+                      </div>
                     )}
                   </div>
                 );

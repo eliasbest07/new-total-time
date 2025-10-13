@@ -83,15 +83,85 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
     }
   }
 
-  async createComentario(contenido: string, usuarioId: number): Promise<Comentario | null> {
+  async getComentariosByPost(postId: string): Promise<Comentario[]> {
+    try {
+      console.log('💬 Obteniendo comentarios del post:', postId);
+
+      // Convertir postId a número si es necesario
+      const postIdNum = parseInt(postId);
+
+      const { data, error } = await supabase
+        .from('comentario_sala')
+        .select('*')
+        .eq('id_post', postIdNum)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('❌ Error obteniendo comentarios:', error);
+        return [];
+      }
+
+      if (!data || data.length === 0) {
+        console.log('⚠️ No se encontraron comentarios para el post');
+        return [];
+      }
+
+      console.log('✅ Comentarios encontrados:', data.length);
+
+      // Obtener los IDs únicos de usuarios
+      const userIds = [...new Set(data.map(c => (c as any).idUsuario || (c as any)['idUsuario']).filter(id => id !== null))];
+
+      // Obtener los datos de los usuarios si hay IDs
+      let usuariosMap = new Map();
+      if (userIds.length > 0) {
+        const { data: usuarios, error: userError } = await supabase
+          .from('usuario')
+          .select('id, nombre')
+          .in('id', userIds);
+
+        if (!userError && usuarios) {
+          usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre }]));
+        }
+      }
+
+      const comentarios: Comentario[] = data.map(item => {
+        const idUsuario = (item as any).idUsuario || (item as any)['idUsuario'];
+        return {
+          id: item.id,
+          contenido: item.contenido || '',
+          created_at: item.created_at,
+          edited_at: item.edited_at,
+          likes_count: item.likes_count || 0,
+          dislikes_count: item.dislikes_count || 0,
+          idUsuario: idUsuario,
+          id_post: item.id_post,
+          usuario: idUsuario ? usuariosMap.get(idUsuario) : undefined
+        };
+      });
+
+      return comentarios;
+    } catch (error) {
+      console.error('❌ Error en getComentariosByPost:', error);
+      return [];
+    }
+  }
+
+  async createComentario(contenido: string, usuarioId: number, postId?: string): Promise<Comentario | null> {
     try {
       console.log('✍️ Creando comentario para usuario:', usuarioId);
       console.log('📝 Contenido:', contenido);
+      console.log('📋 Post ID:', postId);
 
-      const insertData = {
+      const insertData: any = {
         idUsuario: usuarioId,
         contenido: contenido
       };
+
+      // Agregar id_post si está disponible
+      if (postId) {
+        insertData.id_post = parseInt(postId);
+      }
+
       console.log('📦 Datos a insertar:', insertData);
 
       const { data, error } = await supabase
@@ -132,6 +202,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         likes_count: data.likes_count || 0,
         dislikes_count: data.dislikes_count || 0,
         idUsuario: idUsuarioFromData,
+        id_post: data.id_post || null,
         usuario: usuario ? { nombre: usuario.nombre } : undefined
       };
 
