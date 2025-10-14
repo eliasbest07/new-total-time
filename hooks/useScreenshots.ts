@@ -50,7 +50,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     const { data, error } = await supabase.storage
       .from('capturas')
       .upload(filePath, blob, {
-        contentType: 'image/png',
+        contentType: 'image/jpeg',
         cacheControl: '3600',
         upsert: false
       });
@@ -96,19 +96,36 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         if (!videoRef.current || !currentContextRef.current) return;
 
         const canvas = document.createElement("canvas");
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
+
+        // Optimización: Reducir resolución si es muy grande
+        const maxWidth = 1920;
+        const maxHeight = 1080;
+        let width = videoRef.current.videoWidth;
+        let height = videoRef.current.videoHeight;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
+        // Optimización: Usar JPEG con compresión (70% calidad) en lugar de PNG
         const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve, "image/png")
+          canvas.toBlob(resolve, "image/jpeg", 0.7)
         );
 
         if (blob) {
-          const fileName = `${Date.now()}.png`;
+          const fileName = `${Date.now()}.jpg`;
           const url = await uploadImage(blob, params.actividadId, fileName);
 
           const newCapture = await captureRepository.create({
