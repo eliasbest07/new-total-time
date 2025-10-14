@@ -18,6 +18,9 @@ export interface MisionData {
   title: string;
   hours: number;
   description: string;
+  idCreador?: string | null; // UUID del creador de la misión
+  isRunning?: boolean;
+  lastCaptureUrl?: string | null;
 }
 
 export interface ChatMessage {

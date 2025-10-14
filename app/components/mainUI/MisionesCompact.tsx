@@ -23,9 +23,11 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
       hours: mision.horas || 0,
       fechaStart: mision.fecha_start,
       fechaEnd: mision.fecha_end,
-      id: mision.id
+      id: mision.id,
+      id_usuario: mision.id_usuario,
+      id_creador: mision.id_creador // UUID del creador de la misión
     };
-    
+
     e.dataTransfer.setData('application/json', JSON.stringify(misionData));
     e.dataTransfer.setData('text/plain', `Misión - ${mision.nombre || 'Sin nombre'}`);
     console.log('Drag data set:', misionData);

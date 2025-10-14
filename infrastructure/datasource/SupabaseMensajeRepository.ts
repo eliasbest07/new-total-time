@@ -33,6 +33,7 @@ export class SupabaseMensajeRepository implements MensajeRepository {
   async enviarMensaje(idEmisor: string, idReceptor: string, texto: string): Promise<Mensaje | null> {
     try {
       console.log('📤 Enviando mensaje de', idEmisor, 'a', idReceptor);
+      console.log('📤 Texto del mensaje:', texto);
 
       const { data, error } = await supabase
         .from('mensajes')
@@ -41,12 +42,14 @@ export class SupabaseMensajeRepository implements MensajeRepository {
           id_receptor: idReceptor,
           texto: texto,
           leido: false
+          // No incluir id_conversacion porque es una columna generada
         })
         .select()
         .single();
 
       if (error) {
         console.error('❌ Error enviando mensaje:', error);
+        console.error('❌ Detalles del error:', error.message, error.code, error.details, error.hint);
         return null;
       }
 

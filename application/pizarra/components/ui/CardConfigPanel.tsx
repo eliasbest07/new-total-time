@@ -23,7 +23,7 @@ export const CardConfigPanel: React.FC<CardConfigPanelProps> = ({
   return (
     <div
       data-config-button="true"
-      className={`absolute bottom-1 left-1 z-30 transition-all duration-300 ${isOpen ? 'w-48' : 'w-8'}`}
+      className={`absolute top-1 left-1 z-30 transition-all duration-300 ${isOpen ? 'w-48' : 'w-8'}`}
     >
       {isOpen ? (
         <div className="bg-gray-800 rounded-lg p-3 shadow-xl">

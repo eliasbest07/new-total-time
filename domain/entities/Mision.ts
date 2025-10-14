@@ -8,4 +8,5 @@ export interface Mision {
   fecha_end: string | null; // timestamp with time zone
   id_usuario: number | null; // bigint
   id_proyecto: number | null; // bigint
+  id_creador: string | null; // uuid - El usuario que creó la misión
 }

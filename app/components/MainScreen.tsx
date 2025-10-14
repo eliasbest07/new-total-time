@@ -37,6 +37,8 @@ export default function MainScreen() {
   const [selectedActividad, setSelectedActividad] = useState<Actividad | null>(null);
   const [showMisionDetails, setShowMisionDetails] = useState(false);
   const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
+  const [showMisionChat, setShowMisionChat] = useState(false);
+  const [misionChatMessage, setMisionChatMessage] = useState('');
 
   const { usuario } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
@@ -570,8 +572,106 @@ export default function MainScreen() {
                 )}
               </div>
             </div>
+
+            {/* Input para iniciar chat */}
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-semibold mb-3">Contactar al responsable</h3>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={misionChatMessage}
+                  onChange={(e) => setMisionChatMessage(e.target.value)}
+                  placeholder="Escribe un mensaje para iniciar el chat..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && misionChatMessage.trim()) {
+                      setShowMisionChat(true);
+                      console.log('Abriendo chat con mensaje:', misionChatMessage);
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (misionChatMessage.trim()) {
+                      setShowMisionChat(true);
+                      console.log('Abriendo chat con mensaje:', misionChatMessage);
+                    }
+                  }}
+                  disabled={!misionChatMessage.trim()}
+                  className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  Chatear
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Envía un mensaje para abrir el chat con el responsable de esta misión</p>
+            </div>
           </div>
         )}
+      </Ventana>
+
+      {/* Ventana de Chat de Misión */}
+      <Ventana
+        isOpen={showMisionChat}
+        onClose={() => {
+          setShowMisionChat(false);
+          setMisionChatMessage('');
+        }}
+        title={`Chat: ${selectedMision?.nombre || 'Misión'}`}
+        initialWidth={700}
+        initialHeight={600}
+        minWidth={500}
+        minHeight={400}
+        showOverlay={true}
+      >
+        <div className="h-full flex flex-col text-black">
+          {/* Header del chat */}
+          <div className="border-b pb-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold">
+                {selectedMision?.id_usuario?.toString().substring(0, 2) || 'M'}
+              </div>
+              <div>
+                <h3 className="font-semibold">Responsable de la misión</h3>
+                <p className="text-sm text-gray-500">Usuario ID: {selectedMision?.id_usuario || 'Desconocido'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Área de mensajes */}
+          <div className="flex-1 overflow-y-auto mb-4 space-y-3">
+            {/* Mensaje inicial del usuario */}
+            <div className="flex justify-end">
+              <div className="bg-blue-500 text-white px-4 py-2 rounded-lg max-w-[70%]">
+                <p className="text-sm">{misionChatMessage}</p>
+                <p className="text-xs opacity-75 mt-1">{new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>
+              </div>
+            </div>
+
+            {/* Mensaje informativo */}
+            <div className="text-center">
+              <div className="inline-block bg-gray-100 px-4 py-2 rounded-full">
+                <p className="text-xs text-gray-600">Chat iniciado</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Input de nuevo mensaje */}
+          <div className="border-t pt-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Escribe tu mensaje..."
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+              <button className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors text-sm">
+                Enviar
+              </button>
+            </div>
+          </div>
+        </div>
       </Ventana>
 
       {/* Input Area centrado abajo */}

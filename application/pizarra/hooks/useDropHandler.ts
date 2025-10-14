@@ -141,14 +141,15 @@ export const useDropHandler = (
         // MISIÓN
         else if (resource.title && resource.hours !== undefined) {
           console.log('🎯 [PIZARRA DROP] Detectado MISIÓN');
-          
+          console.log('🎯 [PIZARRA DROP] Datos de misión:', resource);
+
           // Verificar si ya existe una card de misión
           const hasMision = cards.some(card => card.type === 'mision');
           if (hasMision) {
             console.log('⚠️ [PIZARRA DROP] Ya existe una card de misión, no se puede agregar otra');
             return;
           }
-          
+
           setCards(prev => [...prev, {
             id: generateUniqueId('mision', existingIds),
             type: 'mision',
@@ -161,7 +162,10 @@ export const useDropHandler = (
             misionData: {
               title: resource.title || 'Nueva Misión',
               hours: resource.hours || 1,
-              description: resource.description || resource.title
+              description: resource.description || resource.title,
+              isRunning: false,
+              lastCaptureUrl: null,
+              idCreador: resource.id_creador || null // UUID del creador
             }
           }]);
           return;

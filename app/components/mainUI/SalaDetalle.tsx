@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, MessageCircle, Calendar, Send, Plus, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Trash2, Edit2, X, Check } from "lucide-react";
 import { Sala } from "@/domain/entities/Sala";
 import { usePosts } from "@/hooks/usePosts";
@@ -178,10 +178,11 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
   const [currentPage, setCurrentPage] = useState(1);
-  const postsPorPagina = 3;
+  const postsPorPagina = 1; // Mostrar un post a la vez
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const [postRepository] = useState(() => new SupabasePostRepository());
   const [comentarioRepository] = useState(() => new SupabaseComentarioRepository());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Estados para crear nuevo post
   const [showNewPost, setShowNewPost] = useState(false);
@@ -207,6 +208,23 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   const indiceInicio = (currentPage - 1) * postsPorPagina;
   const indiceFin = indiceInicio + postsPorPagina;
   const postsActuales = posts.slice(indiceInicio, indiceFin);
+
+  // Auto-expandir comentarios del post actual
+  useEffect(() => {
+    if (postsActuales.length > 0) {
+      setExpandedPostId(postsActuales[0].id);
+    }
+  }, [currentPage, posts]);
+
+  // Reset textarea height cuando se cierra el formulario
+  useEffect(() => {
+    if (!showNewPost) {
+      const textarea = document.querySelector('textarea[placeholder="¿Qué quieres compartir con tu equipo?"]') as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.style.height = 'auto';
+      }
+    }
+  }, [showNewPost]);
 
   const irAPaginaAnterior = () => {
     setCurrentPage(prev => Math.max(prev - 1, 1));
@@ -412,10 +430,20 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
     }
   };
 
+  const handleOpenNewPost = () => {
+    setShowNewPost(true);
+    // Hacer scroll al tope del contenedor
+    setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 50);
+  };
+
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header de la sala - ACTUALIZADO */}
-      <div className="border-b border-gray-200 pb-4 mb-4">
+      <div className="border-b border-gray-200 pb-4 mb-4 flex-shrink-0">
         <div className="flex items-start justify-between mb-2">
           {/* Lado izquierdo - Título e ícono */}
           <div className="flex items-center gap-3">
@@ -446,28 +474,14 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
         </p>
       </div>
 
-      {/* Crear nuevo post - Estilo Instagram */}
-      <div className="mb-6">
-        {!showNewPost ? (
-          <button
-            onClick={() => setShowNewPost(true)}
-            className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                {usuario?.profile?.nombre?.substring(0, 2).toUpperCase() || 'U'}
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-gray-400 group-hover:text-gray-600 transition-colors">
-                  ¿Qué estás pensando, {usuario?.profile?.nombre?.split(' ')[0] || 'Usuario'}?
-                </p>
-              </div>
-              <div className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-50 text-blue-500 group-hover:bg-blue-100 transition-colors">
-                <Plus className="w-5 h-5" />
-              </div>
-            </div>
-          </button>
-        ) : (
+      {/* Contenedor scrolleable que incluye formulario y posts */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
+        {/* Formulario para crear nuevo post */}
+        <div className={`mb-6 transition-all duration-300 ease-in-out ${
+          showNewPost
+            ? 'opacity-100 scale-100 max-h-[600px]'
+            : 'opacity-0 scale-95 max-h-0 overflow-hidden'
+        }`}>
           <div className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
             {/* Header del formulario */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
@@ -487,7 +501,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
                   setShowNewPost(false);
                   setNewPostContent('');
                 }}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-all duration-200 hover:rotate-90"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -499,10 +513,14 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
             <div className="p-4">
               <textarea
                 value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
+                onChange={(e) => {
+                  setNewPostContent(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
                 placeholder="¿Qué quieres compartir con tu equipo?"
                 className="w-full p-3 text-gray-900 placeholder-gray-400 resize-none focus:outline-none text-base leading-relaxed"
-                rows={6}
+                rows={3}
                 autoFocus
               />
 
@@ -547,11 +565,9 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Lista de posts */}
-      <div className="flex-1 overflow-y-auto">
+        {/* Lista de posts - Un post a la vez */}
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -564,7 +580,13 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <MessageCircle className="w-16 h-16 mb-4 opacity-20" />
             <p className="text-lg font-medium">No hay posts en esta sala</p>
-            <p className="text-sm">Sé el primero en publicar algo</p>
+            <p className="text-sm mb-6">Sé el primero en publicar algo</p>
+            <button
+              onClick={handleOpenNewPost}
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+            >
+              Agregar post +
+            </button>
           </div>
         ) : (
           <>
@@ -743,17 +765,23 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
 
       {/* Paginación */}
       {!loading && !error && posts.length > 0 && (
-        <div className="border-t border-gray-200 pt-4 mt-4">
+        <div className="border-t border-gray-200 pt-4 mt-4 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Mostrando <span className="font-medium">{indiceInicio + 1}-{Math.min(indiceFin, posts.length)}</span> de <span className="font-medium">{posts.length}</span> posts
-            </div>
+            {!showNewPost && (
+              <button
+                onClick={handleOpenNewPost}
+                className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 text-sm shadow-sm hover:shadow-md active:scale-95"
+              >
+                Agregar post +
+              </button>
+            )}
+            {showNewPost && <div className="w-32"></div>}
 
             <div className="flex items-center gap-2">
               <button
                 onClick={irAPaginaAnterior}
                 disabled={currentPage === 1}
-                className="flex items-center gap-1 px-4 py-2 text-sm bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 border border-gray-200 rounded-lg transition-colors shadow-sm"
+                className="flex items-center gap-1 px-4 py-2 text-sm bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors shadow-sm text-gray-700 disabled:text-gray-300 select-none focus:outline-none disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Anterior
@@ -777,7 +805,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
               <button
                 onClick={irAPaginaSiguiente}
                 disabled={currentPage === totalPaginas}
-                className="flex items-center gap-1 px-4 py-2 text-sm bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 border border-gray-200 rounded-lg transition-colors shadow-sm"
+                className="flex items-center gap-1 px-4 py-2 text-sm bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors shadow-sm text-gray-700 disabled:text-gray-300 select-none focus:outline-none disabled:cursor-not-allowed"
               >
                 Siguiente
                 <ChevronRight className="w-4 h-4" />
@@ -844,6 +872,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
           </div>
         </div>
       )}
+
     </div>
   );
 }
