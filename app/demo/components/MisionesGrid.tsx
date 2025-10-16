@@ -11,6 +11,7 @@ interface MisionCardProps {
 
 const MisionCard: React.FC<MisionCardProps> = ({ mision, onClick }) => {
   const handleDragStart = (e: React.DragEvent) => {
+    console.log('🎯 [DRAG] Misión siendo arrastrada:', mision);
     const misionData = {
       type: 'mision',
       title: mision.nombre || 'Sin nombre',
@@ -18,8 +19,10 @@ const MisionCard: React.FC<MisionCardProps> = ({ mision, onClick }) => {
       hours: mision.horas || 0,
       fechaStart: mision.fecha_start,
       fechaEnd: mision.fecha_end,
-      id: mision.id
+      id: mision.id,
+      id_usuario: mision.id_usuario
     };
+    console.log('🎯 [DRAG] Datos enviados:', misionData);
 
     e.dataTransfer.setData('application/json', JSON.stringify(misionData));
     e.dataTransfer.setData('text/plain', `Misión - ${mision.nombre || 'Sin nombre'}`);

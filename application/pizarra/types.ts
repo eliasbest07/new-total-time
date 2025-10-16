@@ -12,6 +12,8 @@ export interface ActivityData {
   duration: number;
   isRunning: boolean;
   timeLeft: number;
+  id_usuario?: string; // ID del usuario que creó/ejecuta la actividad
+  id_actividad?: string; // ID único de la actividad en la base de datos
 }
 
 export interface MisionData {
@@ -20,6 +22,8 @@ export interface MisionData {
   description: string;
   isRunning?: boolean;
   lastCaptureUrl?: string;
+  id_usuario?: string; // ID del usuario que creó/ejecuta la misión
+  id_mision?: string; // ID único de la misión en la base de datos
 }
 
 export interface Card {

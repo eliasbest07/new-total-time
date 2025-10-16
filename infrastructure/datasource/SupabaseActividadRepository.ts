@@ -11,9 +11,10 @@ interface RealtimeCallbacks {
 export class SupabaseActividadRepository implements ActividadRepository {
   private reconnectAttempts: Map<string, number> = new Map();
   private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
-  private maxReconnectAttempts = Infinity; // Intentar indefinidamente
-  private baseReconnectDelay = 1000; // 1 segundo inicial
-  private maxReconnectDelay = 30000; // 30 segundos máximo
+  private activeChannels: Map<string, RealtimeChannel> = new Map();
+  private maxReconnectAttempts = 10; // Máximo 10 intentos
+  private baseReconnectDelay = 2000; // 2 segundos inicial
+  private maxReconnectDelay = 60000; // 60 segundos máximo
 
   async getActividadesByUsuario(idUsuario: string): Promise<Actividad[]> {
     try {
@@ -140,11 +141,24 @@ export class SupabaseActividadRepository implements ActividadRepository {
   // Suscribirse a cambios en tiempo real de actividades del usuario
   subscribeToActividadesChanges(idUsuario: string, callbacks: RealtimeCallbacks): RealtimeChannel {
     const channelName = `actividades-usuario-${idUsuario}`;
+
+    // Si ya existe un canal activo, retornarlo
+    const existingChannel = this.activeChannels.get(channelName);
+    if (existingChannel) {
+      console.log('♻️ Reutilizando canal realtime existente para:', channelName);
+      return existingChannel;
+    }
+
     console.log('📡 Iniciando suscripción realtime para actividades del usuario:', idUsuario);
 
     const setupChannel = (): RealtimeChannel => {
       const channel = supabase
-        .channel(channelName)
+        .channel(channelName, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' }
+          }
+        })
         .on(
           'postgres_changes',
           {
@@ -172,42 +186,37 @@ export class SupabaseActividadRepository implements ActividadRepository {
           }
         )
         .subscribe((status) => {
-          console.log('📡 Estado de suscripción realtime actividades:', status);
-
           if (status === 'SUBSCRIBED') {
             console.log('✅ Suscripción realtime actividades activa');
             this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            this.activeChannels.set(channelName, channel);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             const attempts = this.reconnectAttempts.get(channelName) || 0;
-            
-            // Solo mostrar error si hemos alcanzado el máximo de intentos
-            if (attempts >= this.maxReconnectAttempts - 1) {
-              if (status === 'CHANNEL_ERROR') {
-                console.error('❌ Error en canal realtime actividades - máximo de reintentos alcanzado');
-              } else if (status === 'TIMED_OUT') {
-                console.error('⏰ Timeout en suscripción realtime actividades - máximo de reintentos alcanzado');
-              }
-            } else {
-              if (status === 'CHANNEL_ERROR') {
-                console.log('⚠️ Error temporal en canal realtime actividades, reintentando...');
-              } else if (status === 'TIMED_OUT') {
-                console.log('⚠️ Timeout temporal en suscripción realtime actividades, reintentando...');
-              }
-            }
-            
-            if (status === 'CLOSED') {
-              console.log('🔒 Canal realtime actividades cerrado');
-            }
 
-            // Intentar reconexión
-            this.handleReconnect(channelName, () => this.subscribeToActividadesChanges(idUsuario, callbacks), callbacks);
+            if (attempts < this.maxReconnectAttempts) {
+              console.warn(`⚠️ Error en canal actividades (intento ${attempts + 1}/${this.maxReconnectAttempts})`);
+              this.activeChannels.delete(channelName);
+              this.handleReconnect(channelName, () => this.subscribeToActividadesChanges(idUsuario, callbacks), callbacks);
+            } else {
+              console.error('❌ Error en canal realtime actividades - máximo de reintentos alcanzado');
+              callbacks.onError('No se pudo conectar al servicio realtime');
+            }
+          } else if (status === 'CLOSED') {
+            // Solo reintentar si no fue un cierre manual
+            this.activeChannels.delete(channelName);
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            if (attempts < this.maxReconnectAttempts) {
+              this.handleReconnect(channelName, () => this.subscribeToActividadesChanges(idUsuario, callbacks), callbacks);
+            }
           }
         });
 
       return channel;
     };
 
-    return setupChannel();
+    const newChannel = setupChannel();
+    this.activeChannels.set(channelName, newChannel);
+    return newChannel;
   }
 
   // Manejador de reconexión con backoff exponencial
@@ -258,10 +267,19 @@ export class SupabaseActividadRepository implements ActividadRepository {
   unsubscribeFromChanges(channel: RealtimeChannel): Promise<void> {
     console.log('🧹 Desuscribiendo canal realtime actividades');
 
-    // Limpiar timeouts de reconexión
-    this.reconnectTimeouts.forEach((timeout) => clearTimeout(timeout));
-    this.reconnectTimeouts.clear();
-    this.reconnectAttempts.clear();
+    // Encontrar y eliminar el canal del Map
+    for (const [name, ch] of this.activeChannels.entries()) {
+      if (ch === channel) {
+        this.activeChannels.delete(name);
+        this.reconnectAttempts.delete(name);
+        const timeout = this.reconnectTimeouts.get(name);
+        if (timeout) {
+          clearTimeout(timeout);
+          this.reconnectTimeouts.delete(name);
+        }
+        break;
+      }
+    }
 
     return supabase.removeChannel(channel).then(() => {
       console.log('✅ Canal realtime actividades removido exitosamente');

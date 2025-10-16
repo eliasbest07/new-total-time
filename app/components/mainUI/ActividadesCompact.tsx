@@ -94,7 +94,8 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
       timeLeft: timeInSeconds,
       captures: actividad.captures || '',
       link: actividad.link || '',
-      id: actividad.id
+      id: actividad.id,
+      id_usuario: actividad.id_usuario
     };
 
     e.dataTransfer.setData('application/json', JSON.stringify(activityData));

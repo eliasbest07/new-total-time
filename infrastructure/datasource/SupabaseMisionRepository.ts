@@ -11,9 +11,11 @@ interface RealtimeCallbacks {
 export class SupabaseMisionRepository implements MisionRepository {
   private reconnectAttempts: Map<string, number> = new Map();
   private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
-  private maxReconnectAttempts = Infinity; // Intentar indefinidamente
-  private baseReconnectDelay = 1000; // 1 segundo inicial
-  private maxReconnectDelay = 30000; // 30 segundos máximo
+  private activeChannels: Map<string, RealtimeChannel> = new Map();
+  private maxReconnectAttempts = 5; // Máximo 5 intentos
+  private baseReconnectDelay = 5000; // 5 segundos inicial
+  private maxReconnectDelay = 60000; // 60 segundos máximo
+  private silentMode = true; // Modo silencioso para reducir logs
 
   async getAllMisiones(): Promise<Mision[]> {
     try {
@@ -174,11 +176,24 @@ export class SupabaseMisionRepository implements MisionRepository {
   // Suscribirse a cambios en tiempo real de todas las misiones
   subscribeToAllMisionesChanges(callbacks: RealtimeCallbacks): RealtimeChannel {
     const channelName = 'misiones-all';
-    console.log('📡 Iniciando suscripción realtime para todas las misiones');
+
+    // Si ya existe un canal activo, retornarlo
+    const existingChannel = this.activeChannels.get(channelName);
+    if (existingChannel) {
+      if (!this.silentMode) console.log('♻️ Reutilizando canal realtime misiones');
+      return existingChannel;
+    }
+
+    if (!this.silentMode) console.log('📡 Iniciando suscripción realtime para todas las misiones');
 
     const setupChannel = (): RealtimeChannel => {
       const channel = supabase
-        .channel(channelName)
+        .channel(channelName, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' }
+          }
+        })
         .on(
           'postgres_changes',
           {
@@ -205,52 +220,57 @@ export class SupabaseMisionRepository implements MisionRepository {
           }
         )
         .subscribe((status) => {
-          console.log('📡 Estado de suscripción realtime misiones:', status);
-
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Suscripción realtime misiones activa');
-            this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            if (!this.silentMode) console.log('✅ Suscripción realtime misiones activa');
+            this.reconnectAttempts.set(channelName, 0);
+            this.activeChannels.set(channelName, channel);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             const attempts = this.reconnectAttempts.get(channelName) || 0;
-            
-            // Solo mostrar error si hemos alcanzado el máximo de intentos
-            if (attempts >= this.maxReconnectAttempts - 1) {
-              if (status === 'CHANNEL_ERROR') {
-                console.error('❌ Error en canal realtime misiones - máximo de reintentos alcanzado');
-              } else if (status === 'TIMED_OUT') {
-                console.error('⏰ Timeout en suscripción realtime misiones - máximo de reintentos alcanzado');
-              }
+            if (attempts < this.maxReconnectAttempts) {
+              if (!this.silentMode) console.warn(`⚠️ Error en canal misiones (${attempts + 1}/${this.maxReconnectAttempts})`);
+              this.activeChannels.delete(channelName);
+              this.handleReconnect(channelName, () => this.subscribeToAllMisionesChanges(callbacks), callbacks);
             } else {
-              if (status === 'CHANNEL_ERROR') {
-                console.log('⚠️ Error temporal en canal realtime misiones, reintentando...');
-              } else if (status === 'TIMED_OUT') {
-                console.log('⚠️ Timeout temporal en suscripción realtime misiones, reintentando...');
-              }
+              console.error('❌ Canal realtime misiones: máximo de reintentos alcanzado');
+              callbacks.onError('No se pudo conectar al servicio realtime');
             }
-            
-            if (status === 'CLOSED') {
-              console.log('🔒 Canal realtime misiones cerrado');
+          } else if (status === 'CLOSED') {
+            this.activeChannels.delete(channelName);
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            if (attempts < this.maxReconnectAttempts) {
+              this.handleReconnect(channelName, () => this.subscribeToAllMisionesChanges(callbacks), callbacks);
             }
-
-            // Intentar reconexión
-            this.handleReconnect(channelName, () => this.subscribeToAllMisionesChanges(callbacks), callbacks);
           }
         });
 
       return channel;
     };
 
-    return setupChannel();
+    const newChannel = setupChannel();
+    this.activeChannels.set(channelName, newChannel);
+    return newChannel;
   }
 
   // Suscribirse a cambios en tiempo real de misiones del usuario
   subscribeToMisionesChanges(idUsuario: number, callbacks: RealtimeCallbacks): RealtimeChannel {
     const channelName = `misiones-usuario-${idUsuario}`;
-    console.log('📡 Iniciando suscripción realtime para misiones del usuario:', idUsuario);
+
+    const existingChannel = this.activeChannels.get(channelName);
+    if (existingChannel) {
+      if (!this.silentMode) console.log('♻️ Reutilizando canal realtime misiones usuario');
+      return existingChannel;
+    }
+
+    if (!this.silentMode) console.log('📡 Iniciando suscripción realtime para misiones del usuario:', idUsuario);
 
     const setupChannel = (): RealtimeChannel => {
       const channel = supabase
-        .channel(channelName)
+        .channel(channelName, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' }
+          }
+        })
         .on(
           'postgres_changes',
           {
@@ -278,42 +298,35 @@ export class SupabaseMisionRepository implements MisionRepository {
           }
         )
         .subscribe((status) => {
-          console.log('📡 Estado de suscripción realtime misiones:', status);
-
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Suscripción realtime misiones activa');
-            this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            if (!this.silentMode) console.log('✅ Suscripción realtime misiones usuario activa');
+            this.reconnectAttempts.set(channelName, 0);
+            this.activeChannels.set(channelName, channel);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             const attempts = this.reconnectAttempts.get(channelName) || 0;
-            
-            // Solo mostrar error si hemos alcanzado el máximo de intentos
-            if (attempts >= this.maxReconnectAttempts - 1) {
-              if (status === 'CHANNEL_ERROR') {
-                console.error('❌ Error en canal realtime misiones - máximo de reintentos alcanzado');
-              } else if (status === 'TIMED_OUT') {
-                console.error('⏰ Timeout en suscripción realtime misiones - máximo de reintentos alcanzado');
-              }
+            if (attempts < this.maxReconnectAttempts) {
+              if (!this.silentMode) console.warn(`⚠️ Error en canal misiones usuario (${attempts + 1}/${this.maxReconnectAttempts})`);
+              this.activeChannels.delete(channelName);
+              this.handleReconnect(channelName, () => this.subscribeToMisionesChanges(idUsuario, callbacks), callbacks);
             } else {
-              if (status === 'CHANNEL_ERROR') {
-                console.log('⚠️ Error temporal en canal realtime misiones, reintentando...');
-              } else if (status === 'TIMED_OUT') {
-                console.log('⚠️ Timeout temporal en suscripción realtime misiones, reintentando...');
-              }
+              console.error('❌ Canal realtime misiones usuario: máximo de reintentos alcanzado');
+              callbacks.onError('No se pudo conectar al servicio realtime');
             }
-            
-            if (status === 'CLOSED') {
-              console.log('🔒 Canal realtime misiones cerrado');
+          } else if (status === 'CLOSED') {
+            this.activeChannels.delete(channelName);
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            if (attempts < this.maxReconnectAttempts) {
+              this.handleReconnect(channelName, () => this.subscribeToMisionesChanges(idUsuario, callbacks), callbacks);
             }
-
-            // Intentar reconexión
-            this.handleReconnect(channelName, () => this.subscribeToMisionesChanges(idUsuario, callbacks), callbacks);
           }
         });
 
       return channel;
     };
 
-    return setupChannel();
+    const newChannel = setupChannel();
+    this.activeChannels.set(channelName, newChannel);
+    return newChannel;
   }
 
   // Manejador de reconexión con backoff exponencial
@@ -337,7 +350,7 @@ export class SupabaseMisionRepository implements MisionRepository {
         this.maxReconnectDelay
       );
 
-      console.log(`🔄 Reintentando reconexión ${channelName} en ${delay}ms (intento ${attempts + 1})`);
+      if (!this.silentMode) console.log(`🔄 Reconexión ${channelName} en ${delay}ms (${attempts + 1}/${this.maxReconnectAttempts})`);
 
       const timeout = setTimeout(async () => {
         this.reconnectAttempts.set(channelName, attempts + 1);
@@ -362,15 +375,24 @@ export class SupabaseMisionRepository implements MisionRepository {
 
   // Desuscribirse de cambios en tiempo real
   unsubscribeFromChanges(channel: RealtimeChannel): Promise<void> {
-    console.log('🧹 Desuscribiendo canal realtime misiones');
+    if (!this.silentMode) console.log('🧹 Desuscribiendo canal realtime misiones');
 
-    // Limpiar timeouts de reconexión
-    this.reconnectTimeouts.forEach((timeout) => clearTimeout(timeout));
-    this.reconnectTimeouts.clear();
-    this.reconnectAttempts.clear();
+    // Encontrar y eliminar el canal del Map
+    for (const [name, ch] of this.activeChannels.entries()) {
+      if (ch === channel) {
+        this.activeChannels.delete(name);
+        this.reconnectAttempts.delete(name);
+        const timeout = this.reconnectTimeouts.get(name);
+        if (timeout) {
+          clearTimeout(timeout);
+          this.reconnectTimeouts.delete(name);
+        }
+        break;
+      }
+    }
 
     return supabase.removeChannel(channel).then(() => {
-      console.log('✅ Canal realtime misiones removido exitosamente');
+      if (!this.silentMode) console.log('✅ Canal realtime misiones removido');
     }).catch((error) => {
       console.error('❌ Error removiendo canal realtime misiones:', error);
       throw error;

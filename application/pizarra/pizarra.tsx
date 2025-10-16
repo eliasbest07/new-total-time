@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useScreenshots } from '@/hooks/useScreenshots';
-import { Card, PizarraRef, TodoItem, ActivityData, MisionData } from './types/index';
+import { useAuth } from '@/app/contexts/AuthContext';
+import { Card, PizarraRef, TodoItem, ActivityData, MisionData } from './types';
 
 interface PizarraProps {
   onShowScreenshots?: (cardId: string) => void;
@@ -18,6 +19,7 @@ import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real' }, ref) => {
+  const { usuario } = useAuth();
   const [cards, setCards] = useState<Card[]>([]);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [editingTodo, setEditingTodo] = useState<{ cardId: string, todoId: number } | null>(null);
@@ -126,6 +128,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   // Funciones para actividades
   const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
     console.log('🎬 [PLAY/PAUSE] Botón presionado en tarjeta:', cardId);
+    console.log('👤 [PLAY/PAUSE] Usuario logeado:', usuario);
     const newRunningState = !currentIsRunning;
 
     setCards(prev => prev.map(c =>
@@ -136,12 +139,27 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
     if (newRunningState && !isCapturing) {
       try {
-        const actividadId = cardId.split('-')[1] || '1';
-        // TODO: Replace the following with actual userId and misionActividad as needed
+        const card = cards.find(c => c.id === cardId);
+        if (!card || !card.activityData) {
+          console.error('❌ No se encontró la card o no tiene activityData');
+          return;
+        }
+
+        const activityData = card.activityData;
+        const actividadId = activityData.id_actividad || cardId.split('-')[1] || '1';
+        // Usar el usuario logeado primero, luego el de la actividad, y finalmente un fallback
+        const userId = usuario?.id || activityData.id_usuario || 'usuario-desconocido';
+        const misionActividad = activityData.subject || card.title || 'Actividad sin nombre';
+
+        console.log('📤 [PLAY/PAUSE] Iniciando captura con userId:', userId);
+        console.log('📤 [PLAY/PAUSE] actividadId:', actividadId);
+
         await startCapturing({
-          userId: 'demo-user', // reemplaza con el userId real
+          userId: userId,
           actividadId: actividadId,
-          misionActividad: 'demo-mision', // reemplaza con el misionActividad real
+          misionActividad: misionActividad,
+          totalTrabajadoHoy: activityData.duration?.toString(),
+          tiempoTareaActual: activityData.timeLeft?.toString()
         });
         console.log('✅ Captura iniciada exitosamente');
       } catch (error) {
@@ -150,11 +168,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     } else if (!newRunningState && isCapturing) {
       stopCapturing();
     }
-  }, [isCapturing, startCapturing, stopCapturing]);
+  }, [cards, isCapturing, startCapturing, stopCapturing, usuario]);
 
   // Funciones para misiones
   const handleMisionPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
     console.log('🎯 [MISION PLAY/PAUSE] Botón presionado en tarjeta:', cardId);
+    console.log('👤 [MISION PLAY/PAUSE] Usuario logeado:', usuario);
     const newRunningState = !currentIsRunning;
 
     setCards(prev => prev.map(c =>
@@ -165,11 +184,26 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
     if (newRunningState && !isCapturing) {
       try {
-        const misionId = cardId.split('-')[1] || '1';
+        const card = cards.find(c => c.id === cardId);
+        if (!card || !card.misionData) {
+          console.error('❌ No se encontró la card o no tiene misionData');
+          return;
+        }
+
+        const misionData = card.misionData;
+        const misionId = misionData.id_mision || cardId.split('-')[1] || '1';
+        // Usar el usuario logeado primero, luego el de la misión, y finalmente un fallback
+        const userId = usuario?.id || misionData.id_usuario || 'usuario-desconocido';
+        const misionActividad = misionData.title || misionData.description || card.title || 'Misión sin nombre';
+
+        console.log('📤 [MISION PLAY/PAUSE] Iniciando captura con userId:', userId);
+        console.log('📤 [MISION PLAY/PAUSE] misionId:', misionId);
+
         await startCapturing({
-          userId: 'demo-user',
+          userId: userId,
           actividadId: misionId,
-          misionActividad: 'mision-' + misionId,
+          misionActividad: misionActividad,
+          totalTrabajadoHoy: misionData.hours?.toString(),
           onCaptureUpdate: (url: string) => {
             // Actualizar la última captura en la card
             setCards(prev => prev.map(c =>
@@ -186,7 +220,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     } else if (!newRunningState && isCapturing) {
       stopCapturing();
     }
-  }, [isCapturing, startCapturing, stopCapturing]);
+  }, [cards, isCapturing, startCapturing, stopCapturing, usuario]);
 
   // Funciones para todos
   const toggleTodo = useCallback((cardId: string, todoId: number) => {
@@ -555,4 +589,4 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 TestPizarra.displayName = 'TestPizarra';
 
 export default TestPizarra;
-export type { PizarraRef } from './types/index';
+export type { PizarraRef } from './types';

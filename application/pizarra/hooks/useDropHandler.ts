@@ -84,13 +84,15 @@ export const useDropHandler = (
               time: resource.time || 'Sin hora definida',
               duration: resource.duration || 60,
               isRunning: false,
-              timeLeft: resource.timeLeft || (resource.duration || 60) * 60
+              timeLeft: resource.timeLeft || (resource.duration || 60) * 60,
+              id_usuario: resource.id_usuario,
+              id_actividad: resource.id?.toString()
             }
           }]);
           return;
         }
-        // PROYECTO
-        else if (resource.nombre && resource.colors && resource.palette !== undefined) {
+        // PROYECTO - Detectar por dragType o por nombre + (colors o description)
+        else if (resource.dragType === 'proyecto' || (resource.nombre && (resource.colors || resource.description))) {
           console.log('📁 [PIZARRA DROP] Detectado PROYECTO');
           setCards(prev => [...prev, {
             id: generateUniqueId('proyecto', existingIds),
@@ -141,7 +143,12 @@ export const useDropHandler = (
         // MISIÓN
         else if (resource.title && resource.hours !== undefined) {
           console.log('🎯 [PIZARRA DROP] Detectado MISIÓN');
-          console.log('🎯 [PIZARRA DROP] Datos de misión:', resource);
+          console.log('🎯 [PIZARRA DROP] Datos de misión recibidos:', {
+            id_usuario: resource.id_usuario,
+            id: resource.id,
+            title: resource.title,
+            hours: resource.hours
+          });
 
           // Verificar si ya existe una card de misión
           const hasMision = cards.some(card => card.type === 'mision');
@@ -163,11 +170,11 @@ export const useDropHandler = (
               title: resource.title || 'Nueva Misión',
               hours: resource.hours || 1,
               description: resource.description || resource.title,
-              isRunning: false,
-              lastCaptureUrl: null,
-              idCreador: resource.id_creador || null // UUID del creador
+              id_usuario: resource.id_usuario,
+              id_mision: resource.id?.toString()
             }
           }]);
+          console.log('✅ [PIZARRA DROP] Card de misión creada con id_usuario:', resource.id_usuario);
           return;
         }
         // RECURSO

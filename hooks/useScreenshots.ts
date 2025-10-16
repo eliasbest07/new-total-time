@@ -46,22 +46,39 @@ export const useScreenshots = (): UseScreenshotsReturn => {
   // Subir imagen a Supabase Storage
   const uploadImage = useCallback(async (blob: Blob, folder: string, fileName: string): Promise<string> => {
     const filePath = `${folder}/${fileName}`;
+    console.log(`📁 [UPLOAD] Iniciando subida a Supabase Storage...`);
+    console.log(`📁 [UPLOAD] Bucket: capturas, Path: ${filePath}`);
+    console.log(`📁 [UPLOAD] Tamaño del blob: ${(blob.size / 1024).toFixed(2)} KB`);
 
-    const { data, error } = await supabase.storage
-      .from('capturas')
-      .upload(filePath, blob, {
-        contentType: 'image/jpeg',
-        cacheControl: '3600',
-        upsert: false
-      });
+    try {
+      const { data, error } = await supabase.storage
+        .from('capturas')
+        .upload(filePath, blob, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600',
+          upsert: false
+        });
 
-    if (error) throw new Error(`Error al subir imagen: ${error.message}`);
+      if (error) {
+        console.error('❌ [UPLOAD] Error de Supabase Storage:', error);
+        console.error('❌ [UPLOAD] Error code:', error.name);
+        console.error('❌ [UPLOAD] Error message:', error.message);
+        throw new Error(`Error al subir imagen: ${error.message}`);
+      }
 
-    const { data: urlData } = supabase.storage
-      .from('capturas')
-      .getPublicUrl(data.path);
+      console.log('✅ [UPLOAD] Archivo subido correctamente:', data);
 
-    return urlData.publicUrl;
+      const { data: urlData } = supabase.storage
+        .from('capturas')
+        .getPublicUrl(data.path);
+
+      console.log('✅ [UPLOAD] URL pública generada:', urlData.publicUrl);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('❌ [UPLOAD] Error inesperado:', error);
+      throw error;
+    }
   }, []);
 
   // Iniciar captura
@@ -73,10 +90,14 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     tiempoTareaActual?: string;
     onCaptureUpdate?: (url: string) => void;
   }) => {
+    console.log('🚀 [START CAPTURE] Iniciando proceso de captura con parámetros:', params);
+
     try {
       setError(null);
       setIsCapturing(true);
       currentContextRef.current = params;
+
+      console.log('🎥 [START CAPTURE] Solicitando permisos de pantalla...');
 
       // pedir permisos
       mediaStreamRef.current = await navigator.mediaDevices.getDisplayMedia({
@@ -86,47 +107,103 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         audio: false
       } as DisplayMediaStreamOptions);
 
+      console.log('✅ [START CAPTURE] Permisos concedidos, stream obtenido');
+
       if (!videoRef.current) {
         videoRef.current = document.createElement("video");
         videoRef.current.autoplay = true;
+        videoRef.current.muted = true;
         videoRef.current.srcObject = mediaStreamRef.current;
+        console.log('✅ [START CAPTURE] Video element creado y configurado');
       }
 
+      // Esperar a que el video esté listo antes de configurar el intervalo
+      await new Promise<void>((resolve) => {
+        if (videoRef.current) {
+          videoRef.current.onloadedmetadata = () => {
+            console.log('✅ [START CAPTURE] Video metadata cargada');
+            videoRef.current?.play().then(() => {
+              console.log('✅ [START CAPTURE] Video playing');
+              resolve();
+            });
+          };
+        }
+      });
+
+      // Esperar un poco más para asegurar que el primer frame está disponible
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('✅ [START CAPTURE] Video completamente inicializado');
+
       intervalRef.current = setInterval(async () => {
-        if (!videoRef.current || !currentContextRef.current) return;
+        console.log('🎬 [SCREENSHOT] Iniciando captura de pantalla...');
 
-        const canvas = document.createElement("canvas");
-
-        // Optimización: Reducir resolución si es muy grande
-        const maxWidth = 1920;
-        const maxHeight = 1080;
-        let width = videoRef.current.videoWidth;
-        let height = videoRef.current.videoHeight;
-
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-        if (height > maxHeight) {
-          width = Math.round((width * maxHeight) / height);
-          height = maxHeight;
+        if (!videoRef.current || !currentContextRef.current) {
+          console.error('❌ [SCREENSHOT] No hay videoRef o contextRef disponible');
+          return;
         }
 
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
+        try {
+          const canvas = document.createElement("canvas");
 
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+          // Optimización: Reducir resolución si es muy grande
+          const maxWidth = 1920;
+          const maxHeight = 1080;
+          let width = videoRef.current.videoWidth;
+          let height = videoRef.current.videoHeight;
 
-        // Optimización: Usar JPEG con compresión (70% calidad) en lugar de PNG
-        const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve, "image/jpeg", 0.7)
-        );
+          console.log(`📐 [SCREENSHOT] Resolución original: ${width}x${height}`);
 
-        if (blob) {
+          // Verificar que el video tenga dimensiones válidas
+          if (width === 0 || height === 0) {
+            console.error('❌ [SCREENSHOT] Video sin dimensiones válidas, esperando...');
+            return;
+          }
+
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+
+          console.log(`📐 [SCREENSHOT] Resolución ajustada: ${width}x${height}`);
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            console.error('❌ [SCREENSHOT] No se pudo obtener contexto 2D del canvas');
+            return;
+          }
+
+          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+          console.log('✅ [SCREENSHOT] Imagen dibujada en canvas');
+
+          // Optimización: Usar JPEG con compresión (70% calidad) en lugar de PNG
+          const blob = await new Promise<Blob | null>((resolve) =>
+            canvas.toBlob(resolve, "image/jpeg", 0.7)
+          );
+
+          if (!blob) {
+            console.error('❌ [SCREENSHOT] No se pudo crear blob de la imagen');
+            return;
+          }
+
+          console.log(`✅ [SCREENSHOT] Blob creado. Tamaño: ${(blob.size / 1024).toFixed(2)} KB`);
+
           const fileName = `${Date.now()}.jpg`;
+          console.log(`📤 [SCREENSHOT] Subiendo imagen: ${fileName} a carpeta: ${params.actividadId}`);
+
           const url = await uploadImage(blob, params.actividadId, fileName);
+          console.log(`✅ [SCREENSHOT] Imagen subida exitosamente. URL: ${url}`);
+
+          console.log('💾 [SCREENSHOT] Guardando registro en base de datos...', {
+            id_usuario: params.userId,
+            id_bloque: params.actividadId,
+            mision_actividad: params.misionActividad
+          });
 
           const newCapture = await captureRepository.create({
             id_usuario: params.userId,
@@ -137,16 +214,28 @@ export const useScreenshots = (): UseScreenshotsReturn => {
             tiempo_tarea_actual: params.tiempoTareaActual
           });
 
+          console.log('✅ [SCREENSHOT] Registro guardado en BD:', newCapture);
+
           setScreenshots(prev => [newCapture, ...prev]);
 
           // Notificar la nueva captura
           if (params.onCaptureUpdate) {
             params.onCaptureUpdate(url);
           }
+
+          console.log('🎉 [SCREENSHOT] Captura completada exitosamente');
+        } catch (error) {
+          console.error('❌ [SCREENSHOT] Error durante el proceso de captura:', error);
+          console.error('❌ [SCREENSHOT] Stack trace:', error instanceof Error ? error.stack : 'No stack available');
         }
       }, 300000); // cada 5 minutos
 
+      console.log('⏰ [START CAPTURE] Intervalo de captura configurado (cada 5 minutos)');
+      console.log('✅ [START CAPTURE] Proceso de captura iniciado exitosamente');
+
     } catch (err: any) {
+      console.error('❌ [START CAPTURE] Error al iniciar captura:', err);
+      console.error('❌ [START CAPTURE] Error message:', err.message);
       setError(err.message);
       setIsCapturing(false);
     }
@@ -154,15 +243,25 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
   // Detener captura
   const stopCapturing = useCallback(() => {
+    console.log('⏹️ [STOP CAPTURE] Deteniendo captura...');
+
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+      console.log('✅ [STOP CAPTURE] Intervalo de captura detenido');
     }
+
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current.getTracks().forEach(track => {
+        console.log('🔌 [STOP CAPTURE] Deteniendo track:', track.kind, track.label);
+        track.stop();
+      });
       mediaStreamRef.current = null;
+      console.log('✅ [STOP CAPTURE] Stream de video detenido');
     }
+
     setIsCapturing(false);
+    console.log('✅ [STOP CAPTURE] Captura detenida exitosamente');
   }, []);
 
   // Limpiar todas

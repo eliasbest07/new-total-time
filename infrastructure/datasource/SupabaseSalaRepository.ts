@@ -6,9 +6,10 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 export class SupabaseSalaRepository implements SalaRepository {
   private reconnectAttempts: Map<string, number> = new Map();
   private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
-  private maxReconnectAttempts = Infinity; // Intentar indefinidamente
-  private baseReconnectDelay = 1000; // 1 segundo inicial
-  private maxReconnectDelay = 30000; // 30 segundos máximo
+  private activeChannels: Map<string, RealtimeChannel> = new Map();
+  private maxReconnectAttempts = 5; // Máximo 5 intentos
+  private baseReconnectDelay = 5000; // 5 segundos inicial
+  private maxReconnectDelay = 60000; // 60 segundos máximo
 
   async getSalaIdsByOrganizacion(idOrganizacion: string): Promise<string[]> {
     try {
@@ -122,11 +123,21 @@ export class SupabaseSalaRepository implements SalaRepository {
 
   subscribeToSalasChanges(idOrganizacion: string, callbacks: RealtimeCallbacks): RealtimeChannel {
     const channelName = `salas-${idOrganizacion}`;
-    // console.log('📡 Iniciando suscripción realtime para salas de organización:', idOrganizacion);
+
+    // Si ya existe un canal activo, retornarlo
+    const existingChannel = this.activeChannels.get(channelName);
+    if (existingChannel) {
+      return existingChannel;
+    }
 
     const setupChannel = (): RealtimeChannel => {
       const channel = supabase
-        .channel(channelName)
+        .channel(channelName, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' }
+          }
+        })
         .on(
           'postgres_changes',
           {
@@ -156,42 +167,33 @@ export class SupabaseSalaRepository implements SalaRepository {
           }
         )
         .subscribe((status) => {
-          // console.log('📡 Estado de suscripción realtime:', status);
-
           if (status === 'SUBSCRIBED') {
-            // console.log('✅ Suscripción realtime activa');
-            this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            this.reconnectAttempts.set(channelName, 0);
+            this.activeChannels.set(channelName, channel);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             const attempts = this.reconnectAttempts.get(channelName) || 0;
-            
-            // Solo mostrar error si hemos alcanzado el máximo de intentos
-            if (attempts >= this.maxReconnectAttempts - 1) {
-              if (status === 'CHANNEL_ERROR') {
-                console.error('❌ Error en canal realtime salas - máximo de reintentos alcanzado');
-              } else if (status === 'TIMED_OUT') {
-                console.error('⏰ Timeout en suscripción realtime salas - máximo de reintentos alcanzado');
-              }
+            if (attempts < this.maxReconnectAttempts) {
+              this.activeChannels.delete(channelName);
+              this.handleReconnect(channelName, () => this.subscribeToSalasChanges(idOrganizacion, callbacks), callbacks);
             } else {
-              if (status === 'CHANNEL_ERROR') {
-                console.log('⚠️ Error temporal en canal realtime salas, reintentando...');
-              } else if (status === 'TIMED_OUT') {
-                console.log('⚠️ Timeout temporal en suscripción realtime salas, reintentando...');
-              }
+              console.error('❌ Canal realtime salas: máximo de reintentos alcanzado');
+              callbacks.onError('No se pudo conectar al servicio realtime');
             }
-            
-            if (status === 'CLOSED') {
-              console.log('🔒 Canal realtime salas cerrado');
+          } else if (status === 'CLOSED') {
+            this.activeChannels.delete(channelName);
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            if (attempts < this.maxReconnectAttempts) {
+              this.handleReconnect(channelName, () => this.subscribeToSalasChanges(idOrganizacion, callbacks), callbacks);
             }
-
-            // Intentar reconexión
-            this.handleReconnect(channelName, () => this.subscribeToSalasChanges(idOrganizacion, callbacks), callbacks);
           }
         });
 
       return channel;
     };
 
-    return setupChannel();
+    const newChannel = setupChannel();
+    this.activeChannels.set(channelName, newChannel);
+    return newChannel;
   }
 
   // Manejador de reconexión con backoff exponencial
@@ -239,17 +241,24 @@ export class SupabaseSalaRepository implements SalaRepository {
   }
 
   unsubscribeFromChanges(channel: RealtimeChannel): Promise<void> {
-    // console.log('🧹 Desuscribiendo canal realtime');
-
-    // Limpiar timeouts de reconexión
-    this.reconnectTimeouts.forEach((timeout) => clearTimeout(timeout));
-    this.reconnectTimeouts.clear();
-    this.reconnectAttempts.clear();
+    // Encontrar y eliminar el canal del Map
+    for (const [name, ch] of this.activeChannels.entries()) {
+      if (ch === channel) {
+        this.activeChannels.delete(name);
+        this.reconnectAttempts.delete(name);
+        const timeout = this.reconnectTimeouts.get(name);
+        if (timeout) {
+          clearTimeout(timeout);
+          this.reconnectTimeouts.delete(name);
+        }
+        break;
+      }
+    }
 
     return supabase.removeChannel(channel).then(() => {
-      // console.log('✅ Canal realtime removido exitosamente');
+      // Canal removido
     }).catch((error) => {
-      // console.error('❌ Error removiendo canal realtime:', error);
+      console.error('❌ Error removiendo canal realtime salas:', error);
       throw error;
     });
   }
