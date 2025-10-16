@@ -145,6 +145,7 @@ export const useDropHandler = (
           console.log('🎯 [PIZARRA DROP] Detectado MISIÓN');
           console.log('🎯 [PIZARRA DROP] Datos de misión recibidos:', {
             id_usuario: resource.id_usuario,
+            id_creador: resource.id_creador,
             id: resource.id,
             title: resource.title,
             hours: resource.hours
@@ -170,11 +171,12 @@ export const useDropHandler = (
               title: resource.title || 'Nueva Misión',
               hours: resource.hours || 1,
               description: resource.description || resource.title,
+              idCreador: resource.id_creador,
               id_usuario: resource.id_usuario,
               id_mision: resource.id?.toString()
             }
           }]);
-          console.log('✅ [PIZARRA DROP] Card de misión creada con id_usuario:', resource.id_usuario);
+          console.log('✅ [PIZARRA DROP] Card de misión creada con id_usuario:', resource.id_usuario, 'y id_creador:', resource.id_creador);
           return;
         }
         // RECURSO

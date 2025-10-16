@@ -16,6 +16,8 @@ interface MisionesCompactProps {
 const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }) => {
   const handleDragStart = (e: React.DragEvent) => {
     console.log('Drag started for mission:', mision.nombre);
+    console.log('🔍 [MisionCompactCard] id_creador en misión:', mision.id_creador);
+    console.log('🔍 [MisionCompactCard] id_usuario en misión:', mision.id_usuario);
     const misionData = {
       type: 'mision',
       title: mision.nombre || 'Sin nombre',
