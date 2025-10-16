@@ -2,6 +2,12 @@ import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, f
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Card, PizarraRef, TodoItem, ActivityData, MisionData } from './types';
+import { usePizarra } from '@/hooks/usePizarra';
+import { useCards } from '@/hooks/useCards';
+import { useCardMision } from '@/hooks/useCardMision';
+import { mapCardDBToCard, mapCardToCardDB } from './utils/cardMapper';
+import { SupabaseCardMisionRepository } from '@/infrastructure/datasource/SupabaseCardMisionRepository';
+import { SupabaseMisionRepository } from '@/infrastructure/datasource/SupabaseMisionRepository';
 
 interface PizarraProps {
   onShowScreenshots?: (cardId: string) => void;
@@ -20,6 +26,16 @@ import { CardWrapperComponent } from './components/CardWrapper';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real' }, ref) => {
   const { usuario } = useAuth();
+
+  // Toggle para modo desarrollo (localStorage vs Supabase)
+  const [useLocalStorage, setUseLocalStorage] = useState(true);
+
+  // Hooks de Supabase (solo se usan si useLocalStorage es false)
+  const { pizarra, loading: loadingPizarra, updatePanOffset } = usePizarra(useLocalStorage ? null : usuario?.id || null);
+  const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB } = useCards(
+    useLocalStorage ? null : pizarra?.id || null
+  );
+
   const [cards, setCards] = useState<Card[]>([]);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [editingTodo, setEditingTodo] = useState<{ cardId: string, todoId: number } | null>(null);
@@ -315,20 +331,43 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }));
   }, []);
 
-  const updateCardTitle = useCallback((cardId: string, newTitle: string) => {
+  const updateCardTitle = useCallback(async (cardId: string, newTitle: string) => {
+    // Actualizar localmente primero
     setCards(prev => prev.map(card =>
       card.id === cardId ? { ...card, title: newTitle } : card
     ));
-    setEditingTitle(null);
-  }, []);
 
-  const updateCardContent = useCallback((cardId: string, newContent: string) => {
+    // Si estamos en modo Supabase, actualizar en la BD
+    if (!useLocalStorage && pizarra) {
+      try {
+        await updateCard(cardId, { title: newTitle });
+        console.log('Titulo actualizado en Supabase');
+      } catch (error) {
+        console.error('Error actualizando titulo en Supabase:', error);
+      }
+    }
+
+    setEditingTitle(null);
+  }, [useLocalStorage, pizarra, updateCard]);
+
+  const updateCardContent = useCallback(async (cardId: string, newContent: string) => {
+    // Actualizar localmente primero
     setCards(prev => prev.map(card =>
       card.id === cardId ? { ...card, content: newContent } : card
     ));
-  }, []);
 
-  const deleteCard = useCallback((cardId: string) => {
+    // Si estamos en modo Supabase, actualizar en la BD
+    if (!useLocalStorage && pizarra) {
+      try {
+        await updateCard(cardId, { content: newContent });
+        console.log('Contenido actualizado en Supabase');
+      } catch (error) {
+        console.error('Error actualizando contenido en Supabase:', error);
+      }
+    }
+  }, [useLocalStorage, pizarra, updateCard]);
+
+  const deleteCard = useCallback(async (cardId: string) => {
     if (pastedImages[cardId]) {
       URL.revokeObjectURL(pastedImages[cardId]);
       setPastedImages(prev => {
@@ -338,10 +377,20 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       });
     }
 
+    // Si estamos en modo Supabase, eliminar de la BD
+    if (!useLocalStorage && pizarra) {
+      try {
+        await deleteCardDB(cardId);
+        console.log('Card eliminada de Supabase:', cardId);
+      } catch (error) {
+        console.error('Error eliminando card de Supabase:', error);
+      }
+    }
+
     setCards(prev => prev.filter(card => card.id !== cardId));
     setConfirmDelete(null);
     setConfigOpenCard(null);
-  }, [pastedImages, setPastedImages]);
+  }, [pastedImages, setPastedImages, useLocalStorage, pizarra, deleteCardDB]);
 
   // Funciones públicas expuestas via ref
   const addNoteCard = useCallback((text: string) => {
@@ -436,8 +485,143 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [resizingCard, handleResizeMove, handleResizeEnd]);
 
+  // Effect: Cargar panOffset desde Supabase cuando cambia el modo o se carga la pizarra
+  useEffect(() => {
+    if (!useLocalStorage && pizarra) {
+      console.log('🎨 Cargando panOffset desde Supabase:', pizarra.pan_offset_x, pizarra.pan_offset_y);
+      setPanOffset({
+        x: Number(pizarra.pan_offset_x) || 0,
+        y: Number(pizarra.pan_offset_y) || 0
+      });
+    }
+  }, [useLocalStorage, pizarra]);
+
+  // Effect: Sincronizar panOffset con Supabase cuando cambia (con debounce)
+  useEffect(() => {
+    if (!useLocalStorage && pizarra) {
+      const timeoutId = setTimeout(() => {
+        updatePanOffset(panOffset.x, panOffset.y);
+      }, 500); // Debounce de 500ms
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [panOffset, useLocalStorage, pizarra, updatePanOffset]);
+
+  // Effect: Sincronizar nuevas cards con Supabase
+  const previousCardsRef = useRef<Card[]>([]);
+  useEffect(() => {
+    const syncNewCards = async () => {
+      if (!useLocalStorage && pizarra && cards.length > previousCardsRef.current.length) {
+        // Encontrar las cards nuevas
+        const newCards = cards.filter(card =>
+          !previousCardsRef.current.some(prevCard => prevCard.id === card.id)
+        );
+
+        for (const card of newCards) {
+          try {
+            // Crear la card en Supabase
+            const cardData = mapCardToCardDB(card, pizarra.id);
+            const createdCard = await createCard(cardData);
+
+            if (createdCard && card.type === 'mision' && card.misionData?.id_mision) {
+              // Si es una misión, crear también su entrada en card_misiones
+              const cardMisionRepo = new SupabaseCardMisionRepository();
+              await cardMisionRepo.create({
+                id_card: createdCard.id,
+                id_mision: parseInt(card.misionData.id_mision),
+                is_running: card.misionData.isRunning || false,
+                last_capture_url: card.misionData.lastCaptureUrl || null
+              });
+              console.log('Card de mision y datos asociados creados en Supabase');
+            }
+          } catch (error) {
+            console.error('Error creando card en Supabase:', error);
+          }
+        }
+      }
+
+      previousCardsRef.current = cards;
+    };
+
+    syncNewCards();
+  }, [cards, useLocalStorage, pizarra, createCard]);
+
+  // Effect: Cargar cards desde Supabase cuando cambia el modo
+  useEffect(() => {
+    const loadCardsFromSupabase = async () => {
+      if (!useLocalStorage && cardsDB.length > 0) {
+        console.log('Cargando', cardsDB.length, 'cards desde Supabase');
+
+        const cardMisionRepo = new SupabaseCardMisionRepository();
+        const misionRepo = new SupabaseMisionRepository();
+        const mappedCards: Card[] = [];
+
+        for (const cardDB of cardsDB) {
+          // Mapear la card basica
+          const card = mapCardDBToCard(cardDB);
+
+          // Si es una card de tipo mision, cargar sus datos completos
+          if (cardDB.type === 'mision') {
+            try {
+              const cardMision = await cardMisionRepo.getByCardId(cardDB.id);
+              if (cardMision) {
+                // Cargar la mision completa desde la tabla misiones
+                const mision = await misionRepo.getMisionById(cardMision.id_mision);
+
+                card.misionData = {
+                  title: mision?.nombre || card.title,
+                  hours: mision?.horas || 1,
+                  description: mision?.descripcion || card.content,
+                  idCreador: mision?.id_creador,
+                  isRunning: cardMision.is_running,
+                  lastCaptureUrl: cardMision.last_capture_url,
+                  id_mision: cardMision.id_mision.toString(),
+                  id_usuario: mision?.id_usuario?.toString()
+                };
+              }
+            } catch (error) {
+              console.error('Error cargando datos de mision para card:', cardDB.id, error);
+            }
+          }
+
+          mappedCards.push(card);
+        }
+
+        console.log('Cards mapeadas:', mappedCards.length);
+        setCards(mappedCards);
+      } else if (!useLocalStorage && cardsDB.length === 0) {
+        console.log('No hay cards en Supabase para esta pizarra');
+        setCards([]);
+      }
+    };
+
+    loadCardsFromSupabase();
+  }, [useLocalStorage, cardsDB]);
+
   return (
     <div className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}>
+      {/* Toggle de desarrollo */}
+      <div className="mb-4 flex items-center gap-3 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-md">
+        <span className="text-sm font-medium text-gray-700">💾 LocalStorage</span>
+        <button
+          onClick={() => setUseLocalStorage(!useLocalStorage)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+            useLocalStorage ? 'bg-gray-400' : 'bg-green-600'
+          }`}
+          data-todo-interactive
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              useLocalStorage ? 'translate-x-1' : 'translate-x-6'
+            }`}
+          />
+        </button>
+        <span className="text-sm font-medium text-gray-700">☁️ Supabase</span>
+        {!useLocalStorage && (loadingPizarra || loadingCards) && (
+          <div className="ml-2 w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
+        )}
+      </div>
+
       <div
         ref={canvasRef}
         className={`
