@@ -245,7 +245,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, [cards, isCapturing, startCapturing, stopCapturing, usuario]);
 
   // Funciones para todos
-  const toggleTodo = useCallback((cardId: string, todoId: number) => {
+  const toggleTodo = useCallback(async (cardId: string, todoId: number) => {
+    // Actualizar estado local inmediatamente
     setCards(prev => prev.map(card =>
       card.id === cardId && card.todos
         ? {
@@ -255,32 +256,101 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         }
         : card
     ));
-  }, []);
 
-  const addTodoToCard = useCallback((cardId: string, text: string) => {
+    // Solo guardar en Supabase si la card ya está guardada (tiene formato UUID)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cardId);
+
+    if (isUUID) {
+      try {
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+        const card = cards.find(c => c.id === cardId);
+        const todo = card?.todos?.find(t => t.id === todoId);
+
+        if (todo) {
+          await supabase
+            .from('card_todos')
+            .update({
+              completed: !todo.completed,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id_card', cardId)
+            .eq('todo_id', todoId);
+        }
+      } catch (error) {
+        console.error('❌ Error al actualizar todo en Supabase:', error);
+      }
+    }
+  }, [cards]);
+
+  const addTodoToCard = useCallback(async (cardId: string, text: string) => {
+    const card = cards.find(c => c.id === cardId);
+    const newTodoId = card?.todos && card.todos.length > 0 ? Math.max(...card.todos.map(t => t.id)) + 1 : 1;
+
+    // Actualizar estado local inmediatamente
     setCards(prev => prev.map(card =>
       card.id === cardId && card.todos
         ? {
           ...card,
           todos: [...card.todos, {
-            id: card.todos.length > 0 ? Math.max(...card.todos.map(t => t.id)) + 1 : 1,
+            id: newTodoId,
             text,
             completed: false
           }]
         }
         : card
     ));
-  }, []);
 
-  const deleteTodoFromCard = useCallback((cardId: string, todoId: number) => {
+    // Solo guardar en Supabase si la card ya está guardada (tiene formato UUID)
+    // Cards con IDs como "todo-1" aún no están en Supabase
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cardId);
+
+    if (isUUID) {
+      try {
+        const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
+        const cardTodoRepo = new SupabaseCardTodoRepository();
+
+        await cardTodoRepo.create({
+          id_card: cardId,
+          todo_id: newTodoId,
+          text,
+          completed: false,
+          position: newTodoId - 1
+        });
+      } catch (error) {
+        console.error('❌ Error al crear todo en Supabase:', error);
+      }
+    } else {
+      console.log('ℹ️ Card aún no guardada en Supabase, todo se guardará con la card');
+    }
+  }, [cards]);
+
+  const deleteTodoFromCard = useCallback(async (cardId: string, todoId: number) => {
+    // Actualizar estado local inmediatamente
     setCards(prev => prev.map(card =>
       card.id === cardId && card.todos
         ? { ...card, todos: card.todos.filter(todo => todo.id !== todoId) }
         : card
     ));
+
+    // Solo eliminar de Supabase si la card ya está guardada (tiene formato UUID)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cardId);
+
+    if (isUUID) {
+      try {
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+        await supabase
+          .from('card_todos')
+          .delete()
+          .eq('id_card', cardId)
+          .eq('todo_id', todoId);
+      } catch (error) {
+        console.error('❌ Error al eliminar todo de Supabase:', error);
+      }
+    }
   }, []);
 
-  const updateTodoInCard = useCallback((cardId: string, todoId: number, newText: string) => {
+  const updateTodoInCard = useCallback(async (cardId: string, todoId: number, newText: string) => {
+    // Actualizar estado local inmediatamente
     setCards(prev => prev.map(card =>
       card.id === cardId && card.todos
         ? {
@@ -292,6 +362,25 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         : card
     ));
     setEditingTodo(null);
+
+    // Solo actualizar en Supabase si la card ya está guardada (tiene formato UUID)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cardId);
+
+    if (isUUID) {
+      try {
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+        await supabase
+          .from('card_todos')
+          .update({
+            text: newText,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id_card', cardId)
+          .eq('todo_id', todoId);
+      } catch (error) {
+        console.error('❌ Error al actualizar texto del todo en Supabase:', error);
+      }
+    }
   }, []);
 
   // Funciones para configuración de cards
@@ -493,6 +582,53 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           } else {
             console.log('   ✏️ Card actualizada:', card.id);
           }
+
+          // Card existente - actualizar sus todos
+          if (card.type === 'todo' && card.todos) {
+            const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
+            const cardTodoRepo = new SupabaseCardTodoRepository();
+
+            // Obtener todos existentes
+            const todosExistentes = await cardTodoRepo.getByCardId(card.id);
+            const todosExistentesIds = todosExistentes.map(t => t.todo_id);
+
+            // Eliminar todos que ya no existen
+            for (const todoExistente of todosExistentes) {
+              if (!card.todos.some(t => t.id === todoExistente.todo_id)) {
+                await supabase
+                  .from('card_todos')
+                  .delete()
+                  .eq('id_card', card.id)
+                  .eq('todo_id', todoExistente.todo_id);
+              }
+            }
+
+            // Crear o actualizar todos actuales
+            for (const todo of card.todos) {
+              if (todosExistentesIds.includes(todo.id)) {
+                // Actualizar todo existente
+                await supabase
+                  .from('card_todos')
+                  .update({
+                    text: todo.text,
+                    completed: todo.completed,
+                    position: todo.id - 1,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id_card', card.id)
+                  .eq('todo_id', todo.id);
+              } else {
+                // Crear nuevo todo
+                await cardTodoRepo.create({
+                  id_card: card.id,
+                  todo_id: todo.id,
+                  text: todo.text,
+                  completed: todo.completed,
+                  position: todo.id - 1
+                });
+              }
+            }
+          }
         } else {
           // Crear nueva card
           const cardData = mapCardToCardDB(card, pizarraActual.id);
@@ -554,6 +690,22 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                 color: card.usuarioData.color || null,
                 online: card.usuarioData.online || false
               });
+            }
+
+            // Si es una card de tipo todo, crear sus todos en card_todos
+            if (createdCard && card.type === 'todo' && card.todos && card.todos.length > 0) {
+              const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
+              const cardTodoRepo = new SupabaseCardTodoRepository();
+
+              for (const todo of card.todos) {
+                await cardTodoRepo.create({
+                  id_card: createdCard.id,
+                  todo_id: todo.id,
+                  text: todo.text,
+                  completed: todo.completed,
+                  position: todo.id - 1 // Usar id - 1 como position
+                });
+              }
             }
           }
         }
@@ -634,6 +786,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       const cardActividadRepo = new SupabaseCardActividadRepository();
       const { SupabaseCardUsuarioRepository } = await import('@/infrastructure/datasource/SupabaseCardUsuarioRepository');
       const cardUsuarioRepo = new SupabaseCardUsuarioRepository();
+      const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
+      const cardTodoRepo = new SupabaseCardTodoRepository();
       const mappedCards: Card[] = [];
 
       for (const cardDB of cardsEnBD) {
@@ -728,6 +882,22 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             }
           } catch (error) {
             console.error('Error cargando datos de usuario para card:', cardDB.id, error);
+          }
+        }
+
+        // Si es una card de tipo todo, cargar sus todos desde card_todos
+        if (cardDB.type === 'todo') {
+          try {
+            const cardTodos = await cardTodoRepo.getByCardId(cardDB.id);
+            if (cardTodos && cardTodos.length > 0) {
+              card.todos = cardTodos.map(todo => ({
+                id: todo.todo_id,
+                text: todo.text,
+                completed: todo.completed
+              }));
+            }
+          } catch (error) {
+            console.error('Error cargando todos para card:', cardDB.id, error);
           }
         }
 
