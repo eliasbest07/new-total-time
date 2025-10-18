@@ -27,14 +27,20 @@ import { CardWrapperComponent } from './components/CardWrapper';
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real' }, ref) => {
   const { usuario } = useAuth();
 
-  // Toggle para modo desarrollo (localStorage vs Supabase)
-  const [useLocalStorage, setUseLocalStorage] = useState(true);
+  // Debug: Verificar que el usuario esté cargado
+  useEffect(() => {
+    console.log('👤 Usuario en Pizarra:', usuario?.id, usuario?.email);
+  }, [usuario]);
 
-  // Hooks de Supabase (solo se usan si useLocalStorage es false)
-  const { pizarra, loading: loadingPizarra, updatePanOffset } = usePizarra(useLocalStorage ? null : usuario?.id || null);
+  // Hooks de Supabase (deshabilitados para carga automática - solo se usan manualmente)
+  // Pasamos null para que no cargue automáticamente
+  const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(null);
   const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB } = useCards(
-    useLocalStorage ? null : pizarra?.id || null
+    pizarra?.id || null
   );
+
+  // Estado de inicialización
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const [cards, setCards] = useState<Card[]>([]);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
@@ -332,40 +338,20 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, []);
 
   const updateCardTitle = useCallback(async (cardId: string, newTitle: string) => {
-    // Actualizar localmente primero
+    // Actualizar solo localmente (no guardar en Supabase automáticamente)
     setCards(prev => prev.map(card =>
       card.id === cardId ? { ...card, title: newTitle } : card
     ));
 
-    // Si estamos en modo Supabase, actualizar en la BD
-    if (!useLocalStorage && pizarra) {
-      try {
-        await updateCard(cardId, { title: newTitle });
-        console.log('Titulo actualizado en Supabase');
-      } catch (error) {
-        console.error('Error actualizando titulo en Supabase:', error);
-      }
-    }
-
     setEditingTitle(null);
-  }, [useLocalStorage, pizarra, updateCard]);
+  }, []);
 
   const updateCardContent = useCallback(async (cardId: string, newContent: string) => {
-    // Actualizar localmente primero
+    // Actualizar solo localmente (no guardar en Supabase automáticamente)
     setCards(prev => prev.map(card =>
       card.id === cardId ? { ...card, content: newContent } : card
     ));
-
-    // Si estamos en modo Supabase, actualizar en la BD
-    if (!useLocalStorage && pizarra) {
-      try {
-        await updateCard(cardId, { content: newContent });
-        console.log('Contenido actualizado en Supabase');
-      } catch (error) {
-        console.error('Error actualizando contenido en Supabase:', error);
-      }
-    }
-  }, [useLocalStorage, pizarra, updateCard]);
+  }, []);
 
   const deleteCard = useCallback(async (cardId: string) => {
     if (pastedImages[cardId]) {
@@ -377,20 +363,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       });
     }
 
-    // Si estamos en modo Supabase, eliminar de la BD
-    if (!useLocalStorage && pizarra) {
-      try {
-        await deleteCardDB(cardId);
-        console.log('Card eliminada de Supabase:', cardId);
-      } catch (error) {
-        console.error('Error eliminando card de Supabase:', error);
-      }
-    }
-
+    // Eliminar solo localmente (no eliminar de Supabase automáticamente)
     setCards(prev => prev.filter(card => card.id !== cardId));
     setConfirmDelete(null);
     setConfigOpenCard(null);
-  }, [pastedImages, setPastedImages, useLocalStorage, pizarra, deleteCardDB]);
+  }, [pastedImages, setPastedImages]);
 
   // Funciones públicas expuestas via ref
   const addNoteCard = useCallback((text: string) => {
@@ -426,13 +403,361 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     setCards(prev => [...prev, newCard]);
   }, [cards]);
 
+  // Función manual para guardar en Supabase
+  const saveToSupabase = useCallback(async () => {
+    if (!usuario) {
+      console.error('❌ No hay usuario para guardar');
+      alert('❌ Error: No se ha iniciado sesión.');
+      return false;
+    }
+
+    if (!isInitialized) {
+      console.error('❌ El sistema no está inicializado todavía');
+      alert('❌ Error: El sistema aún se está inicializando. Espera un momento e intenta de nuevo.');
+      return false;
+    }
+
+    try {
+      console.log('💾 Guardando pizarra en Supabase...');
+      console.log('   - ID Usuario:', usuario.id);
+      console.log('   - Cards a guardar:', cards.length);
+
+      // 1. Verificar/Obtener la pizarra del día
+      console.log('   - Obteniendo pizarra del día...');
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+      const SupabasePizarraRepository = (await import('@/infrastructure/datasource/SupabasePizarraRepository')).SupabasePizarraRepository;
+      const pizarraRepo = new SupabasePizarraRepository();
+
+      // Obtener o crear la pizarra del día
+      const pizarraActual = await pizarraRepo.getPizarraDelDia(usuario.id, new Date());
+
+      if (!pizarraActual) {
+        console.error('❌ No se pudo obtener o crear la pizarra del día');
+        alert('❌ Error: No se pudo crear la pizarra en la base de datos.');
+        return false;
+      }
+
+      console.log('   ✅ Pizarra del día obtenida:', pizarraActual.id);
+
+      // 2. Actualizar panOffset
+      console.log('   - Actualizando panOffset:', panOffset);
+      await pizarraRepo.updatePanOffset(pizarraActual.id, panOffset.x, panOffset.y);
+
+      // 3. Obtener las cards actuales de Supabase para esta pizarra
+      const { data: cardsEnBD, error: cardsError } = await supabase
+        .from('cards')
+        .select('id')
+        .eq('id_pizarra', pizarraActual.id);
+
+      if (cardsError) {
+        console.error('❌ Error obteniendo cards de la BD:', cardsError);
+        return false;
+      }
+
+      const currentCardsInDB = (cardsEnBD || []).map((c: any) => c.id);
+
+      // 4. Eliminar cards que ya no existen localmente
+      console.log('   - Eliminando cards obsoletas...');
+      const cardsToDelete = currentCardsInDB.filter(dbCardId =>
+        !cards.some(localCard => localCard.id === dbCardId)
+      );
+
+      for (const cardId of cardsToDelete) {
+        const { error: deleteError } = await supabase
+          .from('cards')
+          .delete()
+          .eq('id', cardId);
+
+        if (deleteError) {
+          console.error('❌ Error eliminando card:', cardId, deleteError);
+        } else {
+          console.log('🗑️ Card eliminada de Supabase:', cardId);
+        }
+      }
+
+      // 5. Crear o actualizar las cards actuales
+      console.log('   - Guardando', cards.length, 'cards...');
+      for (const card of cards) {
+        const cardExists = currentCardsInDB.includes(card.id);
+
+        if (cardExists) {
+          // Actualizar card existente
+          const cardData = mapCardToCardDB(card, pizarraActual.id);
+          const { error: updateError } = await supabase
+            .from('cards')
+            .update(cardData)
+            .eq('id', card.id);
+
+          if (updateError) {
+            console.error('❌ Error actualizando card:', card.id, updateError);
+          } else {
+            console.log('   ✏️ Card actualizada:', card.id);
+          }
+        } else {
+          // Crear nueva card
+          const cardData = mapCardToCardDB(card, pizarraActual.id);
+          const { data: createdCard, error: createError } = await supabase
+            .from('cards')
+            .insert([cardData])
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('❌ Error creando card:', card.id, createError);
+          } else {
+            console.log('   ➕ Card creada:', card.id);
+
+            // Si es una misión, crear también su entrada en card_misiones
+            if (createdCard && card.type === 'mision' && card.misionData?.id_mision) {
+              const cardMisionRepo = new SupabaseCardMisionRepository();
+              await cardMisionRepo.create({
+                id_card: createdCard.id,
+                id_mision: parseInt(card.misionData.id_mision),
+                is_running: card.misionData.isRunning || false,
+                last_capture_url: card.misionData.lastCaptureUrl || null
+              });
+            }
+
+            // Si es una actividad, crear también su entrada en card_actividades
+            if (createdCard && card.type === 'actividad' && card.activityData) {
+              const { SupabaseCardActividadRepository } = await import('@/infrastructure/datasource/SupabaseCardActividadRepository');
+              const cardActividadRepo = new SupabaseCardActividadRepository();
+
+              // Extraer solo la hora si es un timestamp completo
+              let timeValue = card.activityData.time || null;
+              if (timeValue && timeValue.includes('T')) {
+                // Si es un timestamp ISO, extraer solo la hora (HH:MM:SS)
+                const dateObj = new Date(timeValue);
+                timeValue = dateObj.toTimeString().split(' ')[0]; // HH:MM:SS
+              }
+
+              await cardActividadRepo.create({
+                id_card: createdCard.id,
+                subject: card.activityData.subject || null,
+                date: card.activityData.date || null,
+                time: timeValue,
+                duration: card.activityData.duration || null,
+                is_running: card.activityData.isRunning || false,
+                time_left: card.activityData.timeLeft || null
+              });
+            }
+
+            // Si es un usuario, crear también su entrada en card_usuarios
+            if (createdCard && card.type === 'usuario' && card.usuarioData) {
+              const { SupabaseCardUsuarioRepository } = await import('@/infrastructure/datasource/SupabaseCardUsuarioRepository');
+              const cardUsuarioRepo = new SupabaseCardUsuarioRepository();
+              await cardUsuarioRepo.create({
+                id_card: createdCard.id,
+                user_id: card.usuarioData.userId,
+                name: card.usuarioData.name || null,
+                avatar: card.usuarioData.avatar || null,
+                color: card.usuarioData.color || null,
+                online: card.usuarioData.online || false
+              });
+            }
+          }
+        }
+      }
+
+      console.log('✅ Pizarra guardada exitosamente en Supabase');
+      console.log('   - ID Pizarra:', pizarraActual.id);
+      console.log('   - Cards guardadas:', cards.length);
+      return true;
+    } catch (error) {
+      console.error('❌ Error guardando en Supabase:', error);
+      return false;
+    }
+  }, [pizarra, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra]);
+
+  // Función manual para cargar desde Supabase
+  const loadFromSupabase = useCallback(async () => {
+    if (!usuario) {
+      console.error('❌ No hay usuario para cargar');
+      alert('❌ Error: No se ha iniciado sesión.');
+      return;
+    }
+
+    console.log('📥 Cargando pizarra desde Supabase...');
+    console.log('   - ID Usuario:', usuario.id);
+    console.log('   - Usuario logeado:', usuario.getNombreCompleto());
+
+    try {
+      // 1. Obtener la pizarra del día
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+      const SupabasePizarraRepository = (await import('@/infrastructure/datasource/SupabasePizarraRepository')).SupabasePizarraRepository;
+      const pizarraRepo = new SupabasePizarraRepository();
+
+      const pizarraActual = await pizarraRepo.getPizarraDelDia(usuario.id, new Date());
+
+      if (!pizarraActual) {
+        console.log('   - No hay pizarra para el día de hoy');
+        setCards([]);
+        setPanOffset({ x: 0, y: 0 });
+        alert('ℹ️ No hay pizarra guardada para hoy. La pizarra está vacía.');
+        return;
+      }
+
+      console.log('   ✅ Pizarra del día obtenida:', pizarraActual.id);
+
+      // 2. Cargar panOffset
+      setPanOffset({
+        x: Number(pizarraActual.pan_offset_x) || 0,
+        y: Number(pizarraActual.pan_offset_y) || 0
+      });
+
+      // 3. Obtener las cards de esta pizarra
+      const { data: cardsEnBD, error: cardsError } = await supabase
+        .from('cards')
+        .select('*')
+        .eq('id_pizarra', pizarraActual.id);
+
+      if (cardsError) {
+        console.error('❌ Error obteniendo cards de la BD:', cardsError);
+        alert('❌ Error al cargar las cards desde Supabase.');
+        return;
+      }
+
+      console.log('   - Cards encontradas:', cardsEnBD?.length || 0);
+
+      // Limpiar cards actuales
+      setCards([]);
+
+      if (!cardsEnBD || cardsEnBD.length === 0) {
+        console.log('   - No hay cards para esta pizarra');
+        return;
+      }
+
+      // 4. Mapear las cards
+      const cardMisionRepo = new SupabaseCardMisionRepository();
+      const misionRepo = new SupabaseMisionRepository();
+      const { SupabaseCardActividadRepository } = await import('@/infrastructure/datasource/SupabaseCardActividadRepository');
+      const cardActividadRepo = new SupabaseCardActividadRepository();
+      const { SupabaseCardUsuarioRepository } = await import('@/infrastructure/datasource/SupabaseCardUsuarioRepository');
+      const cardUsuarioRepo = new SupabaseCardUsuarioRepository();
+      const mappedCards: Card[] = [];
+
+      for (const cardDB of cardsEnBD) {
+        const card = mapCardDBToCard(cardDB);
+
+        // Si es una card de tipo mision, cargar sus datos completos
+        if (cardDB.type === 'mision') {
+          try {
+            const cardMision = await cardMisionRepo.getByCardId(cardDB.id);
+            if (cardMision) {
+              const mision = await misionRepo.getMisionById(cardMision.id_mision);
+
+              card.misionData = {
+                title: mision?.nombre || card.title,
+                hours: mision?.horas || 1,
+                description: mision?.descripcion || card.content,
+                idCreador: mision?.id_creador,
+                isRunning: cardMision.is_running,
+                lastCaptureUrl: cardMision.last_capture_url,
+                id_mision: cardMision.id_mision.toString(),
+                id_usuario: mision?.id_usuario?.toString()
+              };
+            }
+          } catch (error) {
+            console.error('Error cargando datos de mision para card:', cardDB.id, error);
+          }
+        }
+
+        // Si es una card de tipo actividad, cargar sus datos completos
+        if (cardDB.type === 'actividad') {
+          try {
+            const cardActividad = await cardActividadRepo.getByCardId(cardDB.id);
+            if (cardActividad) {
+              // Crear participante con el usuario logeado (usar el usuario del scope)
+              console.log('   - Creando participante para actividad con usuario:', usuario?.getNombreCompleto());
+
+              const currentUserParticipant = {
+                name: usuario.getNombreCompleto(),
+                initial: usuario.getNombreCompleto().charAt(0).toUpperCase(),
+                color: usuario.profile.marco || '#3b82f6'
+              };
+
+              card.activityData = {
+                subject: cardActividad.subject || '',
+                participants: [currentUserParticipant], // Usuario logeado por defecto
+                date: cardActividad.date || '',
+                time: cardActividad.time || '',
+                duration: cardActividad.duration || 0,
+                isRunning: cardActividad.is_running || false,
+                timeLeft: cardActividad.time_left || 0,
+                id_actividad: cardDB.id // Usar el ID de la card como ID de actividad
+              };
+
+              console.log('   - Participante creado:', currentUserParticipant);
+              console.log('   - activityData completa:', card.activityData);
+              console.log('   - Participants en activityData:', card.activityData.participants);
+            }
+          } catch (error) {
+            console.error('Error cargando datos de actividad para card:', cardDB.id, error);
+          }
+        }
+
+        // Si es una card de tipo usuario, cargar sus datos completos
+        if (cardDB.type === 'usuario') {
+          try {
+            const cardUsuario = await cardUsuarioRepo.getByCardId(cardDB.id);
+            if (cardUsuario) {
+              card.usuarioData = {
+                userId: cardUsuario.user_id,
+                name: cardUsuario.name || '',
+                avatar: cardUsuario.avatar || '',
+                color: cardUsuario.color || '#3b82f6',
+                online: cardUsuario.online || false,
+                messages: [] // Los mensajes se cargarán desde el content JSON si existen
+              };
+
+              // Intentar parsear los mensajes desde el content de la card si existen
+              if (card.content) {
+                try {
+                  const parsedContent = JSON.parse(card.content);
+                  if (parsedContent.messages && Array.isArray(parsedContent.messages)) {
+                    card.usuarioData.messages = parsedContent.messages.map((msg: any) => ({
+                      ...msg,
+                      timestamp: new Date(msg.timestamp)
+                    }));
+                  }
+                } catch (e) {
+                  // Si no se puede parsear, los mensajes quedan vacíos
+                  console.log('No hay mensajes en formato JSON para esta card de usuario');
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error cargando datos de usuario para card:', cardDB.id, error);
+          }
+        }
+
+        mappedCards.push(card);
+      }
+
+      console.log('✅ Cards cargadas:', mappedCards.length);
+      console.log('   - Verificando participants en cards de actividad:');
+      mappedCards.forEach((card, idx) => {
+        if (card.type === 'actividad') {
+          console.log(`   - Card ${idx} (${card.id}):`, card.activityData?.participants);
+        }
+      });
+      setCards(mappedCards);
+
+    } catch (error) {
+      console.error('❌ Error cargando desde Supabase:', error);
+      alert('❌ Error al cargar la pizarra desde Supabase.');
+    }
+  }, [usuario]);
+
   useImperativeHandle(ref, () => ({
     addNoteCard,
     addTodoCard,
     clearStorage: clearLocalStorage,
     exportStorage: exportToJSON,
-    importStorage: importFromJSON
-  }), [addNoteCard, addTodoCard, clearLocalStorage, exportToJSON, importFromJSON]);
+    importStorage: importFromJSON,
+    saveToSupabase,
+    loadFromSupabase
+  }), [addNoteCard, addTodoCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
@@ -485,143 +810,17 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [resizingCard, handleResizeMove, handleResizeEnd]);
 
-  // Effect: Cargar panOffset desde Supabase cuando cambia el modo o se carga la pizarra
+  // Effect: Marcar como inicializado cuando el usuario esté disponible
   useEffect(() => {
-    if (!useLocalStorage && pizarra) {
-      console.log('🎨 Cargando panOffset desde Supabase:', pizarra.pan_offset_x, pizarra.pan_offset_y);
-      setPanOffset({
-        x: Number(pizarra.pan_offset_x) || 0,
-        y: Number(pizarra.pan_offset_y) || 0
-      });
+    if (usuario?.id && !isInitialized) {
+      console.log('✅ Usuario cargado, listo para operaciones:', usuario.id);
+      setIsInitialized(true);
     }
-  }, [useLocalStorage, pizarra]);
+  }, [usuario, isInitialized]);
 
-  // Effect: Sincronizar panOffset con Supabase cuando cambia (con debounce)
-  useEffect(() => {
-    if (!useLocalStorage && pizarra) {
-      const timeoutId = setTimeout(() => {
-        updatePanOffset(panOffset.x, panOffset.y);
-      }, 500); // Debounce de 500ms
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [panOffset, useLocalStorage, pizarra, updatePanOffset]);
-
-  // Effect: Sincronizar nuevas cards con Supabase
-  const previousCardsRef = useRef<Card[]>([]);
-  useEffect(() => {
-    const syncNewCards = async () => {
-      if (!useLocalStorage && pizarra && cards.length > previousCardsRef.current.length) {
-        // Encontrar las cards nuevas
-        const newCards = cards.filter(card =>
-          !previousCardsRef.current.some(prevCard => prevCard.id === card.id)
-        );
-
-        for (const card of newCards) {
-          try {
-            // Crear la card en Supabase
-            const cardData = mapCardToCardDB(card, pizarra.id);
-            const createdCard = await createCard(cardData);
-
-            if (createdCard && card.type === 'mision' && card.misionData?.id_mision) {
-              // Si es una misión, crear también su entrada en card_misiones
-              const cardMisionRepo = new SupabaseCardMisionRepository();
-              await cardMisionRepo.create({
-                id_card: createdCard.id,
-                id_mision: parseInt(card.misionData.id_mision),
-                is_running: card.misionData.isRunning || false,
-                last_capture_url: card.misionData.lastCaptureUrl || null
-              });
-              console.log('Card de mision y datos asociados creados en Supabase');
-            }
-          } catch (error) {
-            console.error('Error creando card en Supabase:', error);
-          }
-        }
-      }
-
-      previousCardsRef.current = cards;
-    };
-
-    syncNewCards();
-  }, [cards, useLocalStorage, pizarra, createCard]);
-
-  // Effect: Cargar cards desde Supabase cuando cambia el modo
-  useEffect(() => {
-    const loadCardsFromSupabase = async () => {
-      if (!useLocalStorage && cardsDB.length > 0) {
-        console.log('Cargando', cardsDB.length, 'cards desde Supabase');
-
-        const cardMisionRepo = new SupabaseCardMisionRepository();
-        const misionRepo = new SupabaseMisionRepository();
-        const mappedCards: Card[] = [];
-
-        for (const cardDB of cardsDB) {
-          // Mapear la card basica
-          const card = mapCardDBToCard(cardDB);
-
-          // Si es una card de tipo mision, cargar sus datos completos
-          if (cardDB.type === 'mision') {
-            try {
-              const cardMision = await cardMisionRepo.getByCardId(cardDB.id);
-              if (cardMision) {
-                // Cargar la mision completa desde la tabla misiones
-                const mision = await misionRepo.getMisionById(cardMision.id_mision);
-
-                card.misionData = {
-                  title: mision?.nombre || card.title,
-                  hours: mision?.horas || 1,
-                  description: mision?.descripcion || card.content,
-                  idCreador: mision?.id_creador,
-                  isRunning: cardMision.is_running,
-                  lastCaptureUrl: cardMision.last_capture_url,
-                  id_mision: cardMision.id_mision.toString(),
-                  id_usuario: mision?.id_usuario?.toString()
-                };
-              }
-            } catch (error) {
-              console.error('Error cargando datos de mision para card:', cardDB.id, error);
-            }
-          }
-
-          mappedCards.push(card);
-        }
-
-        console.log('Cards mapeadas:', mappedCards.length);
-        setCards(mappedCards);
-      } else if (!useLocalStorage && cardsDB.length === 0) {
-        console.log('No hay cards en Supabase para esta pizarra');
-        setCards([]);
-      }
-    };
-
-    loadCardsFromSupabase();
-  }, [useLocalStorage, cardsDB]);
 
   return (
     <div className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}>
-      {/* Toggle de desarrollo */}
-      <div className="mb-4 flex items-center gap-3 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-md">
-        <span className="text-sm font-medium text-gray-700">💾 LocalStorage</span>
-        <button
-          onClick={() => setUseLocalStorage(!useLocalStorage)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-            useLocalStorage ? 'bg-gray-400' : 'bg-green-600'
-          }`}
-          data-todo-interactive
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              useLocalStorage ? 'translate-x-1' : 'translate-x-6'
-            }`}
-          />
-        </button>
-        <span className="text-sm font-medium text-gray-700">☁️ Supabase</span>
-        {!useLocalStorage && (loadingPizarra || loadingCards) && (
-          <div className="ml-2 w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-        )}
-      </div>
-
       <div
         ref={canvasRef}
         className={`

@@ -250,11 +250,23 @@ export default function MainScreen() {
 
       {/* estos dos componentes abajo estan dentro de demo, tiene que estar afuera para ser usados en cualquier parte */}
       <div className="mb-8 px-2 z-30 pointer-events-auto w-fit">
-        <Perfil 
+        <Perfil
           showPizarraControls={true}
           onClearStorage={() => pizarraRef.current?.clearStorage?.()}
           onExportJSON={() => pizarraRef.current?.exportStorage?.()}
           onImportJSON={(content) => pizarraRef.current?.importStorage?.(content)}
+          onSaveToSupabase={async () => {
+            const success = await pizarraRef.current?.saveToSupabase?.();
+            if (success) {
+              alert('✅ Pizarra guardada exitosamente en Supabase');
+            } else {
+              alert('❌ Error al guardar la pizarra en Supabase');
+            }
+          }}
+          onLoadFromSupabase={async () => {
+            await pizarraRef.current?.loadFromSupabase?.();
+            alert('✅ Pizarra cargada desde Supabase');
+          }}
         />
       </div>
 

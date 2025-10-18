@@ -53,4 +53,6 @@ export interface PizarraRef {
   clearStorage?: () => void;
   exportStorage?: () => void;
   importStorage?: (content: string) => void;
+  saveToSupabase?: () => Promise<boolean | undefined>;
+  loadFromSupabase?: () => Promise<void>;
 }
