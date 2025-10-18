@@ -70,13 +70,14 @@ export interface Card {
 
 export interface Connection {
   id: string;
-  from: string | null;
+  from?: string; // Opcional - puede ser undefined para conexiones desde el canvas
   to: string;
 }
 
 export interface PizarraRef {
   addNoteCard: (text: string) => void;
   addTodoCard: (text: string) => void;
+  restoreCard?: (cardData: any) => void;
   clearStorage?: () => void;
   exportStorage?: () => void;
   importStorage?: (content: string) => void;

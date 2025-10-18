@@ -4,10 +4,11 @@ import { supabase } from '@/infrastructure/services/SupabaseClient';
 export interface BoardHistoryItem {
   id: string;
   title: string;
-  type: 'Nota' | 'Tarea' | 'Recurso';
+  type: 'Nota' | 'Tarea' | 'Actividad' | 'Mision' | 'Proyecto' | 'Chat' | 'Recurso' | 'Imagen';
   owner: string;
   summary: string;
   lastUpdated: string;
+  cardData?: any; // Datos completos del card para restaurar
 }
 
 export interface BoardHistorySnapshot {
@@ -106,17 +107,18 @@ export const useChartHistory = (idUsuario: string | null): UseChartHistoryReturn
           ).length;
 
           // Crear items de ejemplo basados en las cards reales
-          const items: BoardHistoryItem[] = cardsData.slice(0, 3).map((card, index) => ({
+          const items: BoardHistoryItem[] = cardsData.map((card, index) => ({
             id: card.id,
             title: card.title || 'Sin título',
             type: getCardTypeLabel(card.type),
             owner: 'Usuario',
             summary: card.content || 'Sin contenido',
             lastUpdated: new Date(card.updated_at).toLocaleDateString('es-ES') + ' • ' +
-                        new Date(card.updated_at).toLocaleTimeString('es-ES', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })
+                        new Date(card.updated_at).toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }),
+            cardData: card // Guardar todos los datos del card
           }));
 
           // Determinar el tipo principal de snapshot
@@ -184,10 +186,32 @@ export const useChartHistory = (idUsuario: string | null): UseChartHistoryReturn
   }, [idUsuario]);
 
   // Función auxiliar para obtener etiqueta del tipo de card
-  const getCardTypeLabel = (type: string): 'Nota' | 'Tarea' | 'Recurso' => {
-    if (type === 'note' || type === 'nota') return 'Nota';
-    if (type === 'todo' || type === 'tarea') return 'Tarea';
-    return 'Recurso';
+  const getCardTypeLabel = (type: string): 'Nota' | 'Tarea' | 'Actividad' | 'Mision' | 'Proyecto' | 'Chat' | 'Recurso' | 'Imagen' => {
+    switch(type) {
+      case 'note':
+      case 'nota':
+      case 'text':
+        return 'Nota';
+      case 'todo':
+      case 'tarea':
+        return 'Tarea';
+      case 'actividad':
+        return 'Actividad';
+      case 'mision':
+        return 'Mision';
+      case 'proyecto':
+        return 'Proyecto';
+      case 'usuario':
+        return 'Chat';
+      case 'image':
+        return 'Imagen';
+      case 'resource':
+      case 'file':
+      case 'link':
+        return 'Recurso';
+      default:
+        return 'Nota';
+    }
   };
 
   // Función para crear datos de ejemplo cuando no hay datos reales

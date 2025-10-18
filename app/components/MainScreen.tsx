@@ -822,24 +822,119 @@ export default function MainScreen() {
                 </span>
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {selectedHistorySnapshot.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="border border-gray-200 rounded-xl bg-white p-4 shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between">
-                      <h4 className="text-sm font-semibold text-gray-900 leading-snug">{item.title}</h4>
-                      <span className="ml-2 inline-flex items-center rounded-full bg-gray-900/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-700">
-                        {item.type}
-                      </span>
+                {selectedHistorySnapshot.items.map((item) => {
+                  // Determinar el color según el tipo
+                  const getColorForType = (type: string) => {
+                    switch(type) {
+                      case 'Nota':
+                        return {
+                          bg: 'bg-gray-50',
+                          border: 'border-gray-200',
+                          badge: 'bg-gray-500 text-white',
+                          text: 'text-gray-900'
+                        };
+                      case 'Tarea':
+                        return {
+                          bg: 'bg-yellow-50',
+                          border: 'border-yellow-200',
+                          badge: 'bg-yellow-500 text-white',
+                          text: 'text-yellow-900'
+                        };
+                      case 'Actividad':
+                        return {
+                          bg: 'bg-blue-50',
+                          border: 'border-blue-200',
+                          badge: 'bg-blue-500 text-white',
+                          text: 'text-blue-900'
+                        };
+                      case 'Mision':
+                        return {
+                          bg: 'bg-green-50',
+                          border: 'border-green-200',
+                          badge: 'bg-green-500 text-white',
+                          text: 'text-green-900'
+                        };
+                      case 'Proyecto':
+                        return {
+                          bg: 'bg-indigo-50',
+                          border: 'border-indigo-200',
+                          badge: 'bg-indigo-500 text-white',
+                          text: 'text-indigo-900'
+                        };
+                      case 'Chat':
+                        return {
+                          bg: 'bg-purple-50',
+                          border: 'border-purple-200',
+                          badge: 'bg-purple-500 text-white',
+                          text: 'text-purple-900'
+                        };
+                      case 'Recurso':
+                        return {
+                          bg: 'bg-orange-50',
+                          border: 'border-orange-200',
+                          badge: 'bg-orange-500 text-white',
+                          text: 'text-orange-900'
+                        };
+                      case 'Imagen':
+                        return {
+                          bg: 'bg-pink-50',
+                          border: 'border-pink-200',
+                          badge: 'bg-pink-500 text-white',
+                          text: 'text-pink-900'
+                        };
+                      default:
+                        return {
+                          bg: 'bg-gray-50',
+                          border: 'border-gray-200',
+                          badge: 'bg-gray-500 text-white',
+                          text: 'text-gray-900'
+                        };
+                    }
+                  };
+
+                  const colors = getColorForType(item.type);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`border ${colors.border} rounded-xl ${colors.bg} p-4 shadow-sm hover:shadow-md transition-shadow`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <h4 className={`text-sm font-semibold ${colors.text} leading-snug`}>{item.title}</h4>
+                        <span className={`ml-2 inline-flex items-center rounded-full ${colors.badge} px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide`}>
+                          {item.type}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600 leading-relaxed">{item.summary}</p>
+                      <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
+                        <span>{item.owner}</span>
+                        <span>{item.lastUpdated}</span>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <button
+                          onClick={() => {
+                            console.log('🔍 Click en Agregar a pizarra', { item, cardData: item.cardData, pizarraRef: pizarraRef.current });
+                            if (item.cardData && pizarraRef.current) {
+                              console.log('✅ Restaurando card:', item.cardData);
+                              // Usar el método de la pizarra para agregar el card
+                              pizarraRef.current.restoreCard?.(item.cardData);
+
+                              alert(`✅ ${item.type} "${item.title}" agregado a la pizarra`);
+                            } else {
+                              console.error('❌ No se puede restaurar:', {
+                                hasCardData: !!item.cardData,
+                                hasPizarraRef: !!pizarraRef.current
+                              });
+                            }
+                          }}
+                          className={`w-full ${colors.badge} px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity`}
+                        >
+                          Agregar a pizarra
+                        </button>
+                      </div>
                     </div>
-                    <p className="mt-2 text-sm text-gray-600 leading-relaxed">{item.summary}</p>
-                    <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
-                      <span>{item.owner}</span>
-                      <span>{item.lastUpdated}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

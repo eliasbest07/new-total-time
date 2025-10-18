@@ -492,6 +492,26 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     setCards(prev => [...prev, newCard]);
   }, [cards]);
 
+  const restoreCard = useCallback((cardData: any) => {
+    console.log('🔧 restoreCard ejecutado con:', cardData);
+    // Restaurar un card desde el historial
+    const existingIds = cards.map(card => card.id);
+    const restoredCard = {
+      ...cardData,
+      id: generateUniqueId(cardData.type || 'card', existingIds),
+      x: cardData.x || generatePosition(),
+      y: cardData.y || generatePosition(),
+      z: Date.now() // Asegurar que aparezca en la parte superior
+    };
+    console.log('✅ Card restaurado creado:', restoredCard);
+    console.log('📋 Cards actuales antes de agregar:', cards);
+    setCards(prev => {
+      const newCards = [...prev, restoredCard];
+      console.log('📋 Cards después de agregar:', newCards);
+      return newCards;
+    });
+  }, [cards]);
+
   // Función manual para guardar en Supabase
   const saveToSupabase = useCallback(async () => {
     if (!usuario) {
@@ -711,15 +731,60 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         }
       }
 
+      // 6. Guardar las conexiones
+      console.log('   - Guardando', connections.length, 'conexiones...');
+      const { SupabaseCardConnectionRepository } = await import('@/infrastructure/datasource/SupabaseCardConnectionRepository');
+      const cardConnectionRepo = new SupabaseCardConnectionRepository();
+
+      // Obtener las conexiones actuales de Supabase para esta pizarra
+      const connectionesEnBD = await cardConnectionRepo.getByPizarraId(pizarraActual.id);
+      const currentConnectionsInDB = connectionesEnBD.map(c => c.connection_id);
+
+      // Eliminar conexiones que ya no existen localmente
+      const connectionsToDelete = currentConnectionsInDB.filter(dbConnId =>
+        !connections.some(localConn => localConn.id === dbConnId)
+      );
+
+      for (const connId of connectionsToDelete) {
+        const deleted = await cardConnectionRepo.delete(pizarraActual.id, connId);
+        if (deleted) {
+          console.log('🗑️ Conexión eliminada de Supabase:', connId);
+        }
+      }
+
+      // Crear o actualizar las conexiones actuales
+      for (const connection of connections) {
+        const connectionExists = currentConnectionsInDB.includes(connection.id);
+
+        if (connectionExists) {
+          // Actualizar conexión existente
+          await cardConnectionRepo.update(pizarraActual.id, connection.id, {
+            from_card_id: connection.from || null,
+            to_card_id: connection.to
+          });
+          console.log('   ✏️ Conexión actualizada:', connection.id);
+        } else {
+          // Crear nueva conexión
+          await cardConnectionRepo.create({
+            id_pizarra: pizarraActual.id,
+            connection_id: connection.id,
+            from_card_id: connection.from || null,
+            to_card_id: connection.to
+          });
+          console.log('   ➕ Conexión creada:', connection.id);
+        }
+      }
+
       console.log('✅ Pizarra guardada exitosamente en Supabase');
       console.log('   - ID Pizarra:', pizarraActual.id);
       console.log('   - Cards guardadas:', cards.length);
+      console.log('   - Conexiones guardadas:', connections.length);
       return true;
     } catch (error) {
       console.error('❌ Error guardando en Supabase:', error);
       return false;
     }
-  }, [pizarra, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra]);
+  }, [pizarra, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections]);
 
   // Función manual para cargar desde Supabase
   const loadFromSupabase = useCallback(async () => {
@@ -913,21 +978,40 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       });
       setCards(mappedCards);
 
+      // 5. Cargar las conexiones de la pizarra
+      console.log('   - Cargando conexiones...');
+      const { SupabaseCardConnectionRepository } = await import('@/infrastructure/datasource/SupabaseCardConnectionRepository');
+      const cardConnectionRepo = new SupabaseCardConnectionRepository();
+
+      const connectionesEnBD = await cardConnectionRepo.getByPizarraId(pizarraActual.id);
+      console.log('   - Conexiones encontradas:', connectionesEnBD.length);
+
+      // Mapear las conexiones de BD al formato local
+      const mappedConnections = connectionesEnBD.map(connDB => ({
+        id: connDB.connection_id,
+        from: connDB.from_card_id || undefined,
+        to: connDB.to_card_id
+      }));
+
+      setConnections(mappedConnections);
+      console.log('✅ Conexiones cargadas:', mappedConnections.length);
+
     } catch (error) {
       console.error('❌ Error cargando desde Supabase:', error);
       alert('❌ Error al cargar la pizarra desde Supabase.');
     }
-  }, [usuario]);
+  }, [usuario, setConnections]);
 
   useImperativeHandle(ref, () => ({
     addNoteCard,
     addTodoCard,
+    restoreCard,
     clearStorage: clearLocalStorage,
     exportStorage: exportToJSON,
     importStorage: importFromJSON,
     saveToSupabase,
     loadFromSupabase
-  }), [addNoteCard, addTodoCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase]);
+  }), [addNoteCard, addTodoCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
