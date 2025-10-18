@@ -20,17 +20,11 @@ export class SupabaseActividadRepository implements ActividadRepository {
     try {
       console.log('📅 Obteniendo actividades para usuario:', idUsuario);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getActividadesByUsuario')), 5000);
-      });
-
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('actividades')
         .select('*')
         .eq('id_usuario', idUsuario)
         .order('created_at', { ascending: false });
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (error) {
         console.error('❌ Error obteniendo actividades:', error);
@@ -171,13 +165,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
             console.log('📡 Cambio detectado en actividades:', payload);
 
             try {
-              const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('Timeout en realtime update')), 5000);
-              });
-
-              const updatePromise = this.getActividadesByUsuario(idUsuario);
-              const nuevasActividades = await Promise.race([updatePromise, timeoutPromise]);
-
+              const nuevasActividades = await this.getActividadesByUsuario(idUsuario);
               callbacks.onActividadesUpdated(nuevasActividades);
             } catch (error) {
               console.error('❌ Error procesando cambio de actividades:', error);

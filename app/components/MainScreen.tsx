@@ -1,7 +1,7 @@
 "use client";
 
 import Pizarra, { PizarraRef } from "@/application/pizarra/pizarra";
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import Ventana from "@/app/demo/components/Ventana";
 import { useScreenshots } from "@/hooks/useScreenshots";
 
@@ -18,13 +18,13 @@ import { useRecursos } from "@/hooks/useRecursos";
 import { useProyectos } from "@/hooks/useProyectos";
 import { useUsuariosOrganizacion } from "@/hooks/useUsuariosOrganizacion";
 import { useAuth } from "@/app/contexts/AuthContext";
-import { useEffect } from "react";
 import { FileText, Link, Code, Image, Video, Download, LucideIcon } from "lucide-react";
 import AgregarRecursoModal from "./modals/AgregarRecursoModal";
 import { Actividad } from "@/domain/entities/Actividad";
 import { Mision } from "@/domain/entities/Mision";
 import MisionCard from "../demo/components/MisionCard";
 import InputArea from "./mainUI/InputArea";
+import { useChartHistory, BoardHistorySnapshot } from "@/hooks/useChartHistory";
 
 
 export default function MainScreen() {
@@ -39,11 +39,46 @@ export default function MainScreen() {
   const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
   const [showMisionChat, setShowMisionChat] = useState(false);
   const [misionChatMessage, setMisionChatMessage] = useState('');
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistorySnapshot, setSelectedHistorySnapshot] = useState<BoardHistorySnapshot | null>(null);
 
   const { usuario } = useAuth();
-  const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
+  
+  // Delays escalonados para evitar múltiples peticiones simultáneas
+  const [enableHooks, setEnableHooks] = useState(false);
+  
+  useEffect(() => {
+    if (usuario) {
+      // Delay antes de habilitar todos los hooks
+      const timer = setTimeout(() => {
+        setEnableHooks(true);
+      }, 1000); // 1 segundo de delay
+      
+      return () => clearTimeout(timer);
+    } else {
+      setEnableHooks(false);
+    }
+  }, [usuario]);
+
+  // Hooks con delays escalonados para evitar 429
+  const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(
+    enableHooks ? usuario?.id || null : null
+  );
+  
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos();
-  const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
+  
+  const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(
+    enableHooks ? usuario?.idOrganizacion || null : null
+  );
+  
+  // Hook para datos del chart con delay adicional
+  const { 
+    historyData: previousDayBoardHistory, 
+    chartBarHeights, 
+    chartMaxHeight,
+    loading: chartLoading,
+    error: chartError
+  } = useChartHistory(enableHooks ? usuario?.id || null : null);
 
   // Filtrar usuarios de la organización excluyendo al usuario actual
   const usuariosFiltrados = useMemo(() => {
@@ -83,7 +118,7 @@ export default function MainScreen() {
     return filtrados;
   }, [usuariosOrganizacion, usuario]);
 
-  // Hook para screenshots
+  // Hook para screenshots con delay
   const {
     screenshots,
     isCapturing,
@@ -154,6 +189,14 @@ export default function MainScreen() {
       recursosSupabase
     });
 
+
+     const meta = document.querySelector("meta[name='viewport']");
+    const original = meta?.getAttribute("content");
+    meta?.setAttribute("content", "width=device-width, initial-scale=0.7"); // zoom out
+    return () => {
+      //if (original) meta?.setAttribute("content", original);
+    };
+
     if (!recursosLoading && recursosSupabase) {
       console.log('📚 MainScreen - Convirtiendo recursos:', recursosSupabase);
       const recursosConvertidos = convertirRecursosSupabase();
@@ -204,6 +247,12 @@ export default function MainScreen() {
   const handleShowMisionDetails = (mision: Mision) => {
     setSelectedMision(mision);
     setShowMisionDetails(true);
+  };
+
+  // Función para manejar el clic en las barras del chart
+  const handleChartBarClick = (snapshot: BoardHistorySnapshot): void => {
+    setSelectedHistorySnapshot(snapshot);
+    setShowHistoryModal(true);
   };
 
   // Funciones para formatear fecha y hora de actividades
@@ -336,6 +385,29 @@ export default function MainScreen() {
         isOpen={showAddResourceModal}
         onClose={() => setShowAddResourceModal(false)}
       />
+
+ {/* Chart positioned at bottom left */}
+      <div
+        className="flex items-end gap-2 pointer-events-auto"
+        style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 60 }}
+      >
+        {previousDayBoardHistory.map((snapshot, index) => (
+          <button
+            key={snapshot.id}
+            type="button"
+            onClick={() => handleChartBarClick(snapshot)}
+            className="group flex w-6 items-end justify-center rounded-sm bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            style={{ height: chartMaxHeight }}
+            title={`${snapshot.label}: ${snapshot.value} elementos`}
+            aria-label={`${snapshot.label}: ${snapshot.value} elementos`}
+          >
+            <span
+              className="w-6 rounded-sm bg-white/30 transition-all duration-150 group-hover:bg-white/50 group-active:scale-y-95"
+              style={{ height: chartBarHeights[index] ?? 32 }}
+            />
+          </button>
+        ))}
+      </div>
 
       {/* Ventana de Screenshots */}
       <Ventana
@@ -705,6 +777,84 @@ export default function MainScreen() {
         className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
         placeholder="Escribe aquí para crear notas, tareas o enviar..."
       />
+
+      {/* Ventana de historial de pizarra */}
+      <Ventana
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        title={selectedHistorySnapshot ? `Historial de la pizarra • ${selectedHistorySnapshot.savedAt}` : 'Historial de la pizarra'}
+        initialWidth={960}
+        initialHeight={640}
+        minWidth={720}
+        minHeight={480}
+        showOverlay={true}
+      >
+        {selectedHistorySnapshot ? (
+          <div className="text-black space-y-6 p-2 md:p-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">{selectedHistorySnapshot.label}</h2>
+                <p className="text-gray-600 text-sm">
+                  Historial de los elementos guardados en la pizarra del {selectedHistorySnapshot.savedAt}
+                </p>
+              </div>
+              <div className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
+                {selectedHistorySnapshot.value} elementos almacenados
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              {selectedHistorySnapshot.highlights.map((highlight, index) => (
+                <div
+                  key={index}
+                  className="border border-gray-200 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700"
+                >
+                  {highlight}
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Elementos guardados</h3>
+                <span className="text-xs uppercase tracking-wide text-gray-500">
+                  {chartLoading ? 'Cargando...' : 'Datos de Supabase'}
+                </span>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {selectedHistorySnapshot.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="border border-gray-200 rounded-xl bg-white p-4 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between">
+                      <h4 className="text-sm font-semibold text-gray-900 leading-snug">{item.title}</h4>
+                      <span className="ml-2 inline-flex items-center rounded-full bg-gray-900/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-700">
+                        {item.type}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-600 leading-relaxed">{item.summary}</p>
+                    <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
+                      <span>{item.owner}</span>
+                      <span>{item.lastUpdated}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {chartError && (
+              <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Error cargando datos: {chartError}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-600 p-4">
+            Selecciona una barra del gráfico para ver el detalle de la pizarra.
+          </div>
+        )}
+      </Ventana>
 
     </div>
   );

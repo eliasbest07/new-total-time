@@ -19,9 +19,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const setUsuario = (usuario: Usuario | null) => {
+    console.log('🔄 AuthContext: Estableciendo usuario:', usuario ? 'Usuario presente' : 'Usuario null');
     setUsuarioState(usuario);
     if (usuario) {
       StorageService.saveUser(usuario);
+      console.log('✅ AuthContext: Usuario guardado en localStorage');
+    } else {
+      console.log('⚠️ AuthContext: Usuario es null, no se guarda');
     }
   };
 

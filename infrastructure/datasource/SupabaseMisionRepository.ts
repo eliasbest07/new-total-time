@@ -21,16 +21,10 @@ export class SupabaseMisionRepository implements MisionRepository {
     try {
       console.log('🎯 Obteniendo todas las misiones');
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getAllMisiones')), 5000);
-      });
-
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('misiones')
         .select('*')
         .order('created_at', { ascending: false });
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (error) {
         console.error('❌ Error obteniendo todas las misiones:', error);
@@ -51,17 +45,11 @@ export class SupabaseMisionRepository implements MisionRepository {
       console.log('🎯 Obteniendo misiones para usuario:', idUsuario);
       console.log('🎯 Tipo de idUsuario:', typeof idUsuario);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getMisionesByUsuario')), 5000);
-      });
-
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('misiones')
         .select('*')
         .eq('id_usuario', idUsuario)
         .order('created_at', { ascending: false });
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       console.log('🎯 Respuesta de Supabase misiones:', { data, error });
 
@@ -205,12 +193,7 @@ export class SupabaseMisionRepository implements MisionRepository {
             console.log('📡 Cambio detectado en misiones:', payload);
 
             try {
-              const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('Timeout en realtime update')), 5000);
-              });
-
-              const updatePromise = this.getAllMisiones();
-              const nuevasMisiones = await Promise.race([updatePromise, timeoutPromise]);
+              const nuevasMisiones = await this.getAllMisiones();
 
               callbacks.onMisionesUpdated(nuevasMisiones);
             } catch (error) {
@@ -283,12 +266,7 @@ export class SupabaseMisionRepository implements MisionRepository {
             console.log('📡 Cambio detectado en misiones:', payload);
 
             try {
-              const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('Timeout en realtime update')), 5000);
-              });
-
-              const updatePromise = this.getMisionesByUsuario(idUsuario);
-              const nuevasMisiones = await Promise.race([updatePromise, timeoutPromise]);
+              const nuevasMisiones = await this.getMisionesByUsuario(idUsuario);
 
               callbacks.onMisionesUpdated(nuevasMisiones);
             } catch (error) {

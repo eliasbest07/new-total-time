@@ -8,17 +8,11 @@ export class SupabaseRecursoRepository implements RecursoRepository {
     try {
       console.log('📚 Obteniendo recursos para usuario:', idUsuario);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getRecursosByUsuario')), 5000);
-      });
-
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('recursos')
         .select('*')
         .eq('id_usuario', idUsuario)
         .order('created_at', { ascending: false });
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (error) {
         console.error('❌ Error obteniendo recursos:', error);

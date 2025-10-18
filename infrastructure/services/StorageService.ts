@@ -3,7 +3,7 @@ import { Usuario } from '@/domain/entities/Usuario';
 export class StorageService {
   private static readonly USER_KEY = 'usuario';
   private static readonly TIMESTAMP_KEY = 'usuario_timestamp';
-  private static readonly CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
+  private static readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 horas
 
   static saveUser(usuario: Usuario): void {
     if (typeof window === 'undefined') return;

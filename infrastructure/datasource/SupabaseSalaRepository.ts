@@ -13,17 +13,11 @@ export class SupabaseSalaRepository implements SalaRepository {
 
   async getSalaIdsByOrganizacion(idOrganizacion: string): Promise<string[]> {
     try {
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getSalaIdsByOrganizacion')), 5000);
-      });
-
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('organizacion')
         .select('id_salas')
         .eq('id', idOrganizacion)
         .single();
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (error) {
         // console.error('❌ Error obteniendo IDs de salas:', error);
@@ -62,16 +56,10 @@ export class SupabaseSalaRepository implements SalaRepository {
         return [];
       }
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getSalasByIds')), 5000);
-      });
-
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('sala')
         .select('*')
         .in('id', salaIdsNumeric);
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (error) {
         // console.error('❌ Error obteniendo salas:', error);
@@ -96,25 +84,17 @@ export class SupabaseSalaRepository implements SalaRepository {
     try {
       // console.log('🚀 Iniciando carga de salas para organización:', idOrganizacion);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout global en getSalasByOrganizacion')), 10000);
-      });
+      const salaIds = await this.getSalaIdsByOrganizacion(idOrganizacion);
 
-      const loadSalasPromise = async () => {
-        const salaIds = await this.getSalaIdsByOrganizacion(idOrganizacion);
+      if (salaIds.length === 0) {
+        // console.log('ℹ️ No se encontraron salas para esta organización');
+        return [];
+      }
 
-        if (salaIds.length === 0) {
-          // console.log('ℹ️ No se encontraron salas para esta organización');
-          return [];
-        }
+      const salas = await this.getSalasByIds(salaIds);
 
-        const salas = await this.getSalasByIds(salaIds);
-
-        // console.log('✅ Carga de salas completada:', salas.length, 'salas encontradas');
-        return salas;
-      };
-
-      return await Promise.race([loadSalasPromise(), timeoutPromise]);
+      // console.log('✅ Carga de salas completada:', salas.length, 'salas encontradas');
+      return salas;
     } catch (error) {
       // console.error('❌ Error en getSalasByOrganizacion:', error);
       return [];
@@ -151,12 +131,7 @@ export class SupabaseSalaRepository implements SalaRepository {
             const salaData = payload.new || payload.old;
             if (salaData && (salaData as any).id_organizacion === idOrganizacion) {
               try {
-                const timeoutPromise = new Promise<never>((_, reject) => {
-                  setTimeout(() => reject(new Error('Timeout en realtime sala update')), 3000);
-                });
-
-                const updatePromise = this.getSalasByOrganizacion(idOrganizacion);
-                const nuevasSalas = await Promise.race([updatePromise, timeoutPromise]);
+                const nuevasSalas = await this.getSalasByOrganizacion(idOrganizacion);
 
                 callbacks.onSalasUpdated(nuevasSalas);
               } catch (error) {

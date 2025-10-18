@@ -4,6 +4,7 @@ import { AuthRepository } from "@/infrastructure/repositories/AuthRepository";
 import { Usuario } from "@/domain/entities/Usuario";
 import { Rol } from "@/domain/enums/Rol";
 import { InfoUsuario } from "@/domain/entities/InfoUsuario";
+import { requestCache } from "@/infrastructure/services/RequestCache";
 
 // Tipo que representa la estructura exacta de la tabla usuario en Supabase
 interface UsuarioSupabase {
@@ -33,12 +34,36 @@ interface UsuarioSupabase {
 
 export class SupabaseAuthRepository implements AuthRepository {
     async login(email: string, password: string): Promise<Usuario | null> {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error || !data.user) return null;
+        try {
+            console.log('🔐 Intentando login con Supabase...');
+            const { data, error } = await supabase.auth.signInWithPassword({ 
+                email, 
+                password 
+            });
+            
+            if (error) {
+                console.error('❌ Error en login:', error);
+                return null;
+            }
+            
+            if (!data.user || !data.session) {
+                console.error('❌ No se recibió usuario o sesión');
+                return null;
+            }
 
-        // Obtener datos adicionales de la tabla usuario
-        const userData = await this.getUserData(data.user.id);
-        return await this.mapToDomainUser(data.user, userData);
+            console.log('✅ Login exitoso, sesión creada');
+            console.log('📝 Sesión expira en:', new Date(data.session.expires_at * 1000));
+
+            // Obtener datos adicionales de la tabla usuario
+            const userData = await this.getUserData(data.user.id);
+            const domainUser = await this.mapToDomainUser(data.user, userData);
+            
+            console.log('✅ Usuario del dominio creado exitosamente');
+            return domainUser;
+        } catch (error) {
+            console.error('❌ Error crítico en login:', error);
+            return null;
+        }
     }
 
     async register(email: string, password: string): Promise<Usuario | null> {
@@ -74,6 +99,15 @@ export class SupabaseAuthRepository implements AuthRepository {
         return data as UsuarioSupabase;
     }
 
+    // Versión con cache para getUserData
+    private async getUserDataCached(userAuthId: string): Promise<UsuarioSupabase | null> {
+        return await requestCache.execute(
+            `user-data-${userAuthId}`,
+            () => this.getUserData(userAuthId),
+            5 * 60 * 1000 // Cache por 5 minutos
+        );
+    }
+
     // Obtener nombre de la organización por ID
     private async getOrganizacionNombre(organizacionId: string): Promise<string | null> {
         console.log('🔍 Buscando organización con id:', organizacionId);
@@ -95,17 +129,73 @@ export class SupabaseAuthRepository implements AuthRepository {
     }
 
     async getCurrentUser(): Promise<Usuario | null> {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data.user) return null;
+        try {
+            // Verificar que estamos en el cliente
+            if (typeof window === 'undefined') {
+                console.log('⚠️ getCurrentUser llamado en el servidor, retornando null');
+                return null;
+            }
 
-        // Obtener datos adicionales de la tabla usuario
-        const userData = await this.getUserData(data.user.id);
-        return await this.mapToDomainUser(data.user, userData);
+            // Usar cache para evitar peticiones duplicadas
+            return await requestCache.execute(
+                'current-user',
+                async () => {
+                    console.log('🔍 Obteniendo usuario actual (sin cache)...');
+
+                    // Primero verificar la sesión
+                    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+                    
+                    if (sessionError) {
+                        console.error('❌ Error obteniendo sesión:', sessionError);
+                        return null;
+                    }
+
+                    if (!sessionData.session) {
+                        console.log('ℹ️ No hay sesión activa');
+                        return null;
+                    }
+
+                    console.log('✅ Sesión encontrada, obteniendo datos del usuario...');
+
+                    // Usar los datos de la sesión directamente
+                    const user = sessionData.session.user;
+                    if (!user) {
+                        console.error('❌ No hay usuario en la sesión');
+                        return null;
+                    }
+
+                    // Obtener datos adicionales de la tabla usuario (también con cache)
+                    const userData = await this.getUserDataCached(user.id);
+                    return await this.mapToDomainUser(user, userData);
+                },
+                2 * 60 * 1000 // Cache por 2 minutos
+            );
+        } catch (error) {
+            console.error('❌ Error en getCurrentUser:', error);
+            return null;
+        }
     }
 
     async isAuthenticated(): Promise<boolean> {
-        const { data, error } = await supabase.auth.getUser();
-        return !error && !!data.user;
+        try {
+            // Verificar que estamos en el cliente
+            if (typeof window === 'undefined') {
+                return false;
+            }
+
+            // Solo verificar la sesión, no llamar getUser()
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            
+            if (sessionError || !sessionData.session) {
+                return false;
+            }
+
+            // Verificar que la sesión tiene un usuario válido
+            return !!sessionData.session.user;
+        } catch (error) {
+            console.error('❌ Error en isAuthenticated:', error);
+            return false;
+        }
     }
 
     // 🔑 Mapear el user de supabase al dominio Usuario

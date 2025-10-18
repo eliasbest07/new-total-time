@@ -11,20 +11,14 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
     try {
       console.log('👥 Obteniendo usuarios para organización:', organizacionId);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getUsuariosByOrganizacion')), 5000);
-      });
-
       // Asumiendo que tienes una tabla 'usuarios' en Supabase
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('usuario')
         .select(`
           *
         `)
         .eq('id_organizacion', organizacionId)
         .order('created_at', { ascending: false });
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (error) {
         console.error('❌ Error obteniendo usuarios:', error);

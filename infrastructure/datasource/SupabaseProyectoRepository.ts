@@ -2,23 +2,21 @@ import { supabase } from "@/infrastructure/services/SupabaseClient";
 import { ProyectoRepository } from "@/infrastructure/repositories/ProyectoRepository";
 import { Proyecto } from "@/domain/entities/Proyecto";
 
+// Cache para evitar múltiples llamadas a getUser()
+let userOrgCache: { userId: string; organizacionId: string | null; timestamp: number } | null = null;
+const USER_ORG_CACHE_TTL = 60 * 1000; // 60 segundos
+
 export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async getProyectosByUsuario(userId: string): Promise<Proyecto[]> {
     try {
       console.log('📁 Obteniendo proyectos para usuario:', userId);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getProyectosByUsuario')), 5000);
-      });
-
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('proyecto')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (error) {
         console.error('❌ Error obteniendo proyectos:', error);
@@ -38,18 +36,12 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
     try {
       console.log('📁 Obteniendo proyectos para organización:', organizacionId);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getProyectosByOrganizacion')), 5000);
-      });
-
       // Primero obtener la organización para conseguir el array de proyectos
-      const organizacionQuery = supabase
+      const { data: organizacionData, error: organizacionError } = await supabase
         .from('organizacion')
         .select('proyectos')
         .eq('id', organizacionId)
         .maybeSingle();
-
-      const { data: organizacionData, error: organizacionError } = await Promise.race([organizacionQuery, timeoutPromise]);
 
       if (organizacionError) {
         console.error('❌ Error obteniendo organización:', organizacionError);
@@ -62,20 +54,18 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       }
 
       const proyectosIds = organizacionData?.proyectos || [];
-      
+
       if (proyectosIds.length === 0) {
         console.log('✅ No hay proyectos en esta organización');
         return [];
       }
 
       // Ahora obtener los proyectos usando los IDs
-      const proyectosQuery = supabase
+      const { data, error } = await supabase
         .from('proyecto')
         .select('*')
         .in('id', proyectosIds)
         .order('created_at', { ascending: false });
-
-      const { data, error } = await Promise.race([proyectosQuery, timeoutPromise]);
 
       if (error) {
         console.error('❌ Error obteniendo proyectos por organización:', error);
@@ -117,7 +107,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
       // Obtener el usuario autenticado actual
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         console.error('❌ Error obteniendo usuario autenticado:', authError);
         return null;
@@ -125,18 +115,20 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
       console.log('👤 Usuario autenticado ID:', user.id);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout en getUserOrganizationId')), 5000);
-      });
+      // Verificar cache primero
+      if (userOrgCache &&
+          userOrgCache.userId === user.id &&
+          (Date.now() - userOrgCache.timestamp) < USER_ORG_CACHE_TTL) {
+        console.log('🎯 Usando organización desde cache:', userOrgCache.organizacionId);
+        return userOrgCache.organizacionId;
+      }
 
       // Obtener la organización del usuario desde la tabla usuario
-      const userQuery = supabase
+      const { data: userData, error: userError } = await supabase
         .from('usuario')
         .select('id_organizacion')
         .eq('id_usuario', user.id)
         .maybeSingle();
-
-      const { data: userData, error: userError } = await Promise.race([userQuery, timeoutPromise]);
 
       if (userError) {
         console.error('❌ Error obteniendo datos del usuario:', userError);
@@ -150,7 +142,14 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
       const organizacionId = userData.id_organizacion;
       console.log('✅ ID de organización obtenido:', organizacionId);
-      
+
+      // Guardar en cache
+      userOrgCache = {
+        userId: user.id,
+        organizacionId,
+        timestamp: Date.now()
+      };
+
       return organizacionId;
     } catch (error) {
       console.error('❌ Error en getUserOrganizationId:', error);
