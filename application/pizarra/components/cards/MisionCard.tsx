@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../../types';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useAuth } from '@/app/contexts/AuthContext';
@@ -26,6 +26,13 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   const [showChat, setShowChat] = useState(false);
   const [newMessage, setNewMessage] = useState('');
 
+  // Estados para el contador de tiempo
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showEntregarModal, setShowEntregarModal] = useState(false);
+  const [entregaTexto, setEntregaTexto] = useState('');
+  const [entregaImagen, setEntregaImagen] = useState<File | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
   // Obtener el usuario actual (UUID del auth)
   const { usuario } = useAuth();
   const currentUserUuid = usuario?.id || null;
@@ -45,6 +52,55 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     sending,
     enviarMensaje
   } = useChatMessages(currentUserUuid, creadorUuid);
+
+  // Efecto para el contador de tiempo
+  useEffect(() => {
+    if (card.misionData?.isRunning) {
+      intervalRef.current = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [card.misionData?.isRunning]);
+
+  // Efecto para actualizar el título de la pestaña del navegador
+  useEffect(() => {
+    if (card.misionData?.isRunning && elapsedSeconds > 0) {
+      const timeString = formatTime(elapsedSeconds);
+      const misionTitle = card.misionData?.title || card.title;
+      document.title = `⏱️ ${timeString} - ${misionTitle}`;
+    } else if (!card.misionData?.isRunning && elapsedSeconds > 0) {
+      // Si se pausa, mostrar el tiempo pausado
+      const timeString = formatTime(elapsedSeconds);
+      const misionTitle = card.misionData?.title || card.title;
+      document.title = `⏸️ ${timeString} - ${misionTitle}`;
+    }
+
+    // Restaurar el título original cuando se desmonte o cuando se reinicie
+    return () => {
+      if (elapsedSeconds === 0 || !card.misionData?.isRunning) {
+        document.title = 'Pizarra'; // Título por defecto
+      }
+    };
+  }, [card.misionData?.isRunning, elapsedSeconds, card.misionData?.title, card.title]);
+
+  // Función para formatear el tiempo
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
 
   const handleSendMessage = async () => {
     console.log('💬 [handleSendMessage] Iniciando...');
@@ -99,6 +155,45 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   const handleBackToMision = () => {
     setShowChat(false);
     setNewMessage('');
+  };
+
+  // Función para manejar play/pause
+  // La solicitud de permiso de pantalla se maneja automáticamente en useScreenshots
+  const handlePlayPauseClick = (cardId: string, isRunning: boolean) => {
+    handleMisionPlayPause(cardId, isRunning);
+  };
+
+  // Función para manejar el botón de entregar
+  const handleEntregar = () => {
+    setShowEntregarModal(true);
+    // Detener la misión (como si se diera pause)
+    if (card.misionData?.isRunning) {
+      handleMisionPlayPause(card.id, true);
+    }
+  };
+
+  // Función para enviar la entrega
+  const handleSubmitEntrega = () => {
+    // Aquí puedes agregar la lógica para enviar la entrega al backend
+    console.log('📦 Entrega:', {
+      titulo: card.misionData?.title || card.title,
+      tiempo: formatTime(elapsedSeconds),
+      texto: entregaTexto,
+      imagen: entregaImagen
+    });
+
+    // Cerrar modal y resetear formulario
+    setShowEntregarModal(false);
+    setEntregaTexto('');
+    setEntregaImagen(null);
+    setElapsedSeconds(0);
+  };
+
+  // Función para cancelar la entrega
+  const handleCancelEntrega = () => {
+    setShowEntregarModal(false);
+    setEntregaTexto('');
+    setEntregaImagen(null);
   };
 
   // Vista de chat
@@ -192,11 +287,121 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     );
   }
 
+  // Determinar si está corriendo para cambiar colores
+  const isRunning = card.misionData?.isRunning || false;
+  const borderColor = isRunning ? 'border-orange-200' : 'border-green-200';
+  const textColor = isRunning ? 'text-orange-800' : 'text-green-800';
+  const textColorSecondary = isRunning ? 'text-orange-700' : 'text-green-700';
+  const bgColor = isRunning ? 'bg-orange-600' : 'bg-green-600';
+  const bgColorHover = isRunning ? 'hover:bg-orange-700' : 'hover:bg-green-700';
+
+  // Modal de entrega
+  if (showEntregarModal) {
+    return (
+      <div className="flex flex-col h-full w-full p-4 bg-white">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">📦 Entregar Misión</h2>
+
+        <div className="flex-1 overflow-y-auto space-y-3">
+          {/* Título de la misión */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+            <input
+              type="text"
+              value={card.misionData?.title || card.title}
+              disabled
+              className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-700"
+            />
+          </div>
+
+          {/* Tiempo transcurrido */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tiempo transcurrido</label>
+            <input
+              type="text"
+              value={formatTime(elapsedSeconds)}
+              disabled
+              className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-700"
+            />
+          </div>
+
+          {/* Descripción/Comentarios */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descripción/Comentarios</label>
+            <textarea
+              value={entregaTexto}
+              onChange={(e) => setEntregaTexto(e.target.value)}
+              placeholder="Describe lo que realizaste..."
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 min-h-[80px]"
+              data-todo-interactive
+            />
+          </div>
+
+          {/* Subir imagen */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Imagen (opcional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setEntregaImagen(e.target.files?.[0] || null)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              data-todo-interactive
+            />
+            {entregaImagen && (
+              <p className="text-xs text-gray-600 mt-1">✓ {entregaImagen.name}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Botones */}
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={handleCancelEntrega}
+            className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded transition-colors"
+            data-todo-interactive
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmitEntrega}
+            className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+            data-todo-interactive
+          >
+            Enviar Entrega
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Vista normal de la misión
   return (
     <div className="flex flex-col h-full w-full p-3">
+      {/* Botón Entregar - Solo visible cuando está corriendo */}
+      {isRunning && (
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={handleEntregar}
+            className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+            data-todo-interactive
+          >
+            📦 Entregar
+          </button>
+        </div>
+      )}
+
+      {/* Contador de tiempo - Visible cuando está corriendo */}
+      {isRunning && (
+        <div className="text-center mb-2">
+          <div className="bg-orange-100 border border-orange-300 rounded px-3 py-2">
+            <span className="text-orange-900 font-mono text-lg font-bold">
+              ⏱️ {formatTime(elapsedSeconds)}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Header con icono, título y horas */}
-      <div className="flex items-center gap-2 mb-2 border-b border-green-200 pb-2">
+      <div className={`flex items-center gap-2 mb-2 border-b ${borderColor} pb-2`}>
         <div style={{ fontSize: `${Math.max(16, (card.fontSize || 18) + 2)}px` }}>🎯</div>
         {editingTitle === card.id ? (
           <input
@@ -211,19 +416,19 @@ export const MisionCard: React.FC<MisionCardProps> = ({
                 setEditingTitle(null);
               }
             }}
-            className="font-semibold text-green-800 flex-1 bg-transparent border-b border-green-400 focus:outline-none"
+            className={`font-semibold ${textColor} flex-1 bg-transparent border-b ${isRunning ? 'border-orange-400' : 'border-green-400'} focus:outline-none`}
             autoFocus
             data-todo-interactive
           />
         ) : (
           <h3
-            className="font-semibold text-green-800 truncate flex-1"
+            className={`font-semibold ${textColor} truncate flex-1`}
             style={{ fontSize: `${(card.fontSize || 18) - 2}px` }}
           >
             {card.misionData?.title || card.title}
           </h3>
         )}
-        <div className="bg-green-600 text-white rounded-full px-2 py-1 font-bold text-xs">
+        <div className={`${bgColor} text-white rounded-full px-2 py-1 font-bold text-xs`}>
           {card.misionData?.hours || 1}h
         </div>
       </div>
@@ -231,7 +436,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
       {/* Descripción */}
       <div className="mb-2">
         <p
-          className="text-green-700 leading-tight"
+          className={textColorSecondary}
           style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
         >
           {card.misionData?.description || card.title}
@@ -242,11 +447,11 @@ export const MisionCard: React.FC<MisionCardProps> = ({
       <div className="flex-1 flex flex-col justify-center items-center gap-2 data-todo-interactive">
         {/* Botón de play/pause centrado */}
         <button
-          className="bg-green-600 hover:bg-green-700 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors duration-200 shadow-lg hover:shadow-xl"
+          className={`${bgColor} ${bgColorHover} text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors duration-200 shadow-lg hover:shadow-xl`}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            handleMisionPlayPause(card.id, card.misionData?.isRunning || false);
+            handlePlayPauseClick(card.id, card.misionData?.isRunning || false);
           }}
           onMouseDown={(e) => {
             e.preventDefault();
@@ -261,7 +466,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
 
         {/* Imagen aspecto 16x9 - Muestra última captura */}
         <div
-          className="bg-green-200 rounded border-2 border-green-300 overflow-hidden w-40"
+          className={`${isRunning ? 'bg-orange-200 border-orange-300' : 'bg-green-200 border-green-300'} rounded border-2 overflow-hidden w-40`}
           style={{ aspectRatio: '16/9' }}
         >
           {card.misionData?.lastCaptureUrl ? (
@@ -271,9 +476,9 @@ export const MisionCard: React.FC<MisionCardProps> = ({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-green-300 to-green-500 flex items-center justify-center">
+            <div className={`w-full h-full bg-gradient-to-br ${isRunning ? 'from-orange-300 to-orange-500' : 'from-green-300 to-green-500'} flex items-center justify-center`}>
               <div
-                className="text-green-800 font-medium text-center"
+                className={`${isRunning ? 'text-orange-800' : 'text-green-800'} font-medium text-center`}
                 style={{ fontSize: `${(card.fontSize || 18) - 8}px` }}
               >
                 📸
@@ -284,7 +489,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
       </div>
 
       {/* Input de chat al final del card */}
-      <div className="mt-2 pt-2 border-t border-green-200">
+      <div className={`mt-2 pt-2 border-t ${borderColor}`}>
         <div className="flex gap-1">
           <input
             type="text"
@@ -296,12 +501,12 @@ export const MisionCard: React.FC<MisionCardProps> = ({
               }
             }}
             placeholder="Contactar..."
-            className="flex-1 px-2 py-1 text-xs border border-green-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500 placeholder-gray-500 text-gray-700"
+            className={`flex-1 px-2 py-1 text-xs border ${isRunning ? 'border-orange-300 focus:ring-orange-500' : 'border-green-300 focus:ring-green-500'} rounded focus:outline-none focus:ring-1 placeholder-gray-500 text-gray-700`}
             data-todo-interactive
           />
           <button
             onClick={handleSendMessage}
-            className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs transition-colors"
+            className={`px-2 py-1 ${bgColor} ${bgColorHover} text-white rounded text-xs transition-colors`}
             data-todo-interactive
           >
             💬

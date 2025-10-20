@@ -58,9 +58,23 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     isCapturing,
     startCapturing,
     stopCapturing,
+    captureNow,
   } = useScreenshots();
 
   const { pastedImages, setPastedImages } = usePasteImage(setCards);
+
+  // Exponer captureNow globalmente para el API endpoint
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).pizarraCaptureNow = captureNow;
+      console.log('✅ captureNow expuesto globalmente en window.pizarraCaptureNow');
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).pizarraCaptureNow;
+      }
+    };
+  }, [captureNow]);
 
   const {
     connections,
@@ -196,15 +210,15 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   const handleMisionPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
     console.log('🎯 [MISION PLAY/PAUSE] Botón presionado en tarjeta:', cardId);
     console.log('👤 [MISION PLAY/PAUSE] Usuario logeado:', usuario);
+    console.log('📊 [MISION PLAY/PAUSE] Estado actual isCapturing:', isCapturing);
+    console.log('📊 [MISION PLAY/PAUSE] Estado actual currentIsRunning:', currentIsRunning);
+
     const newRunningState = !currentIsRunning;
 
-    setCards(prev => prev.map(c =>
-      c.id === cardId && c.misionData
-        ? { ...c, misionData: { ...c.misionData, isRunning: newRunningState } }
-        : c
-    ));
+    // Si va a iniciar (play)
+    if (newRunningState) {
+      console.log('▶️ [MISION PLAY/PAUSE] Iniciando misión...');
 
-    if (newRunningState && !isCapturing) {
       try {
         const card = cards.find(c => c.id === cardId);
         if (!card || !card.misionData) {
@@ -220,7 +234,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
         console.log('📤 [MISION PLAY/PAUSE] Iniciando captura con userId:', userId);
         console.log('📤 [MISION PLAY/PAUSE] misionId:', misionId);
+        console.log('🎥 [MISION PLAY/PAUSE] Solicitando permiso de pantalla...');
 
+        // Siempre solicitar permiso de pantalla cuando se inicia
         await startCapturing({
           userId: userId,
           actividadId: misionId,
@@ -235,12 +251,44 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             ));
           }
         });
-        console.log('✅ Captura de misión iniciada exitosamente');
+
+        console.log('✅ [MISION PLAY/PAUSE] Captura iniciada exitosamente, activando contador...');
+
+        // Actualizar isRunning a true
+        setCards(prev => {
+          console.log('🔄 [MISION PLAY/PAUSE] Actualizando cards, buscando card:', cardId);
+          const updatedCards = prev.map(c => {
+            if (c.id === cardId && c.misionData) {
+              console.log('✅ [MISION PLAY/PAUSE] Card encontrada, actualizando isRunning a true');
+              return { ...c, misionData: { ...c.misionData, isRunning: true } };
+            }
+            return c;
+          });
+          return updatedCards;
+        });
+
+        console.log('✅ [MISION PLAY/PAUSE] Contador activado, card debería estar en naranja');
       } catch (error) {
         console.error('❌ Error iniciando captura de misión:', error);
+        console.log('⚠️ No se activó el contador porque el usuario canceló o hubo un error');
+        // No actualizar isRunning si hubo error
       }
-    } else if (!newRunningState && isCapturing) {
+    } else if (!newRunningState) {
+      // Si va a pausar, actualizar el estado y detener captura completamente
+      console.log('⏸️ [MISION PLAY/PAUSE] Pausando misión...');
+
+      // Primero actualizar el estado
+      setCards(prev => prev.map(c =>
+        c.id === cardId && c.misionData
+          ? { ...c, misionData: { ...c.misionData, isRunning: false } }
+          : c
+      ));
+
+      // Detener captura y cerrar stream de pantalla
+      console.log('⏹️ [MISION PLAY/PAUSE] Deteniendo captura de pantalla...');
       stopCapturing();
+
+      console.log('✅ [MISION PLAY/PAUSE] Misión pausada exitosamente (captura detenida)');
     }
   }, [cards, isCapturing, startCapturing, stopCapturing, usuario]);
 
@@ -395,8 +443,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           baseWidth = 250;
           baseHeight = 200;
         } else if (card.type === 'mision') {
-          baseWidth = 250;
-          baseHeight = 300;
+          baseWidth = 280;
+          baseHeight = 400;
         } else if (card.type === 'actividad') {
           baseWidth = 300;
           baseHeight = 250;

@@ -16,6 +16,7 @@ interface UseScreenshotsReturn {
     onCaptureUpdate?: (url: string) => void;
   }) => Promise<void>;
   stopCapturing: () => void;
+  captureNow: () => Promise<string | null>;
   clearScreenshots: () => Promise<void>;
   clearScreenshotsByBloque: (actividadId: string) => Promise<void>;
   reloadScreenshots: (actividadId?: string, userId?: string) => Promise<void>;
@@ -30,7 +31,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
+
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -109,13 +110,12 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
       console.log('✅ [START CAPTURE] Permisos concedidos, stream obtenido');
 
-      if (!videoRef.current) {
-        videoRef.current = document.createElement("video");
-        videoRef.current.autoplay = true;
-        videoRef.current.muted = true;
-        videoRef.current.srcObject = mediaStreamRef.current;
-        console.log('✅ [START CAPTURE] Video element creado y configurado');
-      }
+      // Siempre crear un nuevo video element para cada sesión
+      videoRef.current = document.createElement("video");
+      videoRef.current.autoplay = true;
+      videoRef.current.muted = true;
+      videoRef.current.srcObject = mediaStreamRef.current;
+      console.log('✅ [START CAPTURE] Video element creado y configurado');
 
       // Esperar a que el video esté listo antes de configurar el intervalo
       await new Promise<void>((resolve) => {
@@ -260,6 +260,16 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       console.log('✅ [STOP CAPTURE] Stream de video detenido');
     }
 
+    // Limpiar el video ref para poder recrearlo en el próximo inicio
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current = null;
+      console.log('✅ [STOP CAPTURE] Video element limpiado');
+    }
+
+    // Limpiar el contexto también
+    currentContextRef.current = null;
+
     setIsCapturing(false);
     console.log('✅ [STOP CAPTURE] Captura detenida exitosamente');
   }, []);
@@ -302,6 +312,110 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     }
   }, []);
 
+
+
+  // Tomar captura inmediata (bajo demanda) y subir a Supabase
+  const captureNow = useCallback(async (): Promise<string | null> => {
+    console.log('📸 [CAPTURE NOW] Solicitando captura inmediata...');
+
+    if (!videoRef.current || !currentContextRef.current) {
+      console.error('❌ [CAPTURE NOW] No hay stream activo o contexto disponible');
+      return null;
+    }
+
+    if (!isCapturing) {
+      console.error('❌ [CAPTURE NOW] No se está capturando pantalla actualmente');
+      return null;
+    }
+
+    try {
+      const canvas = document.createElement("canvas");
+      const params = currentContextRef.current;
+
+      // Optimización: Reducir resolución si es muy grande
+      const maxWidth = 1920;
+      const maxHeight = 1080;
+      let width = videoRef.current.videoWidth;
+      let height = videoRef.current.videoHeight;
+
+      console.log(`📐 [CAPTURE NOW] Resolución original: ${width}x${height}`);
+
+      // Verificar que el video tenga dimensiones válidas
+      if (width === 0 || height === 0) {
+        console.error('❌ [CAPTURE NOW] Video sin dimensiones válidas');
+        return null;
+      }
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+      if (height > maxHeight) {
+        width = Math.round((width * maxHeight) / height);
+        height = maxHeight;
+      }
+
+      console.log(`📐 [CAPTURE NOW] Resolución ajustada: ${width}x${height}`);
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        console.error('❌ [CAPTURE NOW] No se pudo obtener contexto 2D del canvas');
+        return null;
+      }
+
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      console.log('✅ [CAPTURE NOW] Imagen dibujada en canvas');
+
+      // Convertir a blob para subir a Supabase
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.7)
+      );
+
+      if (!blob) {
+        console.error('❌ [CAPTURE NOW] No se pudo crear blob de la imagen');
+        return null;
+      }
+
+      console.log(`✅ [CAPTURE NOW] Blob creado. Tamaño: ${(blob.size / 1024).toFixed(2)} KB`);
+
+      // Subir a Supabase
+      const fileName = `capture-now-${Date.now()}.jpg`;
+      console.log(`📤 [CAPTURE NOW] Subiendo imagen: ${fileName} a carpeta: ${params.actividadId}`);
+
+      const url = await uploadImage(blob, params.actividadId, fileName);
+      console.log(`✅ [CAPTURE NOW] Imagen subida exitosamente. URL: ${url}`);
+
+      // Opcional: Guardar en base de datos
+      console.log('💾 [CAPTURE NOW] Guardando registro en base de datos...');
+      const newCapture = await captureRepository.create({
+        id_usuario: params.userId,
+        img_url: url,
+        mision_actividad: params.misionActividad,
+        id_bloque: params.actividadId,
+        total_trabajado_hoy: params.totalTrabajadoHoy,
+        tiempo_tarea_actual: params.tiempoTareaActual
+      });
+
+      console.log('✅ [CAPTURE NOW] Registro guardado en BD:', newCapture);
+
+      // Agregar a la lista de screenshots
+      setScreenshots(prev => [newCapture, ...prev]);
+
+      // Notificar la nueva captura si hay callback
+      if (params.onCaptureUpdate) {
+        params.onCaptureUpdate(url);
+      }
+
+      console.log('🎉 [CAPTURE NOW] Captura completada exitosamente');
+      return url;
+    } catch (error) {
+      console.error('❌ [CAPTURE NOW] Error durante captura:', error);
+      return null;
+    }
+  }, [isCapturing, uploadImage]);
+
   useEffect(() => {
     return () => {
       stopCapturing();
@@ -313,6 +427,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     isCapturing,
     startCapturing,
     stopCapturing,
+    captureNow,
     clearScreenshots,
     clearScreenshotsByBloque,
     reloadScreenshots,

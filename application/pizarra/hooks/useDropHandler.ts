@@ -164,8 +164,8 @@ export const useDropHandler = (
             title: resource.title || 'Nueva Misión',
             content: `${resource.hours}h - ${resource.description || resource.title}`,
             x, y,
-            width: 250,
-            height: 300,
+            width: 280,
+            height: 400,
             fontSize: 18,
             misionData: {
               title: resource.title || 'Nueva Misión',

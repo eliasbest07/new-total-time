@@ -135,7 +135,7 @@ const Perfil = ({
                         {showPizarraControls && (
                             <>
                                 <div className="px-4 py-2 border-t border-gray-200 bg-blue-50">
-                                    <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">☁️ Gestión Supabase</p>
+                                    <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">☁️ Pizarra Datos</p>
                                 </div>
 
                                 <button
@@ -146,7 +146,7 @@ const Perfil = ({
                                     className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-blue-600"
                                     title="Guardar pizarra actual en Supabase (solo pizarra de hoy)"
                                 >
-                                    💾 Guardar en Supabase
+                                    💾 Guardar en la Nube
                                 </button>
 
                                 <button
@@ -157,11 +157,11 @@ const Perfil = ({
                                     className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-green-600"
                                     title="Cargar pizarra del día desde Supabase"
                                 >
-                                    📥 Cargar desde Supabase
+                                    📥 Cargar de la Nube
                                 </button>
 
                                 <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
-                                    <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">📦 Archivos Locales</p>
+                                    <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">📦 Pizarra en Local</p>
                                 </div>
 
                                 <button

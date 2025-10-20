@@ -48,10 +48,16 @@ interface CardWrapperProps {
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
   const { card } = props;
 
+  // Determinar si es una misión corriendo para cambiar colores
+  const isMisionRunning = card.type === 'mision' && card.misionData?.isRunning;
+
   return (
     <div
       className={`
-        ${getCardStyle(card.type)}
+        ${isMisionRunning
+          ? 'absolute rounded-lg shadow-lg border-2 p-2 cursor-move transition-colors duration-200 select-none bg-orange-50 border-orange-300'
+          : getCardStyle(card.type)
+        }
         ${props.draggedCard === card.id ? 'shadow-2xl border-blue-500' : ''}
         ${props.isConnecting && props.connectingFrom === card.id ? 'ring-4 ring-blue-400' : ''}
         ${props.hoveredCard === card.id ? 'ring-2 ring-gray-300' : ''}
@@ -79,7 +85,9 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
       <ResizeHandles cardId={card.id} onResizeStart={props.handleResizeStart} />
 
       {/* Top border line */}
-      <div className={`absolute top-0 left-0 right-0 h-2 rounded-t-lg ${getCardBorderColor(card.type)}`}></div>
+      <div className={`absolute top-0 left-0 right-0 h-2 rounded-t-lg ${
+        isMisionRunning ? 'bg-orange-600' : getCardBorderColor(card.type)
+      }`}></div>
 
       {/* Card content using factory */}
       <CardFactory
