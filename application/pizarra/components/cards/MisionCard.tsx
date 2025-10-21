@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../../types';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { useMisionActiva } from '@/hooks/useMisionActiva';
 
 interface MisionCardProps {
   card: Card;
@@ -44,6 +45,9 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   console.log('💬 [MisionCard] currentUserUuid:', currentUserUuid);
   console.log('💬 [MisionCard] creadorUuid desde misionData:', card.misionData?.idCreador);
   console.log('💬 [MisionCard] creadorUuid final (con fallback):', creadorUuid);
+
+  // Hook para gestionar misiones activas
+  const { submitEntrega } = useMisionActiva();
 
   // Hook de chat para mensajes reales
   const {
@@ -173,20 +177,83 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   };
 
   // Función para enviar la entrega
-  const handleSubmitEntrega = () => {
-    // Aquí puedes agregar la lógica para enviar la entrega al backend
-    console.log('📦 Entrega:', {
-      titulo: card.misionData?.title || card.title,
-      tiempo: formatTime(elapsedSeconds),
-      texto: entregaTexto,
-      imagen: entregaImagen
-    });
+  const handleSubmitEntrega = async () => {
+    try {
+      console.log('📦 [ENTREGA] Iniciando envío de entrega...');
 
-    // Cerrar modal y resetear formulario
-    setShowEntregarModal(false);
-    setEntregaTexto('');
-    setEntregaImagen(null);
-    setElapsedSeconds(0);
+      if (!entregaTexto.trim()) {
+        alert('Por favor, agrega una descripción de tu entrega');
+        return;
+      }
+
+      if (!currentUserUuid) {
+        alert('No se pudo identificar el usuario');
+        return;
+      }
+
+      // 1. Subir imagen si existe
+      let imagenUrl: string | null = null;
+      if (entregaImagen) {
+        console.log('📸 [ENTREGA] Subiendo imagen de entrega...');
+        const formData = new FormData();
+        formData.append('file', entregaImagen);
+        formData.append('userId', currentUserUuid);
+        formData.append('cardId', card.id);
+
+        const uploadResponse = await fetch('/api/upload-entregable', {
+          method: 'POST',
+          body: formData
+        });
+
+        const uploadResult = await uploadResponse.json();
+
+        if (uploadResult.success) {
+          imagenUrl = uploadResult.url;
+          console.log('✅ [ENTREGA] Imagen subida:', imagenUrl);
+        } else {
+          console.error('❌ Error subiendo imagen:', uploadResult.error);
+          alert('Error al subir la imagen. Intenta de nuevo.');
+          return;
+        }
+      }
+
+      // 2. Guardar entrega en misiones_activas
+      console.log('💾 [ENTREGA] Guardando entrega en Supabase...');
+
+      // Obtener el ID de la misión activa del card
+      const misionActivaId = card.misionData?.misionActivaId;
+
+      if (!misionActivaId) {
+        console.error('❌ No se encontró el ID de la misión activa');
+        alert('Error: No se pudo encontrar la misión activa. Asegúrate de haber iniciado la misión primero.');
+        return;
+      }
+
+      const result = await submitEntrega(misionActivaId, {
+        entrega_descripcion: entregaTexto,
+        entrega_imagen_url: imagenUrl ? [imagenUrl] : [],
+        tiempo_total_segundos: elapsedSeconds,
+        // Aquí podríamos agregar las capturas guardadas durante la ejecución
+        capturas_urls: []
+      });
+
+      if (result) {
+        console.log('✅ [ENTREGA] Entrega guardada exitosamente:', result.id);
+        alert('¡Entrega enviada exitosamente! 🎉');
+
+        // Cerrar modal y resetear formulario
+        setShowEntregarModal(false);
+        setEntregaTexto('');
+        setEntregaImagen(null);
+        setElapsedSeconds(0);
+      } else {
+        console.error('❌ Error guardando entrega');
+        alert('Error al guardar la entrega. Intenta de nuevo.');
+      }
+    } catch (error) {
+      console.error('❌ Error en handleSubmitEntrega:', error);
+      alert('Error al enviar la entrega. Intenta de nuevo.');
+    }
   };
 
   // Función para cancelar la entrega

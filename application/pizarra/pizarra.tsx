@@ -8,6 +8,7 @@ import { useCardMision } from '@/hooks/useCardMision';
 import { mapCardDBToCard, mapCardToCardDB } from './utils/cardMapper';
 import { SupabaseCardMisionRepository } from '@/infrastructure/datasource/SupabaseCardMisionRepository';
 import { SupabaseMisionRepository } from '@/infrastructure/datasource/SupabaseMisionRepository';
+import { useMisionActiva } from '@/hooks/useMisionActiva';
 
 interface PizarraProps {
   onShowScreenshots?: (cardId: string) => void;
@@ -32,12 +33,14 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     console.log('👤 Usuario en Pizarra:', usuario?.id, usuario?.email);
   }, [usuario]);
 
-  // Hooks de Supabase (deshabilitados para carga automática - solo se usan manualmente)
-  // Pasamos null para que no cargue automáticamente
-  const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(null);
+  // Hooks de Supabase - Cargar pizarra del usuario automáticamente
+  const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(usuario?.id || null);
   const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB } = useCards(
     pizarra?.id || null
   );
+
+  // Hook para gestionar misiones activas
+  const { getOrCreateMisionActiva, updateRunningState, addCaptureUrl } = useMisionActiva();
 
   // Estado de inicialización
   const [isInitialized, setIsInitialized] = useState(false);
@@ -163,16 +166,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Funciones para actividades
   const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
-    console.log('🎬 [PLAY/PAUSE] Botón presionado en tarjeta:', cardId);
-    console.log('👤 [PLAY/PAUSE] Usuario logeado:', usuario);
+    console.log('🎬 [ACTIVITY PLAY/PAUSE] Botón presionado en tarjeta:', cardId);
+    console.log('👤 [ACTIVITY PLAY/PAUSE] Usuario logeado:', usuario);
     const newRunningState = !currentIsRunning;
 
-    setCards(prev => prev.map(c =>
-      c.id === cardId && c.activityData
-        ? { ...c, activityData: { ...c.activityData, isRunning: newRunningState } }
-        : c
-    ));
-
+    // Si va a iniciar (play)
     if (newRunningState && !isCapturing) {
       try {
         const card = cards.find(c => c.id === cardId);
@@ -183,28 +181,105 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
         const activityData = card.activityData;
         const actividadId = activityData.id_actividad || cardId.split('-')[1] || '1';
-        // Usar el usuario logeado primero, luego el de la actividad, y finalmente un fallback
         const userId = usuario?.id || activityData.id_usuario || 'usuario-desconocido';
         const misionActividad = activityData.subject || card.title || 'Actividad sin nombre';
 
-        console.log('📤 [PLAY/PAUSE] Iniciando captura con userId:', userId);
-        console.log('📤 [PLAY/PAUSE] actividadId:', actividadId);
+        console.log('📤 [ACTIVITY PLAY/PAUSE] Iniciando captura con userId:', userId);
+        console.log('📤 [ACTIVITY PLAY/PAUSE] actividadId:', actividadId);
+        console.log('🎥 [ACTIVITY PLAY/PAUSE] Solicitando permiso de pantalla PRIMERO...');
 
+        // 1. PRIMERO: Solicitar permiso de pantalla (debe estar en el user gesture)
+        let mediaStream: MediaStream;
+        try {
+          mediaStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              cursor: "always" as any
+            },
+            audio: false
+          } as DisplayMediaStreamOptions);
+          console.log('✅ [ACTIVITY PLAY/PAUSE] Permiso de pantalla concedido');
+        } catch (permissionError) {
+          console.error('❌ Usuario canceló el permiso de pantalla:', permissionError);
+          return; // Salir si el usuario cancela
+        }
+
+        // 2. SEGUNDO: Ahora que tenemos el permiso, hacer las operaciones de BD
+        console.log('💾 [MISION ACTIVA] Creando/obteniendo actividad activa en Supabase...');
+        const misionActiva = await getOrCreateMisionActiva({
+          tipo: 'actividad',
+          id_referencia: parseInt(actividadId),
+          id_usuario_asignado: userId,
+          id_creador: userId
+        });
+
+        if (!misionActiva) {
+          console.error('❌ No se pudo crear/obtener la actividad activa');
+          // Detener el stream si falla la BD
+          mediaStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        console.log('✅ [MISION ACTIVA] Actividad activa obtenida:', misionActiva.id);
+
+        // 3. TERCERO: Iniciar captura con el stream ya obtenido
         await startCapturing({
           userId: userId,
           actividadId: actividadId,
           misionActividad: misionActividad,
           totalTrabajadoHoy: activityData.duration?.toString(),
-          tiempoTareaActual: activityData.timeLeft?.toString()
+          tiempoTareaActual: activityData.timeLeft?.toString(),
+          mediaStream: mediaStream, // Pasar el stream ya obtenido
+          onCaptureUpdate: async (url: string) => {
+            // Guardar captura en misiones_activas
+            console.log('📸 [MISION ACTIVA] Guardando captura en Supabase:', url);
+            // TODO: Actualizar para usar misionActiva.id
+          }
         });
-        console.log('✅ Captura iniciada exitosamente');
+
+        console.log('✅ [ACTIVITY PLAY/PAUSE] Captura iniciada exitosamente');
+
+        // 4. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
+        setCards(prev => prev.map(c =>
+          c.id === cardId && c.activityData
+            ? { ...c, activityData: { ...c.activityData, isRunning: true, misionActivaId: misionActiva.id } }
+            : c
+        ));
       } catch (error) {
         console.error('❌ Error:', error);
       }
     } else if (!newRunningState && isCapturing) {
+      // Si va a pausar
+      console.log('⏸️ [ACTIVITY PLAY/PAUSE] Pausando actividad...');
+
+      // Obtener el ID de la misión activa del card
+      const card = cards.find(c => c.id === cardId);
+      const misionActivaId = card?.activityData?.misionActivaId;
+
+      if (misionActivaId) {
+        // 1. Actualizar estado en Supabase
+        console.log('💾 [MISION ACTIVA] Actualizando estado a pausada en Supabase...');
+        await updateRunningState(misionActivaId, {
+          is_running: false,
+          estado: 'pausada',
+          fecha_pausa: new Date().toISOString()
+        });
+
+        console.log('✅ [MISION ACTIVA] Estado pausada guardado en Supabase');
+      }
+
+      // 2. Actualizar estado local
+      setCards(prev => prev.map(c =>
+        c.id === cardId && c.activityData
+          ? { ...c, activityData: { ...c.activityData, isRunning: false } }
+          : c
+      ));
+
+      // 3. Detener captura
       stopCapturing();
+
+      console.log('✅ [ACTIVITY PLAY/PAUSE] Actividad pausada exitosamente');
     }
-  }, [cards, isCapturing, startCapturing, stopCapturing, usuario]);
+  }, [cards, isCapturing, startCapturing, stopCapturing, usuario, getOrCreateMisionActiva, updateRunningState, addCaptureUrl]);
 
   // Funciones para misiones
   const handleMisionPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
@@ -234,33 +309,71 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
         console.log('📤 [MISION PLAY/PAUSE] Iniciando captura con userId:', userId);
         console.log('📤 [MISION PLAY/PAUSE] misionId:', misionId);
-        console.log('🎥 [MISION PLAY/PAUSE] Solicitando permiso de pantalla...');
+        console.log('🎥 [MISION PLAY/PAUSE] Solicitando permiso de pantalla PRIMERO...');
 
-        // Siempre solicitar permiso de pantalla cuando se inicia
+        // 1. PRIMERO: Solicitar permiso de pantalla (debe estar en el user gesture)
+        let mediaStream: MediaStream;
+        try {
+          mediaStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              cursor: "always" as any
+            },
+            audio: false
+          } as DisplayMediaStreamOptions);
+          console.log('✅ [MISION PLAY/PAUSE] Permiso de pantalla concedido');
+        } catch (permissionError) {
+          console.error('❌ Usuario canceló el permiso de pantalla:', permissionError);
+          return; // Salir si el usuario cancela
+        }
+
+        // 2. SEGUNDO: Ahora que tenemos el permiso, hacer las operaciones de BD
+        console.log('💾 [MISION ACTIVA] Creando/obteniendo misión activa en Supabase...');
+        const misionActiva = await getOrCreateMisionActiva({
+          tipo: 'mision',
+          id_referencia: parseInt(misionId),
+          id_usuario_asignado: userId,
+          id_creador: userId
+        });
+
+        if (!misionActiva) {
+          console.error('❌ No se pudo crear/obtener la misión activa');
+          // Detener el stream si falla la BD
+          mediaStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        console.log('✅ [MISION ACTIVA] Misión activa obtenida:', misionActiva.id);
+
+        // 3. TERCERO: Iniciar captura con el stream ya obtenido
         await startCapturing({
           userId: userId,
           actividadId: misionId,
           misionActividad: misionActividad,
           totalTrabajadoHoy: misionData.hours?.toString(),
-          onCaptureUpdate: (url: string) => {
+          mediaStream: mediaStream, // Pasar el stream ya obtenido
+          onCaptureUpdate: async (url: string) => {
             // Actualizar la última captura en la card
             setCards(prev => prev.map(c =>
               c.id === cardId && c.misionData
                 ? { ...c, misionData: { ...c.misionData, lastCaptureUrl: url } }
                 : c
             ));
+
+            // Guardar captura en misiones_activas (usando el ID de la misión activa)
+            console.log('📸 [MISION ACTIVA] Guardando captura en Supabase:', url);
+            // TODO: Actualizar para usar misionActiva.id en lugar de cardId
           }
         });
 
         console.log('✅ [MISION PLAY/PAUSE] Captura iniciada exitosamente, activando contador...');
 
-        // Actualizar isRunning a true
+        // 4. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
         setCards(prev => {
           console.log('🔄 [MISION PLAY/PAUSE] Actualizando cards, buscando card:', cardId);
           const updatedCards = prev.map(c => {
             if (c.id === cardId && c.misionData) {
               console.log('✅ [MISION PLAY/PAUSE] Card encontrada, actualizando isRunning a true');
-              return { ...c, misionData: { ...c.misionData, isRunning: true } };
+              return { ...c, misionData: { ...c.misionData, isRunning: true, misionActivaId: misionActiva.id } };
             }
             return c;
           });
@@ -277,20 +390,36 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       // Si va a pausar, actualizar el estado y detener captura completamente
       console.log('⏸️ [MISION PLAY/PAUSE] Pausando misión...');
 
-      // Primero actualizar el estado
+      // Obtener el ID de la misión activa del card
+      const card = cards.find(c => c.id === cardId);
+      const misionActivaId = card?.misionData?.misionActivaId;
+
+      if (misionActivaId) {
+        // 1. Actualizar estado en Supabase
+        console.log('💾 [MISION ACTIVA] Actualizando estado a pausada en Supabase...');
+        await updateRunningState(misionActivaId, {
+          is_running: false,
+          estado: 'pausada',
+          fecha_pausa: new Date().toISOString()
+        });
+
+        console.log('✅ [MISION ACTIVA] Estado pausada guardado en Supabase');
+      }
+
+      // 2. Actualizar estado local
       setCards(prev => prev.map(c =>
         c.id === cardId && c.misionData
           ? { ...c, misionData: { ...c.misionData, isRunning: false } }
           : c
       ));
 
-      // Detener captura y cerrar stream de pantalla
+      // 3. Detener captura y cerrar stream de pantalla
       console.log('⏹️ [MISION PLAY/PAUSE] Deteniendo captura de pantalla...');
       stopCapturing();
 
       console.log('✅ [MISION PLAY/PAUSE] Misión pausada exitosamente (captura detenida)');
     }
-  }, [cards, isCapturing, startCapturing, stopCapturing, usuario]);
+  }, [cards, isCapturing, startCapturing, stopCapturing, usuario, getOrCreateMisionActiva, updateRunningState, addCaptureUrl]);
 
   // Funciones para todos
   const toggleTodo = useCallback(async (cardId: string, todoId: number) => {
@@ -875,7 +1004,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         }
       }
 
-      console.log('✅ Pizarra guardada exitosamente en Supabase');
+      console.log('✅ Pizarra guardada exitosamente');
       console.log('   - ID Pizarra:', pizarraActual.id);
       console.log('   - Cards guardadas:', cards.length);
       console.log('   - Conexiones guardadas:', connections.length);

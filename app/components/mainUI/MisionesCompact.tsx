@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
+import { useMisionActiva } from '@/hooks/useMisionActiva';
+import { useAuth } from '@/app/contexts/AuthContext';
 import { Mision } from '@/domain/entities/Mision';
 
 interface MisionCompactCardProps {
@@ -110,11 +112,34 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
 
 export default function MisionesCompact({ onShowDetails }: MisionesCompactProps) {
   const { usuarioId, loading: loadingUsuario, error: errorUsuario } = useUsuarioId();
+  const { usuario } = useAuth();
   const { misiones, loading: loadingMisiones, error: errorMisiones } = useMisiones(usuarioId);
-  const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 2;
-  const totalPages = Math.ceil(misiones.length / itemsPerPage);
+  const { getMisionesEntregadas } = useMisionActiva();
 
+  const [currentPage, setCurrentPage] = useState(0);
+  const [idsEntregadas, setIdsEntregadas] = useState<number[]>([]);
+  const itemsPerPage = 2;
+
+  // Cargar IDs de misiones entregadas
+  useEffect(() => {
+    const loadEntregadas = async () => {
+      if (!usuario?.id) return;
+      const entregadas = await getMisionesEntregadas(usuario.id);
+      // Extraer los id_referencia de tipo 'mision'
+      const ids = entregadas
+        .filter(e => e.tipo === 'mision')
+        .map(e => e.id_referencia);
+      setIdsEntregadas(ids);
+    };
+    loadEntregadas();
+  }, [usuario?.id, getMisionesEntregadas]);
+
+  // Filtrar misiones que NO han sido entregadas
+  const misionesPendientes = useMemo(() => {
+    return misiones.filter(m => !idsEntregadas.includes(m.id));
+  }, [misiones, idsEntregadas]);
+
+  const totalPages = Math.ceil(misionesPendientes.length / itemsPerPage);
   const loading = loadingUsuario || loadingMisiones;
   const error = errorUsuario || errorMisiones;
 
@@ -134,7 +159,7 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
     );
   }
 
-  if (misiones.length === 0) {
+  if (misionesPendientes.length === 0) {
     return (
       <div className="relative bg-green-600/50 w-19 h-19 rounded-xl shadow-lg overflow-hidden flex items-center justify-center">
         <div className="text-white/70 text-xs text-center">Sin misiones</div>
@@ -144,7 +169,7 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
 
   const startIndex = currentPage * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentMisiones = misiones.slice(startIndex, endIndex);
+  const currentMisiones = misionesPendientes.slice(startIndex, endIndex);
 
   const handlePrevPage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -166,7 +191,7 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
   return (
     <div className="flex items-center gap-2">
       {/* Botón anterior */}
-      {misiones.length > itemsPerPage && (
+      {misionesPendientes.length > itemsPerPage && (
         <button
           onClick={handlePrevPage}
           disabled={!canGoPrev}
@@ -199,7 +224,7 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
       </div>
 
       {/* Botón siguiente */}
-      {misiones.length > itemsPerPage && (
+      {misionesPendientes.length > itemsPerPage && (
         <button
           onClick={handleNextPage}
           disabled={!canGoNext}

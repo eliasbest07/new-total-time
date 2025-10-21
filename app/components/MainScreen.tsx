@@ -27,6 +27,7 @@ import { Mision } from "@/domain/entities/Mision";
 import MisionCard from "../demo/components/MisionCard";
 import InputArea from "./mainUI/InputArea";
 import { useChartHistory, BoardHistorySnapshot } from "@/hooks/useChartHistory";
+import EntregasVentana from "./mainUI/EntregasVentana";
 
 
 export default function MainScreen() {
@@ -53,6 +54,7 @@ export default function MainScreen() {
   } | null>(null);
   const [showProyectoWindow, setShowProyectoWindow] = useState(false);
   const [selectedProyectoWindow, setSelectedProyectoWindow] = useState<import('@/domain/entities/Proyecto').Proyecto | null>(null);
+  const [showEntregasModal, setShowEntregasModal] = useState(false);
 
   const { usuario } = useAuth();
   
@@ -336,9 +338,9 @@ export default function MainScreen() {
           onSaveToSupabase={async () => {
             const success = await pizarraRef.current?.saveToSupabase?.();
             if (success) {
-              alert('✅ Pizarra guardada exitosamente en Supabase');
+              alert('✅ Pizarra guardada exitosamente');
             } else {
-              alert('❌ Error al guardar la pizarra en Supabase');
+              alert('❌ Error al guardar la pizarra en la nube');
             }
           }}
           onLoadFromSupabase={async () => {
@@ -405,7 +407,11 @@ export default function MainScreen() {
 
       {/* Missions positioned at fixed location */}
       <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 20 }}>
-        <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
+        <h2
+          className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block cursor-pointer hover:bg-white/95 transition-colors"
+          onClick={() => setShowEntregasModal(true)}
+          title="Click para ver entregas"
+        >
           Misiones 🎯
         </h2>
         <MisionesCompact onShowDetails={handleShowMisionDetails} />
@@ -849,7 +855,7 @@ export default function MainScreen() {
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Elementos guardados</h3>
                 <span className="text-xs uppercase tracking-wide text-gray-500">
-                  {chartLoading ? 'Cargando...' : 'Datos de Supabase'}
+                  {chartLoading ? 'Cargando...' : 'Datos en la nube'}
                 </span>
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -1023,6 +1029,20 @@ export default function MainScreen() {
         {selectedProyectoWindow && (
           <ProyectoWindow proyecto={selectedProyectoWindow} />
         )}
+      </Ventana>
+
+      {/* Ventana de entregas */}
+      <Ventana
+        isOpen={showEntregasModal}
+        onClose={() => setShowEntregasModal(false)}
+        title="Entregas Realizadas"
+        initialWidth={900}
+        initialHeight={700}
+        minWidth={700}
+        minHeight={500}
+        showOverlay={true}
+      >
+        <EntregasVentana onClose={() => setShowEntregasModal(false)} />
       </Ventana>
 
     </div>

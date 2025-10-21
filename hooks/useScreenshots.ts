@@ -13,6 +13,7 @@ interface UseScreenshotsReturn {
     misionActividad: string;
     totalTrabajadoHoy?: string;
     tiempoTareaActual?: string;
+    mediaStream?: MediaStream;
     onCaptureUpdate?: (url: string) => void;
   }) => Promise<void>;
   stopCapturing: () => void;
@@ -41,6 +42,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     misionActividad: string;
     totalTrabajadoHoy?: string;
     tiempoTareaActual?: string;
+    mediaStream?: MediaStream;
     onCaptureUpdate?: (url: string) => void;
   } | null>(null);
 
@@ -89,6 +91,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     misionActividad: string;
     totalTrabajadoHoy?: string;
     tiempoTareaActual?: string;
+    mediaStream?: MediaStream;
     onCaptureUpdate?: (url: string) => void;
   }) => {
     console.log('🚀 [START CAPTURE] Iniciando proceso de captura con parámetros:', params);
@@ -98,17 +101,23 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       setIsCapturing(true);
       currentContextRef.current = params;
 
-      console.log('🎥 [START CAPTURE] Solicitando permisos de pantalla...');
+      // Si se pasó un mediaStream, usarlo. Si no, pedir permisos
+      if (params.mediaStream) {
+        console.log('✅ [START CAPTURE] Usando stream ya obtenido (pasado como parámetro)');
+        mediaStreamRef.current = params.mediaStream;
+      } else {
+        console.log('🎥 [START CAPTURE] Solicitando permisos de pantalla...');
 
-      // pedir permisos
-      mediaStreamRef.current = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          cursor: "always"
-        },
-        audio: false
-      } as DisplayMediaStreamOptions);
+        // pedir permisos
+        mediaStreamRef.current = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: "always"
+          },
+          audio: false
+        } as DisplayMediaStreamOptions);
 
-      console.log('✅ [START CAPTURE] Permisos concedidos, stream obtenido');
+        console.log('✅ [START CAPTURE] Permisos concedidos, stream obtenido');
+      }
 
       // Siempre crear un nuevo video element para cada sesión
       videoRef.current = document.createElement("video");
