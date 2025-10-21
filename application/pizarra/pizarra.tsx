@@ -775,6 +775,28 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                 });
               }
             }
+
+            // Si es una card de tipo image, crear su entrada en card_images
+            if (createdCard && card.type === 'image' && card.imageUrl) {
+              const { SupabaseCardImageRepository } = await import('@/infrastructure/datasource/SupabaseCardImageRepository');
+              const cardImageRepo = new SupabaseCardImageRepository();
+
+              // Extraer información del archivo desde la URL o usar valores por defecto
+              const fileName = card.imageUrl.split('/').pop() || 'image.png';
+              const mimeType = card.imageUrl.includes('.png') ? 'image/png' :
+                              card.imageUrl.includes('.jpg') || card.imageUrl.includes('.jpeg') ? 'image/jpeg' :
+                              card.imageUrl.includes('.gif') ? 'image/gif' :
+                              card.imageUrl.includes('.webp') ? 'image/webp' : 'image/png';
+
+              await cardImageRepo.create({
+                id_card: createdCard.id,
+                id_pizarra: pizarraActual.id,
+                image_url: card.imageUrl,
+                file_name: fileName,
+                file_size: null, // Se puede agregar más adelante si se necesita
+                mime_type: mimeType
+              });
+            }
           }
         }
       }
@@ -1011,6 +1033,25 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             }
           } catch (error) {
             console.error('Error cargando todos para card:', cardDB.id, error);
+          }
+        }
+
+        // Si es una card de tipo image, cargar sus datos desde card_images
+        if (cardDB.type === 'image') {
+          try {
+            const { SupabaseCardImageRepository } = await import('@/infrastructure/datasource/SupabaseCardImageRepository');
+            const cardImageRepo = new SupabaseCardImageRepository();
+            const cardImage = await cardImageRepo.getByCardId(cardDB.id);
+            if (cardImage) {
+              card.imageUrl = cardImage.image_url;
+              // También actualizar pastedImages para mostrar la imagen
+              setPastedImages(prev => ({
+                ...prev,
+                [card.id]: cardImage.image_url
+              }));
+            }
+          } catch (error) {
+            console.error('Error cargando imagen para card:', cardDB.id, error);
           }
         }
 

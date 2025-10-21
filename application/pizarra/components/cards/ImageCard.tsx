@@ -50,9 +50,9 @@ export const ImageCard: React.FC<ImageCardProps> = ({
 
       {/* Imagen */}
       <div className="flex-1 rounded-lg overflow-hidden border-2 border-pink-200 bg-pink-50 flex items-center justify-center">
-        {pastedImages[card.id] ? (
+        {(card.imageUrl || pastedImages[card.id]) ? (
           <img
-            src={pastedImages[card.id]}
+            src={card.imageUrl || pastedImages[card.id]}
             alt={card.title}
             className="w-full h-full object-contain"
           />

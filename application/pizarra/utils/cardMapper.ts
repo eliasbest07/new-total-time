@@ -17,7 +17,7 @@ export function mapCardDBToCard(cardDB: CardDB): Card {
     fontSize: cardDB.font_size
   };
 
-  // Los datos adicionales (misionData, usuarioData, etc.) se cargan por separado
+  // Los datos adicionales (misionData, usuarioData, imageUrl, etc.) se cargan por separado
   // y se agregan después mediante otras funciones
 
   return baseCard;

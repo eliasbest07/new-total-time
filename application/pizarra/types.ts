@@ -39,6 +39,7 @@ export interface Card {
   fontSize?: number;
   activityData?: ActivityData;
   misionData?: MisionData;
+  imageUrl?: string; // URL de la imagen guardada en Supabase Storage
 }
 
 export interface Connection {
