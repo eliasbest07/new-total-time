@@ -3,11 +3,15 @@
 import React, { createContext, useContext, useState } from 'react';
 import { Usuario } from '@/domain/entities/Usuario';
 import { StorageService } from '@/infrastructure/services/StorageService';
+import { usePresence, PresenceUser } from '@/hooks/usePresence';
 
 interface AuthContextType {
   usuario: Usuario | null;
   setUsuario: (usuario: Usuario | null) => void;
   clearUsuario: () => void;
+  onlineUsers: PresenceUser[];
+  isUserOnline: (userId: string) => boolean;
+  totalOnline: number;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,6 +21,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Intentar cargar usuario desde localStorage al inicializar
     return StorageService.getUser();
   });
+
+  // Hook de presencia que trackea usuarios online
+  // IMPORTANTE: Usamos userAuth (UUID de Supabase) como ID único
+  const { onlineUsers, isUserOnline, totalOnline } = usePresence(
+    usuario?.idOrganizacion,
+    usuario ? {
+      id: usuario.userAuth, // Usar UUID de Supabase auth
+      username: usuario.profile.username,
+      avatar: usuario.profile.avatar,
+    } : null
+  );
+
+  console.log('🔍 AuthContext: Usuario actual:', usuario ? {
+    id: usuario.id,
+    userAuth: usuario.userAuth,
+    username: usuario.profile.username,
+    idOrganizacion: usuario.idOrganizacion
+  } : 'null');
 
   const setUsuario = (usuario: Usuario | null) => {
     console.log('🔄 AuthContext: Estableciendo usuario:', usuario ? 'Usuario presente' : 'Usuario null');
@@ -37,7 +59,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     usuario,
     setUsuario,
-    clearUsuario
+    clearUsuario,
+    onlineUsers,
+    isUserOnline,
+    totalOnline,
   };
 
   return (

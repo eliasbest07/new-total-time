@@ -15,6 +15,7 @@ import { Resource } from '../utils/resourceUtils';
 import { Usuario } from '@/domain/entities/Usuario';
 import Ventana from './Ventana';
 import { Proyecto } from '@/domain/entities/Proyecto';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 
 // Tipos/Interfaces
@@ -77,20 +78,33 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   const [currentProyectoPage, setCurrentProyectoPage] = useState<number>(1);
   const dragImageRef = useRef<HTMLDivElement>(null);
 
+  // Obtener el estado de presencia desde AuthContext
+  const { isUserOnline: checkUserOnline, onlineUsers } = useAuth();
+
   const USERS_PER_PAGE = 4;
   const PROYECTOS_PER_PAGE = 2;
 
   // Función para convertir usuarios de Supabase al formato del Accordion
   const convertirUsuariosSupabase = () => {
-    return usuarios.map((usuario, index) => ({
-      id: parseInt(usuario.id) || index,
-      userAuth: usuario.userAuth, // UUID para Supabase
-      name: usuario.getNombreCompleto(),
-      status: getStatusFromActivity(usuario.ultimaActividad),
-      avatar: getAvatarFromName(usuario.getNombreCompleto()),
-      color: getColorForUser(index),
-      online: isUserOnline(usuario.ultimaActividad)
-    }));
+    console.log('🔍 Accordion: Convirtiendo usuarios. Total de usuarios online en Presence:', onlineUsers.length);
+    console.log('🔍 Accordion: Usuarios online en Presence:', onlineUsers.map(u => ({ id: u.user_id, username: u.username })));
+
+    return usuarios.map((usuario, index) => {
+      // IMPORTANTE: Usar userAuth (UUID de Supabase) para verificar presencia
+      const online = checkUserOnline(usuario.userAuth);
+
+      console.log(`🔍 Accordion: Usuario ${usuario.getNombreCompleto()} (userAuth: ${usuario.userAuth}) -> Online: ${online}`);
+
+      return {
+        id: parseInt(usuario.id) || index,
+        userAuth: usuario.userAuth, // UUID para Supabase
+        name: usuario.getNombreCompleto(),
+        status: online ? 'En línea' : getStatusFromActivity(usuario.ultimaActividad),
+        avatar: getAvatarFromName(usuario.getNombreCompleto()),
+        color: getColorForUser(index),
+        online: online
+      };
+    });
   };
 
   // Función para obtener estado basado en última actividad
@@ -186,7 +200,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   const sections: Section[] = [
     {
       id: 'usuarios',
-      title: 'Usuarios conectados',
+      title: `Usuarios conectados`,
       icon: Users,
       color: 'bg-green-500',
       content: 'users'
