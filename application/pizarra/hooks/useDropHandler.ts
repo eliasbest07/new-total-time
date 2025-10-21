@@ -91,28 +91,24 @@ export const useDropHandler = (
           }]);
           return;
         }
-        // PROYECTO - Detectar por dragType o por nombre + (colors o description)
-        else if (resource.dragType === 'proyecto' || (resource.nombre && (resource.colors || resource.description))) {
+        // PROYECTO - Detectar por dragType === 'proyecto'
+        else if (resource.dragType === 'proyecto') {
           console.log('📁 [PIZARRA DROP] Detectado PROYECTO');
+          console.log('📁 [PIZARRA DROP] Datos de proyecto recibidos:', resource);
           setCards(prev => [...prev, {
             id: generateUniqueId('proyecto', existingIds),
             type: 'proyecto',
             title: resource.nombre || 'Proyecto',
-            content: `Proyecto: ${resource.nombre}`,
+            content: resource.descripcion || `Proyecto: ${resource.nombre}`,
             x, y,
-            width: 280,
-            height: 380,
+            width: 350,
+            height: 500,
             fontSize: 14,
             proyectoData: {
+              id: resource.id,
               nombre: resource.nombre || 'Proyecto',
-              description: resource.description || null,
-              imagen_url: resource.imagen_url || null,
-              type: resource.type || null,
-              utility: resource.utility || null,
-              palette: resource.palette || null,
-              colors: resource.colors || null,
-              producto: resource.producto || null,
-              publico: resource.publico !== undefined ? resource.publico : true
+              descripcion: resource.descripcion || null,
+              icono: resource.icono || null
             }
           }]);
           return;

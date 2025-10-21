@@ -12,6 +12,8 @@ import { ChevronRight } from "lucide-react";
 import Cube from "./mainUI/cubo-acordion-carga";
 import Accordion from "../demo/components/Accordion";
 import { Resource } from "../demo/utils/resourceUtils";
+import ChatWindow from "./ChatWindow";
+import ProyectoWindow from "./ProyectoWindow";
 import ActividadesGrid from "../demo/components/ActividadesGrid";
 import MisionesCompact from "./mainUI/MisionesCompact";
 import { useRecursos } from "@/hooks/useRecursos";
@@ -41,6 +43,16 @@ export default function MainScreen() {
   const [misionChatMessage, setMisionChatMessage] = useState('');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistorySnapshot, setSelectedHistorySnapshot] = useState<BoardHistorySnapshot | null>(null);
+  const [showChatWindow, setShowChatWindow] = useState(false);
+  const [selectedChatUser, setSelectedChatUser] = useState<{
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  } | null>(null);
+  const [showProyectoWindow, setShowProyectoWindow] = useState(false);
+  const [selectedProyectoWindow, setSelectedProyectoWindow] = useState<import('@/domain/entities/Proyecto').Proyecto | null>(null);
 
   const { usuario } = useAuth();
   
@@ -287,6 +299,23 @@ export default function MainScreen() {
     }
   };
 
+  // Handler para cuando se hace click en un usuario
+  const handleUserClick = (userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => {
+    setSelectedChatUser(userData);
+    setShowChatWindow(true);
+  };
+
+  // Handler para cuando se hace click en un proyecto
+  const handleProyectoClick = (proyecto: import('@/domain/entities/Proyecto').Proyecto) => {
+    setSelectedProyectoWindow(proyecto);
+    setShowProyectoWindow(true);
+  };
 
   return (
     <div
@@ -357,6 +386,8 @@ export default function MainScreen() {
               proyectos={proyectosSupabase}
               usuarios={usuariosFiltrados}
               onAddResource={handleAddResource}
+              onUserClick={handleUserClick}
+              onProyectoClick={handleProyectoClick}
             />
           </div>
         )}
@@ -948,6 +979,49 @@ export default function MainScreen() {
           <div className="text-sm text-gray-600 p-4">
             Selecciona una barra del gráfico para ver el detalle de la pizarra.
           </div>
+        )}
+      </Ventana>
+
+      {/* Ventana de Chat */}
+      <Ventana
+        isOpen={showChatWindow}
+        onClose={() => {
+          setShowChatWindow(false);
+          setSelectedChatUser(null);
+        }}
+        title={`Chat con ${selectedChatUser?.name || 'Usuario'}`}
+        initialWidth={400}
+        initialHeight={600}
+        minWidth={350}
+        minHeight={400}
+        initialX={window.innerWidth / 2 - 200}
+        initialY={window.innerHeight / 2 - 300}
+      >
+        {selectedChatUser && usuario && (
+          <ChatWindow
+            currentUserId={usuario.userAuth}
+            targetUser={selectedChatUser}
+          />
+        )}
+      </Ventana>
+
+      {/* Ventana de Proyecto */}
+      <Ventana
+        isOpen={showProyectoWindow}
+        onClose={() => {
+          setShowProyectoWindow(false);
+          setSelectedProyectoWindow(null);
+        }}
+        title={selectedProyectoWindow?.nombre || 'Proyecto'}
+        initialWidth={700}
+        initialHeight={700}
+        minWidth={600}
+        minHeight={500}
+        initialX={window.innerWidth / 2 - 350}
+        initialY={window.innerHeight / 2 - 350}
+      >
+        {selectedProyectoWindow && (
+          <ProyectoWindow proyecto={selectedProyectoWindow} />
         )}
       </Ventana>
 

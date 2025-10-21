@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '../../types/index';
+import { Actividad } from '@/domain/entities/Actividad';
+import { Mision } from '@/domain/entities/Mision';
 
 interface ProyectoCardProps {
   card: Card;
@@ -14,146 +16,246 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   updateCardTitle,
   setEditingTitle
 }) => {
-  return (
-    <div className="flex flex-col h-full w-full p-2 overflow-y-auto todo-scroll">
-      {/* Header con nombre e indicador público/privado */}
-      <div className="flex items-center gap-1.5 mb-1.5 flex-shrink-0">
-        <div style={{ fontSize: `${Math.max(14, (card.fontSize || 14) + 2)}px` }}>📁</div>
-        {editingTitle === card.id ? (
-          <input
-            type="text"
-            defaultValue={card.title}
-            onBlur={(e) => updateCardTitle(card.id, e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                updateCardTitle(card.id, e.currentTarget.value);
-              }
-              if (e.key === 'Escape') {
-                setEditingTitle(null);
-              }
-            }}
-            className="font-bold text-indigo-900 bg-transparent border-b border-indigo-400 focus:outline-none w-full text-sm"
-            autoFocus
-            data-todo-interactive
-          />
-        ) : (
-          <h3
-            className="font-bold text-indigo-900 flex-1 leading-tight"
-            style={{ fontSize: `${(card.fontSize || 14)}px` }}
-          >
-            {card.proyectoData?.nombre || card.title}
-          </h3>
-        )}
-        {card.proyectoData?.publico !== undefined && (
-          <div
-            className={`px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${card.proyectoData.publico
-                ? 'bg-green-100 text-green-700'
-                : 'bg-gray-100 text-gray-700'
-              }`}
-            style={{ fontSize: '10px' }}
-            title={card.proyectoData.publico ? 'Público' : 'Privado'}
-          >
-            {card.proyectoData.publico ? '🌐' : '🔒'}
-          </div>
-        )}
-      </div>
+  const [actividades, setActividades] = useState<Actividad[]>([]);
+  const [misiones, setMisiones] = useState<Mision[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<'misiones' | 'actividades' | null>(null);
 
-      {/* Imagen del proyecto con overlay de producto */}
-      <div className="mb-2 w-full rounded-lg overflow-hidden border-2 border-indigo-200 relative flex-shrink-0" style={{ height: '100px' }}>
-        {card.proyectoData?.imagen_url ? (
-          <img
-            src={card.proyectoData.imagen_url}
-            alt={card.proyectoData.nombre}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-indigo-200 via-indigo-300 to-indigo-400 flex items-center justify-center">
-            <div
-              className="text-indigo-700 font-bold"
-              style={{ fontSize: `${(card.fontSize || 14) + 8}px` }}
+  useEffect(() => {
+    const cargarDatos = async () => {
+      if (!card.proyectoData?.id) return;
+
+      try {
+        setLoading(true);
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+        // Cargar actividades
+        const { data: actividadesData } = await supabase
+          .from('actividades')
+          .select('*')
+          .eq('id_proyecto', card.proyectoData.id)
+          .order('created_at', { ascending: false });
+
+        // Cargar misiones
+        const { data: misionesData } = await supabase
+          .from('misiones')
+          .select('*')
+          .eq('id_proyecto', card.proyectoData.id)
+          .order('created_at', { ascending: false });
+
+        setActividades(actividadesData || []);
+        setMisiones(misionesData || []);
+      } catch (error) {
+        console.error('Error cargando datos del proyecto:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarDatos();
+  }, [card.proyectoData?.id]);
+
+  // Función para limpiar URL duplicada
+  const sanitizeIconUrl = (url: string | null): string | null => {
+    if (!url) return null;
+    const httpCount = (url.match(/https?:\/\//g) || []).length;
+    if (httpCount > 1) {
+      const firstUrl = url.match(/https?:\/\/[^\s]+/)?.[0];
+      return firstUrl || null;
+    }
+    return url;
+  };
+
+  const cleanIcono = card.proyectoData?.icono ? sanitizeIconUrl(card.proyectoData.icono) : null;
+
+  return (
+    <div className="flex flex-col h-full w-full p-3 bg-gradient-to-br from-indigo-50 to-blue-50">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-2 border-b border-indigo-300 pb-2">
+        {cleanIcono && (
+          <div className="flex-shrink-0">
+            {cleanIcono.startsWith('http') ? (
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white shadow-sm border border-indigo-200">
+                <img
+                  src={cleanIcono}
+                  alt={card.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-xl">📁</div>';
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="text-2xl">{cleanIcono}</div>
+            )}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          {editingTitle === card.id ? (
+            <input
+              type="text"
+              defaultValue={card.title}
+              onBlur={(e) => updateCardTitle(card.id, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  updateCardTitle(card.id, e.currentTarget.value);
+                }
+                if (e.key === 'Escape') {
+                  setEditingTitle(null);
+                }
+              }}
+              className="font-semibold text-indigo-900 bg-transparent border-b border-indigo-400 focus:outline-none w-full text-sm"
+              autoFocus
+              data-todo-interactive
+            />
+          ) : (
+            <h3
+              className="font-semibold text-indigo-900 truncate text-sm"
+              style={{ fontSize: `${(card.fontSize || 14)}px` }}
             >
-              📁
-            </div>
-          </div>
-        )}
-        {/* Overlay de producto */}
-        {card.proyectoData?.producto && (
-          <div className="absolute top-1 right-1 bg-indigo-600/90 backdrop-blur-sm text-white px-1.5 py-0.5 rounded text-xs font-medium">
-            {card.proyectoData.producto}
-          </div>
-        )}
+              {card.title}
+            </h3>
+          )}
+        </div>
       </div>
 
       {/* Descripción */}
-      {card.proyectoData?.description && (
-        <div className="mb-2 flex-shrink-0">
-          <p
-            className="text-indigo-800 leading-snug line-clamp-2"
-            style={{ fontSize: `${(card.fontSize || 14) - 2}px` }}
-            title={card.proyectoData.description}
-          >
-            {card.proyectoData.description}
-          </p>
+      {card.proyectoData?.descripcion && (
+        <div className="text-xs text-gray-700 mb-2 line-clamp-2">
+          {card.proyectoData.descripcion}
         </div>
       )}
 
-      {/* Paleta de colores */}
-      {card.proyectoData?.colors && card.proyectoData.colors.length > 0 && (
-        <div className="mb-2 flex-shrink-0">
-          <div
-            className="text-indigo-700 font-semibold mb-1"
-            style={{ fontSize: `${(card.fontSize || 14) - 3}px` }}
-          >
-            🎨 Colores
-          </div>
-          <div className="flex gap-1 flex-wrap">
-            {card.proyectoData.colors.slice(0, 6).map((color, index) => (
-              <div
-                key={index}
-                className="rounded shadow-sm border border-indigo-200/50"
-                style={{
-                  backgroundColor: color,
-                  width: '24px',
-                  height: '24px'
+      {/* Estadísticas rápidas */}
+      <div className="flex gap-2 mb-2 text-xs">
+        <div className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded flex items-center gap-1">
+          🎯 <span className="font-semibold">{misiones.length}</span>
+        </div>
+        <div className="bg-green-100 text-green-700 px-2 py-1 rounded flex items-center gap-1">
+          ⚡ <span className="font-semibold">{actividades.length}</span>
+        </div>
+      </div>
+
+      {/* Contenido scrolleable */}
+      <div
+        className="flex-1 overflow-y-auto space-y-2 min-h-0"
+        onWheel={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {loading ? (
+          <div className="text-center text-indigo-400 text-xs py-2">Cargando...</div>
+        ) : (
+          <>
+            {/* Misiones */}
+            <div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(expanded === 'misiones' ? null : 'misiones');
                 }}
-                title={color}
-              />
-            ))}
-            {card.proyectoData.colors.length > 6 && (
-              <div
-                className="rounded shadow-sm border border-indigo-200 bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold"
-                style={{
-                  width: '24px',
-                  height: '24px',
-                  fontSize: '10px'
-                }}
-                title={`+${card.proyectoData.colors.length - 6} colores más`}
+                className="w-full text-left text-xs font-semibold text-indigo-800 mb-1 flex items-center justify-between hover:bg-indigo-100 px-1 py-0.5 rounded"
+                data-todo-interactive
               >
-                +{card.proyectoData.colors.length - 6}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                <span>🎯 Misiones ({misiones.length})</span>
+                <span>{expanded === 'misiones' ? '▼' : '▶'}</span>
+              </button>
+              {expanded === 'misiones' && (
+                <div className="space-y-1 ml-2">
+                  {misiones.length === 0 ? (
+                    <div className="text-xs text-gray-500 italic">No hay misiones</div>
+                  ) : (
+                    misiones.slice(0, 5).map((mision) => (
+                      <div
+                        key={mision.id}
+                        className="bg-white rounded p-2 border border-indigo-100 text-xs"
+                      >
+                        <div className="font-medium text-indigo-900 truncate">
+                          {mision.nombre || 'Sin nombre'}
+                        </div>
+                        <div className="text-gray-600 text-xs flex gap-2 mt-0.5">
+                          <span>⏱️ {mision.horas || 0}h</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {misiones.length > 5 && (
+                    <div className="text-xs text-gray-500 italic text-center">
+                      +{misiones.length - 5} más
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-      {/* Tags de tipo, utilidad y paleta */}
-      <div className="flex gap-1 mt-2 flex-wrap flex-shrink-0">
-        {card.proyectoData?.type && (
-          <div className="bg-indigo-600 text-white rounded-full px-2 py-0.5 text-xs font-semibold shadow-sm">
-            {card.proyectoData.type}
-          </div>
-        )}
-        {card.proyectoData?.utility && (
-          <div className="bg-indigo-500 text-white rounded-full px-2 py-0.5 text-xs font-semibold shadow-sm">
-            {card.proyectoData.utility}
-          </div>
-        )}
-        {card.proyectoData?.palette && (
-          <div className="bg-purple-500 text-white rounded-full px-2 py-0.5 text-xs font-semibold shadow-sm">
-            {card.proyectoData.palette}
-          </div>
+            {/* Actividades */}
+            <div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(expanded === 'actividades' ? null : 'actividades');
+                }}
+                className="w-full text-left text-xs font-semibold text-green-800 mb-1 flex items-center justify-between hover:bg-green-100 px-1 py-0.5 rounded"
+                data-todo-interactive
+              >
+                <span>⚡ Actividades ({actividades.length})</span>
+                <span>{expanded === 'actividades' ? '▼' : '▶'}</span>
+              </button>
+              {expanded === 'actividades' && (
+                <div className="space-y-1 ml-2">
+                  {actividades.length === 0 ? (
+                    <div className="text-xs text-gray-500 italic">No hay actividades</div>
+                  ) : (
+                    actividades.slice(0, 5).map((actividad) => (
+                      <div
+                        key={actividad.id}
+                        className="bg-white rounded p-2 border border-green-100 text-xs"
+                      >
+                        <div className="font-medium text-green-900 truncate">
+                          {actividad.descripcion || 'Sin descripción'}
+                        </div>
+                        <div className="text-gray-600 text-xs flex gap-2 mt-0.5">
+                          {actividad.cant_horas && <span>⏱️ {actividad.cant_horas}h</span>}
+                          {actividad.fecha && (
+                            <span>📅 {new Date(actividad.fecha).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {actividades.length > 5 && (
+                    <div className="text-xs text-gray-500 italic text-center">
+                      +{actividades.length - 5} más
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
+
+      {/* Footer con totales */}
+      {!loading && (
+        <div className="mt-2 pt-2 border-t border-indigo-200 text-xs flex justify-around">
+          <div className="text-center">
+            <div className="text-gray-500">Total Misiones</div>
+            <div className="font-bold text-indigo-700">
+              {misiones.reduce((sum, m) => sum + (m.horas || 0), 0)}h
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-gray-500">Horas dedicadas</div>
+            <div className="font-bold text-green-700">
+              {actividades.reduce((sum, a) => sum + (a.tiempo_dedicado || 0), 0).toFixed(1)}h
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

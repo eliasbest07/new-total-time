@@ -56,10 +56,18 @@ interface AccordionProps {
   proyectos?: import('@/domain/entities/Proyecto').Proyecto[];
   usuarios?: Usuario[];
   onAddResource: () => void;
+  onUserClick?: (userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => void;
+  onProyectoClick?: (proyecto: import('@/domain/entities/Proyecto').Proyecto) => void;
 }
 
 // Componente Principal
-const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuarios = [], onAddResource }) => {
+const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuarios = [], onAddResource, onUserClick, onProyectoClick }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showAllUsers, setShowAllUsers] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -209,8 +217,14 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   };
 
   const handleProyectoClick = (proyecto: Proyecto) => {
-    setSelectedProyecto(proyecto);
-    setShowProyectoDetails(true);
+    // Si hay un callback personalizado, usarlo (para ventana flotante)
+    if (onProyectoClick) {
+      onProyectoClick(proyecto);
+    } else {
+      // Si no, usar el modal interno
+      setSelectedProyecto(proyecto);
+      setShowProyectoDetails(true);
+    }
   };
 
   const getEstadoColor = (estado: string) => {
@@ -291,8 +305,19 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                         {currentUsers.map((user) => (
                           <div
                             key={user.id}
-                            className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing"
+                            className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-pointer"
                             draggable
+                            onClick={() => {
+                              if (onUserClick) {
+                                onUserClick({
+                                  userId: user.userAuth,
+                                  name: user.name,
+                                  avatar: user.avatar,
+                                  color: user.color,
+                                  online: user.online
+                                });
+                              }
+                            }}
                             onDragStart={(e) => {
                               e.dataTransfer.setData('text/plain', `Usuario: ${user.name}`);
                               e.dataTransfer.setData('application/json', JSON.stringify({
@@ -376,15 +401,10 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                                 e.dataTransfer.setData('text/plain', `Proyecto: ${proyecto.nombre}`);
                                 e.dataTransfer.setData('application/json', JSON.stringify({
                                   dragType: 'proyecto',
+                                  id: proyecto.id,
                                   nombre: proyecto.nombre,
-                                  description: proyecto.description,
-                                  imagen_url: proyecto.imagen_url,
-                                  type: proyecto.type,
-                                  utility: proyecto.utility,
-                                  palette: proyecto.palette,
-                                  colors: proyecto.colors,
-                                  producto: proyecto.producto,
-                                  publico: proyecto.publico
+                                  descripcion: proyecto.descripcion,
+                                  icono: proyecto.icono
                                 }));
                                 e.currentTarget.style.opacity = '0.5';
                               }}

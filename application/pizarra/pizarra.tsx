@@ -540,6 +540,36 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     setCards(prev => [...prev, newCard]);
   }, [cards]);
 
+  const addUsuarioCard = useCallback((userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => {
+    const existingIds = cards.map(card => card.id);
+    const newCard = {
+      id: generateUniqueId('usuario', existingIds),
+      type: 'usuario',
+      title: userData.name || 'Usuario',
+      content: `Usuario: ${userData.name}`,
+      x: generatePosition(),
+      y: generatePosition(),
+      width: 280,
+      height: 400,
+      fontSize: 18,
+      usuarioData: {
+        userId: userData.userId,
+        name: userData.name || 'Usuario',
+        avatar: userData.avatar || 'US',
+        color: userData.color || 'bg-blue-500',
+        online: userData.online || false,
+        messages: []
+      }
+    };
+    setCards(prev => [...prev, newCard]);
+  }, [cards]);
+
   const restoreCard = useCallback((cardData: any) => {
     console.log('🔧 restoreCard ejecutado con:', cardData);
     // Restaurar un card desde el historial
@@ -1094,13 +1124,14 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   useImperativeHandle(ref, () => ({
     addNoteCard,
     addTodoCard,
+    addUsuarioCard,
     restoreCard,
     clearStorage: clearLocalStorage,
     exportStorage: exportToJSON,
     importStorage: importFromJSON,
     saveToSupabase,
     loadFromSupabase
-  }), [addNoteCard, addTodoCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase]);
+  }), [addNoteCard, addTodoCard, addUsuarioCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {

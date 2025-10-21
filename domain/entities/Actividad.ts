@@ -9,4 +9,5 @@ export interface Actividad {
   link: string | null;
   tiempo_dedicado: number | null; // real
   hora_inicio: string | null;
+  id_proyecto: number | null; // bigint - relación con proyecto
 }

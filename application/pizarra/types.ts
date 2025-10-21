@@ -26,6 +26,13 @@ export interface MisionData {
   id_mision?: string; // ID único de la misión en la base de datos
 }
 
+export interface ProyectoData {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  icono: string | null;
+}
+
 export interface Card {
   id: string;
   type: string;
@@ -40,6 +47,7 @@ export interface Card {
   activityData?: ActivityData;
   misionData?: MisionData;
   imageUrl?: string; // URL de la imagen guardada en Supabase Storage
+  proyectoData?: ProyectoData;
 }
 
 export interface Connection {
@@ -51,6 +59,13 @@ export interface Connection {
 export interface PizarraRef {
   addNoteCard: (text: string) => void;
   addTodoCard: (text: string) => void;
+  addUsuarioCard: (userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => void;
   clearStorage?: () => void;
   exportStorage?: () => void;
   importStorage?: (content: string) => void;
