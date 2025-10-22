@@ -13,7 +13,7 @@ interface AgregarRecursoModalProps {
 
 const AgregarRecursoModal: React.FC<AgregarRecursoModalProps> = ({ isOpen, onClose }) => {
     const { usuario } = useAuth();
-    const { createRecurso } = useRecursos(usuario?.id || null);
+    const { createRecurso } = useRecursos(usuario?.userAuth || null);
 
     const [formData, setFormData] = useState({
         nombre: '',
@@ -44,7 +44,7 @@ const AgregarRecursoModal: React.FC<AgregarRecursoModalProps> = ({ isOpen, onClo
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!usuario?.id) {
+        if (!usuario?.userAuth) {
             setError('Usuario no autenticado');
             return;
         }
@@ -63,7 +63,7 @@ const AgregarRecursoModal: React.FC<AgregarRecursoModalProps> = ({ isOpen, onClo
                 link: formData.link.trim() || null,
                 icono: formData.icono,
                 proyecto_id: formData.proyecto_id,
-                id_usuario: usuario.id
+                id_usuario: usuario.userAuth
             });
 
             // Recargar la página completa para mostrar el nuevo recurso

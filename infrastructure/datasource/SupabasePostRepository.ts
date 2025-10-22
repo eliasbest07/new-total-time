@@ -26,99 +26,55 @@ export class SupabasePostRepository implements PostRepository {
 
       console.log('✅ Posts obtenidos:', posts.length);
       console.log('📝 Estructura del primer post:', posts[0]);
-      console.log('🔍 creado_por del primer post:', posts[0]?.creado_por);
       console.log('🔍 id_usuario del primer post:', posts[0]?.id_usuario);
 
-      // Obtenemos los UUIDs únicos de usuarios desde creado_por
-      const userUUIDs = [...new Set(
+      // Obtenemos los IDs únicos de usuarios desde id_usuario
+      const userIds = [...new Set(
         posts
-          .map(p => p.creado_por)
-          .filter(id => {
-            // Filtrar valores válidos: no null, no undefined, no string "undefined"
-            if (!id || id === 'undefined' || id === '') {
-              return false;
-            }
-            return true;
-          })
+          .map(p => p.id_usuario)
+          .filter(id => id !== null && id !== undefined)
       )];
 
-      console.log('👥 UUIDs de usuarios a buscar:', userUUIDs);
-      console.log('📊 Total de UUIDs válidos:', userUUIDs.length);
+      console.log('👥 IDs de usuarios a buscar:', userIds);
+      console.log('📊 Total de IDs válidos:', userIds.length);
 
-      // Si no hay UUIDs válidos de creado_por, intentar con id_usuario (fallback)
-      if (userUUIDs.length === 0) {
-        console.log('⚠️ No hay creado_por, intentando con id_usuario como fallback');
-        const userIds = [...new Set(
-          posts
-            .map(p => p.id_usuario)
-            .filter(id => id !== null && id !== undefined)
-        )];
-
-        if (userIds.length > 0) {
-          console.log('👥 IDs numéricos de usuarios a buscar:', userIds);
-
-          // Intentar buscar por id numérico
-          const { data: usuarios, error: userError } = await supabase
-            .from('usuario')
-            .select('id, id_usuario, nombre, avatar')
-            .in('id_usuario', userIds);
-
-          console.log('📊 Respuesta usuarios (por id_usuario):', { usuarios, error: userError });
-
-          if (!userError && usuarios) {
-            const usuariosMap = new Map(
-              usuarios.map(u => [u.id_usuario, { nombre: u.nombre, avatar: u.avatar }])
-            );
-
-            return posts.map(post => ({
-              ...post,
-              id_comentarios: [],
-              edited_at: null,
-              likes_count: 0,
-              dislikes_count: 0,
-              usuario: post.id_usuario ? usuariosMap.get(post.id_usuario) : undefined
-            }));
-          }
-        }
-      }
-
-      if (userUUIDs.length === 0) {
-        console.log('⚠️ No hay UUIDs de usuarios válidos');
-        // Si no hay usuarios, devolvemos posts sin datos de usuario
+      // Si no hay IDs válidos, devolver posts sin datos de usuario
+      if (userIds.length === 0) {
+        console.log('⚠️ No hay id_usuario, devolviendo posts sin datos de usuario');
         return posts.map(post => ({
           ...post,
-          id_comentarios: [],
-          edited_at: null,
-          likes_count: 0,
-          dislikes_count: 0,
+          id_comentarios: post.id_comentarios || [],
+          edited_at: post.edited_at || null,
+          likes_count: post.likes_count || 0,
+          dislikes_count: post.dislikes_count || 0,
           usuario: undefined
         }));
       }
 
-      // Obtenemos los datos de los usuarios usando id como UUID
+      // Buscar usuarios por id_usuario
       const { data: usuarios, error: userError } = await supabase
         .from('usuario')
-        .select('id, nombre, avatar')
-        .in('id', userUUIDs);
+        .select('id, id_usuario, nombre, avatar')
+        .in('id_usuario', userIds);
 
-      console.log('📊 Respuesta usuarios:', { usuarios, error: userError });
+      console.log('📊 Respuesta usuarios (por id_usuario):', { usuarios, error: userError });
 
       if (userError) {
         console.error('❌ Error obteniendo usuarios:', userError);
         // Si hay error obteniendo usuarios, devolvemos posts sin datos de usuario
         return posts.map(post => ({
           ...post,
-          id_comentarios: [],
-          edited_at: null,
-          likes_count: 0,
-          dislikes_count: 0,
+          id_comentarios: post.id_comentarios || [],
+          edited_at: post.edited_at || null,
+          likes_count: post.likes_count || 0,
+          dislikes_count: post.dislikes_count || 0,
           usuario: undefined
         }));
       }
 
-      // Creamos un mapa de usuarios por UUID (campo id en tabla usuario)
+      // Creamos un mapa de usuarios por id_usuario
       const usuariosMap = new Map(
-        (usuarios || []).map(u => [u.id, { nombre: u.nombre, avatar: u.avatar }])
+        (usuarios || []).map(u => [u.id_usuario, { nombre: u.nombre, avatar: u.avatar }])
       );
 
       console.log('✅ Usuarios mapeados:', usuariosMap.size);
@@ -126,11 +82,11 @@ export class SupabasePostRepository implements PostRepository {
       // Combinamos los posts con los datos de usuario
       const postsWithExtraFields = posts.map(post => ({
         ...post,
-        id_comentarios: [], // Campo virtual para comentarios
-        edited_at: null, // Campo virtual para fecha de edición
-        likes_count: 0, // Campo virtual para likes
-        dislikes_count: 0, // Campo virtual para dislikes
-        usuario: post.creado_por ? usuariosMap.get(post.creado_por) : undefined
+        id_comentarios: post.id_comentarios || [], // Usar el array de la DB o vacío
+        edited_at: post.edited_at || null, // Campo de la DB o null
+        likes_count: post.likes_count || 0, // Campo de la DB o 0
+        dislikes_count: post.dislikes_count || 0, // Campo de la DB o 0
+        usuario: post.id_usuario ? usuariosMap.get(post.id_usuario) : undefined
       }));
 
       console.log('✅ Posts con datos de usuario:', postsWithExtraFields.length);
@@ -148,7 +104,7 @@ export class SupabasePostRepository implements PostRepository {
       const postData = {
         id_sala: post.id_sala,
         contenido: post.contenido,
-        creado_por: post.creado_por
+        id_usuario: post.id_usuario
       };
 
       console.log('📝 Creando post con datos:', postData);
@@ -165,13 +121,13 @@ export class SupabasePostRepository implements PostRepository {
         return null;
       }
 
-      // Agregar campos virtuales al post creado
+      // Agregar campos desde la DB o valores por defecto
       const postWithExtraFields = {
         ...data,
-        id_comentarios: [],
-        edited_at: null,
-        likes_count: 0,
-        dislikes_count: 0,
+        id_comentarios: data.id_comentarios || [],
+        edited_at: data.edited_at || null,
+        likes_count: data.likes_count || 0,
+        dislikes_count: data.dislikes_count || 0,
         usuario: undefined
       };
 
@@ -201,13 +157,13 @@ export class SupabasePostRepository implements PostRepository {
         return null;
       }
 
-      // Agregar campos virtuales
+      // Agregar campos desde la DB o valores por defecto
       const postWithExtraFields = {
         ...data,
-        id_comentarios: [],
-        edited_at: null,
-        likes_count: 0,
-        dislikes_count: 0,
+        id_comentarios: data.id_comentarios || [],
+        edited_at: data.edited_at || null,
+        likes_count: data.likes_count || 0,
+        dislikes_count: data.dislikes_count || 0,
         usuario: undefined
       };
 

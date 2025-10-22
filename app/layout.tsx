@@ -4,8 +4,11 @@ import "./globals.css";
 import AnimatedBackground from "./components/AnimatedBackground";
 import { AuthProvider } from "./contexts/AuthContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
+import { ChatWindowProvider } from "./contexts/ChatWindowContext";
 import TotalTimeNavbar from "./components/total-time-info";
 import SettingsModal from "./components/SettingsModal";
+import { ChatWindowManager } from "@/components/chat/ChatWindowManager";
+import { IncomingMessagesListener } from "@/components/chat/IncomingMessagesListener";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,12 +37,16 @@ export default function RootLayout({
       >
         <AuthProvider>
           <SettingsProvider>
-            <AnimatedBackground />
-            <TotalTimeNavbar />
-            <SettingsModal />
-            <main className="pt-16 h-screen overflow-hidden">
-              {children}
-            </main>
+            <ChatWindowProvider>
+              <AnimatedBackground />
+              <TotalTimeNavbar />
+              <SettingsModal />
+              <main className="pt-16 h-screen overflow-hidden">
+                {children}
+              </main>
+              <ChatWindowManager />
+              <IncomingMessagesListener />
+            </ChatWindowProvider>
           </SettingsProvider>
         </AuthProvider>
       </body>

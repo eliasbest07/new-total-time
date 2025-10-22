@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Card, ChatMessage } from '../../types/index';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useChatMessages } from '@/hooks/useChatMessages';
+import { useChatWindows } from '@/app/contexts/ChatWindowContext';
 
 interface UsuarioCardProps {
   card: Card;
@@ -20,6 +21,7 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
 }) => {
   const { usuario } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { openChatWindow } = useChatWindows();
 
   // Hook para manejar mensajes en tiempo real con Supabase
   const {
@@ -32,6 +34,19 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
     usuario?.userAuth || null,
     card.usuarioData?.userId || null
   );
+
+  // Función para abrir ventana de chat
+  const handleOpenChatWindow = () => {
+    if (!card.usuarioData) return;
+
+    openChatWindow({
+      userId: card.usuarioData.userId,
+      userName: card.usuarioData.name || card.title,
+      userAvatar: card.usuarioData.avatar || 'US',
+      userColor: card.usuarioData.color || 'bg-purple-600',
+      isOnline: card.usuarioData.online || false
+    });
+  };
 
   // Auto-scroll al final cuando hay nuevos mensajes
   useEffect(() => {
@@ -108,6 +123,20 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
             </span>
           </div>
         </div>
+        {/* Botón para abrir ventana de chat */}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleOpenChatWindow();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg transition-colors duration-200 flex items-center justify-center"
+          title="Abrir ventana de chat"
+          data-todo-interactive
+        >
+          <span style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}>💬</span>
+        </button>
       </div>
 
       {/* Mensajes del chat */}
@@ -169,6 +198,7 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
               e.currentTarget.value = '';
               try {
                 await enviarMensaje(texto);
+                // NO abrir ventana cuando YO envío el mensaje
               } catch (error) {
                 console.error('Error enviando mensaje:', error);
               }
@@ -191,6 +221,7 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
               input.value = '';
               try {
                 await enviarMensaje(texto);
+                // NO abrir ventana cuando YO envío el mensaje
               } catch (error) {
                 console.error('Error enviando mensaje:', error);
               }

@@ -6,6 +6,7 @@ interface PizarraStorageData {
   connections: Connection[];
   panOffset: { x: number; y: number };
   lastSaved: string;
+  savedDate: string; // Fecha en formato YYYY-MM-DD para comparar días
 }
 
 export const usePizarraLocalStorage = (
@@ -21,6 +22,16 @@ export const usePizarraLocalStorage = (
   const PIZARRA_STORAGE_KEY = `pizarra-${storagePrefix}-cards-v1`;
   const CONNECTIONS_STORAGE_KEY = `pizarra-${storagePrefix}-connections-v1`;
   const PAN_OFFSET_STORAGE_KEY = `pizarra-${storagePrefix}-pan-offset-v1`;
+  const DATE_STORAGE_KEY = `pizarra-${storagePrefix}-date-v1`;
+
+  // Función helper para obtener la fecha del día en formato YYYY-MM-DD
+  const getTodayDate = (): string => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   // Función helper para validar y parsear JSON
   const safeJsonParse = (jsonString: string | null, fallback: any = null) => {
@@ -48,6 +59,25 @@ export const usePizarraLocalStorage = (
   // Cargar datos desde localStorage al montar
   const loadFromLocalStorage = useCallback(() => {
     try {
+      // Primero verificar si es el mismo día
+      const savedDate = localStorage.getItem(DATE_STORAGE_KEY);
+      const todayDate = getTodayDate();
+
+      console.log('📅 [PIZARRA STORAGE] Verificando fecha...');
+      console.log('   - Fecha guardada:', savedDate);
+      console.log('   - Fecha actual:', todayDate);
+
+      // Si hay una fecha guardada y NO es el mismo día, limpiar todo
+      if (savedDate && savedDate !== todayDate) {
+        console.log('🗑️ [PIZARRA STORAGE] ¡Nuevo día detectado! Limpiando pizarra anterior...');
+        localStorage.removeItem(PIZARRA_STORAGE_KEY);
+        localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
+        localStorage.removeItem(PAN_OFFSET_STORAGE_KEY);
+        localStorage.removeItem(DATE_STORAGE_KEY);
+        console.log('✅ [PIZARRA STORAGE] Pizarra limpiada. Comenzando con pizarra nueva del día:', todayDate);
+        return; // Salir sin cargar nada
+      }
+
       const savedCards = localStorage.getItem(PIZARRA_STORAGE_KEY);
       const savedConnections = localStorage.getItem(CONNECTIONS_STORAGE_KEY);
       const savedPanOffset = localStorage.getItem(PAN_OFFSET_STORAGE_KEY);
@@ -124,6 +154,7 @@ export const usePizarraLocalStorage = (
         localStorage.removeItem(PIZARRA_STORAGE_KEY);
         localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
         localStorage.removeItem(PAN_OFFSET_STORAGE_KEY);
+        localStorage.removeItem(DATE_STORAGE_KEY);
         console.log('🗑️ [PIZARRA STORAGE] localStorage corrupto limpiado');
       } catch (cleanError) {
         console.error('❌ [PIZARRA STORAGE] Error limpiando localStorage:', cleanError);
@@ -150,26 +181,31 @@ export const usePizarraLocalStorage = (
         return;
       }
 
+      const todayDate = getTodayDate();
+
       const data: PizarraStorageData = {
         cards,
         connections,
         panOffset,
-        lastSaved: new Date().toISOString()
+        lastSaved: new Date().toISOString(),
+        savedDate: todayDate
       };
 
       // Intentar stringify con manejo de errores
       const cardsJson = JSON.stringify(cards);
       const connectionsJson = JSON.stringify(connections);
       const panOffsetJson = JSON.stringify(panOffset);
-      
+
       localStorage.setItem(PIZARRA_STORAGE_KEY, cardsJson);
       localStorage.setItem(CONNECTIONS_STORAGE_KEY, connectionsJson);
       localStorage.setItem(PAN_OFFSET_STORAGE_KEY, panOffsetJson);
+      localStorage.setItem(DATE_STORAGE_KEY, todayDate);
 
       console.log('💾 [PIZARRA STORAGE] Datos guardados en localStorage:', {
         cards: cards.length,
         connections: connections.length,
-        panOffset
+        panOffset,
+        date: todayDate
       });
     } catch (error) {
       console.error('❌ [PIZARRA STORAGE] Error guardando en localStorage:', error);
@@ -203,6 +239,7 @@ export const usePizarraLocalStorage = (
       localStorage.removeItem(PIZARRA_STORAGE_KEY);
       localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
       localStorage.removeItem(PAN_OFFSET_STORAGE_KEY);
+      localStorage.removeItem(DATE_STORAGE_KEY);
       console.log('🗑️ [PIZARRA STORAGE] localStorage limpiado');
 
       setCards([]);
@@ -219,7 +256,8 @@ export const usePizarraLocalStorage = (
       cards,
       connections,
       panOffset,
-      lastSaved: new Date().toISOString()
+      lastSaved: new Date().toISOString(),
+      savedDate: getTodayDate()
     };
 
     const dataStr = JSON.stringify(data, null, 2);
@@ -288,6 +326,7 @@ export const usePizarraLocalStorage = (
       localStorage.removeItem(PIZARRA_STORAGE_KEY);
       localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
       localStorage.removeItem(PAN_OFFSET_STORAGE_KEY);
+      localStorage.removeItem(DATE_STORAGE_KEY);
       setCards([]);
       setConnections([]);
       setPanOffset({ x: 0, y: 0 });

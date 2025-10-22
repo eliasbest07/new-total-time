@@ -20,6 +20,7 @@ import { useRecursos } from "@/hooks/useRecursos";
 import { useProyectos } from "@/hooks/useProyectos";
 import { useUsuariosOrganizacion } from "@/hooks/useUsuariosOrganizacion";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { useChatWindows } from "@/app/contexts/ChatWindowContext";
 import { FileText, Link, Code, Image, Video, Download, LucideIcon } from "lucide-react";
 import AgregarRecursoModal from "./modals/AgregarRecursoModal";
 import { Actividad } from "@/domain/entities/Actividad";
@@ -33,7 +34,6 @@ import EntregasVentana from "./mainUI/EntregasVentana";
 export default function MainScreen() {
   const pizarraRef = useRef<PizarraRef>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-  const [recursos, setRecursos] = useState<Resource[]>([]);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [showScreenshotsModal, setShowScreenshotsModal] = useState<string | null>(null);
@@ -57,7 +57,8 @@ export default function MainScreen() {
   const [showEntregasModal, setShowEntregasModal] = useState(false);
 
   const { usuario } = useAuth();
-  
+  const { openChatWindow } = useChatWindows();
+
   // Delays escalonados para evitar múltiples peticiones simultáneas
   const [enableHooks, setEnableHooks] = useState(false);
   
@@ -76,7 +77,7 @@ export default function MainScreen() {
 
   // Hooks con delays escalonados para evitar 429
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(
-    enableHooks ? usuario?.id || null : null
+    enableHooks ? usuario?.userAuth || null : null
   );
   
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos();
@@ -144,19 +145,6 @@ export default function MainScreen() {
     error: screenshotError
   } = useScreenshots();
 
-  // Función para convertir recursos de Supabase al formato del Accordion
-  const convertirRecursosSupabase = () => {
-    return recursosSupabase.map((recurso, index) => ({
-      id: recurso.id,
-      name: recurso.nombre || 'Sin nombre',
-      icon: getIconForRecurso(recurso.icono),
-      color: getColorForRecurso(index),
-      type: 'link',
-      url: recurso.link || undefined,
-      description: `Recurso creado el ${new Date(recurso.created_at).toLocaleDateString()}`
-    }));
-  };
-
   // Función para obtener icono basado en el icono del recurso
   const getIconForRecurso = (icono: string | null) => {
     if (!icono) return FileText;
@@ -194,30 +182,36 @@ export default function MainScreen() {
     return colors[index % colors.length];
   };
 
-  // Actualizar recursos cuando cambien los de Supabase
+  // Convertir recursos de Supabase al formato del Accordion usando useMemo
+  const recursos = useMemo(() => {
+    if (!recursosSupabase || recursosSupabase.length === 0) {
+      console.log('📚 MainScreen - No hay recursos de Supabase');
+      return [];
+    }
+
+    console.log('📚 MainScreen - Convirtiendo recursos:', recursosSupabase);
+    const recursosConvertidos = recursosSupabase.map((recurso, index) => ({
+      id: recurso.id,
+      name: recurso.nombre || 'Sin nombre',
+      icon: getIconForRecurso(recurso.icono),
+      color: getColorForRecurso(index),
+      type: 'link',
+      url: recurso.link || undefined,
+      description: `Recurso creado el ${new Date(recurso.created_at).toLocaleDateString()}`
+    }));
+    console.log('📚 MainScreen - Recursos convertidos:', recursosConvertidos);
+    return recursosConvertidos;
+  }, [recursosSupabase]);
+
+  // Configurar viewport zoom
   useEffect(() => {
-    console.log('📚 MainScreen - Estado recursos:', {
-      usuario: usuario?.id,
-      recursosLoading,
-      recursosSupabaseLength: recursosSupabase?.length,
-      recursosSupabase
-    });
-
-
-     const meta = document.querySelector("meta[name='viewport']");
+    const meta = document.querySelector("meta[name='viewport']");
     const original = meta?.getAttribute("content");
     meta?.setAttribute("content", "width=device-width, initial-scale=0.7"); // zoom out
     return () => {
       //if (original) meta?.setAttribute("content", original);
     };
-
-    if (!recursosLoading && recursosSupabase) {
-      console.log('📚 MainScreen - Convirtiendo recursos:', recursosSupabase);
-      const recursosConvertidos = convertirRecursosSupabase();
-      console.log('📚 MainScreen - Recursos convertidos:', recursosConvertidos);
-      setRecursos(recursosConvertidos);
-    }
-  }, [recursosSupabase, recursosLoading]);
+  }, []);
 
   // Log para proyectos
   useEffect(() => {
@@ -309,8 +303,14 @@ export default function MainScreen() {
     color?: string;
     online?: boolean;
   }) => {
-    setSelectedChatUser(userData);
-    setShowChatWindow(true);
+    // Usar el sistema de ventanas de chat del contexto
+    openChatWindow({
+      userId: userData.userId,
+      userName: userData.name,
+      userAvatar: userData.avatar || userData.name.substring(0, 2).toUpperCase(),
+      userColor: userData.color || 'bg-purple-600',
+      isOnline: userData.online || false
+    });
   };
 
   // Handler para cuando se hace click en un proyecto

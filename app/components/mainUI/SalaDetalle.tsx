@@ -10,10 +10,15 @@ import { useAuth } from "@/app/contexts/AuthContext";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
 import { SupabasePostRepository } from "@/infrastructure/datasource/SupabasePostRepository";
 import { SupabaseComentarioRepository } from "@/infrastructure/datasource/SupabaseComentarioRepository";
+import { supabase } from "@/infrastructure/services/SupabaseClient";
+import { useNewPostsNotification } from "@/hooks/useNewPostsNotification";
+import { NewPostNotification } from "@/components/notifications/NewPostNotification";
+import { NewPostsBadge } from "@/components/notifications/NewPostsBadge";
 
 // Componente interno para mostrar comentarios de un post
 function ComentariosSection({
   postId,
+  comentarioIds,
   commentContent,
   onCommentContentChange,
   onAddComment,
@@ -22,6 +27,7 @@ function ComentariosSection({
   onDislikeComment
 }: {
   postId: string;
+  comentarioIds: string[];
   commentContent: string;
   onCommentContentChange: (content: string) => void;
   onAddComment: (postId: string) => void;
@@ -29,7 +35,7 @@ function ComentariosSection({
   onLikeComment: (comentarioId: string) => void;
   onDislikeComment: (comentarioId: string) => void;
 }) {
-  const { comentarios, loading, error } = useComentariosByPost(postId);
+  const { comentarios, loading, error } = useComentariosByPost(comentarioIds);
   const [showCommentForm, setShowCommentForm] = useState(false);
 
   const formatearFecha = (fecha: string) => {
@@ -184,6 +190,17 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   const [comentarioRepository] = useState(() => new SupabaseComentarioRepository());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Hook para notificaciones de nuevos posts
+  const {
+    newPostsCount,
+    notifications,
+    clearNotifications,
+    markAsRead
+  } = useNewPostsNotification(usuario?.id_usuario || null, sala.id);
+
+  // Estado para mostrar la notificación actual
+  const [currentNotification, setCurrentNotification] = useState<typeof notifications[0] | null>(null);
+
   // Estados para crear nuevo post
   const [showNewPost, setShowNewPost] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
@@ -208,6 +225,21 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   const indiceInicio = (currentPage - 1) * postsPorPagina;
   const indiceFin = indiceInicio + postsPorPagina;
   const postsActuales = posts.slice(indiceInicio, indiceFin);
+
+  // Mostrar notificación cuando llega un nuevo post
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const latestNotification = notifications[notifications.length - 1];
+      setCurrentNotification(latestNotification);
+
+      // Auto-cerrar después de 5 segundos si el usuario no la cierra
+      const timer = setTimeout(() => {
+        setCurrentNotification(null);
+      }, 5500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [notifications]);
 
   // Auto-expandir comentarios del post actual
   useEffect(() => {
@@ -254,8 +286,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
       const newPost = await postRepository.createPost({
         id_sala: sala.id,
         contenido: newPostContent,
-        creado_por: usuario.id, // UUID del usuario autenticado
-        id_usuario: usuarioId, // Mantener compatibilidad
+        id_usuario: usuarioId, // ID numérico del usuario
         id_comentarios: [],
         edited_at: null,
         likes_count: 0,
@@ -362,11 +393,11 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
 
     setCreatingComment(true);
     try {
-      // Crear comentario con id_post
+      // Crear comentario
       const nuevoComentario = await comentarioRepository.createComentario(
         newCommentContent,
         usuarioId,
-        postId // Pasar el ID del post
+        postId // Pasar el ID del post (se ignora por ahora, tabla no tiene id_post)
       );
 
       if (!nuevoComentario) {
@@ -374,7 +405,31 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
         return;
       }
 
-      console.log('✅ Comentario creado con id_post:', nuevoComentario);
+      console.log('✅ Comentario creado:', nuevoComentario);
+
+      // Agregar el ID del comentario al array id_comentarios del post
+      const postRepository = new SupabasePostRepository();
+      const { data: currentPost, error: fetchError } = await supabase
+        .from('post_sala')
+        .select('id_comentarios')
+        .eq('id', postId)
+        .single();
+
+      if (!fetchError && currentPost) {
+        const currentComentarios = currentPost.id_comentarios || [];
+        const updatedComentarios = [...currentComentarios, nuevoComentario.id];
+
+        const { error: updateError } = await supabase
+          .from('post_sala')
+          .update({ id_comentarios: updatedComentarios })
+          .eq('id', postId);
+
+        if (updateError) {
+          console.error('❌ Error actualizando id_comentarios del post:', updateError);
+        } else {
+          console.log('✅ ID del comentario agregado al post');
+        }
+      }
 
       // Limpiar el formulario y refrescar
       setNewCommentContent('');
@@ -438,6 +493,33 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
         scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }, 50);
+  };
+
+  // Handler para cuando se hace clic en el badge de nuevos posts
+  const handleViewNewPosts = () => {
+    // Ir a la primera página para ver los posts más recientes
+    setCurrentPage(1);
+    // Marcar como leídos
+    markAsRead();
+    // Refrescar posts
+    refetch();
+    // Hacer scroll al inicio
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Handler para ver un post específico desde la notificación
+  const handleViewPost = () => {
+    // Ir a la primera página y refrescar
+    setCurrentPage(1);
+    refetch();
+    // Cerrar la notificación
+    setCurrentNotification(null);
+    // Hacer scroll al inicio
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   return (
@@ -746,6 +828,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
                       <div className="border-t border-gray-200 px-4 pb-4">
                         <ComentariosSection
                           postId={post.id}
+                          comentarioIds={post.id_comentarios || []}
                           commentContent={newCommentContent}
                           onCommentContentChange={setNewCommentContent}
                           onAddComment={handleCreateComment}
@@ -871,6 +954,19 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Badge de nuevos posts */}
+      <NewPostsBadge count={newPostsCount} onClick={handleViewNewPosts} />
+
+      {/* Notificación de nuevo post */}
+      {currentNotification && (
+        <NewPostNotification
+          autorNombre={currentNotification.autorNombre}
+          contenido={currentNotification.contenido}
+          onClose={() => setCurrentNotification(null)}
+          onView={handleViewPost}
+        />
       )}
 
     </div>

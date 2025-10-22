@@ -49,8 +49,16 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
       const nuevoMensaje = await mensajeRepository.enviarMensaje(currentUserId, otherUserId, texto.trim());
 
       if (nuevoMensaje) {
-        // Agregar el mensaje optimísticamente al estado local
-        setMensajes(prev => [...prev, nuevoMensaje]);
+        // Agregar el mensaje optimísticamente al estado local SOLO si no existe ya
+        setMensajes(prev => {
+          const existe = prev.some(m => m.id === nuevoMensaje.id);
+          if (existe) {
+            console.log('💬 useChatMessages - Mensaje ya existe, no se duplica');
+            return prev;
+          }
+          console.log('💬 useChatMessages - Mensaje agregado optimísticamente');
+          return [...prev, nuevoMensaje];
+        });
         console.log('💬 useChatMessages - Mensaje enviado exitosamente');
         return nuevoMensaje;
       }
@@ -151,10 +159,14 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
               payload.new.id_conversacion
             );
 
-            // Solo agregar si no es del usuario actual (para evitar duplicados)
+            // Agregar solo si no existe ya (evitar duplicados de cualquier origen)
             setMensajes(prev => {
               const existe = prev.some(m => m.id === nuevoMensaje.id);
-              if (existe) return prev;
+              if (existe) {
+                console.log('💬 useChatMessages - Mensaje duplicado detectado en realtime, ignorando:', nuevoMensaje.id);
+                return prev;
+              }
+              console.log('💬 useChatMessages - Nuevo mensaje recibido en realtime:', nuevoMensaje.id);
               return [...prev, nuevoMensaje];
             });
           } else if (payload.eventType === 'UPDATE') {

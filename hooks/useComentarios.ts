@@ -95,7 +95,7 @@ export const useComentarios = (comentarioIds: string[] | null): UseComentariosRe
         } finally {
             setLoading(false);
         }
-    }, [comentarioIds]);
+    }, [comentarioIdsStr]);
 
     useEffect(() => {
         loadComentarios();
@@ -108,14 +108,20 @@ export const useComentarios = (comentarioIds: string[] | null): UseComentariosRe
     };
 };
 
-// Hook para cargar comentarios por post ID (nuevo método usando id_post)
-export const useComentariosByPost = (postId: string | null): UseComentariosReturn => {
+// Hook para cargar comentarios por IDs
+// Recibe un array de UUIDs de comentarios y los carga desde la DB
+export const useComentariosByPost = (comentarioIds: string[] | null): UseComentariosReturn => {
     const [comentarios, setComentarios] = useState<Comentario[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Convertir el array a string para usarlo como dependencia
+    const comentarioIdsStr = JSON.stringify(comentarioIds);
+
     const loadComentarios = useCallback(async () => {
-        if (!postId) {
+        const ids = JSON.parse(comentarioIdsStr);
+
+        if (!ids || ids.length === 0) {
             setComentarios([]);
             return;
         }
@@ -124,16 +130,13 @@ export const useComentariosByPost = (postId: string | null): UseComentariosRetur
         setError(null);
 
         try {
-            console.log('💬 Cargando comentarios del post:', postId);
+            console.log('💬 Cargando comentarios con IDs:', ids);
 
-            // Convertir postId a número
-            const postIdNum = parseInt(postId);
-
-            // Obtener comentarios del post
+            // Obtener comentarios por array de IDs
             const { data: comentariosData, error: comentariosError } = await supabase
                 .from('comentario_sala')
                 .select('*')
-                .eq('id_post', postIdNum)
+                .in('id', ids)
                 .order('created_at', { ascending: true });
 
             console.log('📊 Respuesta comentarios:', { data: comentariosData, error: comentariosError });
@@ -181,7 +184,6 @@ export const useComentariosByPost = (postId: string | null): UseComentariosRetur
                     likes_count: item.likes_count || 0,
                     dislikes_count: item.dislikes_count || 0,
                     idUsuario: idUsuario,
-                    id_post: item.id_post,
                     usuario: idUsuario ? usuariosMap.get(idUsuario) : undefined
                 };
             });
@@ -195,7 +197,7 @@ export const useComentariosByPost = (postId: string | null): UseComentariosRetur
         } finally {
             setLoading(false);
         }
-    }, [postId]);
+    }, [comentarioIdsStr]);
 
     useEffect(() => {
         loadComentarios();

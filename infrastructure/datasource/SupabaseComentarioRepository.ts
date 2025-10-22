@@ -85,15 +85,13 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
 
   async getComentariosByPost(postId: string): Promise<Comentario[]> {
     try {
-      console.log('💬 Obteniendo comentarios del post:', postId);
+      console.log('💬 Obteniendo todos los comentarios de la sala (ignorando postId por ahora):', postId);
 
-      // Convertir postId a número si es necesario
-      const postIdNum = parseInt(postId);
-
+      // NOTA: La tabla comentario_sala NO tiene columna id_post
+      // Por ahora, obtenemos todos los comentarios de la sala
       const { data, error } = await supabase
         .from('comentario_sala')
         .select('*')
-        .eq('id_post', postIdNum)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -102,7 +100,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
       }
 
       if (!data || data.length === 0) {
-        console.log('⚠️ No se encontraron comentarios para el post');
+        console.log('⚠️ No se encontraron comentarios');
         return [];
       }
 
@@ -134,7 +132,6 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
           likes_count: item.likes_count || 0,
           dislikes_count: item.dislikes_count || 0,
           idUsuario: idUsuario,
-          id_post: item.id_post,
           usuario: idUsuario ? usuariosMap.get(idUsuario) : undefined
         };
       });
@@ -156,11 +153,6 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         idUsuario: usuarioId,
         contenido: contenido
       };
-
-      // Agregar id_post si está disponible
-      if (postId) {
-        insertData.id_post = parseInt(postId);
-      }
 
       console.log('📦 Datos a insertar:', insertData);
 
@@ -202,7 +194,6 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         likes_count: data.likes_count || 0,
         dislikes_count: data.dislikes_count || 0,
         idUsuario: idUsuarioFromData,
-        id_post: data.id_post || null,
         usuario: usuario ? { nombre: usuario.nombre } : undefined
       };
 
