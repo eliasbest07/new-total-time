@@ -21,7 +21,6 @@ import { useRecursos } from "@/hooks/useRecursos";
 import { useProyectos } from "@/hooks/useProyectos";
 import { useUsuariosOrganizacion } from "@/hooks/useUsuariosOrganizacion";
 import { useAuth } from "@/app/contexts/AuthContext";
-import { useChatWindows } from "@/app/contexts/ChatWindowContext";
 import { FileText, Link, Code, Image, Video, Download, LucideIcon } from "lucide-react";
 import AgregarRecursoModal from "./modals/AgregarRecursoModal";
 import { Actividad } from "@/domain/entities/Actividad";
@@ -67,7 +66,6 @@ export default function MainScreen() {
   const [showEntregasModal, setShowEntregasModal] = useState(false);
 
   const { usuario } = useAuth();
-  const { openChatWindow } = useChatWindows();
 
   // Delays escalonados para evitar múltiples peticiones simultáneas
   const [enableHooks, setEnableHooks] = useState(false);
@@ -314,33 +312,28 @@ export default function MainScreen() {
     online?: boolean;
   }) => {
     console.log('👤 handleUserClick llamado con:', userData);
-    // Usar el sistema de ventanas de chat del contexto
-    openChatWindow({
-      userId: userData.userId,
-      userName: userData.name,
-      userAvatar: userData.avatar || userData.name.substring(0, 2).toUpperCase(),
-      userColor: userData.color || 'bg-purple-600',
-      isOnline: userData.online || false
-    });
+    setSelectedChatUser(userData);
+    setShowChatWindow(true);
     console.log('👤 Estado actualizado - showChatWindow debería ser true');
   };
 
   // Handler para mensajes entrantes
-  const handleIncomingMessage = useCallback((mensaje: {
-    id: string;
-    idEmisor: string;
-    idReceptor: string;
-    texto: string;
-    emisorNombre?: string;
+  const handleIncomingMessage = useCallback((userData: {
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    userColor: string;
+    isOnline: boolean;
   }) => {
-    console.log('🔔 Mensaje entrante recibido en MainScreen:', mensaje);
+    console.log('🔔 Mensaje entrante recibido:', userData);
 
     // Abrir la ventana del chat con el emisor
     setSelectedChatUser({
-      userId: mensaje.idEmisor,
-      name: mensaje.emisorNombre || 'Usuario',
-      avatar: mensaje.emisorNombre?.charAt(0).toUpperCase() || 'U',
-      online: true
+      userId: userData.userId,
+      name: userData.userName,
+      avatar: userData.userAvatar,
+      color: userData.userColor,
+      online: userData.isOnline
     });
     setShowChatWindow(true);
   }, []);

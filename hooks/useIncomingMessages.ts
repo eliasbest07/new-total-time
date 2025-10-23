@@ -3,27 +3,44 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { useChatWindows } from '@/app/contexts/ChatWindowContext';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 
+interface UseIncomingMessagesOptions {
+  onNewMessage?: (userData: {
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    userColor: string;
+    isOnline: boolean;
+  }) => void;
+}
+
 /**
  * Hook para detectar mensajes entrantes y abrir automáticamente ventanas de chat
+ * @param userId - ID del usuario (opcional, si no se pasa usa el del contexto Auth)
+ * @param options - Opciones con callback onNewMessage (opcional)
  */
-export const useIncomingMessages = () => {
+export const useIncomingMessages = (
+  userId?: string | null,
+  options?: UseIncomingMessagesOptions
+) => {
   const { usuario } = useAuth();
-  const { openChatWindow } = useChatWindows();
+  const chatWindowsContext = useChatWindows();
   const processedMessagesRef = useRef<Set<string>>(new Set());
 
+  // Usar el userId pasado por parámetro o el del contexto
+  const currentUserId = userId || usuario?.userAuth;
+
   console.log('📬 useIncomingMessages - Hook ejecutado');
-  console.log('📬 useIncomingMessages - Usuario:', usuario?.userAuth);
-  console.log('📬 useIncomingMessages - openChatWindow:', typeof openChatWindow);
+  console.log('📬 useIncomingMessages - Usuario:', currentUserId);
+  console.log('📬 useIncomingMessages - Tiene callback:', !!options?.onNewMessage);
 
   useEffect(() => {
     console.log('📬 useIncomingMessages - useEffect ejecutado');
 
-    if (!usuario?.userAuth) {
+    if (!currentUserId) {
       console.log('📬 useIncomingMessages - No hay usuario logeado');
       return;
     }
 
-    const currentUserId = usuario.userAuth;
     console.log('📬 useIncomingMessages - Configurando listener para usuario:', currentUserId);
 
     // Suscribirse a mensajes donde el usuario actual es el RECEPTOR
@@ -94,13 +111,19 @@ export const useIncomingMessages = () => {
               console.error('📬 useIncomingMessages - Error:', error);
 
               // Abrir ventana con datos por defecto si hay error
-              openChatWindow({
+              const defaultUserData = {
                 userId: idEmisor,
                 userName: 'Usuario Desconocido',
                 userAvatar: 'UD',
                 userColor: 'bg-purple-600',
                 isOnline: true
-              });
+              };
+
+              if (options?.onNewMessage) {
+                options.onNewMessage(defaultUserData);
+              } else if (chatWindowsContext?.openChatWindow) {
+                chatWindowsContext.openChatWindow(defaultUserData);
+              }
               return;
             }
 
@@ -143,14 +166,21 @@ export const useIncomingMessages = () => {
               colorMarco
             });
 
-            // Abrir ventana de chat
-            openChatWindow({
+            // Datos del usuario para abrir la ventana
+            const userData = {
               userId: idEmisor,
               userName: nombreCompleto,
               userAvatar: userAvatar,
               userColor: colorClass,
               isOnline: true // Asumimos que está online porque acaba de enviar un mensaje
-            });
+            };
+
+            // Abrir ventana de chat usando callback o contexto
+            if (options?.onNewMessage) {
+              options.onNewMessage(userData);
+            } else if (chatWindowsContext?.openChatWindow) {
+              chatWindowsContext.openChatWindow(userData);
+            }
 
             console.log('📬 useIncomingMessages - Ventana de chat abierta para:', nombreCompleto);
           } catch (err) {
@@ -167,84 +197,5 @@ export const useIncomingMessages = () => {
       console.log('📬 useIncomingMessages - Eliminando suscripción');
       supabase.removeChannel(channel);
     };
-  }, [usuario?.userAuth, openChatWindow]);
-};
-import { useEffect, useCallback } from 'react';
-import { supabase } from '@/infrastructure/services/SupabaseClient';
-import { Mensaje } from '@/domain/entities/Mensaje';
-
-interface IncomingMessageHandler {
-  onNewMessage: (mensaje: {
-    id: string;
-    idEmisor: string;
-    idReceptor: string;
-    texto: string;
-    emisorNombre?: string;
-  }) => void;
-}
-
-export const useIncomingMessages = (
-  currentUserId: string | null,
-  handler: IncomingMessageHandler
-) => {
-  useEffect(() => {
-    if (!currentUserId) {
-      console.log('🔔 useIncomingMessages - No hay usuario actual, no se configura suscripción');
-      return;
-    }
-
-    console.log('🔔 useIncomingMessages - Configurando suscripción para usuario:', currentUserId);
-
-    // Suscribirse a TODOS los mensajes donde el usuario actual es el receptor
-    const channel = supabase
-      .channel('incoming-messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'mensajes',
-          filter: `id_receptor=eq.${currentUserId}`
-        },
-        async (payload) => {
-          console.log('🔔 useIncomingMessages - Nuevo mensaje recibido:', payload);
-
-          const nuevoMensaje = {
-            id: payload.new.id,
-            idEmisor: payload.new.id_emisor,
-            idReceptor: payload.new.id_receptor,
-            texto: payload.new.texto
-          };
-
-          // Intentar obtener el nombre del emisor
-          try {
-            const { data: userData } = await supabase
-              .from('usuario')
-              .select('nombre')
-              .eq('id', payload.new.id_emisor)
-              .single();
-
-            if (userData) {
-              handler.onNewMessage({
-                ...nuevoMensaje,
-                emisorNombre: userData.nombre
-              });
-            } else {
-              handler.onNewMessage(nuevoMensaje);
-            }
-          } catch (error) {
-            console.error('🔔 useIncomingMessages - Error obteniendo nombre de emisor:', error);
-            handler.onNewMessage(nuevoMensaje);
-          }
-        }
-      )
-      .subscribe();
-
-    console.log('🔔 useIncomingMessages - Suscripción configurada');
-
-    return () => {
-      console.log('🔔 useIncomingMessages - Eliminando suscripción');
-      supabase.removeChannel(channel);
-    };
-  }, [currentUserId, handler]);
+  }, [currentUserId, options, chatWindowsContext]);
 };
