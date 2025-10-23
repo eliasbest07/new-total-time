@@ -9,7 +9,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
    */
   async getByPizarraId(idPizarra: string): Promise<CardConnection[]> {
     try {
-      console.log('🔗 Obteniendo conexiones de pizarra:', idPizarra);
+      // console.log('🔗 Obteniendo conexiones de pizarra:', idPizarra);
 
       const { data, error } = await supabase
         .from('card_connections')
@@ -21,7 +21,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
         return [];
       }
 
-      console.log(`✅ ${data?.length || 0} conexiones encontradas`);
+      // console.log(`✅ ${data?.length || 0} conexiones encontradas`);
       return data || [];
     } catch (error) {
       console.error('❌ Error en getByPizarraId:', error);
@@ -34,7 +34,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
    */
   async getByConnectionId(idPizarra: string, connectionId: string): Promise<CardConnection | null> {
     try {
-      console.log('🔗 Obteniendo conexión:', connectionId);
+      // console.log('🔗 Obteniendo conexión:', connectionId);
 
       const { data, error } = await supabase
         .from('card_connections')
@@ -45,14 +45,14 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
 
       if (error) {
         if (error.code === 'PGRST116') {
-          console.log('ℹ️ Conexión no encontrada');
+          // console.log('ℹ️ Conexión no encontrada');
           return null;
         }
         console.error('❌ Error obteniendo conexión:', error);
         return null;
       }
 
-      console.log('✅ Conexión encontrada');
+      // console.log('✅ Conexión encontrada');
       return data;
     } catch (error) {
       console.error('❌ Error en getByConnectionId:', error);
@@ -65,7 +65,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
    */
   async getByFromCardId(idPizarra: string, fromCardId: string): Promise<CardConnection[]> {
     try {
-      console.log('🔗 Obteniendo conexiones desde card:', fromCardId);
+      // console.log('🔗 Obteniendo conexiones desde card:', fromCardId);
 
       const { data, error } = await supabase
         .from('card_connections')
@@ -78,7 +78,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
         return [];
       }
 
-      console.log(`✅ ${data?.length || 0} conexiones desde card encontradas`);
+      // console.log(`✅ ${data?.length || 0} conexiones desde card encontradas`);
       return data || [];
     } catch (error) {
       console.error('❌ Error en getByFromCardId:', error);
@@ -91,7 +91,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
    */
   async getByToCardId(idPizarra: string, toCardId: string): Promise<CardConnection[]> {
     try {
-      console.log('🔗 Obteniendo conexiones hacia card:', toCardId);
+      // console.log('🔗 Obteniendo conexiones hacia card:', toCardId);
 
       const { data, error } = await supabase
         .from('card_connections')
@@ -104,7 +104,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
         return [];
       }
 
-      console.log(`✅ ${data?.length || 0} conexiones hacia card encontradas`);
+      // console.log(`✅ ${data?.length || 0} conexiones hacia card encontradas`);
       return data || [];
     } catch (error) {
       console.error('❌ Error en getByToCardId:', error);
@@ -117,7 +117,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
    */
   async create(connection: CreateCardConnectionDTO): Promise<CardConnection | null> {
     try {
-      console.log('➕ Creando conexión:', connection.connection_id);
+      // console.log('➕ Creando conexión:', connection.connection_id);
 
       const { data, error } = await supabase
         .from('card_connections')
@@ -130,7 +130,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
         return null;
       }
 
-      console.log('✅ Conexión creada exitosamente');
+      // console.log('✅ Conexión creada exitosamente');
       return data;
     } catch (error) {
       console.error('❌ Error en create:', error);
@@ -143,7 +143,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
    */
   async update(idPizarra: string, connectionId: string, updates: UpdateCardConnectionDTO): Promise<CardConnection | null> {
     try {
-      console.log('✏️ Actualizando conexión:', connectionId);
+      // console.log('✏️ Actualizando conexión:', connectionId);
 
       const { data, error } = await supabase
         .from('card_connections')
@@ -158,7 +158,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
         return null;
       }
 
-      console.log('✅ Conexión actualizada');
+      // console.log('✅ Conexión actualizada');
       return data;
     } catch (error) {
       console.error('❌ Error en update:', error);
@@ -171,7 +171,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
    */
   async delete(idPizarra: string, connectionId: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando conexión:', connectionId);
+      // console.log('🗑️ Eliminando conexión:', connectionId);
 
       const { error } = await supabase
         .from('card_connections')
@@ -184,7 +184,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
         return false;
       }
 
-      console.log('✅ Conexión eliminada');
+      // console.log('✅ Conexión eliminada');
       return true;
     } catch (error) {
       console.error('❌ Error en delete:', error);
@@ -197,7 +197,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
    */
   async deleteAllByPizarra(idPizarra: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando todas las conexiones de pizarra:', idPizarra);
+      // console.log('🗑️ Eliminando todas las conexiones de pizarra:', idPizarra);
 
       const { error } = await supabase
         .from('card_connections')
@@ -209,7 +209,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
         return false;
       }
 
-      console.log('✅ Todas las conexiones eliminadas');
+      // console.log('✅ Todas las conexiones eliminadas');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteAllByPizarra:', error);
@@ -223,7 +223,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
    */
   async deleteByCardId(idPizarra: string, cardId: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando conexiones de card:', cardId);
+      // console.log('🗑️ Eliminando conexiones de card:', cardId);
 
       // Eliminar conexiones donde la card es origen
       const { error: fromError } = await supabase
@@ -249,7 +249,7 @@ export class SupabaseCardConnectionRepository implements CardConnectionRepositor
         return false;
       }
 
-      console.log('✅ Conexiones de card eliminadas');
+      // console.log('✅ Conexiones de card eliminadas');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteByCardId:', error);

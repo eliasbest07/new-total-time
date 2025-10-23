@@ -25,7 +25,7 @@ export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
   const loadMisiones = useCallback(async () => {
     // Por ahora cargar todas las misiones si no hay usuario específico
     if (!idUsuario) {
-      console.log('⚠️ Sin ID de usuario, cargando todas las misiones');
+      // console.log('⚠️ Sin ID de usuario, cargando todas las misiones');
     }
 
     setLoading(true);
@@ -33,17 +33,17 @@ export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
 
     try {
       let misionesData: Mision[];
-      
+
       if (idUsuario) {
-        console.log('🎯 Cargando misiones para usuario:', idUsuario);
+        // console.log('🎯 Cargando misiones para usuario:', idUsuario);
         misionesData = await misionRepository.current.getMisionesByUsuario(idUsuario);
       } else {
-        console.log('🎯 Cargando todas las misiones');
+        // console.log('🎯 Cargando todas las misiones');
         misionesData = await (misionRepository.current as any).getAllMisiones();
       }
-      
+
       setMisiones(misionesData);
-      console.log('✅ Misiones cargadas exitosamente:', misionesData.length);
+      // console.log('✅ Misiones cargadas exitosamente:', misionesData.length);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar misiones';
       console.error('❌ Error cargando misiones:', errorMessage);
@@ -59,7 +59,7 @@ export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
       const nuevaMision = await misionRepository.current.createMision(mision);
       if (nuevaMision) {
         // La actualización se manejará via realtime
-        console.log('✅ Misión creada:', nuevaMision);
+        // console.log('✅ Misión creada:', nuevaMision);
       }
       return nuevaMision;
     } catch (err) {
@@ -76,7 +76,7 @@ export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
       const misionActualizada = await misionRepository.current.updateMision(id, mision);
       if (misionActualizada) {
         // La actualización se manejará via realtime
-        console.log('✅ Misión actualizada:', misionActualizada);
+        // console.log('✅ Misión actualizada:', misionActualizada);
       }
       return misionActualizada;
     } catch (err) {
@@ -93,7 +93,7 @@ export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
       const eliminada = await misionRepository.current.deleteMision(id);
       if (eliminada) {
         // La actualización se manejará via realtime
-        console.log('✅ Misión eliminada:', id);
+        // console.log('✅ Misión eliminada:', id);
       }
       return eliminada;
     } catch (err) {
@@ -106,12 +106,12 @@ export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
 
   // Configurar suscripción en tiempo real
   useEffect(() => {
-    console.log('📡 Configurando suscripción realtime para misiones');
+    // console.log('📡 Configurando suscripción realtime para misiones');
 
     // Callbacks para el realtime
     const realtimeCallbacks = {
       onMisionesUpdated: (nuevasMisiones: Mision[]) => {
-        console.log('📡 Misiones actualizadas via realtime:', nuevasMisiones.length);
+        // console.log('📡 Misiones actualizadas via realtime:', nuevasMisiones.length);
         setMisiones(nuevasMisiones);
       },
       onError: (errorMessage: string) => {
@@ -134,7 +134,7 @@ export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
     // Cleanup al desmontar o cambiar usuario
     return () => {
       if (realtimeChannel.current) {
-        console.log('🧹 Limpiando suscripción realtime de misiones');
+        // console.log('🧹 Limpiando suscripción realtime de misiones');
         misionRepository.current.unsubscribeFromChanges(realtimeChannel.current);
         realtimeChannel.current = null;
       }

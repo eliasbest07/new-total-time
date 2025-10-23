@@ -22,17 +22,17 @@ export const initializeSupabaseSession = async () => {
   try {
     // Solo ejecutar en el cliente
     if (typeof window === 'undefined') {
-      console.log('⚠️ initializeSupabaseSession llamado en el servidor, saltando...');
+      // console.log('⚠️ initializeSupabaseSession llamado en el servidor, saltando...');
       return null;
     }
 
     // Verificar cache de sesión primero
     if (sessionCache && (Date.now() - sessionCache.timestamp) < SESSION_CACHE_TTL) {
-      console.log('🎯 Usando sesión desde cache');
+      // console.log('🎯 Usando sesión desde cache');
       return sessionCache.session;
     }
 
-    console.log('🔄 Inicializando sesión de Supabase...');
+    // console.log('🔄 Inicializando sesión de Supabase...');
     
     // Pequeña pausa para asegurar que el DOM esté listo
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -51,9 +51,9 @@ export const initializeSupabaseSession = async () => {
     };
     
     if (sessionData.session) {
-      console.log('✅ Sesión de Supabase inicializada correctamente');
-      console.log('📅 Sesión expira:', new Date(sessionData.session.expires_at * 1000));
-      
+      // console.log('✅ Sesión de Supabase inicializada correctamente');
+      // console.log('📅 Sesión expira:', new Date(sessionData.session.expires_at * 1000));
+
       // Solo log de expiración, NO renovar automáticamente
       const expiresAt = sessionData.session.expires_at * 1000;
       const now = Date.now();
@@ -61,10 +61,10 @@ export const initializeSupabaseSession = async () => {
       const oneHour = 60 * 60 * 1000;
 
       if (timeUntilExpiry < oneHour) {
-        console.log('⚠️ Sesión expira pronto. Supabase la renovará automáticamente cuando sea necesario.');
+        // console.log('⚠️ Sesión expira pronto. Supabase la renovará automáticamente cuando sea necesario.');
       }
     } else {
-      console.log('ℹ️ No hay sesión activa para inicializar');
+      // console.log('ℹ️ No hay sesión activa para inicializar');
     }
     
     return sessionData.session;

@@ -30,7 +30,7 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
   // Función para cargar las cards
   const loadCards = useCallback(async () => {
     if (!idPizarra) {
-      console.log('⚠️ Sin ID de pizarra, no se pueden cargar cards');
+      // console.log('⚠️ Sin ID de pizarra, no se pueden cargar cards');
       setCards([]);
       setLoading(false);
       return;
@@ -40,10 +40,10 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
     setError(null);
 
     try {
-      console.log('🃏 Cargando cards de pizarra:', idPizarra);
+      // console.log('🃏 Cargando cards de pizarra:', idPizarra);
       const cardsData = await cardRepository.current.getCardsByPizarra(idPizarra);
       setCards(cardsData);
-      console.log('✅ Cards cargadas exitosamente:', cardsData.length);
+      // console.log('✅ Cards cargadas exitosamente:', cardsData.length);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar cards';
       console.error('❌ Error cargando cards:', errorMessage);
@@ -64,7 +64,7 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
       const nuevaCard = await cardRepository.current.createCard(card);
       if (nuevaCard) {
         // La actualización se manejará via realtime
-        console.log('✅ Card creada:', nuevaCard.card_id);
+        // console.log('✅ Card creada:', nuevaCard.card_id);
       }
       return nuevaCard;
     } catch (err) {
@@ -86,7 +86,7 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
       const cardActualizada = await cardRepository.current.updateCard(idPizarra, cardId, updates);
       if (cardActualizada) {
         // La actualización se manejará via realtime
-        console.log('✅ Card actualizada:', cardId);
+        // console.log('✅ Card actualizada:', cardId);
       }
       return cardActualizada;
     } catch (err) {
@@ -108,7 +108,7 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
       const eliminada = await cardRepository.current.deleteCard(idPizarra, cardId);
       if (eliminada) {
         // La actualización se manejará via realtime
-        console.log('✅ Card eliminada:', cardId);
+        // console.log('✅ Card eliminada:', cardId);
       }
       return eliminada;
     } catch (err) {
@@ -151,7 +151,7 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
       const eliminadas = await cardRepository.current.deleteAllCards(idPizarra);
       if (eliminadas) {
         setCards([]);
-        console.log('✅ Todas las cards eliminadas');
+        // console.log('✅ Todas las cards eliminadas');
       }
       return eliminadas;
     } catch (err) {
@@ -169,7 +169,7 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
   useEffect(() => {
     if (!idPizarra) return;
 
-    console.log('📡 Configurando suscripción realtime para cards de pizarra:', idPizarra);
+    // console.log('📡 Configurando suscripción realtime para cards de pizarra:', idPizarra);
 
     const channel = supabase
       .channel(`cards-pizarra-${idPizarra}`)
@@ -182,7 +182,7 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
           filter: `id_pizarra=eq.${idPizarra}`
         },
         async (payload) => {
-          console.log('📡 Cambio detectado en cards:', payload.eventType);
+          // console.log('📡 Cambio detectado en cards:', payload.eventType);
 
           if (payload.eventType === 'INSERT') {
             const nuevaCard = payload.new as CardDB;
@@ -202,10 +202,10 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
       )
       .subscribe();
 
-    console.log('✅ Suscripción realtime configurada');
+    // console.log('✅ Suscripción realtime configurada');
 
     return () => {
-      console.log('🧹 Limpiando suscripción realtime de cards');
+      // console.log('🧹 Limpiando suscripción realtime de cards');
       supabase.removeChannel(channel);
     };
   }, [idPizarra]);

@@ -24,8 +24,8 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
     setError(null);
 
     try {
-      console.log('📝 Cargando posts para sala:', idSala);
-      
+      // console.log('📝 Cargando posts para sala:', idSala);
+
       // Obtener posts directamente con Supabase
       const { data: posts, error } = await supabase
         .from('post_sala')
@@ -45,10 +45,10 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
       // Obtener los IDs únicos de usuarios (filtrar null y undefined)
       const userIds = [...new Set(posts.map(p => p.id_usuario).filter(id => id !== null && id !== undefined))];
 
-      console.log('👥 IDs de usuarios a buscar:', userIds);
+      // console.log('👥 IDs de usuarios a buscar:', userIds);
 
       if (userIds.length === 0) {
-        console.log('⚠️ No hay IDs de usuarios válidos');
+        // console.log('⚠️ No hay IDs de usuarios válidos');
         setPosts(posts);
         return;
       }
@@ -77,7 +77,7 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
       }));
 
       setPosts(postsWithUsers);
-      console.log('✅ Posts cargados exitosamente:', postsWithUsers.length);
+      // console.log('✅ Posts cargados exitosamente:', postsWithUsers.length);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar posts';
       console.error('❌ Error cargando posts:', errorMessage);

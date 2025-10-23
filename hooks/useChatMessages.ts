@@ -12,21 +12,21 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
   const mensajeRepository = new SupabaseMensajeRepository();
 
   const loadMensajes = useCallback(async () => {
-    console.log('💬 useChatMessages - loadMensajes llamado:', { currentUserId, otherUserId });
+    // console.log('💬 useChatMessages - loadMensajes llamado:', { currentUserId, otherUserId });
 
     if (!currentUserId || !otherUserId) {
-      console.log('💬 useChatMessages - No hay usuarios, limpiando mensajes');
+      // console.log('💬 useChatMessages - No hay usuarios, limpiando mensajes');
       setMensajes([]);
       setLoading(false);
       return;
     }
 
     try {
-      console.log('💬 useChatMessages - Cargando conversación');
+      // console.log('💬 useChatMessages - Cargando conversación');
       setLoading(true);
       setError(null);
       const mensajesData = await mensajeRepository.getConversacion(currentUserId, otherUserId);
-      console.log('💬 useChatMessages - Mensajes obtenidos:', mensajesData.length);
+      // console.log('💬 useChatMessages - Mensajes obtenidos:', mensajesData.length);
       setMensajes(mensajesData);
     } catch (err) {
       console.error('💬 useChatMessages - Error cargando mensajes:', err);
@@ -43,7 +43,7 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
     }
 
     try {
-      console.log('💬 useChatMessages - Enviando mensaje');
+      // console.log('💬 useChatMessages - Enviando mensaje');
       setSending(true);
       setError(null);
       const nuevoMensaje = await mensajeRepository.enviarMensaje(currentUserId, otherUserId, texto.trim());
@@ -53,13 +53,13 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
         setMensajes(prev => {
           const existe = prev.some(m => m.id === nuevoMensaje.id);
           if (existe) {
-            console.log('💬 useChatMessages - Mensaje ya existe, no se duplica');
+            // console.log('💬 useChatMessages - Mensaje ya existe, no se duplica');
             return prev;
           }
-          console.log('💬 useChatMessages - Mensaje agregado optimísticamente');
+          // console.log('💬 useChatMessages - Mensaje agregado optimísticamente');
           return [...prev, nuevoMensaje];
         });
-        console.log('💬 useChatMessages - Mensaje enviado exitosamente');
+        // console.log('💬 useChatMessages - Mensaje enviado exitosamente');
         return nuevoMensaje;
       }
 
@@ -109,16 +109,16 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
 
   // Cargar mensajes iniciales
   useEffect(() => {
-    console.log('💬 useChatMessages - useEffect inicial ejecutado');
+    // console.log('💬 useChatMessages - useEffect inicial ejecutado');
 
     if (!currentUserId || !otherUserId) {
-      console.log('💬 useChatMessages - No hay usuarios, limpiando mensajes');
+      // console.log('💬 useChatMessages - No hay usuarios, limpiando mensajes');
       setMensajes([]);
       setLoading(false);
       return;
     }
 
-    console.log('💬 useChatMessages - Cargando mensajes iniciales');
+    // console.log('💬 useChatMessages - Cargando mensajes iniciales');
     loadMensajes();
   }, [currentUserId, otherUserId, loadMensajes]);
 
@@ -128,7 +128,7 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
       return;
     }
 
-    console.log('💬 useChatMessages - Configurando suscripción realtime');
+    // console.log('💬 useChatMessages - Configurando suscripción realtime');
 
     // Calcular el id_conversacion para filtrar correctamente
     const idConversacion = Mensaje.generarIdConversacion(currentUserId, otherUserId);
@@ -145,7 +145,7 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
           filter: `id_conversacion=eq.${idConversacion}`
         },
         (payload) => {
-          console.log('💬 useChatMessages - Cambio detectado en mensajes:', payload);
+          // console.log('💬 useChatMessages - Cambio detectado en mensajes:', payload);
 
           if (payload.eventType === 'INSERT') {
             const nuevoMensaje = new Mensaje(
@@ -163,10 +163,10 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
             setMensajes(prev => {
               const existe = prev.some(m => m.id === nuevoMensaje.id);
               if (existe) {
-                console.log('💬 useChatMessages - Mensaje duplicado detectado en realtime, ignorando:', nuevoMensaje.id);
+                // console.log('💬 useChatMessages - Mensaje duplicado detectado en realtime, ignorando:', nuevoMensaje.id);
                 return prev;
               }
-              console.log('💬 useChatMessages - Nuevo mensaje recibido en realtime:', nuevoMensaje.id);
+              // console.log('💬 useChatMessages - Nuevo mensaje recibido en realtime:', nuevoMensaje.id);
               return [...prev, nuevoMensaje];
             });
           } else if (payload.eventType === 'UPDATE') {
@@ -191,11 +191,11 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
       )
       .subscribe();
 
-    console.log('💬 useChatMessages - Suscripción realtime configurada');
+    // console.log('💬 useChatMessages - Suscripción realtime configurada');
 
     // Limpiar suscripción al desmontar
     return () => {
-      console.log('💬 useChatMessages - Eliminando suscripción realtime');
+      // console.log('💬 useChatMessages - Eliminando suscripción realtime');
       supabase.removeChannel(channel);
     };
   }, [currentUserId, otherUserId]);

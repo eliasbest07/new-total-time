@@ -19,8 +19,8 @@ export const useUsuarioId = (): { usuarioId: number | null; loading: boolean; er
       setError(null);
 
       try {
-        console.log('🔍 Buscando ID numérico para usuario UUID:', usuario.id);
-        console.log('🔍 Tipo de usuario.id:', typeof usuario.id);
+        // console.log('🔍 Buscando ID numérico para usuario UUID:', usuario.id);
+        // console.log('🔍 Tipo de usuario.id:', typeof usuario.id);
 
         const { data, error } = await supabase
           .from('usuario')
@@ -28,7 +28,7 @@ export const useUsuarioId = (): { usuarioId: number | null; loading: boolean; er
           .eq('id_usuario', usuario.id)
           .single();
 
-        console.log('🔍 Respuesta de Supabase:', { data, error });
+        // console.log('🔍 Respuesta de Supabase:', { data, error});
 
         if (error) {
           console.error('❌ Error obteniendo ID numérico del usuario:', error);
@@ -45,9 +45,9 @@ export const useUsuarioId = (): { usuarioId: number | null; loading: boolean; er
           return;
         }
 
-        console.log('✅ Usuario encontrado:', data);
-        console.log('✅ ID numérico encontrado:', data.id);
-        console.log('✅ Tipo de ID numérico:', typeof data.id);
+        // console.log('✅ Usuario encontrado:', data);
+        // console.log('✅ ID numérico encontrado:', data.id);
+        // console.log('✅ Tipo de ID numérico:', typeof data.id);
         setUsuarioId(data.id);
       } catch (err) {
         console.error('❌ Error en useUsuarioId:', err);

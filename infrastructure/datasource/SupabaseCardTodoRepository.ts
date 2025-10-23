@@ -6,7 +6,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async getByCardId(idCard: string): Promise<CardTodo[]> {
     try {
-      console.log('📋 Obteniendo todos de la card:', idCard);
+      // console.log('📋 Obteniendo todos de la card:', idCard);
 
       const { data, error } = await supabase
         .from('card_todos')
@@ -19,7 +19,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
         throw error;
       }
 
-      console.log('✅ Todos obtenidos:', data?.length || 0);
+      // console.log('✅ Todos obtenidos:', data?.length || 0);
       return data as CardTodo[] || [];
     } catch (error) {
       console.error('❌ Error en getByCardId:', error);
@@ -29,7 +29,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async getById(id: string): Promise<CardTodo | null> {
     try {
-      console.log('📋 Obteniendo todo:', id);
+      // console.log('📋 Obteniendo todo:', id);
 
       const { data, error } = await supabase
         .from('card_todos')
@@ -39,14 +39,14 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          console.log('⚠️ Todo no encontrado');
+          // console.log('⚠️ Todo no encontrado');
           return null;
         }
         console.error('❌ Error al obtener todo:', error);
         throw error;
       }
 
-      console.log('✅ Todo obtenido:', data?.id);
+      // console.log('✅ Todo obtenido:', data?.id);
       return data as CardTodo;
     } catch (error) {
       console.error('❌ Error en getById:', error);
@@ -56,7 +56,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async create(cardTodo: CreateCardTodoDTO): Promise<CardTodo | null> {
     try {
-      console.log('📝 Creando nuevo todo para card:', cardTodo.id_card);
+      // console.log('📝 Creando nuevo todo para card:', cardTodo.id_card);
 
       const { data, error } = await supabase
         .from('card_todos')
@@ -69,7 +69,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
         throw error;
       }
 
-      console.log('✅ Todo creado:', data?.id);
+      // console.log('✅ Todo creado:', data?.id);
       return data as CardTodo;
     } catch (error) {
       console.error('❌ Error en create:', error);
@@ -79,7 +79,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async update(id: string, updates: UpdateCardTodoDTO): Promise<CardTodo | null> {
     try {
-      console.log('🔄 Actualizando todo:', id);
+      // console.log('🔄 Actualizando todo:', id);
 
       const { data, error } = await supabase
         .from('card_todos')
@@ -96,7 +96,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
         throw error;
       }
 
-      console.log('✅ Todo actualizado:', data?.id);
+      // console.log('✅ Todo actualizado:', data?.id);
       return data as CardTodo;
     } catch (error) {
       console.error('❌ Error en update:', error);
@@ -106,7 +106,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async delete(id: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando todo:', id);
+      // console.log('🗑️ Eliminando todo:', id);
 
       const { error } = await supabase
         .from('card_todos')
@@ -118,7 +118,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
         throw error;
       }
 
-      console.log('✅ Todo eliminado');
+      // console.log('✅ Todo eliminado');
       return true;
     } catch (error) {
       console.error('❌ Error en delete:', error);
@@ -128,7 +128,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async deleteByCardId(idCard: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando todos de la card:', idCard);
+      // console.log('🗑️ Eliminando todos de la card:', idCard);
 
       const { error } = await supabase
         .from('card_todos')
@@ -140,7 +140,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
         throw error;
       }
 
-      console.log('✅ Todos eliminados');
+      // console.log('✅ Todos eliminados');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteByCardId:', error);
@@ -150,7 +150,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async toggleCompleted(id: string, completed: boolean): Promise<CardTodo | null> {
     try {
-      console.log('✓ Cambiando estado de todo:', id, 'a', completed);
+      // console.log('✓ Cambiando estado de todo:', id, 'a', completed);
 
       const { data, error } = await supabase
         .from('card_todos')
@@ -167,7 +167,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
         throw error;
       }
 
-      console.log('✅ Estado cambiado');
+      // console.log('✅ Estado cambiado');
       return data as CardTodo;
     } catch (error) {
       console.error('❌ Error en toggleCompleted:', error);
@@ -177,7 +177,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async updatePosition(id: string, position: number): Promise<CardTodo | null> {
     try {
-      console.log('↕️ Actualizando posición del todo:', id, 'a', position);
+      // console.log('↕️ Actualizando posición del todo:', id, 'a', position);
 
       const { data, error } = await supabase
         .from('card_todos')
@@ -194,7 +194,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
         throw error;
       }
 
-      console.log('✅ Posición actualizada');
+      // console.log('✅ Posición actualizada');
       return data as CardTodo;
     } catch (error) {
       console.error('❌ Error en updatePosition:', error);
@@ -204,7 +204,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async reorderTodos(idCard: string, todoIds: string[]): Promise<boolean> {
     try {
-      console.log('🔀 Reordenando todos de la card:', idCard);
+      // console.log('🔀 Reordenando todos de la card:', idCard);
 
       // Actualizar la posición de cada todo basándose en su índice en el array
       const updates = todoIds.map((todoId, index) =>
@@ -228,7 +228,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
         return false;
       }
 
-      console.log('✅ Todos reordenados');
+      // console.log('✅ Todos reordenados');
       return true;
     } catch (error) {
       console.error('❌ Error en reorderTodos:', error);

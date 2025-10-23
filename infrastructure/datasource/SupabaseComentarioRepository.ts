@@ -11,7 +11,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
     hasMore: boolean;
   }> {
     try {
-      console.log('💬 Obteniendo comentarios, página:', page);
+      // console.log('💬 Obteniendo comentarios, página:', page);
 
       const offset = (page - 1) * limit;
 
@@ -74,7 +74,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
       const total = count || 0;
       const hasMore = offset + limit < total;
 
-      console.log('💬 Comentarios obtenidos:', comentarios.length, 'de', total);
+      // console.log('💬 Comentarios obtenidos:', comentarios.length, 'de', total);
 
       return { comentarios, total, hasMore };
     } catch (error) {
@@ -85,7 +85,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
 
   async getComentariosByPost(postId: string): Promise<Comentario[]> {
     try {
-      console.log('💬 Obteniendo todos los comentarios de la sala (ignorando postId por ahora):', postId);
+      // console.log('💬 Obteniendo todos los comentarios de la sala (ignorando postId por ahora):', postId);
 
       // NOTA: La tabla comentario_sala NO tiene columna id_post
       // Por ahora, obtenemos todos los comentarios de la sala
@@ -100,11 +100,11 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
       }
 
       if (!data || data.length === 0) {
-        console.log('⚠️ No se encontraron comentarios');
+        // console.log('⚠️ No se encontraron comentarios');
         return [];
       }
 
-      console.log('✅ Comentarios encontrados:', data.length);
+      // console.log('✅ Comentarios encontrados:', data.length);
 
       // Obtener los IDs únicos de usuarios
       const userIds = [...new Set(data.map(c => (c as any).idUsuario || (c as any)['idUsuario']).filter(id => id !== null))];
@@ -145,16 +145,16 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
 
   async createComentario(contenido: string, usuarioId: number, postId?: string): Promise<Comentario | null> {
     try {
-      console.log('✍️ Creando comentario para usuario:', usuarioId);
-      console.log('📝 Contenido:', contenido);
-      console.log('📋 Post ID:', postId);
+      // console.log('✍️ Creando comentario para usuario:', usuarioId);
+      // console.log('📝 Contenido:', contenido);
+      // console.log('📋 Post ID:', postId);
 
       const insertData: any = {
         idUsuario: usuarioId,
         contenido: contenido
       };
 
-      console.log('📦 Datos a insertar:', insertData);
+      // console.log('📦 Datos a insertar:', insertData);
 
       const { data, error } = await supabase
         .from('comentario_sala')
@@ -162,7 +162,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         .select('*')
         .single();
 
-      console.log('📊 Respuesta de insert:', { data, error });
+      // console.log('📊 Respuesta de insert:', { data, error });
 
       if (error) {
         console.error('❌ Error creando comentario:', error);
@@ -182,7 +182,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         .eq('id', usuarioId)
         .single();
 
-      console.log('📊 Respuesta de usuario:', { data: usuario, error: userError });
+      // console.log('📊 Respuesta de usuario:', { data: usuario, error: userError });
 
       const idUsuarioFromData = (data as any).idUsuario || (data as any)['idUsuario'];
 
@@ -197,7 +197,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         usuario: usuario ? { nombre: usuario.nombre } : undefined
       };
 
-      console.log('✅ Comentario creado:', comentario);
+      // console.log('✅ Comentario creado:', comentario);
       return comentario;
     } catch (error) {
       console.error('❌ Error en createComentario:', error);
@@ -208,7 +208,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
 
   async toggleLike(comentarioId: string, usuarioId: number): Promise<boolean> {
     try {
-      console.log('👍 Toggling like para comentario:', comentarioId, 'usuario:', usuarioId);
+      // console.log('👍 Toggling like para comentario:', comentarioId, 'usuario:', usuarioId);
 
       // Primero obtener el comentario actual
       const { data: comentario, error: fetchError } = await supabase
@@ -235,7 +235,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         return false;
       }
 
-      console.log('✅ Like agregado exitosamente');
+      // console.log('✅ Like agregado exitosamente');
       return true;
     } catch (error) {
       console.error('❌ Error en toggleLike:', error);
@@ -245,7 +245,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
 
   async toggleDislike(comentarioId: string, usuarioId: number): Promise<boolean> {
     try {
-      console.log('👎 Toggling dislike para comentario:', comentarioId, 'usuario:', usuarioId);
+      // console.log('👎 Toggling dislike para comentario:', comentarioId, 'usuario:', usuarioId);
 
       // Primero obtener el comentario actual
       const { data: comentario, error: fetchError } = await supabase
@@ -272,7 +272,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         return false;
       }
 
-      console.log('✅ Dislike agregado exitosamente');
+      // console.log('✅ Dislike agregado exitosamente');
       return true;
     } catch (error) {
       console.error('❌ Error en toggleDislike:', error);
@@ -281,7 +281,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
   }
 
   subscribeToComentarios(callbacks: ComentarioRealtimeCallbacks): RealtimeChannel {
-    console.log('📡 Iniciando suscripción realtime para comentarios');
+    // console.log('📡 Iniciando suscripción realtime para comentarios');
 
     const channel = supabase
       .channel(`comentarios-sala`)
@@ -293,7 +293,7 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
           table: 'comentario_sala'
         },
         async (payload) => {
-          console.log('📡 Cambio detectado en comentarios:', payload);
+          // console.log('📡 Cambio detectado en comentarios:', payload);
 
           try {
             // Recargar los comentarios de la primera página
@@ -306,10 +306,10 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
         }
       )
       .subscribe((status) => {
-        console.log('📡 Estado de suscripción comentarios:', status);
+        // console.log('📡 Estado de suscripción comentarios:', status);
 
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Suscripción comentarios activa');
+          // console.log('✅ Suscripción comentarios activa');
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ Error en canal comentarios');
           callbacks.onError('Error en la conexión realtime de comentarios');
@@ -323,10 +323,10 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
   }
 
   unsubscribeFromComentarios(channel: RealtimeChannel): void {
-    console.log('🧹 Desuscribiendo canal comentarios');
+    // console.log('🧹 Desuscribiendo canal comentarios');
 
     supabase.removeChannel(channel).then(() => {
-      console.log('✅ Canal comentarios removido exitosamente');
+      // console.log('✅ Canal comentarios removido exitosamente');
     }).catch((error) => {
       console.error('❌ Error removiendo canal comentarios:', error);
     });

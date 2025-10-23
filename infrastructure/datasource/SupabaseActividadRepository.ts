@@ -18,7 +18,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
 
   async getActividadesByUsuario(idUsuario: string): Promise<Actividad[]> {
     try {
-      console.log('📅 Obteniendo actividades para usuario:', idUsuario);
+      // console.log('📅 Obteniendo actividades para usuario:', idUsuario);
 
       const { data, error } = await supabase
         .from('actividades')
@@ -32,7 +32,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
       }
 
       const actividades = data || [];
-      console.log('✅ Actividades encontradas:', actividades.length);
+      // console.log('✅ Actividades encontradas:', actividades.length);
       return actividades;
     } catch (error) {
       console.error('❌ Error en getActividadesByUsuario:', error);
@@ -42,7 +42,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
 
   async createActividad(actividad: Omit<Actividad, 'id' | 'created_at'>): Promise<Actividad | null> {
     try {
-      console.log('➕ Creando nueva actividad:', actividad);
+      // console.log('➕ Creando nueva actividad:', actividad);
 
       const { data, error } = await supabase
         .from('actividades')
@@ -55,7 +55,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
         return null;
       }
 
-      console.log('✅ Actividad creada exitosamente:', data);
+      // console.log('✅ Actividad creada exitosamente:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en createActividad:', error);
@@ -65,7 +65,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
 
   async updateActividad(id: number, actividad: Partial<Actividad>): Promise<Actividad | null> {
     try {
-      console.log('✏️ Actualizando actividad:', id, actividad);
+      // console.log('✏️ Actualizando actividad:', id, actividad);
 
       const { data, error } = await supabase
         .from('actividades')
@@ -79,7 +79,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
         return null;
       }
 
-      console.log('✅ Actividad actualizada exitosamente:', data);
+      // console.log('✅ Actividad actualizada exitosamente:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en updateActividad:', error);
@@ -89,7 +89,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
 
   async deleteActividad(id: number): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando actividad:', id);
+      // console.log('🗑️ Eliminando actividad:', id);
 
       const { error } = await supabase
         .from('actividades')
@@ -101,7 +101,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
         return false;
       }
 
-      console.log('✅ Actividad eliminada exitosamente');
+      // console.log('✅ Actividad eliminada exitosamente');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteActividad:', error);
@@ -111,7 +111,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
 
   async getActividadById(id: number): Promise<Actividad | null> {
     try {
-      console.log('🔍 Obteniendo actividad por ID:', id);
+      // console.log('🔍 Obteniendo actividad por ID:', id);
 
       const { data, error } = await supabase
         .from('actividades')
@@ -124,7 +124,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
         return null;
       }
 
-      console.log('✅ Actividad encontrada:', data);
+      // console.log('✅ Actividad encontrada:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en getActividadById:', error);
@@ -139,11 +139,11 @@ export class SupabaseActividadRepository implements ActividadRepository {
     // Si ya existe un canal activo, retornarlo
     const existingChannel = this.activeChannels.get(channelName);
     if (existingChannel) {
-      console.log('♻️ Reutilizando canal realtime existente para:', channelName);
+      // console.log('♻️ Reutilizando canal realtime existente para:', channelName);
       return existingChannel;
     }
 
-    console.log('📡 Iniciando suscripción realtime para actividades del usuario:', idUsuario);
+    // console.log('📡 Iniciando suscripción realtime para actividades del usuario:', idUsuario);
 
     const setupChannel = (): RealtimeChannel => {
       const channel = supabase
@@ -162,7 +162,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
             filter: `id_usuario=eq.${idUsuario}`
           },
           async (payload) => {
-            console.log('📡 Cambio detectado en actividades:', payload);
+            // console.log('📡 Cambio detectado en actividades:', payload);
 
             try {
               const nuevasActividades = await this.getActividadesByUsuario(idUsuario);
@@ -175,7 +175,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
         )
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Suscripción realtime actividades activa');
+            // console.log('✅ Suscripción realtime actividades activa');
             this.reconnectAttempts.set(channelName, 0); // Reset intentos al conectar exitosamente
             this.activeChannels.set(channelName, channel);
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -228,7 +228,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
         this.maxReconnectDelay
       );
 
-      console.log(`🔄 Reintentando reconexión ${channelName} en ${delay}ms (intento ${attempts + 1})`);
+      // console.log(`🔄 Reintentando reconexión ${channelName} en ${delay}ms (intento ${attempts + 1})`);
 
       const timeout = setTimeout(async () => {
         this.reconnectAttempts.set(channelName, attempts + 1);
@@ -253,7 +253,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
 
   // Desuscribirse de cambios en tiempo real
   unsubscribeFromChanges(channel: RealtimeChannel): Promise<void> {
-    console.log('🧹 Desuscribiendo canal realtime actividades');
+    // console.log('🧹 Desuscribiendo canal realtime actividades');
 
     // Encontrar y eliminar el canal del Map
     for (const [name, ch] of this.activeChannels.entries()) {
@@ -270,7 +270,7 @@ export class SupabaseActividadRepository implements ActividadRepository {
     }
 
     return supabase.removeChannel(channel).then(() => {
-      console.log('✅ Canal realtime actividades removido exitosamente');
+      // console.log('✅ Canal realtime actividades removido exitosamente');
     }).catch((error) => {
       console.error('❌ Error removiendo canal realtime actividades:', error);
       throw error;

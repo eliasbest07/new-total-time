@@ -10,21 +10,21 @@ export const useUsuariosOrganizacion = (organizacionId: string | null) => {
   const usuarioRepository = new SupabaseUsuarioRepository();
 
   const loadUsuarios = useCallback(async () => {
-    console.log('👥 useUsuariosOrganizacion - loadUsuarios llamado con organizacionId:', organizacionId);
-    
+    // console.log('👥 useUsuariosOrganizacion - loadUsuarios llamado con organizacionId:', organizacionId);
+
     if (!organizacionId) {
-      console.log('👥 useUsuariosOrganizacion - No hay organizacionId, limpiando usuarios');
+      // console.log('👥 useUsuariosOrganizacion - No hay organizacionId, limpiando usuarios');
       setUsuarios([]);
       setLoading(false);
       return;
     }
 
     try {
-      console.log('👥 useUsuariosOrganizacion - Iniciando carga de usuarios para organización:', organizacionId);
+      // console.log('👥 useUsuariosOrganizacion - Iniciando carga de usuarios para organización:', organizacionId);
       setLoading(true);
       setError(null);
       const usuariosData = await usuarioRepository.getUsuariosByOrganizacion(organizacionId);
-      console.log('👥 useUsuariosOrganizacion - Usuarios obtenidos:', usuariosData);
+      // console.log('👥 useUsuariosOrganizacion - Usuarios obtenidos:', usuariosData);
       setUsuarios(usuariosData);
     } catch (err) {
       console.error('👥 useUsuariosOrganizacion - Error cargando usuarios:', err);
@@ -36,16 +36,16 @@ export const useUsuariosOrganizacion = (organizacionId: string | null) => {
 
   // Cargar usuarios cuando cambia la organización
   useEffect(() => {
-    console.log('👥 useUsuariosOrganizacion - useEffect ejecutado con organizacionId:', organizacionId);
-    
+    // console.log('👥 useUsuariosOrganizacion - useEffect ejecutado con organizacionId:', organizacionId);
+
     if (!organizacionId) {
-      console.log('👥 useUsuariosOrganizacion - No hay organización, limpiando usuarios');
+      // console.log('👥 useUsuariosOrganizacion - No hay organización, limpiando usuarios');
       setUsuarios([]);
       setLoading(false);
       return;
     }
 
-    console.log('👥 useUsuariosOrganizacion - Cargando usuarios para organización:', organizacionId);
+    // console.log('👥 useUsuariosOrganizacion - Cargando usuarios para organización:', organizacionId);
     // Cargar usuarios iniciales
     loadUsuarios();
   }, [organizacionId, loadUsuarios]);

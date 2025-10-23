@@ -10,7 +10,7 @@ export class SupabasePizarraRepository implements PizarraRepository {
    */
   async getPizarraDelDia(idUsuario: string, fecha: Date): Promise<Pizarra | null> {
     try {
-      console.log('🎨 Obteniendo pizarra del día para usuario:', idUsuario, 'fecha:', fecha);
+      // console.log('🎨 Obteniendo pizarra del día para usuario:', idUsuario, 'fecha:', fecha);
 
       // Normalizar la fecha al inicio del día (00:00:00)
       const startOfDay = new Date(fecha);
@@ -37,12 +37,12 @@ export class SupabasePizarraRepository implements PizarraRepository {
 
       // Si existe, retornarla
       if (data) {
-        console.log('✅ Pizarra del día encontrada:', data.id);
+        // console.log('✅ Pizarra del día encontrada:', data.id);
         return data;
       }
 
       // Si no existe, crear una nueva
-      console.log('📝 No existe pizarra del día, creando una nueva...');
+      // console.log('📝 No existe pizarra del día, creando una nueva...');
       return await this.createPizarra({
         id_usuario: idUsuario,
         pan_offset_x: 0,
@@ -60,7 +60,7 @@ export class SupabasePizarraRepository implements PizarraRepository {
    */
   async updatePanOffset(id: string, panOffsetX: number, panOffsetY: number): Promise<Pizarra | null> {
     try {
-      console.log('🎨 Actualizando pan offset de pizarra:', id);
+      // console.log('🎨 Actualizando pan offset de pizarra:', id);
 
       const { data, error } = await supabase
         .from('pizarras')
@@ -78,7 +78,7 @@ export class SupabasePizarraRepository implements PizarraRepository {
         return null;
       }
 
-      console.log('✅ Pan offset actualizado');
+      // console.log('✅ Pan offset actualizado');
       return data;
     } catch (error) {
       console.error('❌ Error en updatePanOffset:', error);
@@ -91,7 +91,7 @@ export class SupabasePizarraRepository implements PizarraRepository {
    */
   async getPizarraById(id: string): Promise<Pizarra | null> {
     try {
-      console.log('🎨 Obteniendo pizarra por ID:', id);
+      // console.log('🎨 Obteniendo pizarra por ID:', id);
 
       const { data, error } = await supabase
         .from('pizarras')
@@ -104,7 +104,7 @@ export class SupabasePizarraRepository implements PizarraRepository {
         return null;
       }
 
-      console.log('✅ Pizarra encontrada:', data.id);
+      // console.log('✅ Pizarra encontrada:', data.id);
       return data;
     } catch (error) {
       console.error('❌ Error en getPizarraById:', error);
@@ -117,7 +117,7 @@ export class SupabasePizarraRepository implements PizarraRepository {
    */
   async createPizarra(pizarra: Omit<Pizarra, 'id' | 'created_at' | 'updated_at'>): Promise<Pizarra | null> {
     try {
-      console.log('➕ Creando nueva pizarra para usuario:', pizarra.id_usuario);
+      // console.log('➕ Creando nueva pizarra para usuario:', pizarra.id_usuario);
 
       const { data, error } = await supabase
         .from('pizarras')
@@ -130,7 +130,7 @@ export class SupabasePizarraRepository implements PizarraRepository {
         return null;
       }
 
-      console.log('✅ Pizarra creada exitosamente:', data.id);
+      // console.log('✅ Pizarra creada exitosamente:', data.id);
       return data;
     } catch (error) {
       console.error('❌ Error en createPizarra:', error);

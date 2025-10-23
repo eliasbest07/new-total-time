@@ -86,14 +86,14 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
 
   // Función para convertir usuarios de Supabase al formato del Accordion
   const convertirUsuariosSupabase = () => {
-    console.log('🔍 Accordion: Convirtiendo usuarios. Total de usuarios online en Presence:', onlineUsers.length);
-    console.log('🔍 Accordion: Usuarios online en Presence:', onlineUsers.map(u => ({ id: u.user_id, username: u.username })));
+    // console.log('🔍 Accordion: Convirtiendo usuarios. Total de usuarios online en Presence:', onlineUsers.length);
+    // console.log('🔍 Accordion: Usuarios online en Presence:', onlineUsers.map(u => ({ id: u.user_id, username: u.username })));
 
     return usuarios.map((usuario, index) => {
       // IMPORTANTE: Usar userAuth (UUID de Supabase) para verificar presencia
       const online = checkUserOnline(usuario.userAuth);
 
-      console.log(`🔍 Accordion: Usuario ${usuario.getNombreCompleto()} (userAuth: ${usuario.userAuth}) -> Online: ${online}`);
+      // console.log(`🔍 Accordion: Usuario ${usuario.getNombreCompleto()} (userAuth: ${usuario.userAuth}) -> Online: ${online}`);
 
       return {
         id: parseInt(usuario.id) || index,

@@ -24,17 +24,17 @@ export const useComentarios = (comentarioIds: string[] | null): UseComentariosRe
         setError(null);
 
         try {
-            console.log('💬 Cargando comentarios con IDs:', comentarioIds);
+            // console.log('💬 Cargando comentarios con IDs:', comentarioIds);
 
             // Obtener comentarios directamente con Supabase
-            console.log('🔍 Consultando tabla comentario_sala...');
+            // console.log('🔍 Consultando tabla comentario_sala...');
             const { data: comentarios, error } = await supabase
                 .from('comentario_sala')
                 .select('*')
                 .in('id', comentarioIds)
                 .order('created_at', { ascending: true });
 
-            console.log('📊 Respuesta de comentario_sala:', { data: comentarios, error });
+            // console.log('📊 Respuesta de comentario_sala:', { data: comentarios, error });
 
             if (error) {
                 console.error('❌ Error en consulta de comentarios:', error);
@@ -42,32 +42,32 @@ export const useComentarios = (comentarioIds: string[] | null): UseComentariosRe
             }
 
             if (!comentarios || comentarios.length === 0) {
-                console.log('⚠️ No se encontraron comentarios');
+                // console.log('⚠️ No se encontraron comentarios');
                 setComentarios([]);
                 return;
             }
 
-            console.log('✅ Comentarios obtenidos:', comentarios.length);
-            console.log('📝 Primer comentario (estructura):', comentarios[0]);
+            // console.log('✅ Comentarios obtenidos:', comentarios.length);
+            // console.log('📝 Primer comentario (estructura):', comentarios[0]);
 
             // Obtener los IDs únicos de usuarios - la columna puede ser idUsuario o "idUsuario"
             const userIds = [...new Set(comentarios.map(c => (c as any).idUsuario || (c as any)['idUsuario']).filter(id => id !== null))];
-            console.log('👥 IDs de usuarios a buscar:', userIds);
+            // console.log('👥 IDs de usuarios a buscar:', userIds);
 
             // Obtener los datos de los usuarios si hay IDs
             let usuariosMap = new Map();
             if (userIds.length > 0) {
-                console.log('🔍 Consultando tabla usuario...');
+                // console.log('🔍 Consultando tabla usuario...');
                 const { data: usuarios, error: userError } = await supabase
                     .from('usuario')
                     .select('id, nombre')
                     .in('id', userIds);
 
-                console.log('📊 Respuesta de usuario:', { data: usuarios, error: userError });
+                // console.log('📊 Respuesta de usuario:', { data: usuarios, error: userError });
 
                 if (!userError && usuarios) {
                     usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre }]));
-                    console.log('✅ Usuarios mapeados:', usuariosMap.size);
+                    // console.log('✅ Usuarios mapeados:', usuariosMap.size);
                 }
             }
 
@@ -87,7 +87,7 @@ export const useComentarios = (comentarioIds: string[] | null): UseComentariosRe
             });
 
             setComentarios(comentariosFormateados);
-            console.log('✅ Comentarios cargados exitosamente:', comentariosFormateados.length);
+            // console.log('✅ Comentarios cargados exitosamente:', comentariosFormateados.length);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar comentarios';
             console.error('❌ Error cargando comentarios:', errorMessage);
@@ -130,7 +130,7 @@ export const useComentariosByPost = (comentarioIds: string[] | null): UseComenta
         setError(null);
 
         try {
-            console.log('💬 Cargando comentarios con IDs:', ids);
+            // console.log('💬 Cargando comentarios con IDs:', ids);
 
             // Obtener comentarios por array de IDs
             const { data: comentariosData, error: comentariosError } = await supabase
@@ -139,7 +139,7 @@ export const useComentariosByPost = (comentarioIds: string[] | null): UseComenta
                 .in('id', ids)
                 .order('created_at', { ascending: true });
 
-            console.log('📊 Respuesta comentarios:', { data: comentariosData, error: comentariosError });
+            // console.log('📊 Respuesta comentarios:', { data: comentariosData, error: comentariosError });
 
             if (comentariosError) {
                 console.error('❌ Error en consulta de comentarios:', comentariosError);
@@ -147,16 +147,16 @@ export const useComentariosByPost = (comentarioIds: string[] | null): UseComenta
             }
 
             if (!comentariosData || comentariosData.length === 0) {
-                console.log('⚠️ No se encontraron comentarios para el post');
+                // console.log('⚠️ No se encontraron comentarios para el post');
                 setComentarios([]);
                 return;
             }
 
-            console.log('✅ Comentarios obtenidos:', comentariosData.length);
+            // console.log('✅ Comentarios obtenidos:', comentariosData.length);
 
             // Obtener los IDs únicos de usuarios
             const userIds = [...new Set(comentariosData.map(c => (c as any).idUsuario || (c as any)['idUsuario']).filter(id => id !== null))];
-            console.log('👥 IDs de usuarios a buscar:', userIds);
+            // console.log('👥 IDs de usuarios a buscar:', userIds);
 
             // Obtener los datos de los usuarios si hay IDs
             let usuariosMap = new Map();
@@ -166,7 +166,7 @@ export const useComentariosByPost = (comentarioIds: string[] | null): UseComenta
                     .select('id, nombre')
                     .in('id', userIds);
 
-                console.log('📊 Respuesta usuarios:', { data: usuarios, error: userError });
+                // console.log('📊 Respuesta usuarios:', { data: usuarios, error: userError });
 
                 if (!userError && usuarios) {
                     usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre }]));
@@ -189,7 +189,7 @@ export const useComentariosByPost = (comentarioIds: string[] | null): UseComenta
             });
 
             setComentarios(comentariosFormateados);
-            console.log('✅ Comentarios cargados exitosamente:', comentariosFormateados.length);
+            // console.log('✅ Comentarios cargados exitosamente:', comentariosFormateados.length);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar comentarios';
             console.error('❌ Error cargando comentarios:', errorMessage);

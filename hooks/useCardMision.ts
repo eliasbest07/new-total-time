@@ -29,7 +29,7 @@ export const useCardMision = (idCard: string | null): UseCardMisionReturn => {
   // Función para cargar los datos de misión
   const loadCardMision = useCallback(async () => {
     if (!idCard) {
-      console.log('⚠️ Sin ID de card, no se pueden cargar datos de misión');
+      // console.log('⚠️ Sin ID de card, no se pueden cargar datos de misión');
       setCardMision(null);
       setLoading(false);
       return;
@@ -39,11 +39,11 @@ export const useCardMision = (idCard: string | null): UseCardMisionReturn => {
     setError(null);
 
     try {
-      console.log('🎯 Cargando datos de misión para card:', idCard);
+      // console.log('🎯 Cargando datos de misión para card:', idCard);
       const data = await cardMisionRepository.current.getByCardId(idCard);
       setCardMision(data);
       if (data) {
-        console.log('✅ Datos de misión cargados exitosamente');
+        // console.log('✅ Datos de misión cargados exitosamente');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar datos de misión';
@@ -65,7 +65,7 @@ export const useCardMision = (idCard: string | null): UseCardMisionReturn => {
       const nuevaCardMision = await cardMisionRepository.current.create(cardMisionData);
       if (nuevaCardMision) {
         // La actualización se manejará via realtime
-        console.log('✅ Datos de misión creados');
+        // console.log('✅ Datos de misión creados');
       }
       return nuevaCardMision;
     } catch (err) {
@@ -87,7 +87,7 @@ export const useCardMision = (idCard: string | null): UseCardMisionReturn => {
       const cardMisionActualizada = await cardMisionRepository.current.update(idCard, updates);
       if (cardMisionActualizada) {
         // La actualización se manejará via realtime
-        console.log('✅ Datos de misión actualizados');
+        // console.log('✅ Datos de misión actualizados');
       }
       return cardMisionActualizada;
     } catch (err) {
@@ -109,7 +109,7 @@ export const useCardMision = (idCard: string | null): UseCardMisionReturn => {
       const eliminada = await cardMisionRepository.current.delete(idCard);
       if (eliminada) {
         setCardMision(null);
-        console.log('✅ Datos de misión eliminados');
+        // console.log('✅ Datos de misión eliminados');
       }
       return eliminada;
     } catch (err) {
@@ -153,7 +153,7 @@ export const useCardMision = (idCard: string | null): UseCardMisionReturn => {
   useEffect(() => {
     if (!idCard) return;
 
-    console.log('📡 Configurando suscripción realtime para datos de misión de card:', idCard);
+    // console.log('📡 Configurando suscripción realtime para datos de misión de card:', idCard);
 
     const channel = supabase
       .channel(`card-mision-${idCard}`)
@@ -166,7 +166,7 @@ export const useCardMision = (idCard: string | null): UseCardMisionReturn => {
           filter: `id_card=eq.${idCard}`
         },
         async (payload) => {
-          console.log('📡 Cambio detectado en datos de misión:', payload.eventType);
+          // console.log('📡 Cambio detectado en datos de misión:', payload.eventType);
 
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const cardMisionActualizada = payload.new as CardMision;
@@ -178,10 +178,10 @@ export const useCardMision = (idCard: string | null): UseCardMisionReturn => {
       )
       .subscribe();
 
-    console.log('✅ Suscripción realtime configurada');
+    // console.log('✅ Suscripción realtime configurada');
 
     return () => {
-      console.log('🧹 Limpiando suscripción realtime de datos de misión');
+      // console.log('🧹 Limpiando suscripción realtime de datos de misión');
       supabase.removeChannel(channel);
     };
   }, [idCard]);

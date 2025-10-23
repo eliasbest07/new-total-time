@@ -32,11 +32,11 @@ export const useActividades = (idUsuario: string | null): UseActividadesReturn =
     setError(null);
 
     try {
-      console.log('📅 Cargando actividades para usuario:', idUsuario);
+      // console.log('📅 Cargando actividades para usuario:', idUsuario);
       const actividadesData = await actividadRepository.current.getActividadesByUsuario(idUsuario);
 
       setActividades(actividadesData);
-      console.log('✅ Actividades cargadas exitosamente:', actividadesData.length);
+      // console.log('✅ Actividades cargadas exitosamente:', actividadesData.length);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar actividades';
       console.error('❌ Error cargando actividades:', errorMessage);
@@ -52,7 +52,7 @@ export const useActividades = (idUsuario: string | null): UseActividadesReturn =
       const nuevaActividad = await actividadRepository.current.createActividad(actividad);
       if (nuevaActividad) {
         // La actualización se manejará via realtime
-        console.log('✅ Actividad creada:', nuevaActividad);
+        // console.log('✅ Actividad creada:', nuevaActividad);
       }
       return nuevaActividad;
     } catch (err) {
@@ -69,7 +69,7 @@ export const useActividades = (idUsuario: string | null): UseActividadesReturn =
       const actividadActualizada = await actividadRepository.current.updateActividad(id, actividad);
       if (actividadActualizada) {
         // La actualización se manejará via realtime
-        console.log('✅ Actividad actualizada:', actividadActualizada);
+        // console.log('✅ Actividad actualizada:', actividadActualizada);
       }
       return actividadActualizada;
     } catch (err) {
@@ -86,7 +86,7 @@ export const useActividades = (idUsuario: string | null): UseActividadesReturn =
       const eliminada = await actividadRepository.current.deleteActividad(id);
       if (eliminada) {
         // La actualización se manejará via realtime
-        console.log('✅ Actividad eliminada:', id);
+        // console.log('✅ Actividad eliminada:', id);
       }
       return eliminada;
     } catch (err) {
@@ -101,12 +101,12 @@ export const useActividades = (idUsuario: string | null): UseActividadesReturn =
   useEffect(() => {
     if (!idUsuario) return;
 
-    console.log('📡 Configurando suscripción realtime para actividades');
+    // console.log('📡 Configurando suscripción realtime para actividades');
 
     // Callbacks para el realtime
     const realtimeCallbacks = {
       onActividadesUpdated: (nuevasActividades: Actividad[]) => {
-        console.log('📡 Actividades actualizadas via realtime:', nuevasActividades.length);
+        // console.log('📡 Actividades actualizadas via realtime:', nuevasActividades.length);
         setActividades(nuevasActividades);
       },
       onError: (errorMessage: string) => {
@@ -124,7 +124,7 @@ export const useActividades = (idUsuario: string | null): UseActividadesReturn =
     // Cleanup al desmontar o cambiar usuario
     return () => {
       if (realtimeChannel.current) {
-        console.log('🧹 Limpiando suscripción realtime de actividades');
+        // console.log('🧹 Limpiando suscripción realtime de actividades');
         actividadRepository.current.unsubscribeFromChanges(realtimeChannel.current);
         realtimeChannel.current = null;
       }

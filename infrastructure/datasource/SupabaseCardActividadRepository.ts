@@ -9,7 +9,7 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
    */
   async getByCardId(idCard: string): Promise<CardActividad | null> {
     try {
-      console.log('📅 Obteniendo datos de actividad para card:', idCard);
+      // console.log('📅 Obteniendo datos de actividad para card:', idCard);
 
       const { data, error } = await supabase
         .from('card_actividades')
@@ -20,14 +20,14 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
       if (error) {
         // Si no existe, no es un error crítico
         if (error.code === 'PGRST116') {
-          console.log('ℹ️ No hay datos de actividad para esta card');
+          // console.log('ℹ️ No hay datos de actividad para esta card');
           return null;
         }
         console.error('❌ Error obteniendo datos de actividad:', error);
         return null;
       }
 
-      console.log('✅ Datos de actividad encontrados');
+      // console.log('✅ Datos de actividad encontrados');
       return data;
     } catch (error) {
       console.error('❌ Error en getByCardId:', error);
@@ -40,7 +40,7 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
    */
   async create(cardActividad: CreateCardActividadDTO): Promise<CardActividad | null> {
     try {
-      console.log('➕ Creando datos de actividad para card:', cardActividad.id_card);
+      // console.log('➕ Creando datos de actividad para card:', cardActividad.id_card);
 
       const { data, error } = await supabase
         .from('card_actividades')
@@ -53,7 +53,7 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
         return null;
       }
 
-      console.log('✅ Datos de actividad creados exitosamente');
+      // console.log('✅ Datos de actividad creados exitosamente');
       return data;
     } catch (error) {
       console.error('❌ Error en create:', error);
@@ -66,7 +66,7 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
    */
   async update(idCard: string, updates: UpdateCardActividadDTO): Promise<CardActividad | null> {
     try {
-      console.log('✏️ Actualizando datos de actividad para card:', idCard);
+      // console.log('✏️ Actualizando datos de actividad para card:', idCard);
 
       const { data, error } = await supabase
         .from('card_actividades')
@@ -83,7 +83,7 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
         return null;
       }
 
-      console.log('✅ Datos de actividad actualizados');
+      // console.log('✅ Datos de actividad actualizados');
       return data;
     } catch (error) {
       console.error('❌ Error en update:', error);
@@ -96,7 +96,7 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
    */
   async delete(idCard: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando datos de actividad para card:', idCard);
+      // console.log('🗑️ Eliminando datos de actividad para card:', idCard);
 
       const { error } = await supabase
         .from('card_actividades')
@@ -108,7 +108,7 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
         return false;
       }
 
-      console.log('✅ Datos de actividad eliminados');
+      // console.log('✅ Datos de actividad eliminados');
       return true;
     } catch (error) {
       console.error('❌ Error en delete:', error);
@@ -121,7 +121,7 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
    */
   async updateRunningState(idCard: string, isRunning: boolean): Promise<CardActividad | null> {
     try {
-      console.log('▶️ Actualizando estado de ejecución:', isRunning ? 'corriendo' : 'pausado');
+      // console.log('▶️ Actualizando estado de ejecución:', isRunning ? 'corriendo' : 'pausado');
 
       const { data, error } = await supabase
         .from('card_actividades')
@@ -138,7 +138,7 @@ export class SupabaseCardActividadRepository implements CardActividadRepository 
         return null;
       }
 
-      console.log('✅ Estado actualizado');
+      // console.log('✅ Estado actualizado');
       return data;
     } catch (error) {
       console.error('❌ Error en updateRunningState:', error);

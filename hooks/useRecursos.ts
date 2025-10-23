@@ -10,21 +10,21 @@ export const useRecursos = (idUsuario: string | null) => {
   const recursoRepository = new SupabaseRecursoRepository();
 
   const loadRecursos = useCallback(async () => {
-    console.log('📚 useRecursos - loadRecursos llamado con idUsuario:', idUsuario);
-    
+    // console.log('📚 useRecursos - loadRecursos llamado con idUsuario:', idUsuario);
+
     if (!idUsuario) {
-      console.log('📚 useRecursos - No hay idUsuario, limpiando recursos');
+      // console.log('📚 useRecursos - No hay idUsuario, limpiando recursos');
       setRecursos([]);
       setLoading(false);
       return;
     }
 
     try {
-      console.log('📚 useRecursos - Iniciando carga de recursos para usuario:', idUsuario);
+      // console.log('📚 useRecursos - Iniciando carga de recursos para usuario:', idUsuario);
       setLoading(true);
       setError(null);
       const recursosData = await recursoRepository.getRecursosByUsuario(idUsuario);
-      console.log('📚 useRecursos - Recursos obtenidos:', recursosData);
+      // console.log('📚 useRecursos - Recursos obtenidos:', recursosData);
       setRecursos(recursosData);
     } catch (err) {
       console.error('📚 useRecursos - Error cargando recursos:', err);
@@ -84,16 +84,16 @@ export const useRecursos = (idUsuario: string | null) => {
 
   // Cargar recursos cuando cambia el usuario (sin realtime)
   useEffect(() => {
-    console.log('📚 useRecursos - useEffect ejecutado con idUsuario:', idUsuario);
-    
+    // console.log('📚 useRecursos - useEffect ejecutado con idUsuario:', idUsuario);
+
     if (!idUsuario) {
-      console.log('📚 useRecursos - No hay usuario, limpiando recursos');
+      // console.log('📚 useRecursos - No hay usuario, limpiando recursos');
       setRecursos([]);
       setLoading(false);
       return;
     }
 
-    console.log('📚 useRecursos - Cargando recursos para usuario:', idUsuario);
+    // console.log('📚 useRecursos - Cargando recursos para usuario:', idUsuario);
     // Cargar recursos iniciales
     loadRecursos();
   }, [idUsuario, loadRecursos]);

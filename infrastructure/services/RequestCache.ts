@@ -18,7 +18,7 @@ class RequestCache {
       return null;
     }
 
-    console.log(`🎯 Cache HIT para ${key}`);
+    // console.log(`🎯 Cache HIT para ${key}`);
     return cached.data as T;
   }
 
@@ -31,7 +31,7 @@ class RequestCache {
       timestamp: Date.now(),
       ttl: ttlMs
     });
-    console.log(`💾 Cache SET para ${key} (TTL: ${ttlMs}ms)`);
+    // console.log(`💾 Cache SET para ${key} (TTL: ${ttlMs}ms)`);
   }
 
   /**
@@ -51,12 +51,12 @@ class RequestCache {
     // 2. Verificar si ya hay una petición pendiente
     const pending = this.pendingRequests.get(key);
     if (pending) {
-      console.log(`⏳ Esperando petición pendiente para ${key}`);
+      // console.log(`⏳ Esperando petición pendiente para ${key}`);
       return pending as Promise<T>;
     }
 
     // 3. Ejecutar nueva petición
-    console.log(`🚀 Nueva petición para ${key}`);
+    // console.log(`🚀 Nueva petición para ${key}`);
     const promise = fn().then(result => {
       this.set(key, result, ttlMs);
       this.pendingRequests.delete(key);
@@ -76,7 +76,7 @@ class RequestCache {
   clear(): void {
     this.cache.clear();
     this.pendingRequests.clear();
-    console.log('🧹 Cache limpiado completamente');
+    // console.log('🧹 Cache limpiado completamente');
   }
 
   /**

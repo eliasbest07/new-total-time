@@ -9,7 +9,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
    */
   async getByCardId(idCard: string): Promise<CardMision | null> {
     try {
-      console.log('🎯 Obteniendo datos de misión para card:', idCard);
+      // console.log('🎯 Obteniendo datos de misión para card:', idCard);
 
       const { data, error } = await supabase
         .from('card_misiones')
@@ -20,14 +20,14 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
       if (error) {
         // Si no existe, no es un error crítico
         if (error.code === 'PGRST116') {
-          console.log('ℹ️ No hay datos de misión para esta card');
+          // console.log('ℹ️ No hay datos de misión para esta card');
           return null;
         }
         console.error('❌ Error obteniendo datos de misión:', error);
         return null;
       }
 
-      console.log('✅ Datos de misión encontrados');
+      // console.log('✅ Datos de misión encontrados');
       return data;
     } catch (error) {
       console.error('❌ Error en getByCardId:', error);
@@ -40,7 +40,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
    */
   async getByMisionId(idMision: number): Promise<CardMision | null> {
     try {
-      console.log('🎯 Obteniendo datos de card para misión:', idMision);
+      // console.log('🎯 Obteniendo datos de card para misión:', idMision);
 
       const { data, error } = await supabase
         .from('card_misiones')
@@ -50,14 +50,14 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          console.log('ℹ️ No hay card asociada a esta misión');
+          // console.log('ℹ️ No hay card asociada a esta misión');
           return null;
         }
         console.error('❌ Error obteniendo datos de misión:', error);
         return null;
       }
 
-      console.log('✅ Datos de misión encontrados');
+      // console.log('✅ Datos de misión encontrados');
       return data;
     } catch (error) {
       console.error('❌ Error en getByMisionId:', error);
@@ -70,7 +70,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
    */
   async create(cardMision: CreateCardMisionDTO): Promise<CardMision | null> {
     try {
-      console.log('➕ Creando datos de misión para card:', cardMision.id_card);
+      // console.log('➕ Creando datos de misión para card:', cardMision.id_card);
 
       const { data, error } = await supabase
         .from('card_misiones')
@@ -83,7 +83,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
         return null;
       }
 
-      console.log('✅ Datos de misión creados exitosamente');
+      // console.log('✅ Datos de misión creados exitosamente');
       return data;
     } catch (error) {
       console.error('❌ Error en create:', error);
@@ -96,7 +96,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
    */
   async update(idCard: string, updates: UpdateCardMisionDTO): Promise<CardMision | null> {
     try {
-      console.log('✏️ Actualizando datos de misión para card:', idCard);
+      // console.log('✏️ Actualizando datos de misión para card:', idCard);
 
       const { data, error } = await supabase
         .from('card_misiones')
@@ -113,7 +113,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
         return null;
       }
 
-      console.log('✅ Datos de misión actualizados');
+      // console.log('✅ Datos de misión actualizados');
       return data;
     } catch (error) {
       console.error('❌ Error en update:', error);
@@ -126,7 +126,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
    */
   async delete(idCard: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando datos de misión para card:', idCard);
+      // console.log('🗑️ Eliminando datos de misión para card:', idCard);
 
       const { error } = await supabase
         .from('card_misiones')
@@ -138,7 +138,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
         return false;
       }
 
-      console.log('✅ Datos de misión eliminados');
+      // console.log('✅ Datos de misión eliminados');
       return true;
     } catch (error) {
       console.error('❌ Error en delete:', error);
@@ -151,7 +151,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
    */
   async updateRunningState(idCard: string, isRunning: boolean): Promise<CardMision | null> {
     try {
-      console.log('▶️ Actualizando estado de ejecución:', isRunning ? 'corriendo' : 'pausado');
+      // console.log('▶️ Actualizando estado de ejecución:', isRunning ? 'corriendo' : 'pausado');
 
       const { data, error } = await supabase
         .from('card_misiones')
@@ -168,7 +168,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
         return null;
       }
 
-      console.log('✅ Estado actualizado');
+      // console.log('✅ Estado actualizado');
       return data;
     } catch (error) {
       console.error('❌ Error en updateRunningState:', error);
@@ -181,7 +181,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
    */
   async updateLastCapture(idCard: string, lastCaptureUrl: string): Promise<CardMision | null> {
     try {
-      console.log('📸 Actualizando última captura');
+      // console.log('📸 Actualizando última captura');
 
       const { data, error } = await supabase
         .from('card_misiones')
@@ -198,7 +198,7 @@ export class SupabaseCardMisionRepository implements CardMisionRepository {
         return null;
       }
 
-      console.log('✅ Captura actualizada');
+      // console.log('✅ Captura actualizada');
       return data;
     } catch (error) {
       console.error('❌ Error en updateLastCapture:', error);

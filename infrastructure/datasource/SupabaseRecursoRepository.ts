@@ -6,7 +6,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
 
   async getRecursosByUsuario(idUsuario: string): Promise<Recurso[]> {
     try {
-      console.log('📚 Obteniendo recursos para usuario:', idUsuario);
+      // console.log('📚 Obteniendo recursos para usuario:', idUsuario);
 
       const { data, error } = await supabase
         .from('recursos')
@@ -20,7 +20,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
       }
 
       const recursos = data || [];
-      console.log('✅ Recursos encontrados:', recursos.length);
+      // console.log('✅ Recursos encontrados:', recursos.length);
       return recursos;
     } catch (error) {
       console.error('❌ Error en getRecursosByUsuario:', error);
@@ -30,7 +30,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
 
   async createRecurso(recurso: Omit<Recurso, 'id' | 'created_at'>): Promise<Recurso | null> {
     try {
-      console.log('➕ Creando nuevo recurso:', recurso);
+      // console.log('➕ Creando nuevo recurso:', recurso);
 
       const { data, error } = await supabase
         .from('recursos')
@@ -43,7 +43,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
         return null;
       }
 
-      console.log('✅ Recurso creado exitosamente:', data);
+      // console.log('✅ Recurso creado exitosamente:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en createRecurso:', error);
@@ -53,7 +53,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
 
   async updateRecurso(id: number, recurso: Partial<Recurso>): Promise<Recurso | null> {
     try {
-      console.log('✏️ Actualizando recurso:', id, recurso);
+      // console.log('✏️ Actualizando recurso:', id, recurso);
 
       const { data, error } = await supabase
         .from('recursos')
@@ -67,7 +67,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
         return null;
       }
 
-      console.log('✅ Recurso actualizado exitosamente:', data);
+      // console.log('✅ Recurso actualizado exitosamente:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en updateRecurso:', error);
@@ -77,7 +77,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
 
   async deleteRecurso(id: number): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando recurso:', id);
+      // console.log('🗑️ Eliminando recurso:', id);
 
       const { error } = await supabase
         .from('recursos')
@@ -89,7 +89,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
         return false;
       }
 
-      console.log('✅ Recurso eliminado exitosamente');
+      // console.log('✅ Recurso eliminado exitosamente');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteRecurso:', error);
@@ -99,7 +99,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
 
   async getRecursoById(id: number): Promise<Recurso | null> {
     try {
-      console.log('🔍 Obteniendo recurso por ID:', id);
+      // console.log('🔍 Obteniendo recurso por ID:', id);
 
       const { data, error } = await supabase
         .from('recursos')
@@ -112,7 +112,7 @@ export class SupabaseRecursoRepository implements RecursoRepository {
         return null;
       }
 
-      console.log('✅ Recurso encontrado:', data);
+      // console.log('✅ Recurso encontrado:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en getRecursoById:', error);

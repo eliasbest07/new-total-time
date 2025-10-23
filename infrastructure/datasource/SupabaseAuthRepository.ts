@@ -35,7 +35,7 @@ interface UsuarioSupabase {
 export class SupabaseAuthRepository implements AuthRepository {
     async login(email: string, password: string): Promise<Usuario | null> {
         try {
-            console.log('🔐 Intentando login con Supabase...');
+            // console.log('🔐 Intentando login con Supabase...');
             const { data, error } = await supabase.auth.signInWithPassword({ 
                 email, 
                 password 
@@ -51,14 +51,14 @@ export class SupabaseAuthRepository implements AuthRepository {
                 return null;
             }
 
-            console.log('✅ Login exitoso, sesión creada');
-            console.log('📝 Sesión expira en:', new Date(data.session.expires_at * 1000));
+            // console.log('✅ Login exitoso, sesión creada');
+            // console.log('📝 Sesión expira en:', new Date(data.session.expires_at * 1000));
 
             // Obtener datos adicionales de la tabla usuario
             const userData = await this.getUserData(data.user.id);
             const domainUser = await this.mapToDomainUser(data.user, userData);
             
-            console.log('✅ Usuario del dominio creado exitosamente');
+            // console.log('✅ Usuario del dominio creado exitosamente');
             return domainUser;
         } catch (error) {
             console.error('❌ Error crítico en login:', error);
@@ -81,7 +81,7 @@ export class SupabaseAuthRepository implements AuthRepository {
 
     // Obtener datos adicionales del usuario desde la tabla usuario
     private async getUserData(userAuthId: string): Promise<UsuarioSupabase | null> {
-        console.log('Buscando usuario con id_usuario:', userAuthId);
+        // console.log('Buscando usuario con id_usuario:', userAuthId);
 
         const { data, error } = await supabase
             .from('usuario')
@@ -95,7 +95,7 @@ export class SupabaseAuthRepository implements AuthRepository {
             return null;
         }
 
-        console.log('Datos del usuario encontrados:', data);
+        // console.log('Datos del usuario encontrados:', data);
         return data as UsuarioSupabase;
     }
 
@@ -110,7 +110,7 @@ export class SupabaseAuthRepository implements AuthRepository {
 
     // Obtener nombre de la organización por ID
     private async getOrganizacionNombre(organizacionId: string): Promise<string | null> {
-        console.log('🔍 Buscando organización con id:', organizacionId);
+        // console.log('🔍 Buscando organización con id:', organizacionId);
 
         const { data, error } = await supabase
             .from('organizacion')
@@ -124,7 +124,7 @@ export class SupabaseAuthRepository implements AuthRepository {
             return null;
         }
 
-        console.log('✅ Organización encontrada:', data);
+        // console.log('✅ Organización encontrada:', data);
         return data?.nombre || null;
     }
 
@@ -132,7 +132,7 @@ export class SupabaseAuthRepository implements AuthRepository {
         try {
             // Verificar que estamos en el cliente
             if (typeof window === 'undefined') {
-                console.log('⚠️ getCurrentUser llamado en el servidor, retornando null');
+                // console.log('⚠️ getCurrentUser llamado en el servidor, retornando null');
                 return null;
             }
 
@@ -140,7 +140,7 @@ export class SupabaseAuthRepository implements AuthRepository {
             return await requestCache.execute(
                 'current-user',
                 async () => {
-                    console.log('🔍 Obteniendo usuario actual (sin cache)...');
+                    // console.log('🔍 Obteniendo usuario actual (sin cache)...');
 
                     // Primero verificar la sesión
                     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -151,11 +151,11 @@ export class SupabaseAuthRepository implements AuthRepository {
                     }
 
                     if (!sessionData.session) {
-                        console.log('ℹ️ No hay sesión activa');
+                        // console.log('ℹ️ No hay sesión activa');
                         return null;
                     }
 
-                    console.log('✅ Sesión encontrada, obteniendo datos del usuario...');
+                    // console.log('✅ Sesión encontrada, obteniendo datos del usuario...');
 
                     // Usar los datos de la sesión directamente
                     const user = sessionData.session.user;
@@ -200,20 +200,20 @@ export class SupabaseAuthRepository implements AuthRepository {
 
     // 🔑 Mapear el user de supabase al dominio Usuario
     private async mapToDomainUser(supabaseUser: any, userData: UsuarioSupabase | null = null): Promise<Usuario> {
-        console.log('Mapeando usuario:', { supabaseUser, userData });
+        // console.log('Mapeando usuario:', { supabaseUser, userData });
 
         // Obtener nombre de la organización si existe
         let nombreOrganizacion: string | undefined = undefined;
-        console.log('🏢 id_organizacion del usuario:', userData?.id_organizacion);
+        // console.log('🏢 id_organizacion del usuario:', userData?.id_organizacion);
         if (userData?.id_organizacion) {
-            console.log('🔍 Buscando organización con ID:', userData.id_organizacion);
+            // console.log('🔍 Buscando organización con ID:', userData.id_organizacion);
             const orgNombre = await this.getOrganizacionNombre(userData.id_organizacion);
-            console.log('🏢 Nombre de organización obtenido:', orgNombre);
+            // console.log('🏢 Nombre de organización obtenido:', orgNombre);
             if (orgNombre) {
                 nombreOrganizacion = orgNombre;
             }
         } else {
-            console.log('⚠️ Usuario no tiene id_organizacion asignado');
+            // console.log('⚠️ Usuario no tiene id_organizacion asignado');
         }
 
         const profile: InfoUsuario = {
@@ -255,7 +255,7 @@ export class SupabaseAuthRepository implements AuthRepository {
             userData?.solicitud_nivel || undefined
         );
 
-        console.log('Usuario mapeado con organización:', usuario);
+        // console.log('Usuario mapeado con organización:', usuario);
         return usuario;
     }
 }
