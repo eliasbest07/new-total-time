@@ -100,8 +100,8 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
         userAuth: usuario.userAuth, // UUID para Supabase
         name: usuario.getNombreCompleto(),
         status: online ? 'En línea' : getStatusFromActivity(usuario.ultimaActividad),
-        avatar: getAvatarFromName(usuario.getNombreCompleto()),
-        color: getColorForUser(index),
+        avatar: usuario.profile.avatar || getAvatarFromName(usuario.getNombreCompleto()), // Usar avatar real de Supabase
+        color: usuario.profile.marco || getColorForUser(index), // Usar color del marco
         online: online
       };
     });
@@ -349,8 +349,34 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                             }}
                           >
                             <div className="relative" title={user.name}>
-                              <div className={`w-10 h-10 rounded-full ${user.color} flex items-center justify-center text-white text-sm font-semibold`}>
-                                {user.avatar}
+                              {/* Marco de color */}
+                              <div
+                                className="w-12 h-12 rounded-full border-2 flex items-center justify-center"
+                                style={{ borderColor: typeof user.color === 'string' && user.color.startsWith('#') ? user.color : undefined }}
+                              >
+                                {/* Avatar interno */}
+                                <div className={`w-10 h-10 rounded-full ${typeof user.color === 'string' && user.color.startsWith('#') ? 'bg-gray-500' : user.color} flex items-center justify-center text-white text-sm font-semibold overflow-hidden`}>
+                                  {user.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) ? (
+                                    <img
+                                      src={user.avatar}
+                                      alt={user.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        if (target.nextSibling) {
+                                          (target.nextSibling as HTMLElement).style.display = 'flex';
+                                        }
+                                      }}
+                                    />
+                                  ) : null}
+                                  <span
+                                    className="w-full h-full flex items-center justify-center"
+                                    style={{ display: (user.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://'))) ? 'none' : 'flex' }}
+                                  >
+                                    {user.avatar && !(user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) ? user.avatar : getAvatarFromName(user.name)}
+                                  </span>
+                                </div>
                               </div>
                               {user.online && (
                                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white/20"></div>
