@@ -108,27 +108,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   return (
     <div
       ref={windowRef}
-      className="fixed bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-2xl border border-gray-200 flex flex-col z-50 overflow-hidden backdrop-blur-sm"
+      className="fixed bg-white rounded-xl shadow-2xl border border-gray-300 flex flex-col z-50 overflow-hidden"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
         width: '380px',
         height: isMinimized ? 'auto' : '550px',
-        cursor: isDragging ? 'grabbing' : 'default',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        cursor: isDragging ? 'grabbing' : 'default'
       }}
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white cursor-grab active:cursor-grabbing shadow-lg relative overflow-hidden"
+        className="flex items-center justify-between p-4 bg-white border-b border-gray-200 cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
       >
-        {/* Efecto de brillo en el header */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-
-        <div className="flex items-center gap-3 flex-1 min-w-0 relative z-10">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="relative">
-            <div className={`w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-bold text-base shadow-lg ring-2 ring-white/50 overflow-hidden`}>
+            <div className={`w-12 h-12 rounded-full ${userColor || 'bg-gray-500'} flex items-center justify-center text-white font-bold text-base shadow-md overflow-hidden`}>
               {userAvatar && (userAvatar.startsWith('http://') || userAvatar.startsWith('https://')) ? (
                 <img
                   src={userAvatar}
@@ -152,33 +148,33 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </span>
             </div>
             {isOnline && (
-              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white shadow-md animate-pulse"></div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white shadow-md"></div>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold truncate text-base">{userName}</h3>
-            <div className={`flex items-center gap-1.5 text-xs ${isOnline ? 'text-green-200' : 'text-purple-200'}`}>
-              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-300' : 'bg-gray-400'}`}></div>
+            <h3 className="font-bold truncate text-base text-gray-900">{userName}</h3>
+            <div className={`flex items-center gap-1.5 text-xs ${isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
               <span className="font-medium">{isOnline ? 'En línea' : 'Desconectado'}</span>
             </div>
           </div>
         </div>
 
         {/* Botones de control */}
-        <div className="flex items-center gap-2 relative z-10" data-no-drag>
+        <div className="flex items-center gap-2" data-no-drag>
           <button
             onClick={() => isMinimized ? maximizeChatWindow(windowId) : minimizeChatWindow(windowId)}
-            className="hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200 hover:scale-110"
+            className="hover:bg-gray-100 rounded-lg p-1.5 transition-all duration-200"
             title={isMinimized ? 'Maximizar' : 'Minimizar'}
           >
             <span className="text-lg">{isMinimized ? '🔼' : '🔽'}</span>
           </button>
           <button
             onClick={() => closeChatWindow(windowId)}
-            className="hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200 hover:scale-110 hover:bg-red-500/30"
+            className="hover:bg-red-100 rounded-lg p-1.5 transition-all duration-200"
             title="Cerrar"
           >
-            <span className="text-lg font-bold">✕</span>
+            <span className="text-lg font-bold text-red-600">✕</span>
           </button>
         </div>
       </div>
@@ -187,11 +183,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       {!isMinimized && (
         <>
           {/* Mensajes */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
             {loading && (
               <div className="flex flex-col items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-2"></div>
-                <span className="text-purple-500 text-sm font-medium">Cargando mensajes...</span>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                <span className="text-gray-600 text-sm font-medium">Cargando mensajes...</span>
               </div>
             )}
             {error && (
@@ -211,17 +207,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               return (
                 <div
                   key={mensaje.id}
-                  className={`flex ${esMio ? 'justify-end' : 'justify-start'} animate-fadeIn`}
+                  className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-sm ${
+                    className={`max-w-[80%] rounded-lg px-4 py-2.5 shadow-sm ${
                       esMio
-                        ? 'bg-gradient-to-br from-purple-600 to-purple-700 text-white'
-                        : 'bg-white text-gray-900 border border-gray-200'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-900 border border-gray-200'
                     }`}
                   >
                     <p className="break-words text-sm leading-relaxed">{mensaje.texto}</p>
-                    <span className={`text-xs mt-1 block ${esMio ? 'text-purple-200' : 'text-gray-500'}`}>
+                    <span className={`text-xs mt-1 block ${esMio ? 'text-blue-100' : 'text-gray-500'}`}>
                       {mensaje.createdAt.toLocaleTimeString('es-ES', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -235,7 +231,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t text-black border-gray-200 bg-white" data-no-drag>
+          <div className="p-4 border-t border-gray-200 bg-white" data-no-drag>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -248,7 +244,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     await handleSendMessage(texto);
                   }
                 }}
-                className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-200 placeholder:text-gray-400"
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm text-black bg-white disabled:bg-gray-100 disabled:cursor-not-allowed transition-all placeholder:text-gray-400"
               />
               <button
                 onClick={async (e) => {
@@ -260,10 +256,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   }
                 }}
                 disabled={sending}
-                className="bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:from-purple-400 disabled:to-purple-500 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl transition-all duration-200 text-base font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-5 py-3 rounded-lg transition-all text-base font-medium shadow-sm"
               >
                 {sending ? (
-                  <span className="animate-pulse">⏳</span>
+                  <span>⏳</span>
                 ) : (
                   <span>💬</span>
                 )}

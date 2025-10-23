@@ -3,28 +3,45 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { useChatWindows } from '@/app/contexts/ChatWindowContext';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 
+interface UseIncomingMessagesOptions {
+  onNewMessage?: (userData: {
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    userColor: string;
+    isOnline: boolean;
+  }) => void;
+}
+
 /**
  * Hook para detectar mensajes entrantes y abrir automáticamente ventanas de chat
+ * @param userId - ID del usuario (opcional, si no se pasa usa el del contexto Auth)
+ * @param options - Opciones con callback onNewMessage (opcional)
  */
-export const useIncomingMessages = () => {
+export const useIncomingMessages = (
+  userId?: string | null,
+  options?: UseIncomingMessagesOptions
+) => {
   const { usuario } = useAuth();
-  const { openChatWindow } = useChatWindows();
+  const chatWindowsContext = useChatWindows();
   const processedMessagesRef = useRef<Set<string>>(new Set());
 
-  // console.log('📬 useIncomingMessages - Hook ejecutado');
-  // console.log('📬 useIncomingMessages - Usuario:', usuario?.userAuth);
-  // console.log('📬 useIncomingMessages - openChatWindow:', typeof openChatWindow);
+  // Usar el userId pasado por parámetro o el del contexto
+  const currentUserId = userId || usuario?.userAuth;
+
+  console.log('📬 useIncomingMessages - Hook ejecutado');
+  console.log('📬 useIncomingMessages - Usuario:', currentUserId);
+  console.log('📬 useIncomingMessages - Tiene callback:', !!options?.onNewMessage);
 
   useEffect(() => {
-    // console.log('📬 useIncomingMessages - useEffect ejecutado');
+    console.log('📬 useIncomingMessages - useEffect ejecutado');
 
-    if (!usuario?.userAuth) {
-      // console.log('📬 useIncomingMessages - No hay usuario logeado');
+    if (!currentUserId) {
+      console.log('📬 useIncomingMessages - No hay usuario logeado');
       return;
     }
 
-    const currentUserId = usuario.userAuth;
-    // console.log('📬 useIncomingMessages - Configurando listener para usuario:', currentUserId);
+    console.log('📬 useIncomingMessages - Configurando listener para usuario:', currentUserId);
 
     // Suscribirse a mensajes donde el usuario actual es el RECEPTOR
     const channel = supabase
@@ -38,14 +55,14 @@ export const useIncomingMessages = () => {
           filter: `id_receptor=eq.${currentUserId}`
         },
         async (payload) => {
-          // console.log('📬 useIncomingMessages - Nuevo mensaje recibido:', payload);
+          console.log('📬 useIncomingMessages - Nuevo mensaje recibido:', payload);
 
           const mensajeId = payload.new.id;
           const idEmisor = payload.new.id_emisor;
 
           // Evitar procesar el mismo mensaje múltiples veces
           if (processedMessagesRef.current.has(mensajeId)) {
-            // console.log('📬 useIncomingMessages - Mensaje ya procesado, ignorando');
+            console.log('📬 useIncomingMessages - Mensaje ya procesado, ignorando');
             return;
           }
 
@@ -54,7 +71,7 @@ export const useIncomingMessages = () => {
 
           // Obtener información del emisor
           try {
-            // console.log('📬 useIncomingMessages - Buscando emisor con user_auth:', idEmisor);
+            console.log('📬 useIncomingMessages - Buscando emisor con user_auth:', idEmisor);
 
             // Intentar con user_auth primero
             let { data: emisorData, error } = await supabase
@@ -65,7 +82,7 @@ export const useIncomingMessages = () => {
 
             // Si no se encuentra con user_auth, intentar con id_usuario
             if (!emisorData || error) {
-              // console.log('📬 useIncomingMessages - No encontrado con user_auth, intentando con id_usuario');
+              console.log('📬 useIncomingMessages - No encontrado con user_auth, intentando con id_usuario');
               const result = await supabase
                 .from('usuario')
                 .select('id, correo, nombre, avatar, marco, username, user_auth, id_usuario')
@@ -78,7 +95,7 @@ export const useIncomingMessages = () => {
 
             // Si aún no se encuentra, intentar con id
             if (!emisorData || error) {
-              // console.log('📬 useIncomingMessages - No encontrado con id_usuario, intentando con id');
+              console.log('📬 useIncomingMessages - No encontrado con id_usuario, intentando con id');
               const result = await supabase
                 .from('usuario')
                 .select('id, correo, nombre, avatar, marco, username, user_auth, id_usuario')
@@ -94,17 +111,23 @@ export const useIncomingMessages = () => {
               console.error('📬 useIncomingMessages - Error:', error);
 
               // Abrir ventana con datos por defecto si hay error
-              openChatWindow({
+              const defaultUserData = {
                 userId: idEmisor,
                 userName: 'Usuario Desconocido',
                 userAvatar: 'UD',
                 userColor: 'bg-purple-600',
                 isOnline: true
-              });
+              };
+
+              if (options?.onNewMessage) {
+                options.onNewMessage(defaultUserData);
+              } else if (chatWindowsContext?.openChatWindow) {
+                chatWindowsContext.openChatWindow(defaultUserData);
+              }
               return;
             }
 
-            // console.log('📬 useIncomingMessages - Emisor encontrado:', emisorData);
+            console.log('📬 useIncomingMessages - Emisor encontrado:', emisorData);
 
             // Obtener nombre completo (solo hay nombre, no apellido)
             const nombreCompleto = emisorData?.nombre || emisorData?.username || 'Usuario';
@@ -135,24 +158,31 @@ export const useIncomingMessages = () => {
               ? `bg-[${colorMarco}]`
               : colorMarco || 'bg-purple-600';
 
-            // console.log('📬 useIncomingMessages - Datos procesados:', {
-            //   nombreCompleto,
-            //   iniciales,
-            //   userAvatar,
-            //   colorClass,
-            //   colorMarco
-            // });
+            console.log('📬 useIncomingMessages - Datos procesados:', {
+              nombreCompleto,
+              iniciales,
+              userAvatar,
+              colorClass,
+              colorMarco
+            });
 
-            // Abrir ventana de chat
-            openChatWindow({
+            // Datos del usuario para abrir la ventana
+            const userData = {
               userId: idEmisor,
               userName: nombreCompleto,
               userAvatar: userAvatar,
               userColor: colorClass,
               isOnline: true // Asumimos que está online porque acaba de enviar un mensaje
-            });
+            };
 
-            // console.log('📬 useIncomingMessages - Ventana de chat abierta para:', nombreCompleto);
+            // Abrir ventana de chat usando callback o contexto
+            if (options?.onNewMessage) {
+              options.onNewMessage(userData);
+            } else if (chatWindowsContext?.openChatWindow) {
+              chatWindowsContext.openChatWindow(userData);
+            }
+
+            console.log('📬 useIncomingMessages - Ventana de chat abierta para:', nombreCompleto);
           } catch (err) {
             console.error('📬 useIncomingMessages - Error procesando mensaje entrante:', err);
           }
@@ -160,12 +190,12 @@ export const useIncomingMessages = () => {
       )
       .subscribe();
 
-    // console.log('📬 useIncomingMessages - Suscripción configurada');
+    console.log('📬 useIncomingMessages - Suscripción configurada');
 
     // Limpiar suscripción al desmontar
     return () => {
-      // console.log('📬 useIncomingMessages - Eliminando suscripción');
+      console.log('📬 useIncomingMessages - Eliminando suscripción');
       supabase.removeChannel(channel);
     };
-  }, [usuario?.userAuth, openChatWindow]);
+  }, [currentUserId, options, chatWindowsContext]);
 };

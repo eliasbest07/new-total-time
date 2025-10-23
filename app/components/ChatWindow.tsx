@@ -32,19 +32,39 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
   }, [mensajes]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-white">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-purple-200 bg-gradient-to-r from-purple-50 to-white">
+      <div className="flex items-center gap-3 p-4 border-b border-gray-200 bg-white">
         <div className="relative">
-          <div className={`w-12 h-12 rounded-full ${targetUser.color || 'bg-purple-500'} flex items-center justify-center text-white font-semibold shadow-md`}>
-            {targetUser.avatar || 'US'}
+          <div className={`w-12 h-12 rounded-full ${targetUser.color || 'bg-gray-500'} flex items-center justify-center text-white font-semibold shadow-md overflow-hidden`}>
+            {targetUser.avatar && (targetUser.avatar.startsWith('http://') || targetUser.avatar.startsWith('https://')) ? (
+              <img
+                src={targetUser.avatar}
+                alt={targetUser.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Si la imagen falla, mostrar iniciales
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  if (target.nextSibling) {
+                    (target.nextSibling as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+            ) : null}
+            <span
+              className="w-full h-full flex items-center justify-center"
+              style={{ display: (targetUser.avatar && (targetUser.avatar.startsWith('http://') || targetUser.avatar.startsWith('https://'))) ? 'none' : 'flex' }}
+            >
+              {targetUser.avatar && !(targetUser.avatar.startsWith('http://') || targetUser.avatar.startsWith('https://')) ? targetUser.avatar : targetUser.name.substring(0, 2).toUpperCase()}
+            </span>
           </div>
           {targetUser.online && (
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
           )}
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold text-purple-800 text-lg">
+          <h3 className="font-semibold text-gray-800 text-lg">
             {targetUser.name}
           </h3>
           <div className={`inline-flex items-center gap-1 text-sm ${targetUser.online ? 'text-green-600' : 'text-gray-500'}`}>
@@ -57,9 +77,9 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
       </div>
 
       {/* Mensajes */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-white">
         {loading && (
-          <div className="text-center text-purple-400 text-sm py-4">
+          <div className="text-center text-gray-500 text-sm py-4">
             Cargando mensajes...
           </div>
         )}
@@ -83,12 +103,12 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
               <div
                 className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${
                   esMio
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white text-purple-900 border border-purple-100'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-900 border border-gray-200'
                 }`}
               >
                 <p className="break-words">{mensaje.texto}</p>
-                <span className={`text-xs ${esMio ? 'text-purple-200' : 'text-gray-500'}`}>
+                <span className={`text-xs ${esMio ? 'text-blue-100' : 'text-gray-500'}`}>
                   {mensaje.createdAt.toLocaleTimeString('es-ES', {
                     hour: '2-digit',
                     minute: '2-digit'
@@ -102,7 +122,7 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-purple-200 bg-white">
+      <div className="p-4 border-t border-gray-200 bg-white">
         <div className="flex gap-2">
           <input
             type="text"
@@ -119,7 +139,7 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
                 }
               }
             }}
-            className="flex-1 px-4 py-2 border border-purple-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none bg-white text-black disabled:bg-gray-100 disabled:cursor-not-allowed transition-all"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none bg-white text-black disabled:bg-gray-100 disabled:cursor-not-allowed transition-all"
           />
           <button
             onClick={async (e) => {
@@ -136,7 +156,7 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
               }
             }}
             disabled={sending}
-            className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center font-medium shadow-sm hover:shadow-md"
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center font-medium shadow-sm hover:shadow-md"
           >
             {sending ? '⏳' : '💬'}
           </button>

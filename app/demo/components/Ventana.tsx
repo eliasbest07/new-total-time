@@ -105,6 +105,22 @@ const Ventana = ({
     };
   };
 
+  // Prevenir selección de texto durante drag y resize
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = isDragging ? 'grabbing' : 'default';
+    } else {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    }
+
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [isDragging, isResizing]);
+
   // Efectos para manejar el movimiento del mouse
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -271,7 +287,7 @@ const Ventana = ({
           zIndex: 9999,
           minWidth: isMinimized ? 300 : minWidth,
           minHeight: isMinimized ? 48 : minHeight,
-          userSelect: isMinimized ? 'none' : 'auto'
+          userSelect: (isMinimized || isDragging || isResizing) ? 'none' : 'auto'
         }}
       >
         {/* Header de la ventana */}

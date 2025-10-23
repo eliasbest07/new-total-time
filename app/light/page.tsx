@@ -1,7 +1,7 @@
 "use client";
 
 import Pizarra, { PizarraRef } from "@/application/pizarra/pizarra";
-import { useRef, useState, useMemo, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import Ventana from "@/app/demo/components/Ventana";
 import Perfil from "@/app/components/mainUI/Perfil";
 import { useAuth } from "@/app/contexts/AuthContext";
@@ -34,6 +34,7 @@ export default function LightPage() {
     color?: string;
     online?: boolean;
   }, message?: string) => {
+    console.log('👤 handleUserClick en light page:', userData);
     setSelectedChatUser(userData);
     if (message) {
       setPendingMessage(message);
@@ -41,8 +42,31 @@ export default function LightPage() {
     setShowChatWindow(true);
   };
 
-  // Hook para detectar mensajes entrantes y abrir ventanas automáticamente
-  useIncomingMessages();
+  // Handler para mensajes entrantes
+  const handleIncomingMessage = useCallback((userData: {
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    userColor: string;
+    isOnline: boolean;
+  }) => {
+    console.log('🔔 Mensaje entrante recibido:', userData);
+
+    // Abrir la ventana del chat con el emisor
+    setSelectedChatUser({
+      userId: userData.userId,
+      name: userData.userName,
+      avatar: userData.userAvatar,
+      color: userData.userColor,
+      online: userData.isOnline
+    });
+    setShowChatWindow(true);
+  }, []);
+
+  // Suscribirse a mensajes entrantes
+  useIncomingMessages(usuario?.userAuth || null, {
+    onNewMessage: handleIncomingMessage
+  });
 
   return (
     <>
@@ -131,12 +155,9 @@ export default function LightPage() {
         setPendingMessage("");
       }}
       title={`Chat con ${selectedChatUser?.name || 'Usuario'}`}
-      initialWidth={400}
+      initialWidth={450}
       initialHeight={600}
-      minWidth={350}
-      minHeight={400}
-      initialX={window.innerWidth / 2 - 200}
-      initialY={window.innerHeight / 2 - 300}
+      defaultMaximized={false}
     >
       {selectedChatUser && usuario && (
         <ChatWindow
