@@ -53,6 +53,7 @@ export default function MainScreen() {
     color?: string;
     online?: boolean;
   } | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string>("");
 
   // Debug: Monitorear cambios en el estado del chat
   // useEffect(() => {
@@ -310,9 +311,12 @@ export default function MainScreen() {
     avatar?: string;
     color?: string;
     online?: boolean;
-  }) => {
+  }, message?: string) => {
     console.log('👤 handleUserClick llamado con:', userData);
     setSelectedChatUser(userData);
+    if (message) {
+      setPendingMessage(message);
+    }
     setShowChatWindow(true);
     console.log('👤 Estado actualizado - showChatWindow debería ser true');
   };
@@ -837,9 +841,8 @@ export default function MainScreen() {
             pizarraRef.current.addTodoCard(text);
           }
         }}
-        onSendMessage={(text) => {
-          console.log('Mensaje enviado:', text);
-          // Aquí puedes agregar la lógica para enviar mensajes
+        onSendToUser={(text, user) => {
+          handleUserClick(user, text);
         }}
         className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
         placeholder="Escribe aquí para crear notas, tareas o enviar..."
@@ -1019,13 +1022,14 @@ export default function MainScreen() {
       </Ventana>
 
       {/* Ventana de Chat */}
-      {typeof window !== 'undefined' && (
+      {typeof window !== 'undefined' && showChatWindow && (
         <Ventana
           isOpen={showChatWindow}
           onClose={() => {
             console.log('🔴 Cerrando ventana de chat');
             setShowChatWindow(false);
             setSelectedChatUser(null);
+            setPendingMessage("");
           }}
           title={`Chat con ${selectedChatUser?.name || 'Usuario'}`}
           initialWidth={400}
@@ -1037,8 +1041,10 @@ export default function MainScreen() {
         >
           {selectedChatUser && usuario && (
             <ChatWindow
+              key={`${selectedChatUser.userId}-${pendingMessage}`}
               currentUserId={usuario.userAuth}
               targetUser={selectedChatUser}
+              initialMessage={pendingMessage}
             />
           )}
         </Ventana>

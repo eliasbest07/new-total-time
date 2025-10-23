@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useChatMessages } from '@/hooks/useChatMessages';
 
 interface ChatWindowProps {
@@ -17,6 +17,8 @@ interface ChatWindowProps {
 
 export default function ChatWindow({ currentUserId, targetUser, initialMessage }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [inputValue, setInputValue] = useState('');
 
   const {
     mensajes,
@@ -30,6 +32,17 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensajes]);
+
+  // Establecer mensaje inicial cuando se abre la ventana
+  useEffect(() => {
+    if (initialMessage) {
+      setInputValue(initialMessage);
+      // Enfocar el input
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }
+  }, [initialMessage]);
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -125,13 +138,16 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
       <div className="p-4 border-t border-gray-200 bg-white">
         <div className="flex gap-2">
           <input
+            ref={inputRef}
             type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             placeholder={sending ? 'Enviando...' : 'Escribe un mensaje...'}
             disabled={sending}
             onKeyDown={async (e) => {
-              if (e.key === 'Enter' && e.currentTarget.value.trim() && !sending) {
-                const texto = e.currentTarget.value.trim();
-                e.currentTarget.value = '';
+              if (e.key === 'Enter' && inputValue.trim() && !sending) {
+                const texto = inputValue.trim();
+                setInputValue('');
                 try {
                   await enviarMensaje(texto);
                 } catch (error) {
@@ -144,10 +160,9 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
           <button
             onClick={async (e) => {
               e.preventDefault();
-              const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-              if (input && input.value.trim() && !sending) {
-                const texto = input.value.trim();
-                input.value = '';
+              if (inputValue.trim() && !sending) {
+                const texto = inputValue.trim();
+                setInputValue('');
                 try {
                   await enviarMensaje(texto);
                 } catch (error) {

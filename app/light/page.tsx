@@ -147,26 +147,29 @@ export default function LightPage() {
     </div>
 
     {/* Ventana de Chat - Fuera del contenedor principal para evitar problemas de z-index */}
-    <Ventana
-      isOpen={showChatWindow}
-      onClose={() => {
-        setShowChatWindow(false);
-        setSelectedChatUser(null);
-        setPendingMessage("");
-      }}
-      title={`Chat con ${selectedChatUser?.name || 'Usuario'}`}
-      initialWidth={450}
-      initialHeight={600}
-      defaultMaximized={false}
-    >
-      {selectedChatUser && usuario && (
-        <ChatWindow
-          currentUserId={usuario.userAuth}
-          targetUser={selectedChatUser}
-          initialMessage={pendingMessage}
-        />
-      )}
-    </Ventana>
+    {showChatWindow && (
+      <Ventana
+        isOpen={showChatWindow}
+        onClose={() => {
+          setShowChatWindow(false);
+          setSelectedChatUser(null);
+          setPendingMessage("");
+        }}
+        title={`Chat con ${selectedChatUser?.name || 'Usuario'}`}
+        initialWidth={450}
+        initialHeight={600}
+        defaultMaximized={false}
+      >
+        {selectedChatUser && usuario && (
+          <ChatWindow
+            key={`${selectedChatUser.userId}-${pendingMessage}`}
+            currentUserId={usuario.userAuth}
+            targetUser={selectedChatUser}
+            initialMessage={pendingMessage}
+          />
+        )}
+      </Ventana>
+    )}
     </>
   );
 }

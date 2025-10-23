@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo } from 'react';
-import { StickyNote, CheckSquare, Send, X } from 'lucide-react';
+import { StickyNote, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useUsuariosOrganizacion } from '@/hooks/useUsuariosOrganizacion';
 import Image from 'next/image';
@@ -29,8 +29,7 @@ export default function InputAreaLight({
 }: InputAreaLightProps) {
   const [inputText, setInputText] = useState('');
   const [showButtons, setShowButtons] = useState(false);
-  const [showUserList, setShowUserList] = useState(false);
-  const [showAllUsers, setShowAllUsers] = useState(false);
+  const [userScrollIndex, setUserScrollIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const { usuario } = useAuth();
@@ -52,9 +51,6 @@ export default function InputAreaLight({
       return 0;
     });
   }, [usuariosOrganizacion, usuario]);
-
-  // Mostrar los primeros 3 usuarios conectados
-  const usuariosVisible = showAllUsers ? usuariosFiltrados : usuariosFiltrados.slice(0, 3);
 
   const resetTextareaHeight = () => {
     if (textareaRef.current) {
@@ -94,11 +90,6 @@ export default function InputAreaLight({
     }
   };
 
-  const handleSendClick = (): void => {
-    if (!inputText.trim()) return;
-    setShowUserList(true);
-  };
-
   const handleUserSelect = (user: typeof usuariosFiltrados[0]): void => {
     if (onSendToUser && inputText.trim()) {
       onSendToUser(inputText.trim(), {
@@ -110,32 +101,50 @@ export default function InputAreaLight({
       });
       setInputText('');
       setShowButtons(false);
-      setShowUserList(false);
-      setShowAllUsers(false);
       resetTextareaHeight();
     }
   };
 
   return (
     <div className={`flex flex-col items-center pointer-events-auto ${className}`}>
-      {/* Lista de usuarios */}
-      {showUserList && (
-        <div className="bg-white rounded-2xl shadow-2xl p-4 mb-3 w-96 max-h-96 overflow-y-auto">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-gray-900">Enviar a:</h3>
+      {/* Área de acciones cuando hay texto */}
+      {showButtons && (
+        <div className="mb-3 flex items-center gap-3">
+          {/* Botones de Nota y Tareas */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-full shadow-lg px-4 py-2 flex items-center gap-2">
             <button
-              onClick={() => {
-                setShowUserList(false);
-                setShowAllUsers(false);
-              }}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              onClick={handleCreateNote}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded-full text-blue-700 text-sm font-medium transition-colors"
+              title="Crear Nota"
             >
-              <X className="w-5 h-5 text-gray-500" />
+              <StickyNote size={16} />
+              <span>Nota</span>
+            </button>
+            <button
+              onClick={handleCreateTodoList}
+              className="flex items-center gap-2 px-4 py-2 bg-green-50 hover:bg-green-100 rounded-full text-green-700 text-sm font-medium transition-colors"
+              title="Crear Lista de Tareas"
+            >
+              <CheckSquare size={16} />
+              <span>Tareas</span>
             </button>
           </div>
 
-          <div className="space-y-2">
-            {usuariosVisible.map((user) => {
+          {/* Barra de usuarios conectados */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-full shadow-lg px-2 py-2 flex items-center gap-2">
+            {/* Flecha izquierda */}
+            {usuariosFiltrados.length > 2 && userScrollIndex > 0 && (
+              <button
+                onClick={() => setUserScrollIndex(Math.max(0, userScrollIndex - 1))}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                title="Anterior"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+            )}
+
+            {/* Usuarios visibles */}
+            {usuariosFiltrados.slice(userScrollIndex, userScrollIndex + 8).map((user) => {
               const colorMarco = user.profile.marco || '#3b82f6';
               const isOnline = true; // TODO: Implementar lógica real
 
@@ -143,14 +152,15 @@ export default function InputAreaLight({
                 <button
                   key={user.id}
                   onClick={() => handleUserSelect(user)}
-                  className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                  className="relative group"
+                  title={`Enviar a ${user.getNombreCompleto()}`}
                 >
-                  {/* Avatar */}
+                  {/* Avatar con marco de color */}
                   <div
-                    className="w-10 h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                    style={{ borderColor: colorMarco }}
+                    className="w-12 h-12 rounded-full border-3 flex items-center justify-center transition-transform group-hover:scale-110"
+                    style={{ borderColor: colorMarco, borderWidth: '3px' }}
                   >
-                    <div className="relative w-8 h-8 rounded-full overflow-hidden">
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden">
                       <Image
                         src={user.profile.avatar || '/total-time_logo.png'}
                         alt={user.getNombreCompleto()}
@@ -158,76 +168,34 @@ export default function InputAreaLight({
                         className="object-cover"
                       />
                     </div>
-                    {isOnline && (
-                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" />
-                    )}
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1 text-left">
-                    <p className="font-medium text-gray-900">{user.getNombreCompleto()}</p>
-                    <p className="text-sm text-gray-500">{user.email}</p>
-                  </div>
-
-                  {/* Badge online */}
+                  {/* Indicador de estado online */}
                   {isOnline && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
-                      En línea
-                    </span>
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
                   )}
+
+                  {/* Tooltip con nombre */}
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                      {user.getNombreCompleto()}
+                    </div>
+                  </div>
                 </button>
               );
             })}
 
-            {/* Botón ver más */}
-            {!showAllUsers && usuariosFiltrados.length > 3 && (
+            {/* Flecha derecha */}
+            {usuariosFiltrados.length > 2 && userScrollIndex + 8 < usuariosFiltrados.length && (
               <button
-                onClick={() => setShowAllUsers(true)}
-                className="w-full p-3 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                onClick={() => setUserScrollIndex(Math.min(usuariosFiltrados.length - 8, userScrollIndex + 1))}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                title="Siguiente"
               >
-                Ver {usuariosFiltrados.length - 3} más...
-              </button>
-            )}
-
-            {showAllUsers && usuariosFiltrados.length > 3 && (
-              <button
-                onClick={() => setShowAllUsers(false)}
-                className="w-full p-3 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors font-medium"
-              >
-                Ver menos
+                <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Botones de acción */}
-      {showButtons && !showUserList && (
-        <div className="bg-white rounded-2xl shadow-lg p-3 mb-3 flex gap-3 w-96">
-          <button
-            onClick={handleCreateNote}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded-lg text-blue-700 text-sm font-medium transition-colors"
-            title="Crear Nota"
-          >
-            <StickyNote size={16} />
-            <span>Nota</span>
-          </button>
-          <button
-            onClick={handleCreateTodoList}
-            className="flex items-center gap-2 px-4 py-2 bg-green-50 hover:bg-green-100 rounded-lg text-green-700 text-sm font-medium transition-colors"
-            title="Crear Lista de Tareas"
-          >
-            <CheckSquare size={16} />
-            <span>Tareas</span>
-          </button>
-          <button
-            onClick={handleSendClick}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-50 hover:bg-purple-100 rounded-lg text-purple-700 text-sm font-medium transition-colors"
-            title="Enviar a usuario"
-          >
-            <Send size={16} />
-            <span>Enviar</span>
-          </button>
         </div>
       )}
 
@@ -249,15 +217,9 @@ export default function InputAreaLight({
             whiteSpace: 'pre-wrap'
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.shiftKey) {
-              // Allow new line with Shift+Enter
-              return;
-            } else if (e.key === 'Enter') {
-              // Send on Enter without Shift
+            if (e.key === 'Enter' && !e.shiftKey) {
+              // Prevenir envío en Enter, solo crear nota/tarea con botones o seleccionar usuario
               e.preventDefault();
-              if (inputText.trim() && !showUserList) {
-                handleSendClick();
-              }
             }
           }}
         />
