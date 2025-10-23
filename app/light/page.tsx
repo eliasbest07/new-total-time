@@ -112,12 +112,12 @@ export default function LightPage() {
       </div>
 
       {/* Barra de usuarios conectados - Por encima de la pizarra con mayor margen top */}
-      <div className="fixed left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto" style={{ top: '60px' }}>
+      {/* <div className="fixed left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto" style={{ top: '60px' }}>
         <OnlineUsersBar onUserClick={handleUserClick} />
-      </div>
+      </div> */}
 
       {/* Barra de salas - Debajo de usuarios conectados */}
-      <div className="fixed left-1/2 transform -translate-x-1/2 z-30 pointer-events-auto" style={{ width: '80%', top: '130px' }}>
+      <div className="fixed left-1/2 transform -translate-x-1/2 z-30 pointer-events-auto" style={{ width: '80%', top: '60px' }}>
         <SalasBar />
       </div>
 
