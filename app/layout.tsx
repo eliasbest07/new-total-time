@@ -10,6 +10,7 @@ import SettingsModal from "./components/SettingsModal";
 import { ChatWindowManager } from "@/components/chat/ChatWindowManager";
 import { IncomingMessagesListener } from "@/components/chat/IncomingMessagesListener";
 import { MemoryMonitor } from "@/components/debug/MemoryMonitor";
+import "@/utils/supabaseChannelMonitor"; // Monitor de canales
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
