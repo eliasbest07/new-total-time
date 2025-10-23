@@ -30,9 +30,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   const { usuario } = useAuth();
 
   // Debug: Verificar que el usuario esté cargado
-  useEffect(() => {
-    console.log('👤 Usuario en Pizarra:', usuario?.id, usuario?.email);
-  }, [usuario]);
+  // useEffect(() => {
+  //   console.log('👤 Usuario en Pizarra:', usuario?.id, usuario?.email);
+  // }, [usuario]);
 
   // Hooks de Supabase - Cargar pizarra del usuario automáticamente
   const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(usuario?.id || null);
@@ -71,7 +71,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).pizarraCaptureNow = captureNow;
-      console.log('✅ captureNow expuesto globalmente en window.pizarraCaptureNow');
+      // console.log('✅ captureNow expuesto globalmente en window.pizarraCaptureNow');
     }
     return () => {
       if (typeof window !== 'undefined') {
@@ -1337,7 +1337,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   // Effect: Marcar como inicializado cuando el usuario esté disponible
   useEffect(() => {
     if (usuario?.id && !isInitialized) {
-      console.log('✅ Usuario cargado, listo para operaciones:', usuario.id);
+      // console.log('✅ Usuario cargado, listo para operaciones:', usuario.id);
       setIsInitialized(true);
     }
   }, [usuario, isInitialized]);

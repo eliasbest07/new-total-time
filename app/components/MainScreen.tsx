@@ -56,12 +56,12 @@ export default function MainScreen() {
   } | null>(null);
 
   // Debug: Monitorear cambios en el estado del chat
-  useEffect(() => {
-    console.log('💬 Estado del chat cambió:', {
-      showChatWindow,
-      selectedChatUser: selectedChatUser?.name
-    });
-  }, [showChatWindow, selectedChatUser]);
+  // useEffect(() => {
+  //   console.log('💬 Estado del chat cambió:', {
+  //     showChatWindow,
+  //     selectedChatUser: selectedChatUser?.name
+  //   });
+  // }, [showChatWindow, selectedChatUser]);
   const [showProyectoWindow, setShowProyectoWindow] = useState(false);
   const [selectedProyectoWindow, setSelectedProyectoWindow] = useState<import('@/domain/entities/Proyecto').Proyecto | null>(null);
   const [showEntregasModal, setShowEntregasModal] = useState(false);
@@ -107,38 +107,38 @@ export default function MainScreen() {
 
   // Filtrar usuarios de la organización excluyendo al usuario actual
   const usuariosFiltrados = useMemo(() => {
-    console.log('🔍 Filtrado de usuarios - Usuario actual:', {
-      id: usuario?.id,
-      userAuth: usuario?.userAuth,
-      nombre: usuario?.getNombreCompleto(),
-      email: usuario?.email
-    });
+    // console.log('🔍 Filtrado de usuarios - Usuario actual:', {
+    //   id: usuario?.id,
+    //   userAuth: usuario?.userAuth,
+    //   nombre: usuario?.getNombreCompleto(),
+    //   email: usuario?.email
+    // });
 
-    console.log('🔍 Filtrado de usuarios - Todos los usuarios de la organización:',
-      usuariosOrganizacion.map(u => ({
-        id: u.id,
-        userAuth: u.userAuth,
-        nombre: u.getNombreCompleto(),
-        email: u.email
-      }))
-    );
+    // console.log('🔍 Filtrado de usuarios - Todos los usuarios de la organización:',
+    //   usuariosOrganizacion.map(u => ({
+    //     id: u.id,
+    //     userAuth: u.userAuth,
+    //     nombre: u.getNombreCompleto(),
+    //     email: u.email
+    //   }))
+    // );
 
     if (!usuario) return usuariosOrganizacion;
 
     const filtrados = usuariosOrganizacion.filter(u => {
       // Comparar por email ya que los IDs pueden ser diferentes (uno es userAuth UUID, otro es id de tabla)
       const esDiferente = u.email !== usuario.email;
-      console.log(`🔍 Comparando ${u.getNombreCompleto()} (email: ${u.email}) con usuario actual (email: ${usuario.email}): ${esDiferente ? 'INCLUIR' : 'EXCLUIR'}`);
+      // console.log(`🔍 Comparando ${u.getNombreCompleto()} (email: ${u.email}) con usuario actual (email: ${usuario.email}): ${esDiferente ? 'INCLUIR' : 'EXCLUIR'}`);
       return esDiferente;
     });
 
-    console.log('🔍 Usuarios filtrados (resultado final):',
-      filtrados.map(u => ({
-        id: u.id,
-        nombre: u.getNombreCompleto(),
-        email: u.email
-      }))
-    );
+    // console.log('🔍 Usuarios filtrados (resultado final):',
+    //   filtrados.map(u => ({
+    //     id: u.id,
+    //     nombre: u.getNombreCompleto(),
+    //     email: u.email
+    //   }))
+    // );
 
     return filtrados;
   }, [usuariosOrganizacion, usuario]);
@@ -195,11 +195,11 @@ export default function MainScreen() {
   // Convertir recursos de Supabase al formato del Accordion usando useMemo
   const recursos = useMemo(() => {
     if (!recursosSupabase || recursosSupabase.length === 0) {
-      console.log('📚 MainScreen - No hay recursos de Supabase');
+      // console.log('📚 MainScreen - No hay recursos de Supabase');
       return [];
     }
 
-    console.log('📚 MainScreen - Convirtiendo recursos:', recursosSupabase);
+    // console.log('📚 MainScreen - Convirtiendo recursos:', recursosSupabase);
     const recursosConvertidos = recursosSupabase.map((recurso, index) => ({
       id: recurso.id,
       name: recurso.nombre || 'Sin nombre',
@@ -209,7 +209,7 @@ export default function MainScreen() {
       url: recurso.link || undefined,
       description: `Recurso creado el ${new Date(recurso.created_at).toLocaleDateString()}`
     }));
-    console.log('📚 MainScreen - Recursos convertidos:', recursosConvertidos);
+    // console.log('📚 MainScreen - Recursos convertidos:', recursosConvertidos);
     return recursosConvertidos;
   }, [recursosSupabase]);
 

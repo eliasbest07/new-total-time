@@ -63,9 +63,9 @@ export const usePizarraLocalStorage = (
       const savedDate = localStorage.getItem(DATE_STORAGE_KEY);
       const todayDate = getTodayDate();
 
-      console.log('📅 [PIZARRA STORAGE] Verificando fecha...');
-      console.log('   - Fecha guardada:', savedDate);
-      console.log('   - Fecha actual:', todayDate);
+      // console.log('📅 [PIZARRA STORAGE] Verificando fecha...');
+      // console.log('   - Fecha guardada:', savedDate);
+      // console.log('   - Fecha actual:', todayDate);
 
       // Si hay una fecha guardada y NO es el mismo día, limpiar todo
       if (savedDate && savedDate !== todayDate) {
@@ -85,7 +85,7 @@ export const usePizarraLocalStorage = (
       if (savedCards) {
         const parsedCards = safeJsonParse(savedCards, []) as Card[];
         if (parsedCards && Array.isArray(parsedCards)) {
-          console.log('📦 [PIZARRA STORAGE] Cards cargadas desde localStorage:', parsedCards.length);
+          // console.log('📦 [PIZARRA STORAGE] Cards cargadas desde localStorage:', parsedCards.length);
 
           // Restaurar Date objects en ChatMessages
           const cardsWithDates = parsedCards.map(card => {
@@ -129,7 +129,7 @@ export const usePizarraLocalStorage = (
       if (savedConnections) {
         const parsedConnections = safeJsonParse(savedConnections, []) as Connection[];
         if (parsedConnections && Array.isArray(parsedConnections)) {
-          console.log('🔗 [PIZARRA STORAGE] Conexiones cargadas desde localStorage:', parsedConnections.length);
+          // console.log('🔗 [PIZARRA STORAGE] Conexiones cargadas desde localStorage:', parsedConnections.length);
           setConnections(parsedConnections);
         } else {
           console.warn('❌ [PIZARRA STORAGE] Conexiones no válidas, usando array vacío');
@@ -140,7 +140,7 @@ export const usePizarraLocalStorage = (
       if (savedPanOffset) {
         const parsedPanOffset = safeJsonParse(savedPanOffset, { x: 0, y: 0 });
         if (parsedPanOffset && typeof parsedPanOffset === 'object' && 'x' in parsedPanOffset && 'y' in parsedPanOffset) {
-          console.log('🗺️ [PIZARRA STORAGE] Pan offset cargado desde localStorage:', parsedPanOffset);
+          // console.log('🗺️ [PIZARRA STORAGE] Pan offset cargado desde localStorage:', parsedPanOffset);
           setPanOffset(parsedPanOffset);
         } else {
           console.warn('❌ [PIZARRA STORAGE] Pan offset no válido, usando {x: 0, y: 0}');
@@ -201,12 +201,12 @@ export const usePizarraLocalStorage = (
       localStorage.setItem(PAN_OFFSET_STORAGE_KEY, panOffsetJson);
       localStorage.setItem(DATE_STORAGE_KEY, todayDate);
 
-      console.log('💾 [PIZARRA STORAGE] Datos guardados en localStorage:', {
-        cards: cards.length,
-        connections: connections.length,
-        panOffset,
-        date: todayDate
-      });
+      // console.log('💾 [PIZARRA STORAGE] Datos guardados en localStorage:', {
+      //   cards: cards.length,
+      //   connections: connections.length,
+      //   panOffset,
+      //   date: todayDate
+      // });
     } catch (error) {
       console.error('❌ [PIZARRA STORAGE] Error guardando en localStorage:', error);
       

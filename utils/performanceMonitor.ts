@@ -168,5 +168,5 @@ if (typeof window !== 'undefined') {
     countDOMNodes
   };
 
-  console.log('💡 Utilidades de rendimiento disponibles en window.__performanceUtils');
+  // console.log('💡 Utilidades de rendimiento disponibles en window.__performanceUtils');
 }

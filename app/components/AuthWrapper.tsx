@@ -38,40 +38,40 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    console.log('🎧 Configurando listener de auth state changes...');
+    // console.log('🎧 Configurando listener de auth state changes...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('🔄 AUTH STATE CHANGE:', {
-          event,
-          sessionExists: !!session,
-          sessionExpiry: session ? new Date(session.expires_at * 1000) : null,
-          currentPath: window.location.pathname
-        });
+        // console.log('🔄 AUTH STATE CHANGE:', {
+        //   event,
+        //   sessionExists: !!session,
+        //   sessionExpiry: session ? new Date(session.expires_at * 1000) : null,
+        //   currentPath: window.location.pathname
+        // });
 
         // Solo establecer el estado para que se maneje en otro useEffect
         // NO hacer llamadas async de Supabase aquí
         if (event === 'SIGNED_OUT') {
-          console.log('❌ SIGNED_OUT event - limpiando usuario');
+          // console.log('❌ SIGNED_OUT event - limpiando usuario');
           clearUsuario();
           if (window.location.pathname !== '/login') {
             router.replace('/login');
           }
         } else if (event === 'SIGNED_IN') {
-          console.log('✅ SIGNED_IN event - estableciendo flag para cargar usuario');
+          // console.log('✅ SIGNED_IN event - estableciendo flag para cargar usuario');
           setAuthEvent({ event, session });
         } else if (event === 'TOKEN_REFRESHED') {
-          console.log('🔄 TOKEN_REFRESHED - sesión actualizada');
+          // console.log('🔄 TOKEN_REFRESHED - sesión actualizada');
           // No hacer nada más, el token se actualizó automáticamente
         } else if (event === 'INITIAL_SESSION') {
-          console.log('ℹ️ INITIAL_SESSION - ignorando');
+          // console.log('ℹ️ INITIAL_SESSION - ignorando');
         } else {
-          console.log('ℹ️ Evento de auth no manejado:', event);
+          // console.log('ℹ️ Evento de auth no manejado:', event);
         }
       }
     );
 
     return () => {
-      console.log('🧹 Desmontando listener de auth state');
+      // console.log('🧹 Desmontando listener de auth state');
       subscription.unsubscribe();
     };
   }, [clearUsuario, router]);
@@ -82,10 +82,10 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
     const handleAuthEvent = async () => {
       if (authEvent.event === 'SIGNED_IN' && authEvent.session) {
-        console.log('🔄 Procesando SIGNED_IN en effect separado...');
+        // console.log('🔄 Procesando SIGNED_IN en effect separado...');
         const currentUser = await authRepository.getCurrentUser();
         if (currentUser) {
-          console.log('✅ Usuario obtenido, actualizando contexto');
+          // console.log('✅ Usuario obtenido, actualizando contexto');
           setUsuario(currentUser);
         } else {
           console.error('❌ No se pudo obtener usuario después de SIGNED_IN');
@@ -100,16 +100,16 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const initializeAuth = async () => {
     // Evitar múltiples inicializaciones simultáneas
     if (isInitializing) {
-      console.log('⚠️ Ya hay una inicialización en curso, saltando...');
+      // console.log('⚠️ Ya hay una inicialización en curso, saltando...');
       return;
     }
 
     setIsInitializing(true);
-    
+
     try {
       // Si ya hay usuario en contexto, usar directamente
       if (usuario) {
-        console.log('✅ Usuario ya existe en contexto');
+        // console.log('✅ Usuario ya existe en contexto');
         setIsLoading(false);
         return;
       }
