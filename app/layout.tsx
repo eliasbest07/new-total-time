@@ -9,6 +9,7 @@ import TotalTimeNavbar from "./components/total-time-info";
 import SettingsModal from "./components/SettingsModal";
 import { ChatWindowManager } from "@/components/chat/ChatWindowManager";
 import { IncomingMessagesListener } from "@/components/chat/IncomingMessagesListener";
+import { MemoryMonitor } from "@/components/debug/MemoryMonitor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,9 +32,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-hidden`}
+        suppressHydrationWarning
       >
         <AuthProvider>
           <SettingsProvider>
@@ -46,6 +48,8 @@ export default function RootLayout({
               </main>
               <ChatWindowManager />
               <IncomingMessagesListener />
+              {/* Monitor de memoria - solo visible en desarrollo */}
+              {process.env.NODE_ENV === 'development' && <MemoryMonitor />}
             </ChatWindowProvider>
           </SettingsProvider>
         </AuthProvider>

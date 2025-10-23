@@ -46,7 +46,7 @@ export const useChartHistory = (idUsuario: string | null): UseChartHistoryReturn
 
     // Solo ejecutar en el cliente
     if (typeof window === 'undefined') {
-      console.log('⚠️ useChartHistory ejecutándose en el servidor, saltando...');
+      // console.log('⚠️ useChartHistory ejecutándose en el servidor, saltando...');
       return;
     }
 
@@ -54,7 +54,7 @@ export const useChartHistory = (idUsuario: string | null): UseChartHistoryReturn
     setError(null);
 
     try {
-      console.log('📊 Cargando datos históricos para el chart:', idUsuario);
+      // console.log('📊 Cargando datos históricos para el chart:', idUsuario);
 
       // Obtener los últimos 7 días de datos
       // NO verificar sesión aquí para evitar rate limiting
@@ -172,7 +172,7 @@ export const useChartHistory = (idUsuario: string | null): UseChartHistoryReturn
         setHistoryData(sortedData);
       }
 
-      console.log('✅ Datos históricos cargados:', historySnapshots.length);
+      // console.log('✅ Datos históricos cargados:', historySnapshots.length);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       console.error('❌ Error cargando datos históricos:', errorMessage);

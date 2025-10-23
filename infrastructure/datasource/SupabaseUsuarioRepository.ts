@@ -9,7 +9,7 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
 
   async getUsuariosByOrganizacion(organizacionId: string): Promise<Usuario[]> {
     try {
-      console.log('👥 Obteniendo usuarios para organización:', organizacionId);
+      // console.log('👥 Obteniendo usuarios para organización:', organizacionId);
 
       // Asumiendo que tienes una tabla 'usuarios' en Supabase
       const { data, error } = await supabase
@@ -26,7 +26,7 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
       }
 
       const usuarios = (data || []).map((item) => this.mapToUsuario(item));
-      console.log('✅ Usuarios encontrados:', usuarios.length);
+      // console.log('✅ Usuarios encontrados:', usuarios.length);
       return usuarios;
     } catch (error) {
       console.error('❌ Error en getUsuariosByOrganizacion:', error);
@@ -36,7 +36,7 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
 
   async getUsuarioById(id: string): Promise<Usuario | null> {
     try {
-      console.log('🔍 Obteniendo usuario por ID:', id);
+      // console.log('🔍 Obteniendo usuario por ID:', id);
 
       const { data, error } = await supabase
         .from('usuario')
@@ -49,7 +49,7 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
         return null;
       }
 
-      console.log('✅ Usuario encontrado:', data);
+      // console.log('✅ Usuario encontrado:', data);
       return this.mapToUsuario(data);
     } catch (error) {
       console.error('❌ Error en getUsuarioById:', error);
@@ -59,7 +59,7 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
 
   async updateUsuario(id: string, usuario: Partial<Usuario>): Promise<Usuario | null> {
     try {
-      console.log('✏️ Actualizando usuario:', id, usuario);
+      // console.log('✏️ Actualizando usuario:', id, usuario);
 
       const { data, error } = await supabase
         .from('usuario')
@@ -77,7 +77,7 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
         return null;
       }
 
-      console.log('✅ Usuario actualizado exitosamente:', data);
+      // console.log('✅ Usuario actualizado exitosamente:', data);
       return this.mapToUsuario(data);
     } catch (error) {
       console.error('❌ Error en updateUsuario:', error);

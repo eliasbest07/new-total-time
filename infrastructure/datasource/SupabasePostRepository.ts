@@ -5,7 +5,7 @@ import { PostRepository } from "@/infrastructure/repositories/PostRepository";
 export class SupabasePostRepository implements PostRepository {
   async getPostsBySala(idSala: number): Promise<Post[]> {
     try {
-      console.log('📋 Obteniendo posts de sala:', idSala);
+      // console.log('📋 Obteniendo posts de sala:', idSala);
 
       // Obtenemos los posts
       const { data: posts, error } = await supabase
@@ -20,13 +20,13 @@ export class SupabasePostRepository implements PostRepository {
       }
 
       if (!posts || posts.length === 0) {
-        console.log('⚠️ No se encontraron posts');
+        // console.log('⚠️ No se encontraron posts');
         return [];
       }
 
-      console.log('✅ Posts obtenidos:', posts.length);
-      console.log('📝 Estructura del primer post:', posts[0]);
-      console.log('🔍 id_usuario del primer post:', posts[0]?.id_usuario);
+      // console.log('✅ Posts obtenidos:', posts.length);
+      // console.log('📝 Estructura del primer post:', posts[0]);
+      // console.log('🔍 id_usuario del primer post:', posts[0]?.id_usuario);
 
       // Obtenemos los IDs únicos de usuarios desde id_usuario
       const userIds = [...new Set(
@@ -35,12 +35,12 @@ export class SupabasePostRepository implements PostRepository {
           .filter(id => id !== null && id !== undefined)
       )];
 
-      console.log('👥 IDs de usuarios a buscar:', userIds);
-      console.log('📊 Total de IDs válidos:', userIds.length);
+      // console.log('👥 IDs de usuarios a buscar:', userIds);
+      // console.log('📊 Total de IDs válidos:', userIds.length);
 
       // Si no hay IDs válidos, devolver posts sin datos de usuario
       if (userIds.length === 0) {
-        console.log('⚠️ No hay id_usuario, devolviendo posts sin datos de usuario');
+        // console.log('⚠️ No hay id_usuario, devolviendo posts sin datos de usuario');
         return posts.map(post => ({
           ...post,
           id_comentarios: post.id_comentarios || [],
@@ -57,7 +57,7 @@ export class SupabasePostRepository implements PostRepository {
         .select('id, id_usuario, nombre, avatar')
         .in('id_usuario', userIds);
 
-      console.log('📊 Respuesta usuarios (por id_usuario):', { usuarios, error: userError });
+      // console.log('📊 Respuesta usuarios (por id_usuario):', { usuarios, error: userError });
 
       if (userError) {
         console.error('❌ Error obteniendo usuarios:', userError);
@@ -77,7 +77,7 @@ export class SupabasePostRepository implements PostRepository {
         (usuarios || []).map(u => [u.id_usuario, { nombre: u.nombre, avatar: u.avatar }])
       );
 
-      console.log('✅ Usuarios mapeados:', usuariosMap.size);
+      // console.log('✅ Usuarios mapeados:', usuariosMap.size);
 
       // Combinamos los posts con los datos de usuario
       const postsWithExtraFields = posts.map(post => ({
@@ -89,7 +89,7 @@ export class SupabasePostRepository implements PostRepository {
         usuario: post.id_usuario ? usuariosMap.get(post.id_usuario) : undefined
       }));
 
-      console.log('✅ Posts con datos de usuario:', postsWithExtraFields.length);
+      // console.log('✅ Posts con datos de usuario:', postsWithExtraFields.length);
 
       return postsWithExtraFields;
     } catch (error) {
@@ -107,7 +107,7 @@ export class SupabasePostRepository implements PostRepository {
         id_usuario: post.id_usuario
       };
 
-      console.log('📝 Creando post con datos:', postData);
+      // console.log('📝 Creando post con datos:', postData);
 
       const { data, error } = await supabase
         .from('post_sala')

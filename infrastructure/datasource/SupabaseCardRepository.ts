@@ -9,7 +9,7 @@ export class SupabaseCardRepository implements CardRepository {
    */
   async getCardsByPizarra(idPizarra: string): Promise<CardDB[]> {
     try {
-      console.log('🃏 Obteniendo cards de pizarra:', idPizarra);
+      // console.log('🃏 Obteniendo cards de pizarra:', idPizarra);
 
       const { data, error } = await supabase
         .from('cards')
@@ -22,7 +22,7 @@ export class SupabaseCardRepository implements CardRepository {
         return [];
       }
 
-      console.log('✅ Cards encontradas:', data?.length || 0);
+      // console.log('✅ Cards encontradas:', data?.length || 0);
       return data || [];
     } catch (error) {
       console.error('❌ Error en getCardsByPizarra:', error);
@@ -35,7 +35,7 @@ export class SupabaseCardRepository implements CardRepository {
    */
   async createCard(card: CreateCardDTO): Promise<CardDB | null> {
     try {
-      console.log('➕ Creando nueva card:', card.card_id);
+      // console.log('➕ Creando nueva card:', card.card_id);
 
       const { data, error } = await supabase
         .from('cards')
@@ -48,7 +48,7 @@ export class SupabaseCardRepository implements CardRepository {
         return null;
       }
 
-      console.log('✅ Card creada exitosamente:', data.id);
+      // console.log('✅ Card creada exitosamente:', data.id);
       return data;
     } catch (error) {
       console.error('❌ Error en createCard:', error);
@@ -61,7 +61,7 @@ export class SupabaseCardRepository implements CardRepository {
    */
   async updateCard(idPizarra: string, cardId: string, updates: UpdateCardDTO): Promise<CardDB | null> {
     try {
-      console.log('✏️ Actualizando card:', cardId);
+      // console.log('✏️ Actualizando card:', cardId);
 
       const { data, error } = await supabase
         .from('cards')
@@ -79,7 +79,7 @@ export class SupabaseCardRepository implements CardRepository {
         return null;
       }
 
-      console.log('✅ Card actualizada');
+      // console.log('✅ Card actualizada');
       return data;
     } catch (error) {
       console.error('❌ Error en updateCard:', error);
@@ -92,7 +92,7 @@ export class SupabaseCardRepository implements CardRepository {
    */
   async deleteCard(idPizarra: string, cardId: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando card:', cardId);
+      // console.log('🗑️ Eliminando card:', cardId);
 
       const { error } = await supabase
         .from('cards')
@@ -105,7 +105,7 @@ export class SupabaseCardRepository implements CardRepository {
         return false;
       }
 
-      console.log('✅ Card eliminada');
+      // console.log('✅ Card eliminada');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteCard:', error);
@@ -118,7 +118,7 @@ export class SupabaseCardRepository implements CardRepository {
    */
   async getCard(idPizarra: string, cardId: string): Promise<CardDB | null> {
     try {
-      console.log('🔍 Obteniendo card:', cardId);
+      // console.log('🔍 Obteniendo card:', cardId);
 
       const { data, error } = await supabase
         .from('cards')
@@ -132,7 +132,7 @@ export class SupabaseCardRepository implements CardRepository {
         return null;
       }
 
-      console.log('✅ Card encontrada');
+      // console.log('✅ Card encontrada');
       return data;
     } catch (error) {
       console.error('❌ Error en getCard:', error);
@@ -203,7 +203,7 @@ export class SupabaseCardRepository implements CardRepository {
    */
   async deleteAllCards(idPizarra: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando todas las cards de pizarra:', idPizarra);
+      // console.log('🗑️ Eliminando todas las cards de pizarra:', idPizarra);
 
       const { error } = await supabase
         .from('cards')
@@ -215,7 +215,7 @@ export class SupabaseCardRepository implements CardRepository {
         return false;
       }
 
-      console.log('✅ Todas las cards eliminadas');
+      // console.log('✅ Todas las cards eliminadas');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteAllCards:', error);

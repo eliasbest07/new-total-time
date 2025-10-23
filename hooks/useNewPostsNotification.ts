@@ -76,11 +76,11 @@ export const useNewPostsNotification = (
   // Suscribirse a nuevos posts
   useEffect(() => {
     if (!currentUserId || !salaId) {
-      console.log('📬 useNewPostsNotification - No hay usuario o sala');
+      // console.log('📬 useNewPostsNotification - No hay usuario o sala');
       return;
     }
 
-    console.log('📬 useNewPostsNotification - Suscribiendo a posts de sala:', salaId);
+    // console.log('📬 useNewPostsNotification - Suscribiendo a posts de sala:', salaId);
 
     let channel: RealtimeChannel;
 
@@ -96,14 +96,14 @@ export const useNewPostsNotification = (
             filter: `id_sala=eq.${salaId}`
           },
           async (payload) => {
-            console.log('📬 Nuevo post detectado:', payload);
+            // console.log('📬 Nuevo post detectado:', payload);
 
             const newPost = payload.new;
             const autorId = newPost.id_usuario;
 
             // Solo mostrar notificación si NO es del usuario actual
             if (autorId === currentUserId) {
-              console.log('📬 Post creado por el usuario actual, ignorando notificación');
+              // console.log('📬 Post creado por el usuario actual, ignorando notificación');
               return;
             }
 
@@ -125,7 +125,7 @@ export const useNewPostsNotification = (
                 salaId: salaId
               };
 
-              console.log('📬 Agregando notificación:', notification);
+              // console.log('📬 Agregando notificación:', notification);
 
               setNotifications(prev => [...prev, notification]);
               setNewPostsCount(prev => prev + 1);
@@ -140,7 +140,7 @@ export const useNewPostsNotification = (
     setupSubscription();
 
     return () => {
-      console.log('📬 Limpiando suscripción de posts');
+      // console.log('📬 Limpiando suscripción de posts');
       if (channel) {
         supabase.removeChannel(channel);
       }

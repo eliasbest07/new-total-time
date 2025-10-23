@@ -41,30 +41,8 @@ export default function LightPage() {
     setShowChatWindow(true);
   };
 
-  // Handler para mensajes entrantes
-  const handleIncomingMessage = useCallback((mensaje: {
-    id: string;
-    idEmisor: string;
-    idReceptor: string;
-    texto: string;
-    emisorNombre?: string;
-  }) => {
-    console.log('🔔 Mensaje entrante recibido:', mensaje);
-
-    // Abrir la ventana del chat con el emisor
-    setSelectedChatUser({
-      userId: mensaje.idEmisor,
-      name: mensaje.emisorNombre || 'Usuario',
-      avatar: mensaje.emisorNombre?.charAt(0).toUpperCase() || 'U',
-      online: true
-    });
-    setShowChatWindow(true);
-  }, []);
-
-  // Suscribirse a mensajes entrantes
-  useIncomingMessages(usuario?.userAuth || null, {
-    onNewMessage: handleIncomingMessage
-  });
+  // Hook para detectar mensajes entrantes y abrir ventanas automáticamente
+  useIncomingMessages();
 
   return (
     <>

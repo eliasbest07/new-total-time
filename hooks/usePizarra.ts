@@ -24,7 +24,7 @@ export const usePizarra = (idUsuario: string | null): UsePizarraReturn => {
   // Funcion para cargar la pizarra del dia
   const loadPizarra = useCallback(async () => {
     if (!idUsuario) {
-      console.log('Sin ID de usuario, no se puede cargar pizarra');
+      // console.log('Sin ID de usuario, no se puede cargar pizarra');
       setPizarra(null);
       setLoading(false);
       return;
@@ -34,13 +34,13 @@ export const usePizarra = (idUsuario: string | null): UsePizarraReturn => {
     setError(null);
 
     try {
-      console.log('Cargando pizarra del dia para usuario:', idUsuario);
+      // console.log('Cargando pizarra del dia para usuario:', idUsuario);
       const hoy = new Date();
       const pizarraData = await pizarraRepository.current.getPizarraDelDia(idUsuario, hoy);
 
       if (pizarraData) {
         setPizarra(pizarraData);
-        console.log('Pizarra cargada exitosamente:', pizarraData.id);
+        // console.log('Pizarra cargada exitosamente:', pizarraData.id);
       } else {
         setError('No se pudo cargar o crear la pizarra del dia');
       }

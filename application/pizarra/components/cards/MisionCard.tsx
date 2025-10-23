@@ -42,9 +42,9 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   // Si no hay id_creador, usar el usuario actual como fallback (para misiones antiguas)
   const creadorUuid = card.misionData?.idCreador || currentUserUuid;
 
-  console.log('💬 [MisionCard] currentUserUuid:', currentUserUuid);
-  console.log('💬 [MisionCard] creadorUuid desde misionData:', card.misionData?.idCreador);
-  console.log('💬 [MisionCard] creadorUuid final (con fallback):', creadorUuid);
+  // console.log('💬 [MisionCard] currentUserUuid:', currentUserUuid);
+  // console.log('💬 [MisionCard] creadorUuid desde misionData:', card.misionData?.idCreador);
+  // console.log('💬 [MisionCard] creadorUuid final (con fallback):', creadorUuid);
 
   // Hook para gestionar misiones activas
   const { submitEntrega } = useMisionActiva();

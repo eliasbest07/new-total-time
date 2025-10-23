@@ -9,7 +9,7 @@ export class SupabaseCardUsuarioRepository implements CardUsuarioRepository {
    */
   async getByCardId(idCard: string): Promise<CardUsuario | null> {
     try {
-      console.log('👤 Obteniendo datos de usuario para card:', idCard);
+      // console.log('👤 Obteniendo datos de usuario para card:', idCard);
 
       const { data, error } = await supabase
         .from('card_usuarios')
@@ -20,14 +20,14 @@ export class SupabaseCardUsuarioRepository implements CardUsuarioRepository {
       if (error) {
         // Si no existe, no es un error crítico
         if (error.code === 'PGRST116') {
-          console.log('ℹ️ No hay datos de usuario para esta card');
+          // console.log('ℹ️ No hay datos de usuario para esta card');
           return null;
         }
         console.error('❌ Error obteniendo datos de usuario:', error);
         return null;
       }
 
-      console.log('✅ Datos de usuario encontrados');
+      // console.log('✅ Datos de usuario encontrados');
       return data;
     } catch (error) {
       console.error('❌ Error en getByCardId:', error);
@@ -40,7 +40,7 @@ export class SupabaseCardUsuarioRepository implements CardUsuarioRepository {
    */
   async create(cardUsuario: CreateCardUsuarioDTO): Promise<CardUsuario | null> {
     try {
-      console.log('➕ Creando datos de usuario para card:', cardUsuario.id_card);
+      // console.log('➕ Creando datos de usuario para card:', cardUsuario.id_card);
 
       const { data, error } = await supabase
         .from('card_usuarios')
@@ -53,7 +53,7 @@ export class SupabaseCardUsuarioRepository implements CardUsuarioRepository {
         return null;
       }
 
-      console.log('✅ Datos de usuario creados exitosamente');
+      // console.log('✅ Datos de usuario creados exitosamente');
       return data;
     } catch (error) {
       console.error('❌ Error en create:', error);
@@ -66,7 +66,7 @@ export class SupabaseCardUsuarioRepository implements CardUsuarioRepository {
    */
   async update(idCard: string, updates: UpdateCardUsuarioDTO): Promise<CardUsuario | null> {
     try {
-      console.log('✏️ Actualizando datos de usuario para card:', idCard);
+      // console.log('✏️ Actualizando datos de usuario para card:', idCard);
 
       const { data, error } = await supabase
         .from('card_usuarios')
@@ -83,7 +83,7 @@ export class SupabaseCardUsuarioRepository implements CardUsuarioRepository {
         return null;
       }
 
-      console.log('✅ Datos de usuario actualizados');
+      // console.log('✅ Datos de usuario actualizados');
       return data;
     } catch (error) {
       console.error('❌ Error en update:', error);
@@ -96,7 +96,7 @@ export class SupabaseCardUsuarioRepository implements CardUsuarioRepository {
    */
   async delete(idCard: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando datos de usuario para card:', idCard);
+      // console.log('🗑️ Eliminando datos de usuario para card:', idCard);
 
       const { error } = await supabase
         .from('card_usuarios')
@@ -108,7 +108,7 @@ export class SupabaseCardUsuarioRepository implements CardUsuarioRepository {
         return false;
       }
 
-      console.log('✅ Datos de usuario eliminados');
+      // console.log('✅ Datos de usuario eliminados');
       return true;
     } catch (error) {
       console.error('❌ Error en delete:', error);

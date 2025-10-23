@@ -65,7 +65,7 @@ export const useCardTodos = (idCard: string | null): UseCardTodosReturn => {
           filter: `id_card=eq.${idCard}`
         },
         async (payload) => {
-          console.log('📡 Cambio en card_todos:', payload);
+          // console.log('📡 Cambio en card_todos:', payload);
 
           if (payload.eventType === 'INSERT') {
             const nuevoTodo = payload.new as CardTodo;

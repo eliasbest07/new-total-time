@@ -49,9 +49,9 @@ export const useScreenshots = (): UseScreenshotsReturn => {
   // Subir imagen a Supabase Storage
   const uploadImage = useCallback(async (blob: Blob, folder: string, fileName: string): Promise<string> => {
     const filePath = `${folder}/${fileName}`;
-    console.log(`📁 [UPLOAD] Iniciando subida a Supabase Storage...`);
-    console.log(`📁 [UPLOAD] Bucket: capturas, Path: ${filePath}`);
-    console.log(`📁 [UPLOAD] Tamaño del blob: ${(blob.size / 1024).toFixed(2)} KB`);
+    // console.log(`📁 [UPLOAD] Iniciando subida a Supabase Storage...`);
+    // console.log(`📁 [UPLOAD] Bucket: capturas, Path: ${filePath}`);
+    // console.log(`📁 [UPLOAD] Tamaño del blob: ${(blob.size / 1024).toFixed(2)} KB`);
 
     try {
       const { data, error } = await supabase.storage
@@ -69,13 +69,13 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         throw new Error(`Error al subir imagen: ${error.message}`);
       }
 
-      console.log('✅ [UPLOAD] Archivo subido correctamente:', data);
+      // console.log('✅ [UPLOAD] Archivo subido correctamente:', data);
 
       const { data: urlData } = supabase.storage
         .from('capturas')
         .getPublicUrl(data.path);
 
-      console.log('✅ [UPLOAD] URL pública generada:', urlData.publicUrl);
+      // console.log('✅ [UPLOAD] URL pública generada:', urlData.publicUrl);
 
       return urlData.publicUrl;
     } catch (error) {
@@ -94,7 +94,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     mediaStream?: MediaStream;
     onCaptureUpdate?: (url: string) => void;
   }) => {
-    console.log('🚀 [START CAPTURE] Iniciando proceso de captura con parámetros:', params);
+    // console.log('🚀 [START CAPTURE] Iniciando proceso de captura con parámetros:', params);
 
     try {
       setError(null);
@@ -103,10 +103,10 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
       // Si se pasó un mediaStream, usarlo. Si no, pedir permisos
       if (params.mediaStream) {
-        console.log('✅ [START CAPTURE] Usando stream ya obtenido (pasado como parámetro)');
+        // console.log('✅ [START CAPTURE] Usando stream ya obtenido (pasado como parámetro)');
         mediaStreamRef.current = params.mediaStream;
       } else {
-        console.log('🎥 [START CAPTURE] Solicitando permisos de pantalla...');
+        // console.log('🎥 [START CAPTURE] Solicitando permisos de pantalla...');
 
         // pedir permisos
         mediaStreamRef.current = await navigator.mediaDevices.getDisplayMedia({
@@ -116,7 +116,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
           audio: false
         } as DisplayMediaStreamOptions);
 
-        console.log('✅ [START CAPTURE] Permisos concedidos, stream obtenido');
+        // console.log('✅ [START CAPTURE] Permisos concedidos, stream obtenido');
       }
 
       // Siempre crear un nuevo video element para cada sesión
@@ -124,15 +124,15 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       videoRef.current.autoplay = true;
       videoRef.current.muted = true;
       videoRef.current.srcObject = mediaStreamRef.current;
-      console.log('✅ [START CAPTURE] Video element creado y configurado');
+      // console.log('✅ [START CAPTURE] Video element creado y configurado');
 
       // Esperar a que el video esté listo antes de configurar el intervalo
       await new Promise<void>((resolve) => {
         if (videoRef.current) {
           videoRef.current.onloadedmetadata = () => {
-            console.log('✅ [START CAPTURE] Video metadata cargada');
+            // console.log('✅ [START CAPTURE] Video metadata cargada');
             videoRef.current?.play().then(() => {
-              console.log('✅ [START CAPTURE] Video playing');
+              // console.log('✅ [START CAPTURE] Video playing');
               resolve();
             });
           };
@@ -141,10 +141,10 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
       // Esperar un poco más para asegurar que el primer frame está disponible
       await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('✅ [START CAPTURE] Video completamente inicializado');
+      // console.log('✅ [START CAPTURE] Video completamente inicializado');
 
       intervalRef.current = setInterval(async () => {
-        console.log('🎬 [SCREENSHOT] Iniciando captura de pantalla...');
+        // console.log('🎬 [SCREENSHOT] Iniciando captura de pantalla...');
 
         if (!videoRef.current || !currentContextRef.current) {
           console.error('❌ [SCREENSHOT] No hay videoRef o contextRef disponible');
@@ -160,7 +160,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
           let width = videoRef.current.videoWidth;
           let height = videoRef.current.videoHeight;
 
-          console.log(`📐 [SCREENSHOT] Resolución original: ${width}x${height}`);
+          // console.log(`📐 [SCREENSHOT] Resolución original: ${width}x${height}`);
 
           // Verificar que el video tenga dimensiones válidas
           if (width === 0 || height === 0) {
@@ -177,7 +177,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
             height = maxHeight;
           }
 
-          console.log(`📐 [SCREENSHOT] Resolución ajustada: ${width}x${height}`);
+          // console.log(`📐 [SCREENSHOT] Resolución ajustada: ${width}x${height}`);
 
           canvas.width = width;
           canvas.height = height;
@@ -188,7 +188,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
           }
 
           ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-          console.log('✅ [SCREENSHOT] Imagen dibujada en canvas');
+          // console.log('✅ [SCREENSHOT] Imagen dibujada en canvas');
 
           // Optimización: Usar JPEG con compresión (70% calidad) en lugar de PNG
           const blob = await new Promise<Blob | null>((resolve) =>
@@ -200,19 +200,19 @@ export const useScreenshots = (): UseScreenshotsReturn => {
             return;
           }
 
-          console.log(`✅ [SCREENSHOT] Blob creado. Tamaño: ${(blob.size / 1024).toFixed(2)} KB`);
+          // console.log(`✅ [SCREENSHOT] Blob creado. Tamaño: ${(blob.size / 1024).toFixed(2)} KB`);
 
           const fileName = `${Date.now()}.jpg`;
-          console.log(`📤 [SCREENSHOT] Subiendo imagen: ${fileName} a carpeta: ${params.actividadId}`);
+          // console.log(`📤 [SCREENSHOT] Subiendo imagen: ${fileName} a carpeta: ${params.actividadId}`);
 
           const url = await uploadImage(blob, params.actividadId, fileName);
-          console.log(`✅ [SCREENSHOT] Imagen subida exitosamente. URL: ${url}`);
+          // console.log(`✅ [SCREENSHOT] Imagen subida exitosamente. URL: ${url}`);
 
-          console.log('💾 [SCREENSHOT] Guardando registro en base de datos...', {
-            id_usuario: params.userId,
-            id_bloque: params.actividadId,
-            mision_actividad: params.misionActividad
-          });
+          // console.log('💾 [SCREENSHOT] Guardando registro en base de datos...', {
+          //   id_usuario: params.userId,
+          //   id_bloque: params.actividadId,
+          //   mision_actividad: params.misionActividad
+          // });
 
           const newCapture = await captureRepository.create({
             id_usuario: params.userId,
@@ -223,7 +223,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
             tiempo_tarea_actual: params.tiempoTareaActual
           });
 
-          console.log('✅ [SCREENSHOT] Registro guardado en BD:', newCapture);
+          // console.log('✅ [SCREENSHOT] Registro guardado en BD:', newCapture);
 
           setScreenshots(prev => [newCapture, ...prev]);
 
@@ -232,15 +232,15 @@ export const useScreenshots = (): UseScreenshotsReturn => {
             params.onCaptureUpdate(url);
           }
 
-          console.log('🎉 [SCREENSHOT] Captura completada exitosamente');
+          // console.log('🎉 [SCREENSHOT] Captura completada exitosamente');
         } catch (error) {
           console.error('❌ [SCREENSHOT] Error durante el proceso de captura:', error);
           console.error('❌ [SCREENSHOT] Stack trace:', error instanceof Error ? error.stack : 'No stack available');
         }
       }, 300000); // cada 5 minutos
 
-      console.log('⏰ [START CAPTURE] Intervalo de captura configurado (cada 5 minutos)');
-      console.log('✅ [START CAPTURE] Proceso de captura iniciado exitosamente');
+      // console.log('⏰ [START CAPTURE] Intervalo de captura configurado (cada 5 minutos)');
+      // console.log('✅ [START CAPTURE] Proceso de captura iniciado exitosamente');
 
     } catch (err: any) {
       console.error('❌ [START CAPTURE] Error al iniciar captura:', err);
@@ -252,35 +252,35 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
   // Detener captura
   const stopCapturing = useCallback(() => {
-    console.log('⏹️ [STOP CAPTURE] Deteniendo captura...');
+    // console.log('⏹️ [STOP CAPTURE] Deteniendo captura...');
 
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
-      console.log('✅ [STOP CAPTURE] Intervalo de captura detenido');
+      // console.log('✅ [STOP CAPTURE] Intervalo de captura detenido');
     }
 
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => {
-        console.log('🔌 [STOP CAPTURE] Deteniendo track:', track.kind, track.label);
+        // console.log('🔌 [STOP CAPTURE] Deteniendo track:', track.kind, track.label);
         track.stop();
       });
       mediaStreamRef.current = null;
-      console.log('✅ [STOP CAPTURE] Stream de video detenido');
+      // console.log('✅ [STOP CAPTURE] Stream de video detenido');
     }
 
     // Limpiar el video ref para poder recrearlo en el próximo inicio
     if (videoRef.current) {
       videoRef.current.srcObject = null;
       videoRef.current = null;
-      console.log('✅ [STOP CAPTURE] Video element limpiado');
+      // console.log('✅ [STOP CAPTURE] Video element limpiado');
     }
 
     // Limpiar el contexto también
     currentContextRef.current = null;
 
     setIsCapturing(false);
-    console.log('✅ [STOP CAPTURE] Captura detenida exitosamente');
+    // console.log('✅ [STOP CAPTURE] Captura detenida exitosamente');
   }, []);
 
   // Limpiar todas
@@ -325,7 +325,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
   // Tomar captura inmediata (bajo demanda) y subir a Supabase
   const captureNow = useCallback(async (): Promise<string | null> => {
-    console.log('📸 [CAPTURE NOW] Solicitando captura inmediata...');
+    // console.log('📸 [CAPTURE NOW] Solicitando captura inmediata...');
 
     if (!videoRef.current || !currentContextRef.current) {
       console.error('❌ [CAPTURE NOW] No hay stream activo o contexto disponible');
@@ -347,7 +347,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       let width = videoRef.current.videoWidth;
       let height = videoRef.current.videoHeight;
 
-      console.log(`📐 [CAPTURE NOW] Resolución original: ${width}x${height}`);
+      // console.log(`📐 [CAPTURE NOW] Resolución original: ${width}x${height}`);
 
       // Verificar que el video tenga dimensiones válidas
       if (width === 0 || height === 0) {
@@ -364,7 +364,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         height = maxHeight;
       }
 
-      console.log(`📐 [CAPTURE NOW] Resolución ajustada: ${width}x${height}`);
+      // console.log(`📐 [CAPTURE NOW] Resolución ajustada: ${width}x${height}`);
 
       canvas.width = width;
       canvas.height = height;
@@ -375,7 +375,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       }
 
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      console.log('✅ [CAPTURE NOW] Imagen dibujada en canvas');
+      // console.log('✅ [CAPTURE NOW] Imagen dibujada en canvas');
 
       // Convertir a blob para subir a Supabase
       const blob = await new Promise<Blob | null>((resolve) =>
@@ -387,17 +387,17 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         return null;
       }
 
-      console.log(`✅ [CAPTURE NOW] Blob creado. Tamaño: ${(blob.size / 1024).toFixed(2)} KB`);
+      // console.log(`✅ [CAPTURE NOW] Blob creado. Tamaño: ${(blob.size / 1024).toFixed(2)} KB`);
 
       // Subir a Supabase
       const fileName = `capture-now-${Date.now()}.jpg`;
-      console.log(`📤 [CAPTURE NOW] Subiendo imagen: ${fileName} a carpeta: ${params.actividadId}`);
+      // console.log(`📤 [CAPTURE NOW] Subiendo imagen: ${fileName} a carpeta: ${params.actividadId}`);
 
       const url = await uploadImage(blob, params.actividadId, fileName);
-      console.log(`✅ [CAPTURE NOW] Imagen subida exitosamente. URL: ${url}`);
+      // console.log(`✅ [CAPTURE NOW] Imagen subida exitosamente. URL: ${url}`);
 
       // Opcional: Guardar en base de datos
-      console.log('💾 [CAPTURE NOW] Guardando registro en base de datos...');
+      // console.log('💾 [CAPTURE NOW] Guardando registro en base de datos...');
       const newCapture = await captureRepository.create({
         id_usuario: params.userId,
         img_url: url,
@@ -407,7 +407,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         tiempo_tarea_actual: params.tiempoTareaActual
       });
 
-      console.log('✅ [CAPTURE NOW] Registro guardado en BD:', newCapture);
+      // console.log('✅ [CAPTURE NOW] Registro guardado en BD:', newCapture);
 
       // Agregar a la lista de screenshots
       setScreenshots(prev => [newCapture, ...prev]);
@@ -417,7 +417,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         params.onCaptureUpdate(url);
       }
 
-      console.log('🎉 [CAPTURE NOW] Captura completada exitosamente');
+      // console.log('🎉 [CAPTURE NOW] Captura completada exitosamente');
       return url;
     } catch (error) {
       console.error('❌ [CAPTURE NOW] Error durante captura:', error);

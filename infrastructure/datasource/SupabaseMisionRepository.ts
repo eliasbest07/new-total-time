@@ -19,7 +19,7 @@ export class SupabaseMisionRepository implements MisionRepository {
 
   async getAllMisiones(): Promise<Mision[]> {
     try {
-      console.log('🎯 Obteniendo todas las misiones');
+      // console.log('🎯 Obteniendo todas las misiones');
 
       const { data, error } = await supabase
         .from('misiones')
@@ -32,7 +32,7 @@ export class SupabaseMisionRepository implements MisionRepository {
       }
 
       const misiones = data || [];
-      console.log('✅ Todas las misiones encontradas:', misiones.length);
+      // console.log('✅ Todas las misiones encontradas:', misiones.length);
       return misiones;
     } catch (error) {
       console.error('❌ Error en getAllMisiones:', error);
@@ -42,8 +42,8 @@ export class SupabaseMisionRepository implements MisionRepository {
 
   async getMisionesByUsuario(idUsuario: number): Promise<Mision[]> {
     try {
-      console.log('🎯 Obteniendo misiones para usuario:', idUsuario);
-      console.log('🎯 Tipo de idUsuario:', typeof idUsuario);
+      // console.log('🎯 Obteniendo misiones para usuario:', idUsuario);
+      // console.log('🎯 Tipo de idUsuario:', typeof idUsuario);
 
       const { data, error } = await supabase
         .from('misiones')
@@ -51,7 +51,7 @@ export class SupabaseMisionRepository implements MisionRepository {
         .eq('id_usuario', idUsuario)
         .order('created_at', { ascending: false });
 
-      console.log('🎯 Respuesta de Supabase misiones:', { data, error });
+      // console.log('🎯 Respuesta de Supabase misiones:', { data, error });
 
       if (error) {
         console.error('❌ Error obteniendo misiones:', error);
@@ -60,8 +60,8 @@ export class SupabaseMisionRepository implements MisionRepository {
       }
 
       const misiones = data || [];
-      console.log('✅ Misiones encontradas:', misiones.length);
-      console.log('✅ Misiones data:', misiones);
+      // console.log('✅ Misiones encontradas:', misiones.length);
+      // console.log('✅ Misiones data:', misiones);
       return misiones;
     } catch (error) {
       console.error('❌ Error en getMisionesByUsuario:', error);
@@ -71,7 +71,7 @@ export class SupabaseMisionRepository implements MisionRepository {
 
   async createMision(mision: Omit<Mision, 'id' | 'created_at'>): Promise<Mision | null> {
     try {
-      console.log('➕ Creando nueva misión:', mision);
+      // console.log('➕ Creando nueva misión:', mision);
 
       const { data, error } = await supabase
         .from('misiones')
@@ -84,7 +84,7 @@ export class SupabaseMisionRepository implements MisionRepository {
         return null;
       }
 
-      console.log('✅ Misión creada exitosamente:', data);
+      // console.log('✅ Misión creada exitosamente:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en createMision:', error);
@@ -94,7 +94,7 @@ export class SupabaseMisionRepository implements MisionRepository {
 
   async updateMision(id: number, mision: Partial<Mision>): Promise<Mision | null> {
     try {
-      console.log('✏️ Actualizando misión:', id, mision);
+      // console.log('✏️ Actualizando misión:', id, mision);
 
       const { data, error } = await supabase
         .from('misiones')
@@ -108,7 +108,7 @@ export class SupabaseMisionRepository implements MisionRepository {
         return null;
       }
 
-      console.log('✅ Misión actualizada exitosamente:', data);
+      // console.log('✅ Misión actualizada exitosamente:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en updateMision:', error);
@@ -118,7 +118,7 @@ export class SupabaseMisionRepository implements MisionRepository {
 
   async deleteMision(id: number): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando misión:', id);
+      // console.log('🗑️ Eliminando misión:', id);
 
       const { error } = await supabase
         .from('misiones')
@@ -130,7 +130,7 @@ export class SupabaseMisionRepository implements MisionRepository {
         return false;
       }
 
-      console.log('✅ Misión eliminada exitosamente');
+      // console.log('✅ Misión eliminada exitosamente');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteMision:', error);
@@ -140,7 +140,7 @@ export class SupabaseMisionRepository implements MisionRepository {
 
   async getMisionById(id: number): Promise<Mision | null> {
     try {
-      console.log('🔍 Obteniendo misión por ID:', id);
+      // console.log('🔍 Obteniendo misión por ID:', id);
 
       const { data, error } = await supabase
         .from('misiones')
@@ -153,7 +153,7 @@ export class SupabaseMisionRepository implements MisionRepository {
         return null;
       }
 
-      console.log('✅ Misión encontrada:', data);
+      // console.log('✅ Misión encontrada:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en getMisionById:', error);
@@ -190,7 +190,7 @@ export class SupabaseMisionRepository implements MisionRepository {
             table: 'misiones'
           },
           async (payload) => {
-            console.log('📡 Cambio detectado en misiones:', payload);
+            // console.log('📡 Cambio detectado en misiones:', payload);
 
             try {
               const nuevasMisiones = await this.getAllMisiones();
@@ -263,7 +263,7 @@ export class SupabaseMisionRepository implements MisionRepository {
             filter: `id_usuario=eq.${idUsuario}`
           },
           async (payload) => {
-            console.log('📡 Cambio detectado en misiones:', payload);
+            // console.log('📡 Cambio detectado en misiones:', payload);
 
             try {
               const nuevasMisiones = await this.getMisionesByUsuario(idUsuario);

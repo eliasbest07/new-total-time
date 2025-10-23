@@ -30,11 +30,11 @@ export default function Login() {
     setError('');
 
     try {
-      console.log('🔐 Iniciando login para:', email);
+      // console.log('🔐 Iniciando login para:', email);
       const user = await authRepository.login(email, password);
-      
+
       if (user) {
-        console.log('✅ Login exitoso, actualizando contexto');
+        // console.log('✅ Login exitoso, actualizando contexto');
         setUsuario(user);
         router.replace('/'); // Usar replace para no agregar al historial
       } else {

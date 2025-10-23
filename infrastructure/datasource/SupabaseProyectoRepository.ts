@@ -10,7 +10,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async getProyectosByUsuario(userId: string): Promise<Proyecto[]> {
     try {
-      console.log('📁 Obteniendo proyectos para usuario:', userId);
+      // console.log('📁 Obteniendo proyectos para usuario:', userId);
 
       const { data, error } = await supabase
         .from('proyecto')
@@ -24,7 +24,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       }
 
       const proyectos = data || [];
-      console.log('✅ Proyectos encontrados:', proyectos.length);
+      // console.log('✅ Proyectos encontrados:', proyectos.length);
       return proyectos;
     } catch (error) {
       console.error('❌ Error en getProyectosByUsuario:', error);
@@ -34,7 +34,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async getProyectosByOrganizacion(organizacionId: string): Promise<Proyecto[]> {
     try {
-      console.log('📁 Obteniendo proyectos para organización:', organizacionId);
+      // console.log('📁 Obteniendo proyectos para organización:', organizacionId);
 
       // Primero obtener la organización para conseguir el array de proyectos
       const { data: organizacionData, error: organizacionError } = await supabase
@@ -49,14 +49,14 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       }
 
       if (!organizacionData) {
-        console.log('⚠️ No se encontró la organización con ID:', organizacionId);
+        // console.log('⚠️ No se encontró la organización con ID:', organizacionId);
         return [];
       }
 
       const proyectosIds = organizacionData?.proyectos || [];
 
       if (proyectosIds.length === 0) {
-        console.log('✅ No hay proyectos en esta organización');
+        // console.log('✅ No hay proyectos en esta organización');
         return [];
       }
 
@@ -73,7 +73,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       }
 
       const proyectos = data || [];
-      console.log('✅ Proyectos de organización encontrados:', proyectos.length);
+      // console.log('✅ Proyectos de organización encontrados:', proyectos.length);
       return proyectos;
     } catch (error) {
       console.error('❌ Error en getProyectosByOrganizacion:', error);
@@ -83,13 +83,13 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async getProyectosByCurrentUser(): Promise<Proyecto[]> {
     try {
-      console.log('📁 Obteniendo proyectos del usuario autenticado');
+      // console.log('📁 Obteniendo proyectos del usuario autenticado');
 
       // Obtener la organización del usuario actual
       const organizacionId = await this.getUserOrganizationId();
       
       if (!organizacionId) {
-        console.log('⚠️ Usuario no tiene organización asignada');
+        // console.log('⚠️ Usuario no tiene organización asignada');
         return [];
       }
 
@@ -103,7 +103,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async getUserOrganizationId(): Promise<string | null> {
     try {
-      console.log('👤 Obteniendo organización del usuario autenticado');
+      // console.log('👤 Obteniendo organización del usuario autenticado');
 
       // Obtener el usuario autenticado actual
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -113,13 +113,13 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
         return null;
       }
 
-      console.log('👤 Usuario autenticado ID:', user.id);
+      // console.log('👤 Usuario autenticado ID:', user.id);
 
       // Verificar cache primero
       if (userOrgCache &&
           userOrgCache.userId === user.id &&
           (Date.now() - userOrgCache.timestamp) < USER_ORG_CACHE_TTL) {
-        console.log('🎯 Usando organización desde cache:', userOrgCache.organizacionId);
+        // console.log('🎯 Usando organización desde cache:', userOrgCache.organizacionId);
         return userOrgCache.organizacionId;
       }
 
@@ -136,12 +136,12 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       }
 
       if (!userData) {
-        console.log('⚠️ No se encontró el usuario en la tabla usuario');
+        // console.log('⚠️ No se encontró el usuario en la tabla usuario');
         return null;
       }
 
       const organizacionId = userData.id_organizacion;
-      console.log('✅ ID de organización obtenido:', organizacionId);
+      // console.log('✅ ID de organización obtenido:', organizacionId);
 
       // Guardar en cache
       userOrgCache = {
@@ -159,7 +159,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async createProyecto(proyecto: Omit<Proyecto, 'id' | 'created_at'>): Promise<Proyecto | null> {
     try {
-      console.log('➕ Creando nuevo proyecto:', proyecto);
+      // console.log('➕ Creando nuevo proyecto:', proyecto);
 
       const { data, error } = await supabase
         .from('proyecto')
@@ -172,7 +172,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
         return null;
       }
 
-      console.log('✅ Proyecto creado exitosamente:', data);
+      // console.log('✅ Proyecto creado exitosamente:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en createProyecto:', error);
@@ -182,7 +182,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async updateProyecto(id: number, proyecto: Partial<Proyecto>): Promise<Proyecto | null> {
     try {
-      console.log('✏️ Actualizando proyecto:', id, proyecto);
+      // console.log('✏️ Actualizando proyecto:', id, proyecto);
 
       const { data, error } = await supabase
         .from('proyecto')
@@ -196,7 +196,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
         return null;
       }
 
-      console.log('✅ Proyecto actualizado exitosamente:', data);
+      // console.log('✅ Proyecto actualizado exitosamente:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en updateProyecto:', error);
@@ -206,7 +206,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async deleteProyecto(id: number): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando proyecto:', id);
+      // console.log('🗑️ Eliminando proyecto:', id);
 
       const { error } = await supabase
         .from('proyecto')
@@ -218,7 +218,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
         return false;
       }
 
-      console.log('✅ Proyecto eliminado exitosamente');
+      // console.log('✅ Proyecto eliminado exitosamente');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteProyecto:', error);
@@ -228,7 +228,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async getProyectoById(id: number): Promise<Proyecto | null> {
     try {
-      console.log('🔍 Obteniendo proyecto por ID:', id);
+      // console.log('🔍 Obteniendo proyecto por ID:', id);
 
       const { data, error } = await supabase
         .from('proyecto')
@@ -241,7 +241,7 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
         return null;
       }
 
-      console.log('✅ Proyecto encontrado:', data);
+      // console.log('✅ Proyecto encontrado:', data);
       return data;
     } catch (error) {
       console.error('❌ Error en getProyectoById:', error);

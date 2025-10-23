@@ -36,18 +36,18 @@ export const useSalas = (idOrganizacion: string | null): UseSalasReturn => {
     setError(null);
 
     try {
-      console.log('🏠 Cargando salas para organización:', idOrganizacion);
+      // console.log('🏠 Cargando salas para organización:', idOrganizacion);
       const salasData = await salaRepository.current.getSalasByOrganizacion(idOrganizacion);
-      
+
       setSalas(salasData);
-      
+
       // Establecer la primera sala como activa si no hay ninguna activa
       if (salasData.length > 0 && !salaActiva) {
         const primeraActiva = salasData.find(sala => sala.activa) || salasData[0];
         setSalaActivaState(primeraActiva);
       }
-      
-      console.log('✅ Salas cargadas exitosamente:', salasData.length);
+
+      // console.log('✅ Salas cargadas exitosamente:', salasData.length);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar salas';
       console.error('❌ Error cargando salas:', errorMessage);
@@ -71,8 +71,8 @@ export const useSalas = (idOrganizacion: string | null): UseSalasReturn => {
       
       setSalas(salasActualizadas);
       setSalaActivaState(sala);
-      
-      console.log('🎯 Sala activa cambiada a:', sala.nombre);
+
+      // console.log('🎯 Sala activa cambiada a:', sala.nombre);
     }
   }, [salas]);
 
@@ -80,14 +80,14 @@ export const useSalas = (idOrganizacion: string | null): UseSalasReturn => {
   useEffect(() => {
     if (!idOrganizacion) return;
 
-    console.log('📡 Configurando suscripción realtime para salas');
+    // console.log('📡 Configurando suscripción realtime para salas');
 
     // Callbacks para el realtime
     const realtimeCallbacks = {
       onSalasUpdated: (nuevasSalas: Sala[]) => {
-        console.log('📡 Salas actualizadas via realtime:', nuevasSalas.length);
+        // console.log('📡 Salas actualizadas via realtime:', nuevasSalas.length);
         setSalas(nuevasSalas);
-        
+
         // Mantener la sala activa si aún existe
         if (salaActiva) {
           const salaActivaActualizada = nuevasSalas.find(s => s.id === salaActiva.id);
@@ -114,7 +114,7 @@ export const useSalas = (idOrganizacion: string | null): UseSalasReturn => {
     // Cleanup al desmontar o cambiar organización
     return () => {
       if (realtimeChannel.current) {
-        console.log('🧹 Limpiando suscripción realtime de salas');
+        // console.log('🧹 Limpiando suscripción realtime de salas');
         salaRepository.current.unsubscribeFromChanges(realtimeChannel.current);
         realtimeChannel.current = null;
       }

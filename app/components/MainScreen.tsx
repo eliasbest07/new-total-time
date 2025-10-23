@@ -224,25 +224,25 @@ export default function MainScreen() {
   }, []);
 
   // Log para proyectos
-  useEffect(() => {
-    console.log('📁 MainScreen - Estado proyectos:', {
-      usuario: usuario?.id,
-      proyectosLoading,
-      proyectosSupabaseLength: proyectosSupabase?.length,
-      proyectosSupabase
-    });
-  }, [proyectosSupabase, proyectosLoading]);
+  // useEffect(() => {
+  //   console.log('📁 MainScreen - Estado proyectos:', {
+  //     usuario: usuario?.id,
+  //     proyectosLoading,
+  //     proyectosSupabaseLength: proyectosSupabase?.length,
+  //     proyectosSupabase
+  //   });
+  // }, [proyectosSupabase, proyectosLoading]);
 
   // Log para usuarios de organización
-  useEffect(() => {
-    console.log('👥 MainScreen - Estado usuarios organización:', {
-      usuario: usuario?.id,
-      organizacion: usuario?.idOrganizacion,
-      usuariosLoading,
-      usuariosOrganizacionLength: usuariosOrganizacion?.length,
-      usuariosOrganizacion
-    });
-  }, [usuariosOrganizacion, usuariosLoading]);
+  // useEffect(() => {
+  //   console.log('👥 MainScreen - Estado usuarios organización:', {
+  //     usuario: usuario?.id,
+  //     organizacion: usuario?.idOrganizacion,
+  //     usuariosLoading,
+  //     usuariosOrganizacionLength: usuariosOrganizacion?.length,
+  //     usuariosOrganizacion
+  //   });
+  // }, [usuariosOrganizacion, usuariosLoading]);
 
   const handleAddResource = (): void => {
     setShowAddResourceModal(true);
@@ -325,30 +325,8 @@ export default function MainScreen() {
     console.log('👤 Estado actualizado - showChatWindow debería ser true');
   };
 
-  // Handler para mensajes entrantes
-  const handleIncomingMessage = useCallback((mensaje: {
-    id: string;
-    idEmisor: string;
-    idReceptor: string;
-    texto: string;
-    emisorNombre?: string;
-  }) => {
-    console.log('🔔 Mensaje entrante recibido en MainScreen:', mensaje);
-
-    // Abrir la ventana del chat con el emisor
-    setSelectedChatUser({
-      userId: mensaje.idEmisor,
-      name: mensaje.emisorNombre || 'Usuario',
-      avatar: mensaje.emisorNombre?.charAt(0).toUpperCase() || 'U',
-      online: true
-    });
-    setShowChatWindow(true);
-  }, []);
-
-  // Suscribirse a mensajes entrantes
-  useIncomingMessages(usuario?.userAuth || null, {
-    onNewMessage: handleIncomingMessage
-  });
+  // Hook para detectar mensajes entrantes y abrir ventanas automáticamente
+  useIncomingMessages();
 
   // Handler para cuando se hace click en un proyecto
   const handleProyectoClick = (proyecto: import('@/domain/entities/Proyecto').Proyecto) => {

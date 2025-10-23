@@ -6,7 +6,7 @@ export class SupabaseMensajeRepository implements MensajeRepository {
 
   async getConversacion(userId1: string, userId2: string): Promise<Mensaje[]> {
     try {
-      console.log('💬 Obteniendo conversación entre:', userId1, 'y', userId2);
+      // console.log('💬 Obteniendo conversación entre:', userId1, 'y', userId2);
 
       // Obtener todos los mensajes donde userId1 sea emisor o receptor
       // Y userId2 sea el otro participante
@@ -22,7 +22,7 @@ export class SupabaseMensajeRepository implements MensajeRepository {
       }
 
       const mensajes = (data || []).map((item) => this.mapToMensaje(item));
-      console.log('✅ Mensajes encontrados:', mensajes.length);
+      // console.log('✅ Mensajes encontrados:', mensajes.length);
       return mensajes;
     } catch (error) {
       console.error('❌ Error en getConversacion:', error);
@@ -32,8 +32,8 @@ export class SupabaseMensajeRepository implements MensajeRepository {
 
   async enviarMensaje(idEmisor: string, idReceptor: string, texto: string): Promise<Mensaje | null> {
     try {
-      console.log('📤 Enviando mensaje de', idEmisor, 'a', idReceptor);
-      console.log('📤 Texto del mensaje:', texto);
+      // console.log('📤 Enviando mensaje de', idEmisor, 'a', idReceptor);
+      // console.log('📤 Texto del mensaje:', texto);
 
       const { data, error } = await supabase
         .from('mensajes')
@@ -53,7 +53,7 @@ export class SupabaseMensajeRepository implements MensajeRepository {
         return null;
       }
 
-      console.log('✅ Mensaje enviado exitosamente:', data);
+      // console.log('✅ Mensaje enviado exitosamente:', data);
       return this.mapToMensaje(data);
     } catch (error) {
       console.error('❌ Error en enviarMensaje:', error);
@@ -63,7 +63,7 @@ export class SupabaseMensajeRepository implements MensajeRepository {
 
   async marcarComoLeido(mensajeId: string): Promise<boolean> {
     try {
-      console.log('📖 Marcando mensaje como leído:', mensajeId);
+      // console.log('📖 Marcando mensaje como leído:', mensajeId);
 
       const { error } = await supabase
         .from('mensajes')
@@ -75,7 +75,7 @@ export class SupabaseMensajeRepository implements MensajeRepository {
         return false;
       }
 
-      console.log('✅ Mensaje marcado como leído');
+      // console.log('✅ Mensaje marcado como leído');
       return true;
     } catch (error) {
       console.error('❌ Error en marcarComoLeido:', error);
@@ -85,7 +85,7 @@ export class SupabaseMensajeRepository implements MensajeRepository {
 
   async marcarConversacionComoLeida(userId: string, otroUserId: string): Promise<boolean> {
     try {
-      console.log('📖 Marcando conversación como leída entre:', userId, 'y', otroUserId);
+      // console.log('📖 Marcando conversación como leída entre:', userId, 'y', otroUserId);
 
       // Marcar como leídos todos los mensajes donde userId es receptor y otroUserId es emisor
       const { error } = await supabase
@@ -100,7 +100,7 @@ export class SupabaseMensajeRepository implements MensajeRepository {
         return false;
       }
 
-      console.log('✅ Conversación marcada como leída');
+      // console.log('✅ Conversación marcada como leída');
       return true;
     } catch (error) {
       console.error('❌ Error en marcarConversacionComoLeida:', error);

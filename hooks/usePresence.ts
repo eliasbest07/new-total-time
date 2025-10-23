@@ -32,11 +32,11 @@ export const usePresence = (
 
   useEffect(() => {
     if (!organizationId || !currentUser) {
-      console.log('⚠️ Presence: No hay organizationId o currentUser');
+      // console.log('⚠️ Presence: No hay organizationId o currentUser');
       return;
     }
 
-    console.log('🟢 Presence: Iniciando tracking para', currentUser.username);
+    // console.log('🟢 Presence: Iniciando tracking para', currentUser.username);
 
     // Crear canal de presencia específico para la organización
     const channel = supabase.channel(`presence-org-${organizationId}`, {
@@ -52,7 +52,7 @@ export const usePresence = (
       .on('presence', { event: 'sync' }, () => {
         // Sync se dispara cuando hay cambios en la presencia
         const state = channel.presenceState<PresenceUser>();
-        console.log('🔄 Presence Sync:', state);
+        // console.log('🔄 Presence Sync:', state);
 
         // Convertir el estado en un array de usuarios
         const users: PresenceUser[] = [];
@@ -65,16 +65,16 @@ export const usePresence = (
         });
 
         setOnlineUsers(users);
-        console.log(`👥 Usuarios online: ${users.length}`, users.map(u => u.username));
+        // console.log(`👥 Usuarios online: ${users.length}`, users.map(u => u.username));
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('✅ Usuario conectado:', newPresences);
+        // console.log('✅ Usuario conectado:', newPresences);
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('❌ Usuario desconectado:', leftPresences);
+        // console.log('❌ Usuario desconectado:', leftPresences);
       })
       .subscribe(async (status) => {
-        console.log('📡 Presence status:', status);
+        // console.log('📡 Presence status:', status);
 
         if (status === 'SUBSCRIBED') {
           // Una vez suscrito, trackear la presencia del usuario actual
@@ -84,7 +84,7 @@ export const usePresence = (
             avatar: currentUser.avatar || null,
             online_at: new Date().toISOString(),
           });
-          console.log('✅ Tracking iniciado para:', currentUser.username);
+          // console.log('✅ Tracking iniciado para:', currentUser.username);
         }
       });
 
@@ -92,7 +92,7 @@ export const usePresence = (
 
     // Cleanup: dejar de trackear cuando el componente se desmonta
     return () => {
-      console.log('🔴 Presence: Limpiando tracking para', currentUser.username);
+      // console.log('🔴 Presence: Limpiando tracking para', currentUser.username);
       if (channelRef.current) {
         channelRef.current.untrack();
         channelRef.current.unsubscribe();

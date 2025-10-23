@@ -51,7 +51,7 @@ export class SupabaseMisionActivaRepository {
    */
   async create(dto: CreateMisionActivaDTO): Promise<MisionActiva | null> {
     try {
-      console.log('📝 Creando nueva misión activa:', dto);
+      // console.log('📝 Creando nueva misión activa:', dto);
 
       const { data, error } = await supabase
         .from('misiones_activas')
@@ -72,7 +72,7 @@ export class SupabaseMisionActivaRepository {
         return null;
       }
 
-      console.log('✅ Misión activa creada:', data.id);
+      // console.log('✅ Misión activa creada:', data.id);
       return data;
     } catch (error) {
       console.error('❌ Error en create:', error);
@@ -88,7 +88,7 @@ export class SupabaseMisionActivaRepository {
     dto: UpdateRunningStateDTO
   ): Promise<MisionActiva | null> {
     try {
-      console.log('▶️ Actualizando estado de ejecución:', dto.is_running ? 'PLAY' : 'PAUSE');
+      // console.log('▶️ Actualizando estado de ejecución:', dto.is_running ? 'PLAY' : 'PAUSE');
 
       const updateData: any = {
         is_running: dto.is_running,
@@ -129,7 +129,7 @@ export class SupabaseMisionActivaRepository {
         return null;
       }
 
-      console.log('✅ Estado actualizado');
+      // console.log('✅ Estado actualizado');
       return data;
     } catch (error) {
       console.error('❌ Error en updateRunningState:', error);
@@ -142,7 +142,7 @@ export class SupabaseMisionActivaRepository {
    */
   async addCaptureUrl(idMisionActiva: string, captureUrl: string): Promise<MisionActiva | null> {
     try {
-      console.log('📸 Agregando captura:', captureUrl);
+      // console.log('📸 Agregando captura:', captureUrl);
 
       // Primero obtenemos el registro actual
       const { data: current, error: fetchError } = await supabase
@@ -176,7 +176,7 @@ export class SupabaseMisionActivaRepository {
         return null;
       }
 
-      console.log('✅ Captura agregada con fecha:', fechaActual);
+      // console.log('✅ Captura agregada con fecha:', fechaActual);
       return data;
     } catch (error) {
       console.error('❌ Error en addCaptureUrl:', error);
@@ -192,7 +192,7 @@ export class SupabaseMisionActivaRepository {
     dto: SubmitEntregaDTO
   ): Promise<MisionActiva | null> {
     try {
-      console.log('📦 Enviando entrega para misión activa:', idMisionActiva);
+      // console.log('📦 Enviando entrega para misión activa:', idMisionActiva);
 
       const { data, error } = await supabase
         .from('misiones_activas')
@@ -216,7 +216,7 @@ export class SupabaseMisionActivaRepository {
         return null;
       }
 
-      console.log('✅ Entrega enviada correctamente');
+      // console.log('✅ Entrega enviada correctamente');
       return data;
     } catch (error) {
       console.error('❌ Error en submitEntrega:', error);

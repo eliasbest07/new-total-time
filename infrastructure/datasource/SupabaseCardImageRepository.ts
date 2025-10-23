@@ -9,7 +9,7 @@ export class SupabaseCardImageRepository implements CardImageRepository {
    */
   async getByCardId(idCard: string): Promise<CardImage | null> {
     try {
-      console.log('🖼️ Obteniendo datos de imagen para card:', idCard);
+      // console.log('🖼️ Obteniendo datos de imagen para card:', idCard);
 
       const { data, error } = await supabase
         .from('card_images')
@@ -20,14 +20,14 @@ export class SupabaseCardImageRepository implements CardImageRepository {
       if (error) {
         // Si no existe, no es un error crítico
         if (error.code === 'PGRST116') {
-          console.log('ℹ️ No hay datos de imagen para esta card');
+          // console.log('ℹ️ No hay datos de imagen para esta card');
           return null;
         }
         console.error('❌ Error obteniendo datos de imagen:', error);
         return null;
       }
 
-      console.log('✅ Datos de imagen encontrados');
+      // console.log('✅ Datos de imagen encontrados');
       return data;
     } catch (error) {
       console.error('❌ Error en getByCardId:', error);
@@ -40,7 +40,7 @@ export class SupabaseCardImageRepository implements CardImageRepository {
    */
   async create(cardImage: CreateCardImageDTO): Promise<CardImage | null> {
     try {
-      console.log('➕ Creando datos de imagen para card:', cardImage.id_card);
+      // console.log('➕ Creando datos de imagen para card:', cardImage.id_card);
 
       const { data, error } = await supabase
         .from('card_images')
@@ -53,7 +53,7 @@ export class SupabaseCardImageRepository implements CardImageRepository {
         return null;
       }
 
-      console.log('✅ Datos de imagen creados exitosamente');
+      // console.log('✅ Datos de imagen creados exitosamente');
       return data;
     } catch (error) {
       console.error('❌ Error en create:', error);
@@ -66,7 +66,7 @@ export class SupabaseCardImageRepository implements CardImageRepository {
    */
   async update(idCard: string, updates: UpdateCardImageDTO): Promise<CardImage | null> {
     try {
-      console.log('✏️ Actualizando datos de imagen para card:', idCard);
+      // console.log('✏️ Actualizando datos de imagen para card:', idCard);
 
       const { data, error } = await supabase
         .from('card_images')
@@ -83,7 +83,7 @@ export class SupabaseCardImageRepository implements CardImageRepository {
         return null;
       }
 
-      console.log('✅ Datos de imagen actualizados');
+      // console.log('✅ Datos de imagen actualizados');
       return data;
     } catch (error) {
       console.error('❌ Error en update:', error);
@@ -96,7 +96,7 @@ export class SupabaseCardImageRepository implements CardImageRepository {
    */
   async delete(idCard: string): Promise<boolean> {
     try {
-      console.log('🗑️ Eliminando datos de imagen para card:', idCard);
+      // console.log('🗑️ Eliminando datos de imagen para card:', idCard);
 
       const { error } = await supabase
         .from('card_images')
@@ -108,7 +108,7 @@ export class SupabaseCardImageRepository implements CardImageRepository {
         return false;
       }
 
-      console.log('✅ Datos de imagen eliminados');
+      // console.log('✅ Datos de imagen eliminados');
       return true;
     } catch (error) {
       console.error('❌ Error en delete:', error);
