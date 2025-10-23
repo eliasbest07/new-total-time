@@ -12,6 +12,8 @@ export interface ActivityData {
   duration: number; // en minutos
   isRunning: boolean;
   timeLeft: number; // en segundos
+  id_usuario?: string; // ID del usuario que creó/ejecuta la actividad
+  id_actividad?: string; // ID único de la actividad en la base de datos
 }
 
 export interface MisionData {
@@ -66,6 +68,7 @@ export interface Card {
   misionData?: MisionData;
   usuarioData?: UsuarioData;
   proyectoData?: ProyectoData;
+  imageUrl?: string; // URL de la imagen guardada en Supabase Storage
 }
 
 export interface Connection {

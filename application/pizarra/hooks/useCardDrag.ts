@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Card } from '../types/index';
+import { Card } from '../types';
 
 export const useCardDrag = (
   cards: Card[],

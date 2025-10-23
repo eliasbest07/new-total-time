@@ -23,6 +23,7 @@ export interface MisionActiva {
   entrega_archivos_urls: string[] | null;
 
   capturas_urls: string[] | null;
+  fecha_ultimo_capture: string | null;
 
   comentarios_entrega: string | null;
   calificacion: number | null;

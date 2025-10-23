@@ -158,12 +158,14 @@ export class SupabaseMisionActivaRepository {
 
       // Agregamos la nueva captura al array
       const updatedCapturas = [...(current.capturas_urls || []), captureUrl];
+      const fechaActual = new Date().toISOString();
 
       const { data, error } = await supabase
         .from('misiones_activas')
         .update({
           capturas_urls: updatedCapturas,
-          updated_at: new Date().toISOString()
+          fecha_ultimo_capture: fechaActual,
+          updated_at: fechaActual
         })
         .eq('id', idMisionActiva)
         .select()
@@ -174,7 +176,7 @@ export class SupabaseMisionActivaRepository {
         return null;
       }
 
-      console.log('✅ Captura agregada');
+      console.log('✅ Captura agregada con fecha:', fechaActual);
       return data;
     } catch (error) {
       console.error('❌ Error en addCaptureUrl:', error);

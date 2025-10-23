@@ -20,6 +20,8 @@ interface PerfilProps {
     onSaveToSupabase?: () => void;
     onLoadFromSupabase?: () => void;
     showPizarraControls?: boolean;
+    // Prop para modo light
+    lightMode?: boolean;
 }
 
 const Perfil = ({
@@ -33,7 +35,8 @@ const Perfil = ({
     onImportJSON,
     onSaveToSupabase,
     onLoadFromSupabase,
-    showPizarraControls = false
+    showPizarraControls = false,
+    lightMode = false
 }: PerfilProps = {}) => {
     const [menuAbierto, setMenuAbierto] = useState(false);
     const { usuario, clearUsuario } = useAuth();
@@ -110,7 +113,7 @@ const Perfil = ({
                 </div>
 
                 {/* Nombre centrado debajo */}
-                <span className="text-white font-medium text-lg">
+                <span className={`${lightMode ? 'text-black' : 'text-white'} font-medium text-lg`}>
                     {nombre}
                 </span>
             </div>

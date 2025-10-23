@@ -1,7 +1,8 @@
 "use client";
 
-import Pizarra, { PizarraRef } from "@/application/pizarra/pizarra";
-import { useRef, useState, useMemo, useEffect } from "react";
+import Pizarra from "@/application/pizarra/pizarra";
+import type { PizarraRef } from "@/application/pizarra/types";
+import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import Ventana from "@/app/demo/components/Ventana";
 import { useScreenshots } from "@/hooks/useScreenshots";
 
@@ -29,6 +30,7 @@ import MisionCard from "../demo/components/MisionCard";
 import InputArea from "./mainUI/InputArea";
 import { useChartHistory, BoardHistorySnapshot } from "@/hooks/useChartHistory";
 import EntregasVentana from "./mainUI/EntregasVentana";
+import { useIncomingMessages } from "@/hooks/useIncomingMessages";
 
 
 export default function MainScreen() {
@@ -52,6 +54,14 @@ export default function MainScreen() {
     color?: string;
     online?: boolean;
   } | null>(null);
+
+  // Debug: Monitorear cambios en el estado del chat
+  useEffect(() => {
+    console.log('💬 Estado del chat cambió:', {
+      showChatWindow,
+      selectedChatUser: selectedChatUser?.name
+    });
+  }, [showChatWindow, selectedChatUser]);
   const [showProyectoWindow, setShowProyectoWindow] = useState(false);
   const [selectedProyectoWindow, setSelectedProyectoWindow] = useState<import('@/domain/entities/Proyecto').Proyecto | null>(null);
   const [showEntregasModal, setShowEntregasModal] = useState(false);
@@ -303,6 +313,7 @@ export default function MainScreen() {
     color?: string;
     online?: boolean;
   }) => {
+    console.log('👤 handleUserClick llamado con:', userData);
     // Usar el sistema de ventanas de chat del contexto
     openChatWindow({
       userId: userData.userId,
@@ -311,7 +322,33 @@ export default function MainScreen() {
       userColor: userData.color || 'bg-purple-600',
       isOnline: userData.online || false
     });
+    console.log('👤 Estado actualizado - showChatWindow debería ser true');
   };
+
+  // Handler para mensajes entrantes
+  const handleIncomingMessage = useCallback((mensaje: {
+    id: string;
+    idEmisor: string;
+    idReceptor: string;
+    texto: string;
+    emisorNombre?: string;
+  }) => {
+    console.log('🔔 Mensaje entrante recibido en MainScreen:', mensaje);
+
+    // Abrir la ventana del chat con el emisor
+    setSelectedChatUser({
+      userId: mensaje.idEmisor,
+      name: mensaje.emisorNombre || 'Usuario',
+      avatar: mensaje.emisorNombre?.charAt(0).toUpperCase() || 'U',
+      online: true
+    });
+    setShowChatWindow(true);
+  }, []);
+
+  // Suscribirse a mensajes entrantes
+  useIncomingMessages(usuario?.userAuth || null, {
+    onNewMessage: handleIncomingMessage
+  });
 
   // Handler para cuando se hace click en un proyecto
   const handleProyectoClick = (proyecto: import('@/domain/entities/Proyecto').Proyecto) => {
@@ -989,27 +1026,30 @@ export default function MainScreen() {
       </Ventana>
 
       {/* Ventana de Chat */}
-      <Ventana
-        isOpen={showChatWindow}
-        onClose={() => {
-          setShowChatWindow(false);
-          setSelectedChatUser(null);
-        }}
-        title={`Chat con ${selectedChatUser?.name || 'Usuario'}`}
-        initialWidth={400}
-        initialHeight={600}
-        minWidth={350}
-        minHeight={400}
-        initialX={window.innerWidth / 2 - 200}
-        initialY={window.innerHeight / 2 - 300}
-      >
-        {selectedChatUser && usuario && (
-          <ChatWindow
-            currentUserId={usuario.userAuth}
-            targetUser={selectedChatUser}
-          />
-        )}
-      </Ventana>
+      {typeof window !== 'undefined' && (
+        <Ventana
+          isOpen={showChatWindow}
+          onClose={() => {
+            console.log('🔴 Cerrando ventana de chat');
+            setShowChatWindow(false);
+            setSelectedChatUser(null);
+          }}
+          title={`Chat con ${selectedChatUser?.name || 'Usuario'}`}
+          initialWidth={400}
+          initialHeight={600}
+          minWidth={350}
+          minHeight={400}
+          initialX={window.innerWidth / 2 - 200}
+          initialY={window.innerHeight / 2 - 300}
+        >
+          {selectedChatUser && usuario && (
+            <ChatWindow
+              currentUserId={usuario.userAuth}
+              targetUser={selectedChatUser}
+            />
+          )}
+        </Ventana>
+      )}
 
       {/* Ventana de Proyecto */}
       <Ventana

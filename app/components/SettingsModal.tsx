@@ -1,11 +1,31 @@
  'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import Ventana from '../demo/components/Ventana';
+import { useRouter } from 'next/navigation';
 
 const SettingsModal = () => {
   const { showSettingsModal, closeSettings } = useSettings();
+  const router = useRouter();
+  const [viewMode, setViewMode] = useState<'full' | 'light'>('full');
+
+  useEffect(() => {
+    // Leer el modo actual del localStorage
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('total-time-view-mode') as 'full' | 'light' | null;
+      if (savedMode) {
+        setViewMode(savedMode);
+      }
+    }
+  }, [showSettingsModal]);
+
+  const handleViewModeChange = (mode: 'full' | 'light') => {
+    setViewMode(mode);
+    localStorage.setItem('total-time-view-mode', mode);
+    router.push(mode === 'light' ? '/light' : '/');
+    closeSettings();
+  };
 
   return (
     <Ventana
@@ -21,7 +41,43 @@ const SettingsModal = () => {
       <div className="text-black space-y-6 p-4">
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900">Configuraciones Generales</h3>
-          
+
+          {/* Modo de visualización Total Time */}
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="mb-3">
+              <h4 className="font-semibold text-gray-900">Modo de Visualización</h4>
+              <p className="text-sm text-gray-600">Selecciona el modo de trabajo que prefieres</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleViewModeChange('full')}
+                className={`flex-1 px-4 py-3 rounded-md text-sm font-medium transition-all border-2 ${
+                  viewMode === 'full'
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex flex-col items-start gap-1">
+                  <span className="font-semibold">Vista Completa</span>
+                  <span className="text-xs opacity-75">Todas las herramientas disponibles</span>
+                </div>
+              </button>
+              <button
+                onClick={() => handleViewModeChange('light')}
+                className={`flex-1 px-4 py-3 rounded-md text-sm font-medium transition-all border-2 ${
+                  viewMode === 'light'
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex flex-col items-start gap-1">
+                  <span className="font-semibold">Vista Light</span>
+                  <span className="text-xs opacity-75">Interfaz minimalista y enfocada</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Tema */}
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>

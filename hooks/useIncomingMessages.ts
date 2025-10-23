@@ -169,3 +169,82 @@ export const useIncomingMessages = () => {
     };
   }, [usuario?.userAuth, openChatWindow]);
 };
+import { useEffect, useCallback } from 'react';
+import { supabase } from '@/infrastructure/services/SupabaseClient';
+import { Mensaje } from '@/domain/entities/Mensaje';
+
+interface IncomingMessageHandler {
+  onNewMessage: (mensaje: {
+    id: string;
+    idEmisor: string;
+    idReceptor: string;
+    texto: string;
+    emisorNombre?: string;
+  }) => void;
+}
+
+export const useIncomingMessages = (
+  currentUserId: string | null,
+  handler: IncomingMessageHandler
+) => {
+  useEffect(() => {
+    if (!currentUserId) {
+      console.log('🔔 useIncomingMessages - No hay usuario actual, no se configura suscripción');
+      return;
+    }
+
+    console.log('🔔 useIncomingMessages - Configurando suscripción para usuario:', currentUserId);
+
+    // Suscribirse a TODOS los mensajes donde el usuario actual es el receptor
+    const channel = supabase
+      .channel('incoming-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensajes',
+          filter: `id_receptor=eq.${currentUserId}`
+        },
+        async (payload) => {
+          console.log('🔔 useIncomingMessages - Nuevo mensaje recibido:', payload);
+
+          const nuevoMensaje = {
+            id: payload.new.id,
+            idEmisor: payload.new.id_emisor,
+            idReceptor: payload.new.id_receptor,
+            texto: payload.new.texto
+          };
+
+          // Intentar obtener el nombre del emisor
+          try {
+            const { data: userData } = await supabase
+              .from('usuario')
+              .select('nombre')
+              .eq('id', payload.new.id_emisor)
+              .single();
+
+            if (userData) {
+              handler.onNewMessage({
+                ...nuevoMensaje,
+                emisorNombre: userData.nombre
+              });
+            } else {
+              handler.onNewMessage(nuevoMensaje);
+            }
+          } catch (error) {
+            console.error('🔔 useIncomingMessages - Error obteniendo nombre de emisor:', error);
+            handler.onNewMessage(nuevoMensaje);
+          }
+        }
+      )
+      .subscribe();
+
+    console.log('🔔 useIncomingMessages - Suscripción configurada');
+
+    return () => {
+      console.log('🔔 useIncomingMessages - Eliminando suscripción');
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId, handler]);
+};

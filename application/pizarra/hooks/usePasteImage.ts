@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Card } from '../types/index';
+import { Card } from '../types';
 import { generateUniqueId, generatePosition } from '../utils/idGenerator';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 

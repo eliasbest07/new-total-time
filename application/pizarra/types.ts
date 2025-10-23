@@ -14,23 +14,46 @@ export interface ActivityData {
   timeLeft: number;
   id_usuario?: string; // ID del usuario que creó/ejecuta la actividad
   id_actividad?: string; // ID único de la actividad en la base de datos
+  misionActivaId?: string; // ID de la misión activa en Supabase
 }
 
 export interface MisionData {
   title: string;
   hours: number;
   description: string;
+  idCreador?: string | null; // UUID del creador de la misión
   isRunning?: boolean;
-  lastCaptureUrl?: string;
+  lastCaptureUrl?: string | null;
   id_usuario?: string; // ID del usuario que creó/ejecuta la misión
   id_mision?: string; // ID único de la misión en la base de datos
 }
 
-export interface ProyectoData {
+export interface ChatMessage {
   id: number;
+  text: string;
+  sender: 'me' | 'other';
+  timestamp: Date;
+}
+
+export interface UsuarioData {
+  userId: string; // userAuth del usuario para identificarlo en Supabase
+  name: string;
+  avatar: string;
+  color: string;
+  online: boolean;
+  messages?: ChatMessage[];
+}
+
+export interface ProyectoData {
   nombre: string;
-  descripcion: string | null;
-  icono: string | null;
+  description: string | null;
+  imagen_url: string | null;
+  type: string | null;
+  utility: string | null;
+  palette: string | null;
+  colors: string[] | null;
+  producto: string | null;
+  publico: boolean;
 }
 
 export interface Card {
@@ -46,8 +69,9 @@ export interface Card {
   fontSize?: number;
   activityData?: ActivityData;
   misionData?: MisionData;
-  imageUrl?: string; // URL de la imagen guardada en Supabase Storage
+  usuarioData?: UsuarioData;
   proyectoData?: ProyectoData;
+  imageUrl?: string; // URL de la imagen guardada en Supabase Storage
 }
 
 export interface Connection {
@@ -66,6 +90,7 @@ export interface PizarraRef {
     color?: string;
     online?: boolean;
   }) => void;
+  restoreCard?: (cardData: any) => void;
   clearStorage?: () => void;
   exportStorage?: () => void;
   importStorage?: (content: string) => void;

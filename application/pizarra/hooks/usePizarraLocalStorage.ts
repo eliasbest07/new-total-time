@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { Card, Connection } from '../types/index';
+import { Card, Connection } from '../types';
 
 interface PizarraStorageData {
   cards: Card[];

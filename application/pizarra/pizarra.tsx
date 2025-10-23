@@ -13,6 +13,7 @@ import { useMisionActiva } from '@/hooks/useMisionActiva';
 interface PizarraProps {
   onShowScreenshots?: (cardId: string) => void;
   storagePrefix?: string;
+  lightMode?: boolean;
 }
 import { generateUniqueId, generatePosition } from './utils/idGenerator';
 import { useCardDrag } from './hooks/useCardDrag';
@@ -25,7 +26,7 @@ import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real' }, ref) => {
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false }, ref) => {
   const { usuario } = useAuth();
 
   // Debug: Verificar que el usuario esté cargado
@@ -232,13 +233,23 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           onCaptureUpdate: async (url: string) => {
             // Guardar captura en misiones_activas
             console.log('📸 [MISION ACTIVA] Guardando captura en Supabase:', url);
-            // TODO: Actualizar para usar misionActiva.id
+            await addCaptureUrl(misionActiva.id, url);
+            console.log('✅ [MISION ACTIVA] Captura guardada en misiones_activas');
           }
         });
 
         console.log('✅ [ACTIVITY PLAY/PAUSE] Captura iniciada exitosamente');
 
-        // 4. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
+        // 4. Actualizar estado en Supabase a "en_progreso" e is_running = true
+        console.log('💾 [MISION ACTIVA] Actualizando estado a en_progreso en Supabase...');
+        await updateRunningState(misionActiva.id, {
+          is_running: true,
+          estado: 'en_progreso',
+          fecha_inicio: new Date().toISOString()
+        });
+        console.log('✅ [MISION ACTIVA] Estado en_progreso guardado en Supabase');
+
+        // 5. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
         setCards(prev => prev.map(c =>
           c.id === cardId && c.activityData
             ? { ...c, activityData: { ...c.activityData, isRunning: true, misionActivaId: misionActiva.id } }
@@ -359,15 +370,25 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                 : c
             ));
 
-            // Guardar captura en misiones_activas (usando el ID de la misión activa)
+            // Guardar captura en misiones_activas
             console.log('📸 [MISION ACTIVA] Guardando captura en Supabase:', url);
-            // TODO: Actualizar para usar misionActiva.id en lugar de cardId
+            await addCaptureUrl(misionActiva.id, url);
+            console.log('✅ [MISION ACTIVA] Captura guardada en misiones_activas');
           }
         });
 
         console.log('✅ [MISION PLAY/PAUSE] Captura iniciada exitosamente, activando contador...');
 
-        // 4. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
+        // 4. Actualizar estado en Supabase a "en_progreso" e is_running = true
+        console.log('💾 [MISION ACTIVA] Actualizando estado a en_progreso en Supabase...');
+        await updateRunningState(misionActiva.id, {
+          is_running: true,
+          estado: 'en_progreso',
+          fecha_inicio: new Date().toISOString()
+        });
+        console.log('✅ [MISION ACTIVA] Estado en_progreso guardado en Supabase');
+
+        // 5. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
         setCards(prev => {
           console.log('🔄 [MISION PLAY/PAUSE] Actualizando cards, buscando card:', cardId);
           const updatedCards = prev.map(c => {
@@ -1323,14 +1344,14 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
 
   return (
-    <div className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}>
+    <div className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center ${lightMode ? '' : 'p-8'} ${isReceivingDrag ? 'z-50' : ''}`}>
       <div
         ref={canvasRef}
         className={`
-          relative w-4/5 h-4/5
-          border-4 border-dashed rounded-3xl
+          relative ${lightMode ? 'w-full h-full' : 'w-4/5 h-4/5'}
+          ${lightMode ? '' : 'border-4 border-dashed rounded-3xl'}
           transition-colors duration-300 ease-in-out overflow-hidden
-          ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-transparent'}
+          ${isDragOver ? 'border-blue-500 bg-blue-50' : lightMode ? 'bg-transparent' : 'border-gray-300 bg-transparent'}
           ${isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'}
         `}
         onDragEnter={handleDragEnter}

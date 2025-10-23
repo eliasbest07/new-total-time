@@ -12,9 +12,10 @@ interface ChatWindowProps {
     color?: string;
     online?: boolean;
   };
+  initialMessage?: string;
 }
 
-export default function ChatWindow({ currentUserId, targetUser }: ChatWindowProps) {
+export default function ChatWindow({ currentUserId, targetUser, initialMessage }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {

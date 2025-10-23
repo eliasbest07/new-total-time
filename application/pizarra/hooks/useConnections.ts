@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Connection } from '../types/index';
+import { Connection } from '../types';
 import { generateUniqueId } from '../utils/idGenerator';
 
 export const useConnections = () => {

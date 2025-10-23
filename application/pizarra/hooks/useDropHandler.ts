@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Card } from '../types/index';
+import { Card } from '../types';
 import { generateUniqueId } from '../utils/idGenerator';
 
 export const useDropHandler = (

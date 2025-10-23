@@ -42,10 +42,13 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
         return;
       }
 
-      // Obtener los IDs únicos de usuarios
-      const userIds = [...new Set(posts.map(p => p.id_usuario).filter(id => id !== null))];
+      // Obtener los IDs únicos de usuarios (filtrar null y undefined)
+      const userIds = [...new Set(posts.map(p => p.id_usuario).filter(id => id !== null && id !== undefined))];
+
+      console.log('👥 IDs de usuarios a buscar:', userIds);
 
       if (userIds.length === 0) {
+        console.log('⚠️ No hay IDs de usuarios válidos');
         setPosts(posts);
         return;
       }
