@@ -783,7 +783,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       // 3. Obtener las cards actuales de Supabase para esta pizarra
       const { data: cardsEnBD, error: cardsError } = await supabase
         .from('cards')
-        .select('id')
+        .select('card_id')
         .eq('id_pizarra', pizarraActual.id);
 
       if (cardsError) {
@@ -791,7 +791,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         return false;
       }
 
-      const currentCardsInDB = (cardsEnBD || []).map((c: any) => c.id);
+      const currentCardsInDB = (cardsEnBD || []).map((c: any) => c.card_id);
 
       // 4. Eliminar cards que ya no existen localmente
       console.log('   - Eliminando cards obsoletas...');
@@ -803,7 +803,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         const { error: deleteError } = await supabase
           .from('cards')
           .delete()
-          .eq('id', cardId);
+          .eq('card_id', cardId)
+          .eq('id_pizarra', pizarraActual.id);
 
         if (deleteError) {
           console.error('❌ Error eliminando card:', cardId, deleteError);
@@ -820,24 +821,33 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         if (cardExists) {
           // Actualizar card existente
           const cardData = mapCardToCardDB(card, pizarraActual.id);
-          const { error: updateError } = await supabase
+          const { data: updatedCard, error: updateError } = await supabase
             .from('cards')
             .update(cardData)
-            .eq('id', card.id);
+            .eq('card_id', card.id)
+            .eq('id_pizarra', pizarraActual.id)
+            .select('id')
+            .maybeSingle();
 
           if (updateError) {
             console.error('❌ Error actualizando card:', card.id, updateError);
-          } else {
-            console.log('   ✏️ Card actualizada:', card.id);
+            continue; // Saltar esta card si hay error
           }
 
+          if (!updatedCard) {
+            console.warn('⚠️ Card no encontrada para actualizar:', card.id);
+            continue; // Saltar si no existe
+          }
+
+          console.log('   ✏️ Card actualizada:', card.id);
+
           // Card existente - actualizar sus todos
-          if (card.type === 'todo' && card.todos) {
+          if (updatedCard && card.type === 'todo' && card.todos) {
             const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
             const cardTodoRepo = new SupabaseCardTodoRepository();
 
-            // Obtener todos existentes
-            const todosExistentes = await cardTodoRepo.getByCardId(card.id);
+            // Obtener todos existentes usando el UUID real
+            const todosExistentes = await cardTodoRepo.getByCardId(updatedCard.id);
             const todosExistentesIds = todosExistentes.map(t => t.todo_id);
 
             // Eliminar todos que ya no existen
@@ -846,7 +856,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                 await supabase
                   .from('card_todos')
                   .delete()
-                  .eq('id_card', card.id)
+                  .eq('id_card', updatedCard.id)
                   .eq('todo_id', todoExistente.todo_id);
               }
             }
@@ -863,12 +873,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                     position: todo.id - 1,
                     updated_at: new Date().toISOString()
                   })
-                  .eq('id_card', card.id)
+                  .eq('id_card', updatedCard.id)
                   .eq('todo_id', todo.id);
               } else {
                 // Crear nuevo todo
                 await cardTodoRepo.create({
-                  id_card: card.id,
+                  id_card: updatedCard.id,
                   todo_id: todo.id,
                   text: todo.text,
                   completed: todo.completed,
@@ -880,6 +890,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         } else {
           // Crear nueva card
           const cardData = mapCardToCardDB(card, pizarraActual.id);
+          console.log('📝 Datos a insertar:', cardData); // Debug
           const { data: createdCard, error: createError } = await supabase
             .from('cards')
             .insert([cardData])
@@ -887,7 +898,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             .single();
 
           if (createError) {
-            console.error('❌ Error creando card:', card.id, createError);
+            console.error('❌ Error creando card:', card.id);
+            console.error('❌ Error completo:', JSON.stringify(createError, null, 2));
+            console.error('❌ Datos que se intentaron insertar:', cardData);
           } else {
             console.log('   ➕ Card creada:', card.id);
 
