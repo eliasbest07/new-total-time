@@ -3,7 +3,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { StickyNote, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { useUsuariosOrganizacion } from '@/hooks/useUsuariosOrganizacion';
+import { useUsuariosOrganizacionContext } from '@/app/contexts/UsuariosOrganizacionContext';
 import Image from 'next/image';
 
 interface InputAreaLightProps {
@@ -33,24 +33,18 @@ export default function InputAreaLight({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const { usuario } = useAuth();
-  const { usuarios: usuariosOrganizacion } = useUsuariosOrganizacion(
-    usuario?.idOrganizacion || null
-  );
 
-  // Filtrar usuarios excluyendo al usuario actual y ordenar por estado de conexión
+  // Usar el context de usuarios (ya filtrados, excluyendo usuario actual)
+  const { usuariosFiltrados: usuariosOrganizacion } = useUsuariosOrganizacionContext();
+
+  // Ordenar por estado de conexión (los conectados primero)
   const usuariosFiltrados = useMemo(() => {
-    if (!usuario) return usuariosOrganizacion;
-
-    const filtrados = usuariosOrganizacion.filter(u => {
-      return u.email !== usuario.email;
-    });
-
-    // Ordenar: conectados primero (simular todos online por ahora)
-    return filtrados.sort((a, b) => {
+    // Ordenar: conectados primero
+    return [...usuariosOrganizacion].sort((a, b) => {
       // TODO: Implementar ordenamiento real por estado online
       return 0;
     });
-  }, [usuariosOrganizacion, usuario]);
+  }, [usuariosOrganizacion]);
 
   const resetTextareaHeight = () => {
     if (textareaRef.current) {

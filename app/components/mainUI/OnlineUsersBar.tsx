@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { useUsuariosOrganizacion } from '@/hooks/useUsuariosOrganizacion';
+import { useUsuariosOrganizacionContext } from '@/app/contexts/UsuariosOrganizacionContext';
 import Image from 'next/image';
 
 interface OnlineUsersBarProps {
@@ -17,25 +17,19 @@ interface OnlineUsersBarProps {
 
 export default function OnlineUsersBar({ onUserClick }: OnlineUsersBarProps) {
   const { usuario } = useAuth();
-  const { usuarios: usuariosOrganizacion } = useUsuariosOrganizacion(
-    usuario?.idOrganizacion || null
-  );
 
-  // Filtrar usuarios excluyendo al usuario actual y ordenar por estado de conexión
+  // Usar el context de usuarios (ya filtrados, excluyendo usuario actual)
+  const { usuariosFiltrados: usuariosOrganizacion } = useUsuariosOrganizacionContext();
+
+  // Ordenar por estado de conexión (los conectados primero)
   const usuariosFiltrados = useMemo(() => {
-    if (!usuario) return usuariosOrganizacion;
-
-    const filtrados = usuariosOrganizacion.filter(u => {
-      return u.email !== usuario.email;
-    });
-
     // Ordenar: conectados primero
-    return filtrados.sort((a, b) => {
+    return [...usuariosOrganizacion].sort((a, b) => {
       // TODO: Aquí deberías tener un campo real de "online" en tu entidad Usuario
       // Por ahora, simularemos que todos están online
       return 0;
     });
-  }, [usuariosOrganizacion, usuario]);
+  }, [usuariosOrganizacion]);
 
   // Mostrar solo los primeros 5 usuarios
   const usuariosVisibles = usuariosFiltrados.slice(0, 5);

@@ -5,6 +5,7 @@ import AnimatedBackground from "./components/AnimatedBackground";
 import { AuthProvider } from "./contexts/AuthContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { ChatWindowProvider } from "./contexts/ChatWindowContext";
+import { UsuariosOrganizacionProvider } from "./contexts/UsuariosOrganizacionContext";
 import TotalTimeNavbar from "./components/total-time-info";
 import SettingsModal from "./components/SettingsModal";
 import { ChatWindowManager } from "@/components/chat/ChatWindowManager";
@@ -39,20 +40,22 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          <SettingsProvider>
-            <ChatWindowProvider>
-              <AnimatedBackground />
-              <TotalTimeNavbar />
-              <SettingsModal />
-              <main className="pt-16 h-screen overflow-hidden">
-                {children}
-              </main>
-              <ChatWindowManager />
-              <IncomingMessagesListener />
-              {/* Monitor de memoria - solo visible en desarrollo */}
-              {process.env.NODE_ENV === 'development' && <MemoryMonitor />}
-            </ChatWindowProvider>
-          </SettingsProvider>
+          <UsuariosOrganizacionProvider>
+            <SettingsProvider>
+              <ChatWindowProvider>
+                <AnimatedBackground />
+                <TotalTimeNavbar />
+                <SettingsModal />
+                <main className="pt-16 h-screen overflow-hidden">
+                  {children}
+                </main>
+                <ChatWindowManager />
+                <IncomingMessagesListener />
+                {/* Monitor de memoria - solo visible en desarrollo */}
+                {process.env.NODE_ENV === 'development' && <MemoryMonitor />}
+              </ChatWindowProvider>
+            </SettingsProvider>
+          </UsuariosOrganizacionProvider>
         </AuthProvider>
       </body>
     </html>

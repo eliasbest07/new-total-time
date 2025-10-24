@@ -70,8 +70,25 @@ function ComentariosSection({
             return (
               <div key={comentario.id} className="bg-gray-50 border border-gray-200 rounded-lg p-2">
                 <div className="flex items-start gap-2">
-                  <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
-                    {iniciales}
+                  {/* Avatar del usuario */}
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden">
+                    {comentario.usuario?.avatar ? (
+                      <img
+                        src={comentario.usuario.avatar}
+                        alt={nombreUsuario}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.parentElement!.className = "w-6 h-6 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0";
+                          target.parentElement!.textContent = iniciales;
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center">
+                        {iniciales}
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -644,12 +661,12 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
           </div>
         ) : (
           <>
-            <div className="mb-4">
+            {/* <div className="mb-4">
               <h2 className="text-lg font-semibold text-gray-900 mb-2">Posts Recientes</h2>
               <p className="text-sm text-gray-600">Últimas publicaciones de la sala</p>
-            </div>
+            </div> */}
 
-            <div className="space-y-4">
+            <div >
               {postsActuales.map((post: Post) => {
                 const nombreUsuario = post.usuario?.nombre || 'Usuario' || 'Desconocido';
                 const iniciales = post.usuario?.nombre?.substring(0, 2).toUpperCase() || 'U';

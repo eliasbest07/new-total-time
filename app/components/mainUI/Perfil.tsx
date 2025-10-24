@@ -75,7 +75,7 @@ const Perfil = ({
     };
 
     const handleDashboard = () => {
-        router.push('/demo/dashboard');
+        router.push('/dashboard');
         setMenuAbierto(false);
     };
 

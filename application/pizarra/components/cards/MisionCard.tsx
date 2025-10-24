@@ -3,6 +3,13 @@ import { Card } from '../../types';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
+import { createClient } from '@supabase/supabase-js';
+
+// Cliente de Supabase para subir archivos directamente
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface MisionCardProps {
   card: Card;
@@ -191,30 +198,37 @@ export const MisionCard: React.FC<MisionCardProps> = ({
         return;
       }
 
-      // 1. Subir imagen si existe
+      // 1. Subir imagen si existe (directamente a Supabase Storage)
       let imagenUrl: string | null = null;
       if (entregaImagen) {
-        console.log('📸 [ENTREGA] Subiendo imagen de entrega...');
-        const formData = new FormData();
-        formData.append('file', entregaImagen);
-        formData.append('userId', currentUserUuid);
-        formData.append('cardId', card.id);
+        console.log('📸 [ENTREGA] Subiendo imagen de entrega directamente a Supabase...');
 
-        const uploadResponse = await fetch('/api/upload-entregable', {
-          method: 'POST',
-          body: formData
-        });
+        // Generar nombre del archivo
+        const timestamp = Date.now();
+        const fileExtension = entregaImagen.name.split('.').pop() || 'jpg';
+        const filename = `${currentUserUuid}/${card.id}/entrega-${timestamp}.${fileExtension}`;
 
-        const uploadResult = await uploadResponse.json();
+        // Subir archivo directamente al bucket 'entregables'
+        const { data, error } = await supabase.storage
+          .from('entregables')
+          .upload(filename, entregaImagen, {
+            contentType: entregaImagen.type || 'image/jpeg',
+            upsert: false
+          });
 
-        if (uploadResult.success) {
-          imagenUrl = uploadResult.url;
-          console.log('✅ [ENTREGA] Imagen subida:', imagenUrl);
-        } else {
-          console.error('❌ Error subiendo imagen:', uploadResult.error);
-          alert('Error al subir la imagen. Intenta de nuevo.');
+        if (error) {
+          console.error('❌ Error subiendo imagen:', error);
+          alert(`Error al subir la imagen: ${error.message}`);
           return;
         }
+
+        // Obtener URL pública
+        const { data: publicUrlData } = supabase.storage
+          .from('entregables')
+          .getPublicUrl(filename);
+
+        imagenUrl = publicUrlData.publicUrl;
+        console.log('✅ [ENTREGA] Imagen subida:', imagenUrl);
       }
 
       // 2. Guardar entrega en misiones_activas

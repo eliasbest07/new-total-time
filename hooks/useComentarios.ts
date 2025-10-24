@@ -54,11 +54,11 @@ export const useComentarios = (comentarioIds: string[] | null): UseComentariosRe
             if (userIds.length > 0) {
                 const { data: usuarios, error: userError } = await supabase
                     .from('usuario')
-                    .select('id, nombre')
+                    .select('id, nombre, avatar')
                     .in('id', userIds);
 
                 if (!userError && usuarios) {
-                    usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre }]));
+                    usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre, avatar: u.avatar }]));
                 }
             }
 
@@ -139,11 +139,11 @@ export const useComentariosByPostId = (postId: string | null): UseComentariosRet
             if (userIds.length > 0) {
                 const { data: usuarios, error: userError } = await supabase
                     .from('usuario')
-                    .select('id, nombre')
+                    .select('id, nombre, avatar')
                     .in('id', userIds);
 
                 if (!userError && usuarios) {
-                    usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre }]));
+                    usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre, avatar: u.avatar }]));
                 }
             }
 

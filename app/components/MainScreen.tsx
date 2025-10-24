@@ -19,7 +19,7 @@ import ActividadesGrid from "../demo/components/ActividadesGrid";
 import MisionesCompact from "./mainUI/MisionesCompact";
 import { useRecursos } from "@/hooks/useRecursos";
 import { useProyectos } from "@/hooks/useProyectos";
-import { useUsuariosOrganizacion } from "@/hooks/useUsuariosOrganizacion";
+import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizacionContext";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { FileText, Link, Code, Image, Video, Download, LucideIcon } from "lucide-react";
 import AgregarRecursoModal from "./modals/AgregarRecursoModal";
@@ -90,57 +90,18 @@ export default function MainScreen() {
   );
   
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos();
-  
-  const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(
-    enableHooks ? usuario?.idOrganizacion || null : null
-  );
-  
+
+  // Usar el context de usuarios (se carga una sola vez y se comparte globalmente)
+  const { usuariosFiltrados, loading: usuariosLoading } = useUsuariosOrganizacionContext();
+
   // Hook para datos del chart con delay adicional
-  const { 
-    historyData: previousDayBoardHistory, 
-    chartBarHeights, 
+  const {
+    historyData: previousDayBoardHistory,
+    chartBarHeights,
     chartMaxHeight,
     loading: chartLoading,
     error: chartError
   } = useChartHistory(enableHooks ? usuario?.id || null : null);
-
-  // Filtrar usuarios de la organización excluyendo al usuario actual
-  const usuariosFiltrados = useMemo(() => {
-    // console.log('🔍 Filtrado de usuarios - Usuario actual:', {
-    //   id: usuario?.id,
-    //   userAuth: usuario?.userAuth,
-    //   nombre: usuario?.getNombreCompleto(),
-    //   email: usuario?.email
-    // });
-
-    // console.log('🔍 Filtrado de usuarios - Todos los usuarios de la organización:',
-    //   usuariosOrganizacion.map(u => ({
-    //     id: u.id,
-    //     userAuth: u.userAuth,
-    //     nombre: u.getNombreCompleto(),
-    //     email: u.email
-    //   }))
-    // );
-
-    if (!usuario) return usuariosOrganizacion;
-
-    const filtrados = usuariosOrganizacion.filter(u => {
-      // Comparar por email ya que los IDs pueden ser diferentes (uno es userAuth UUID, otro es id de tabla)
-      const esDiferente = u.email !== usuario.email;
-      // console.log(`🔍 Comparando ${u.getNombreCompleto()} (email: ${u.email}) con usuario actual (email: ${usuario.email}): ${esDiferente ? 'INCLUIR' : 'EXCLUIR'}`);
-      return esDiferente;
-    });
-
-    // console.log('🔍 Usuarios filtrados (resultado final):',
-    //   filtrados.map(u => ({
-    //     id: u.id,
-    //     nombre: u.getNombreCompleto(),
-    //     email: u.email
-    //   }))
-    // );
-
-    return filtrados;
-  }, [usuariosOrganizacion, usuario]);
 
   // Hook para screenshots con delay
   const {

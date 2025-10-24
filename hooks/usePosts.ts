@@ -56,7 +56,7 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
       // Obtener los datos de los usuarios
       const { data: usuarios, error: userError } = await supabase
         .from('usuario')
-        .select('id, nombre')
+        .select('id, id_usuario, nombre, avatar')
         .in('id', userIds);
 
       if (userError) {
@@ -67,7 +67,7 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
 
       // Crear un mapa de usuarios
       const usuariosMap = new Map(
-        (usuarios || []).map(u => [u.id, { nombre: u.nombre }])
+        (usuarios || []).map(u => [u.id, { nombre: u.nombre, avatar: u.avatar }])
       );
 
       // Combinar los posts con los datos de usuario
