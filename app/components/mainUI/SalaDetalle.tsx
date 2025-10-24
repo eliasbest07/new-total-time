@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, MessageCircle, Calendar, Send, Plus, ThumbsU
 import { Sala } from "@/domain/entities/Sala";
 import { usePosts } from "@/hooks/usePosts";
 import { Post } from "@/domain/entities/Post";
-import { useComentariosByPost } from "@/hooks/useComentarios";
+import { useComentariosByPostId } from "@/hooks/useComentarios";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
 import { SupabasePostRepository } from "@/infrastructure/datasource/SupabasePostRepository";
@@ -18,7 +18,6 @@ import { NewPostsBadge } from "@/components/notifications/NewPostsBadge";
 // Componente interno para mostrar comentarios de un post
 function ComentariosSection({
   postId,
-  comentarioIds,
   commentContent,
   onCommentContentChange,
   onAddComment,
@@ -27,7 +26,6 @@ function ComentariosSection({
   onDislikeComment
 }: {
   postId: string;
-  comentarioIds: string[];
   commentContent: string;
   onCommentContentChange: (content: string) => void;
   onAddComment: (postId: string) => void;
@@ -35,7 +33,7 @@ function ComentariosSection({
   onLikeComment: (comentarioId: string) => void;
   onDislikeComment: (comentarioId: string) => void;
 }) {
-  const { comentarios, loading, error } = useComentariosByPost(comentarioIds);
+  const { comentarios, loading, error } = useComentariosByPostId(postId);
   const [showCommentForm, setShowCommentForm] = useState(false);
 
   const formatearFecha = (fecha: string) => {
@@ -287,7 +285,6 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
         id_sala: sala.id,
         contenido: newPostContent,
         id_usuario: usuarioId, // ID numérico del usuario
-        id_comentarios: [],
         edited_at: null,
         likes_count: 0,
         dislikes_count: 0
@@ -407,35 +404,10 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
 
       console.log('✅ Comentario creado:', nuevoComentario);
 
-      // Agregar el ID del comentario al array id_comentarios del post
-      const postRepository = new SupabasePostRepository();
-      const { data: currentPost, error: fetchError } = await supabase
-        .from('post_sala')
-        .select('id_comentarios')
-        .eq('id', postId)
-        .single();
-
-      if (!fetchError && currentPost) {
-        const currentComentarios = currentPost.id_comentarios || [];
-        const updatedComentarios = [...currentComentarios, nuevoComentario.id];
-
-        const { error: updateError } = await supabase
-          .from('post_sala')
-          .update({ id_comentarios: updatedComentarios })
-          .eq('id', postId);
-
-        if (updateError) {
-          console.error('❌ Error actualizando id_comentarios del post:', updateError);
-        } else {
-          console.log('✅ ID del comentario agregado al post');
-        }
-      }
-
-      // Limpiar el formulario y refrescar
+      // Ya no necesitamos actualizar el post porque comentario_sala tiene id_post
+      // Simplemente limpiamos y refrescamos
       setNewCommentContent('');
       setCommentingOnPost(null);
-
-      // Refrescar posts para actualizar el contador de comentarios si es necesario
       refetch();
     } catch (error) {
       console.error('Error creando comentario:', error);
@@ -808,10 +780,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
                             className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-full transition-colors"
                           >
                             <MessageCircle className="w-3 h-3" />
-                            {post.id_comentarios && post.id_comentarios.length > 0
-                              ? `${post.id_comentarios.length} comentario${post.id_comentarios.length !== 1 ? 's' : ''}`
-                              : 'Comentarios'
-                            }
+                            Comentarios
                             {expandedPostId === post.id ? (
                               <ChevronUp className="w-3 h-3" />
                             ) : (
@@ -828,7 +797,6 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
                       <div className="border-t border-gray-200 px-4 pb-4">
                         <ComentariosSection
                           postId={post.id}
-                          comentarioIds={post.id_comentarios || []}
                           commentContent={newCommentContent}
                           onCommentContentChange={setNewCommentContent}
                           onAddComment={handleCreateComment}

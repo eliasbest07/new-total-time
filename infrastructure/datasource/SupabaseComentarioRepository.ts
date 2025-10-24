@@ -85,13 +85,11 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
 
   async getComentariosByPost(postId: string): Promise<Comentario[]> {
     try {
-      // console.log('💬 Obteniendo todos los comentarios de la sala (ignorando postId por ahora):', postId);
-
-      // NOTA: La tabla comentario_sala NO tiene columna id_post
-      // Por ahora, obtenemos todos los comentarios de la sala
+      // ✅ FIX: Ahora sí usamos id_post para filtrar
       const { data, error } = await supabase
         .from('comentario_sala')
         .select('*')
+        .eq('id_post', postId)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -145,16 +143,16 @@ export class SupabaseComentarioRepository implements ComentarioRepository {
 
   async createComentario(contenido: string, usuarioId: number, postId?: string): Promise<Comentario | null> {
     try {
-      // console.log('✍️ Creando comentario para usuario:', usuarioId);
-      // console.log('📝 Contenido:', contenido);
-      // console.log('📋 Post ID:', postId);
-
+      // ✅ FIX: Incluir id_post si está disponible
       const insertData: any = {
         idUsuario: usuarioId,
         contenido: contenido
       };
 
-      // console.log('📦 Datos a insertar:', insertData);
+      // Agregar id_post si se proporciona
+      if (postId) {
+        insertData.id_post = postId;
+      }
 
       const { data, error } = await supabase
         .from('comentario_sala')

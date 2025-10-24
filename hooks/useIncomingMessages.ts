@@ -26,26 +26,27 @@ export const useIncomingMessages = (
   const chatWindowsContext = useChatWindows();
   const processedMessagesRef = useRef<Set<string>>(new Set());
 
+  // ✅ FIX: Usar useRef para mantener estable el callback y evitar recrear el canal
+  const onNewMessageRef = useRef(options?.onNewMessage);
+  const chatWindowsContextRef = useRef(chatWindowsContext);
+
+  // Actualizar refs cuando cambien
+  useEffect(() => {
+    onNewMessageRef.current = options?.onNewMessage;
+    chatWindowsContextRef.current = chatWindowsContext;
+  }, [options?.onNewMessage, chatWindowsContext]);
+
   // Usar el userId pasado por parámetro o el del contexto
   const currentUserId = userId || usuario?.userAuth;
 
-  console.log('📬 useIncomingMessages - Hook ejecutado');
-  console.log('📬 useIncomingMessages - Usuario:', currentUserId);
-  console.log('📬 useIncomingMessages - Tiene callback:', !!options?.onNewMessage);
-
   useEffect(() => {
-    console.log('📬 useIncomingMessages - useEffect ejecutado');
-
     if (!currentUserId) {
-      console.log('📬 useIncomingMessages - No hay usuario logeado');
       return;
     }
 
-    console.log('📬 useIncomingMessages - Configurando listener para usuario:', currentUserId);
-
-    // Suscribirse a mensajes donde el usuario actual es el RECEPTOR
+    // ✅ FIX: Nombre único de canal por usuario para evitar conflictos
     const channel = supabase
-      .channel('incoming-messages')
+      .channel(`incoming-messages-${currentUserId}`)
       .on(
         'postgres_changes',
         {
@@ -55,14 +56,11 @@ export const useIncomingMessages = (
           filter: `id_receptor=eq.${currentUserId}`
         },
         async (payload) => {
-          console.log('📬 useIncomingMessages - Nuevo mensaje recibido:', payload);
-
           const mensajeId = payload.new.id;
           const idEmisor = payload.new.id_emisor;
 
           // Evitar procesar el mismo mensaje múltiples veces
           if (processedMessagesRef.current.has(mensajeId)) {
-            console.log('📬 useIncomingMessages - Mensaje ya procesado, ignorando');
             return;
           }
 
@@ -71,7 +69,6 @@ export const useIncomingMessages = (
 
           // Obtener información del emisor
           try {
-            console.log('📬 useIncomingMessages - Buscando emisor con user_auth:', idEmisor);
 
             // Intentar con user_auth primero
             let { data: emisorData, error } = await supabase
@@ -107,9 +104,6 @@ export const useIncomingMessages = (
             }
 
             if (!emisorData || error) {
-              console.error('📬 useIncomingMessages - No se pudo encontrar el usuario emisor');
-              console.error('📬 useIncomingMessages - Error:', error);
-
               // Abrir ventana con datos por defecto si hay error
               const defaultUserData = {
                 userId: idEmisor,
@@ -119,15 +113,14 @@ export const useIncomingMessages = (
                 isOnline: true
               };
 
-              if (options?.onNewMessage) {
-                options.onNewMessage(defaultUserData);
-              } else if (chatWindowsContext?.openChatWindow) {
-                chatWindowsContext.openChatWindow(defaultUserData);
+              // ✅ FIX: Usar refs estables en lugar de options/context directamente
+              if (onNewMessageRef.current) {
+                onNewMessageRef.current(defaultUserData);
+              } else if (chatWindowsContextRef.current?.openChatWindow) {
+                chatWindowsContextRef.current.openChatWindow(defaultUserData);
               }
               return;
             }
-
-            console.log('📬 useIncomingMessages - Emisor encontrado:', emisorData);
 
             // Obtener nombre completo (solo hay nombre, no apellido)
             const nombreCompleto = emisorData?.nombre || emisorData?.username || 'Usuario';
@@ -158,14 +151,6 @@ export const useIncomingMessages = (
               ? `bg-[${colorMarco}]`
               : colorMarco || 'bg-purple-600';
 
-            console.log('📬 useIncomingMessages - Datos procesados:', {
-              nombreCompleto,
-              iniciales,
-              userAvatar,
-              colorClass,
-              colorMarco
-            });
-
             // Datos del usuario para abrir la ventana
             const userData = {
               userId: idEmisor,
@@ -175,27 +160,23 @@ export const useIncomingMessages = (
               isOnline: true // Asumimos que está online porque acaba de enviar un mensaje
             };
 
-            // Abrir ventana de chat usando callback o contexto
-            if (options?.onNewMessage) {
-              options.onNewMessage(userData);
-            } else if (chatWindowsContext?.openChatWindow) {
-              chatWindowsContext.openChatWindow(userData);
+            // ✅ FIX: Usar refs estables en lugar de options/context directamente
+            if (onNewMessageRef.current) {
+              onNewMessageRef.current(userData);
+            } else if (chatWindowsContextRef.current?.openChatWindow) {
+              chatWindowsContextRef.current.openChatWindow(userData);
             }
-
-            console.log('📬 useIncomingMessages - Ventana de chat abierta para:', nombreCompleto);
           } catch (err) {
-            console.error('📬 useIncomingMessages - Error procesando mensaje entrante:', err);
+            console.error('❌ Error procesando mensaje entrante:', err);
           }
         }
       )
       .subscribe();
 
-    console.log('📬 useIncomingMessages - Suscripción configurada');
-
-    // Limpiar suscripción al desmontar
+    // ✅ FIX: Limpieza mejorada para evitar memory leaks
     return () => {
-      console.log('📬 useIncomingMessages - Eliminando suscripción');
+      channel.unsubscribe();
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, options, chatWindowsContext]);
+  }, [currentUserId]); // ✅ FIX: Solo currentUserId como dependencia
 };

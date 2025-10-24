@@ -128,14 +128,12 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
       return;
     }
 
-    // console.log('💬 useChatMessages - Configurando suscripción realtime');
-
     // Calcular el id_conversacion para filtrar correctamente
     const idConversacion = Mensaje.generarIdConversacion(currentUserId, otherUserId);
 
-    // Suscribirse a cambios en la tabla mensajes
+    // ✅ FIX: Nombre único de canal por conversación para evitar conflictos
     const channel = supabase
-      .channel('mensajes-changes')
+      .channel(`chat-${idConversacion}`)
       .on(
         'postgres_changes',
         {
@@ -145,7 +143,6 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
           filter: `id_conversacion=eq.${idConversacion}`
         },
         (payload) => {
-          // console.log('💬 useChatMessages - Cambio detectado en mensajes:', payload);
 
           if (payload.eventType === 'INSERT') {
             const nuevoMensaje = new Mensaje(
@@ -163,10 +160,8 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
             setMensajes(prev => {
               const existe = prev.some(m => m.id === nuevoMensaje.id);
               if (existe) {
-                // console.log('💬 useChatMessages - Mensaje duplicado detectado en realtime, ignorando:', nuevoMensaje.id);
                 return prev;
               }
-              // console.log('💬 useChatMessages - Nuevo mensaje recibido en realtime:', nuevoMensaje.id);
               return [...prev, nuevoMensaje];
             });
           } else if (payload.eventType === 'UPDATE') {
@@ -191,11 +186,9 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
       )
       .subscribe();
 
-    // console.log('💬 useChatMessages - Suscripción realtime configurada');
-
-    // Limpiar suscripción al desmontar
+    // ✅ FIX: Limpieza mejorada para evitar memory leaks
     return () => {
-      // console.log('💬 useChatMessages - Eliminando suscripción realtime');
+      channel.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [currentUserId, otherUserId]);

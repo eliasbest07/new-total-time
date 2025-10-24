@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -30,19 +30,26 @@ export const usePresence = (
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
+  // ✅ FIX: Estabilizar currentUser para evitar recrear el canal constantemente
+  const stableCurrentUser = useMemo(() =>
+    currentUser ? {
+      id: currentUser.id,
+      username: currentUser.username,
+      avatar: currentUser.avatar
+    } : null,
+    [currentUser?.id, currentUser?.username, currentUser?.avatar]
+  );
+
   useEffect(() => {
-    if (!organizationId || !currentUser) {
-      // console.log('⚠️ Presence: No hay organizationId o currentUser');
+    if (!organizationId || !stableCurrentUser) {
       return;
     }
-
-    // console.log('🟢 Presence: Iniciando tracking para', currentUser.username);
 
     // Crear canal de presencia específico para la organización
     const channel = supabase.channel(`presence-org-${organizationId}`, {
       config: {
         presence: {
-          key: currentUser.id, // Usar user_id como key única
+          key: stableCurrentUser.id, // Usar user_id como key única
         },
       },
     });
@@ -52,7 +59,6 @@ export const usePresence = (
       .on('presence', { event: 'sync' }, () => {
         // Sync se dispara cuando hay cambios en la presencia
         const state = channel.presenceState<PresenceUser>();
-        // console.log('🔄 Presence Sync:', state);
 
         // Convertir el estado en un array de usuarios
         const users: PresenceUser[] = [];
@@ -65,40 +71,37 @@ export const usePresence = (
         });
 
         setOnlineUsers(users);
-        // console.log(`👥 Usuarios online: ${users.length}`, users.map(u => u.username));
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        // console.log('✅ Usuario conectado:', newPresences);
+        // Usuario conectado
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        // console.log('❌ Usuario desconectado:', leftPresences);
+        // Usuario desconectado
       })
       .subscribe(async (status) => {
-        // console.log('📡 Presence status:', status);
-
         if (status === 'SUBSCRIBED') {
           // Una vez suscrito, trackear la presencia del usuario actual
           await channel.track({
-            user_id: currentUser.id,
-            username: currentUser.username,
-            avatar: currentUser.avatar || null,
+            user_id: stableCurrentUser.id,
+            username: stableCurrentUser.username,
+            avatar: stableCurrentUser.avatar || null,
             online_at: new Date().toISOString(),
           });
-          // console.log('✅ Tracking iniciado para:', currentUser.username);
         }
       });
 
     channelRef.current = channel;
 
-    // Cleanup: dejar de trackear cuando el componente se desmonta
+    // ✅ FIX: Limpieza mejorada para evitar memory leaks
     return () => {
-      // console.log('🔴 Presence: Limpiando tracking para', currentUser.username);
       if (channelRef.current) {
         channelRef.current.untrack();
         channelRef.current.unsubscribe();
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
-  }, [organizationId, currentUser?.id, currentUser?.username, currentUser?.avatar]);
+  }, [organizationId, stableCurrentUser]); // ✅ FIX: Usar stableCurrentUser como dependencia
 
   // Función de utilidad para verificar si un usuario específico está online
   const isUserOnline = (userId: string): boolean => {

@@ -222,26 +222,25 @@ export default function MainScreen() {
     };
   }, []);
 
-  // Log para proyectos
-  useEffect(() => {
-    console.log('📁 MainScreen - Estado proyectos:', {
-      usuario: usuario?.id,
-      proyectosLoading,
-      proyectosSupabaseLength: proyectosSupabase?.length,
-      proyectosSupabase
-    });
-  }, [proyectosSupabase, proyectosLoading]);
+  // ✅ FIX: Console.logs comentados para reducir memoria
+  // useEffect(() => {
+  //   console.log('📁 MainScreen - Estado proyectos:', {
+  //     usuario: usuario?.id,
+  //     proyectosLoading,
+  //     proyectosSupabaseLength: proyectosSupabase?.length,
+  //     proyectosSupabase
+  //   });
+  // }, [proyectosSupabase, proyectosLoading]);
 
-  // Log para usuarios de organización
-  useEffect(() => {
-    console.log('👥 MainScreen - Estado usuarios organización:', {
-      usuario: usuario?.id,
-      organizacion: usuario?.idOrganizacion,
-      usuariosLoading,
-      usuariosOrganizacionLength: usuariosOrganizacion?.length,
-      usuariosOrganizacion
-    });
-  }, [usuariosOrganizacion, usuariosLoading]);
+  // useEffect(() => {
+  //   console.log('👥 MainScreen - Estado usuarios organización:', {
+  //     usuario: usuario?.id,
+  //     organizacion: usuario?.idOrganizacion,
+  //     usuariosLoading,
+  //     usuariosOrganizacionLength: usuariosOrganizacion?.length,
+  //     usuariosOrganizacion
+  //   });
+  // }, [usuariosOrganizacion, usuariosLoading]);
 
   const handleAddResource = (): void => {
     setShowAddResourceModal(true);
@@ -312,13 +311,11 @@ export default function MainScreen() {
     color?: string;
     online?: boolean;
   }, message?: string) => {
-    console.log('👤 handleUserClick llamado con:', userData);
     setSelectedChatUser(userData);
     if (message) {
       setPendingMessage(message);
     }
     setShowChatWindow(true);
-    console.log('👤 Estado actualizado - showChatWindow debería ser true');
   };
 
   // Handler para mensajes entrantes
@@ -329,8 +326,6 @@ export default function MainScreen() {
     userColor: string;
     isOnline: boolean;
   }) => {
-    console.log('🔔 Mensaje entrante recibido:', userData);
-
     // Abrir la ventana del chat con el emisor
     setSelectedChatUser({
       userId: userData.userId,
@@ -983,18 +978,10 @@ export default function MainScreen() {
                       <div className="mt-3 pt-3 border-t border-gray-200">
                         <button
                           onClick={() => {
-                            console.log('🔍 Click en Agregar a pizarra', { item, cardData: item.cardData, pizarraRef: pizarraRef.current });
                             if (item.cardData && pizarraRef.current) {
-                              console.log('✅ Restaurando card:', item.cardData);
                               // Usar el método de la pizarra para agregar el card
                               pizarraRef.current.restoreCard?.(item.cardData);
-
                               alert(`✅ ${item.type} "${item.title}" agregado a la pizarra`);
-                            } else {
-                              console.error('❌ No se puede restaurar:', {
-                                hasCardData: !!item.cardData,
-                                hasPizarraRef: !!pizarraRef.current
-                              });
                             }
                           }}
                           className={`w-full ${colors.badge} px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity`}
@@ -1026,7 +1013,6 @@ export default function MainScreen() {
         <Ventana
           isOpen={showChatWindow}
           onClose={() => {
-            console.log('🔴 Cerrando ventana de chat');
             setShowChatWindow(false);
             setSelectedChatUser(null);
             setPendingMessage("");

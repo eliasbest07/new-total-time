@@ -40,10 +40,8 @@ export class SupabasePostRepository implements PostRepository {
 
       // Si no hay IDs válidos, devolver posts sin datos de usuario
       if (userIds.length === 0) {
-        // console.log('⚠️ No hay id_usuario, devolviendo posts sin datos de usuario');
         return posts.map(post => ({
           ...post,
-          id_comentarios: post.id_comentarios || [],
           edited_at: post.edited_at || null,
           likes_count: post.likes_count || 0,
           dislikes_count: post.dislikes_count || 0,
@@ -64,7 +62,6 @@ export class SupabasePostRepository implements PostRepository {
         // Si hay error obteniendo usuarios, devolvemos posts sin datos de usuario
         return posts.map(post => ({
           ...post,
-          id_comentarios: post.id_comentarios || [],
           edited_at: post.edited_at || null,
           likes_count: post.likes_count || 0,
           dislikes_count: post.dislikes_count || 0,
@@ -77,15 +74,12 @@ export class SupabasePostRepository implements PostRepository {
         (usuarios || []).map(u => [u.id_usuario, { nombre: u.nombre, avatar: u.avatar }])
       );
 
-      // console.log('✅ Usuarios mapeados:', usuariosMap.size);
-
       // Combinamos los posts con los datos de usuario
       const postsWithExtraFields = posts.map(post => ({
         ...post,
-        id_comentarios: post.id_comentarios || [], // Usar el array de la DB o vacío
-        edited_at: post.edited_at || null, // Campo de la DB o null
-        likes_count: post.likes_count || 0, // Campo de la DB o 0
-        dislikes_count: post.dislikes_count || 0, // Campo de la DB o 0
+        edited_at: post.edited_at || null,
+        likes_count: post.likes_count || 0,
+        dislikes_count: post.dislikes_count || 0,
         usuario: post.id_usuario ? usuariosMap.get(post.id_usuario) : undefined
       }));
 
@@ -124,7 +118,6 @@ export class SupabasePostRepository implements PostRepository {
       // Agregar campos desde la DB o valores por defecto
       const postWithExtraFields = {
         ...data,
-        id_comentarios: data.id_comentarios || [],
         edited_at: data.edited_at || null,
         likes_count: data.likes_count || 0,
         dislikes_count: data.dislikes_count || 0,
@@ -160,7 +153,6 @@ export class SupabasePostRepository implements PostRepository {
       // Agregar campos desde la DB o valores por defecto
       const postWithExtraFields = {
         ...data,
-        id_comentarios: data.id_comentarios || [],
         edited_at: data.edited_at || null,
         likes_count: data.likes_count || 0,
         dislikes_count: data.dislikes_count || 0,
