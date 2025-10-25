@@ -1,17 +1,31 @@
 // src/infrastructure/services/supabaseClient.ts
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 
-// Cliente singleton de Supabase
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true, // Supabase maneja el refresh automáticamente
-    persistSession: true,
-    detectSessionInUrl: true
-  }
-});
+// Variable global para almacenar la instancia singleton
+// Esto previene múltiples instancias durante hot reload en desarrollo
+declare global {
+  var __supabase: SupabaseClient | undefined;
+}
+
+// Cliente singleton de Supabase con protección contra hot reload
+export const supabase =
+  globalThis.__supabase ||
+  createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      storageKey: 'supabase-auth', // Clave única para el storage
+    },
+  });
+
+// Guardar en global solo en desarrollo para prevenir múltiples instancias
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.__supabase = supabase;
+}
 
 // Cache para la sesión de Supabase
 let sessionCache: { session: any; timestamp: number } | null = null;

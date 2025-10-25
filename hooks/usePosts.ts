@@ -57,7 +57,7 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
       const { data: usuarios, error: userError } = await supabase
         .from('usuario')
         .select('id, id_usuario, nombre, avatar')
-        .in('id', userIds);
+        .in('id_usuario', userIds);
 
       if (userError) {
         console.error('❌ Error obteniendo usuarios:', userError);
@@ -65,9 +65,9 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
         return;
       }
 
-      // Crear un mapa de usuarios
+      // Crear un mapa de usuarios por id_usuario
       const usuariosMap = new Map(
-        (usuarios || []).map(u => [u.id, { nombre: u.nombre, avatar: u.avatar }])
+        (usuarios || []).map(u => [u.id_usuario, { nombre: u.nombre, avatar: u.avatar }])
       );
 
       // Combinar los posts con los datos de usuario
@@ -89,7 +89,39 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
 
   useEffect(() => {
     loadPosts();
-  }, [loadPosts]);
+
+    // Configurar suscripción realtime para post_sala
+    if (!idSala) return;
+
+    console.log('🔔 [usePosts] Configurando suscripción realtime para sala:', idSala);
+
+    const channel = supabase
+      .channel(`post_sala_changes_${idSala}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'post_sala',
+          filter: `id_sala=eq.${idSala}`
+        },
+        (payload) => {
+          console.log('🔔 [usePosts] Cambio detectado en post_sala:', payload);
+
+          // Recargar posts cuando hay cambios
+          loadPosts();
+        }
+      )
+      .subscribe((status) => {
+        console.log('🔔 [usePosts] Estado de suscripción:', status);
+      });
+
+    // Cleanup: desuscribirse cuando el componente se desmonte o cambie la sala
+    return () => {
+      console.log('🔔 [usePosts] Cancelando suscripción realtime para sala:', idSala);
+      supabase.removeChannel(channel);
+    };
+  }, [loadPosts, idSala]);
 
   return {
     posts,

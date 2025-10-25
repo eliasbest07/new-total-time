@@ -1,6 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import {
+  getUnviewedPostsCount,
+  markPostAsViewed,
+  isPostViewed
+} from '@/services/viewedPostsService';
 
 interface NewPostNotification {
   postId: string;
@@ -8,6 +13,7 @@ interface NewPostNotification {
   autorNombre: string;
   contenido: string;
   salaId: number;
+  timestamp: string; // Timestamp de cuándo se creó la notificación
 }
 
 interface UseNewPostsNotificationReturn {
@@ -15,55 +21,73 @@ interface UseNewPostsNotificationReturn {
   notifications: NewPostNotification[];
   clearNotifications: () => void;
   markAsRead: () => void;
+  markPostAsViewed: (postId: string) => void; // Nueva función para marcar posts individuales
 }
 
-const STORAGE_KEY = 'new_posts_count';
 const NOTIFICATIONS_KEY = 'post_notifications';
 
 export const useNewPostsNotification = (
   currentUserId: number | null,
-  salaId: number | null
+  salaId: number | null,
+  allPostIds: string[] = [] // IDs de todos los posts actuales para calcular no vistos
 ): UseNewPostsNotificationReturn => {
   const [newPostsCount, setNewPostsCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<NewPostNotification[]>([]);
 
-  // Cargar contador desde localStorage al iniciar
+  // Cargar notificaciones desde localStorage al iniciar
   useEffect(() => {
     if (!salaId) return;
 
-    const storedCount = localStorage.getItem(`${STORAGE_KEY}_${salaId}`);
     const storedNotifications = localStorage.getItem(`${NOTIFICATIONS_KEY}_${salaId}`);
-
-    if (storedCount) {
-      setNewPostsCount(parseInt(storedCount, 10));
-    }
 
     if (storedNotifications) {
       try {
-        setNotifications(JSON.parse(storedNotifications));
+        const parsed = JSON.parse(storedNotifications);
+        setNotifications(parsed);
       } catch (error) {
         console.error('Error parsing notifications:', error);
       }
     }
   }, [salaId]);
 
-  // Guardar en localStorage cuando cambie
+  // Calcular contador de posts no vistos basado en localStorage
+  useEffect(() => {
+    if (!salaId || allPostIds.length === 0) {
+      setNewPostsCount(0);
+      return;
+    }
+
+    const unviewedCount = getUnviewedPostsCount(salaId, allPostIds);
+    setNewPostsCount(unviewedCount);
+  }, [salaId, allPostIds]);
+
+  // Guardar notificaciones en localStorage cuando cambien
   useEffect(() => {
     if (!salaId) return;
-
-    localStorage.setItem(`${STORAGE_KEY}_${salaId}`, newPostsCount.toString());
     localStorage.setItem(`${NOTIFICATIONS_KEY}_${salaId}`, JSON.stringify(notifications));
-  }, [newPostsCount, notifications, salaId]);
+  }, [notifications, salaId]);
 
-  // Marcar como leído (resetear contador)
+  // Marcar como leído (limpiar solo las notificaciones toast, no los posts no vistos)
   const markAsRead = useCallback(() => {
     if (!salaId) return;
 
-    setNewPostsCount(0);
+    // Solo limpiar las notificaciones de toast, el contador se mantiene hasta que vean los posts
     setNotifications([]);
-    localStorage.setItem(`${STORAGE_KEY}_${salaId}`, '0');
     localStorage.setItem(`${NOTIFICATIONS_KEY}_${salaId}`, '[]');
   }, [salaId]);
+
+  // Marcar un post individual como visto
+  const markPostAsViewedHandler = useCallback((postId: string) => {
+    if (!salaId) return;
+
+    markPostAsViewed(salaId, postId);
+
+    // Recalcular contador
+    if (allPostIds.length > 0) {
+      const unviewedCount = getUnviewedPostsCount(salaId, allPostIds);
+      setNewPostsCount(unviewedCount);
+    }
+  }, [salaId, allPostIds]);
 
   // Limpiar notificaciones sin resetear contador
   const clearNotifications = useCallback(() => {
@@ -107,6 +131,12 @@ export const useNewPostsNotification = (
               return;
             }
 
+            // Verificar si el post ya fue visto (por si acaso)
+            if (isPostViewed(salaId, newPost.id)) {
+              // console.log('📬 Post ya fue visto anteriormente, ignorando');
+              return;
+            }
+
             // Obtener información del autor
             try {
               const { data: autor, error } = await supabase
@@ -122,13 +152,15 @@ export const useNewPostsNotification = (
                 autorId: autorId,
                 autorNombre: autorNombre,
                 contenido: newPost.contenido?.substring(0, 100) || 'Nuevo post',
-                salaId: salaId
+                salaId: salaId,
+                timestamp: new Date().toISOString()
               };
 
               // console.log('📬 Agregando notificación:', notification);
 
               setNotifications(prev => [...prev, notification]);
-              setNewPostsCount(prev => prev + 1);
+
+              // El contador se actualiza automáticamente por el efecto que calcula posts no vistos
             } catch (error) {
               console.error('Error obteniendo información del autor:', error);
             }
@@ -151,6 +183,7 @@ export const useNewPostsNotification = (
     newPostsCount,
     notifications,
     clearNotifications,
-    markAsRead
+    markAsRead,
+    markPostAsViewed: markPostAsViewedHandler
   };
 };

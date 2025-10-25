@@ -79,6 +79,14 @@ export interface ProyectoData {
   publico: boolean;
 }
 
+export interface RecursoData {
+  name: string;
+  resourceType: string;
+  url: string | null;
+  icon: string | null;
+  color: string;
+}
+
 export interface Card {
   id: string;
   type: string;
@@ -94,6 +102,7 @@ export interface Card {
   misionData?: MisionData;
   usuarioData?: UsuarioData;
   proyectoData?: ProyectoData;
+  recursoData?: RecursoData;
   imageUrl?: string; // URL de la imagen guardada en Supabase Storage
 }
 

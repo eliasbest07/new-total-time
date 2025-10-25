@@ -133,54 +133,88 @@ export class SupabasePostRepository implements PostRepository {
 
   async updatePost(id: string, updates: Partial<Post>): Promise<Post | null> {
     try {
+      console.log('✏️ [SupabasePostRepository] Actualizando post:', id, 'con datos:', updates);
+
       // Solo permitir actualizar campos que existen en la tabla
       const allowedUpdates: any = {};
       if (updates.contenido !== undefined) allowedUpdates.contenido = updates.contenido;
       if (updates.id_sala !== undefined) allowedUpdates.id_sala = updates.id_sala;
 
+      console.log('✏️ [SupabasePostRepository] Updates permitidos:', allowedUpdates);
+
+      // Primero verificar que el post existe
+      const { data: existingPost, error: checkError } = await supabase
+        .from('post_sala')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (checkError || !existingPost) {
+        console.error('✏️ [SupabasePostRepository] ❌ Post no encontrado:', id, checkError);
+        return null;
+      }
+
+      console.log('✏️ [SupabasePostRepository] Post encontrado, procediendo a actualizar');
+
       const { data, error } = await supabase
         .from('post_sala')
         .update(allowedUpdates)
         .eq('id', id)
-        .select()
-        .single();
+        .select();
 
       if (error) {
-        console.error('❌ Error actualizando post:', error);
+        console.error('✏️ [SupabasePostRepository] ❌ Error actualizando post:', error);
+        console.error('✏️ [SupabasePostRepository] Detalles del error:', JSON.stringify(error, null, 2));
         return null;
       }
 
+      // Si no se retornó ningún dato, probablemente es un problema de permisos RLS
+      if (!data || data.length === 0) {
+        console.error('✏️ [SupabasePostRepository] ❌ Update no retornó datos. Posible problema de RLS (Row Level Security)');
+        return null;
+      }
+
+      const updatedPost = data[0];
+      console.log('✏️ [SupabasePostRepository] ✅ Post actualizado exitosamente:', updatedPost);
+
       // Agregar campos desde la DB o valores por defecto
       const postWithExtraFields = {
-        ...data,
-        edited_at: data.edited_at || null,
-        likes_count: data.likes_count || 0,
-        dislikes_count: data.dislikes_count || 0,
+        ...updatedPost,
+        edited_at: updatedPost.edited_at || null,
+        likes_count: updatedPost.likes_count || 0,
+        dislikes_count: updatedPost.dislikes_count || 0,
         usuario: undefined
       };
 
       return postWithExtraFields;
     } catch (error) {
-      console.error('❌ Error en updatePost:', error);
+      console.error('✏️ [SupabasePostRepository] ❌ Error en updatePost:', error);
       return null;
     }
   }
 
   async deletePost(id: string): Promise<boolean> {
     try {
-      const { error } = await supabase
+      console.log('🗑️ [SupabasePostRepository] Intentando eliminar post con ID:', id);
+
+      const { error, data } = await supabase
         .from('post_sala')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select();
+
+      console.log('🗑️ [SupabasePostRepository] Respuesta de Supabase:', { data, error });
 
       if (error) {
-        console.error('❌ Error eliminando post:', error);
+        console.error('🗑️ [SupabasePostRepository] ❌ Error eliminando post:', error);
+        console.error('🗑️ [SupabasePostRepository] Detalles del error:', JSON.stringify(error, null, 2));
         return false;
       }
 
+      console.log('🗑️ [SupabasePostRepository] ✅ Post eliminado exitosamente');
       return true;
     } catch (error) {
-      console.error('❌ Error en deletePost:', error);
+      console.error('🗑️ [SupabasePostRepository] ❌ Error en deletePost:', error);
       return false;
     }
   }

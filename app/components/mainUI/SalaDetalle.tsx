@@ -13,7 +13,7 @@ import { SupabaseComentarioRepository } from "@/infrastructure/datasource/Supaba
 import { supabase } from "@/infrastructure/services/SupabaseClient";
 import { useNewPostsNotification } from "@/hooks/useNewPostsNotification";
 import { NewPostNotification } from "@/components/notifications/NewPostNotification";
-import { NewPostsBadge } from "@/components/notifications/NewPostsBadge";
+import { markPostsAsViewed } from "@/services/viewedPostsService";
 
 // Componente interno para mostrar comentarios de un post
 function ComentariosSection({
@@ -205,13 +205,14 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   const [comentarioRepository] = useState(() => new SupabaseComentarioRepository());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Hook para notificaciones de nuevos posts
+  // Hook para notificaciones de nuevos posts (pasando IDs de todos los posts)
+  const allPostIds = posts.map(post => post.id);
   const {
-    newPostsCount,
     notifications,
     clearNotifications,
-    markAsRead
-  } = useNewPostsNotification(usuario?.id_usuario || null, sala.id);
+    markAsRead,
+    markPostAsViewed
+  } = useNewPostsNotification(usuario?.id_usuario || null, sala.id, allPostIds);
 
   // Estado para mostrar la notificación actual
   const [currentNotification, setCurrentNotification] = useState<typeof notifications[0] | null>(null);
@@ -263,6 +264,23 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
     }
   }, [currentPage, posts]);
 
+  // Marcar posts actuales como vistos cuando se muestran en pantalla
+  useEffect(() => {
+    if (postsActuales.length > 0 && sala.id) {
+      console.log('👁️ [SalaDetalle] Posts actuales en pantalla:', postsActuales.map(p => ({ id: p.id, contenido: p.contenido?.substring(0, 30) })));
+
+      // Usar un timeout para asegurar que el post se ha renderizado
+      const timer = setTimeout(() => {
+        const postIdsActuales = postsActuales.map(post => post.id);
+        console.log('👁️ [SalaDetalle] ⏰ Marcando posts como vistos después de 500ms:', postIdsActuales);
+        // Marcar estos posts como vistos en localStorage
+        markPostsAsViewed(sala.id, postIdsActuales, false);
+      }, 500); // Esperar 500ms antes de marcar como visto
+
+      return () => clearTimeout(timer);
+    }
+  }, [postsActuales, sala.id]);
+
   // Reset textarea height cuando se cierra el formulario
   useEffect(() => {
     if (!showNewPost) {
@@ -281,6 +299,47 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
     setCurrentPage(prev => Math.min(prev + 1, totalPaginas));
   };
 
+  // Función para obtener números de página a mostrar (máximo 5 páginas visibles)
+  const getPaginasVisibles = () => {
+    const maxVisibles = 5;
+    const paginas: (number | string)[] = [];
+
+    if (totalPaginas <= maxVisibles) {
+      // Si hay 5 o menos páginas, mostrar todas
+      return Array.from({ length: totalPaginas }, (_, i) => i + 1);
+    }
+
+    // Siempre mostrar primera página
+    paginas.push(1);
+
+    if (currentPage > 3) {
+      // Si estamos lejos del inicio, agregar puntos suspensivos
+      paginas.push('...');
+    }
+
+    // Calcular rango alrededor de la página actual
+    const rangoInicio = Math.max(2, currentPage - 1);
+    const rangoFin = Math.min(totalPaginas - 1, currentPage + 1);
+
+    for (let i = rangoInicio; i <= rangoFin; i++) {
+      if (!paginas.includes(i)) {
+        paginas.push(i);
+      }
+    }
+
+    if (currentPage < totalPaginas - 2) {
+      // Si estamos lejos del final, agregar puntos suspensivos
+      paginas.push('...');
+    }
+
+    // Siempre mostrar última página
+    if (!paginas.includes(totalPaginas)) {
+      paginas.push(totalPaginas);
+    }
+
+    return paginas;
+  };
+
   const formatearFecha = (fecha: string) => {
     return new Date(fecha).toLocaleDateString('es-ES', {
       day: 'numeric',
@@ -296,6 +355,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
       return;
     }
 
+    console.log('📝 [SalaDetalle] Creando nuevo post en sala', sala.id, '- Usuario:', usuarioId);
     setCreatingPost(true);
     try {
       const newPost = await postRepository.createPost({
@@ -308,12 +368,21 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
       });
 
       if (newPost) {
+        console.log('📝 [SalaDetalle] ✅ Post creado exitosamente:', newPost.id);
+
+        // Disparar evento personalizado para notificar a otros componentes
+        const event = new CustomEvent('new-post-created', {
+          detail: { salaId: sala.id, postId: newPost.id }
+        });
+        window.dispatchEvent(event);
+        console.log('📝 [SalaDetalle] 🔔 Evento "new-post-created" disparado para sala:', sala.id);
+
         setNewPostContent('');
         setShowNewPost(false);
         refetch();
       }
     } catch (error) {
-      console.error('Error creando post:', error);
+      console.error('📝 [SalaDetalle] ❌ Error creando post:', error);
       alert('Error al crear el post');
     } finally {
       setCreatingPost(false);
@@ -321,31 +390,42 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   };
 
   const handleDeletePost = (postId: string, postUserId: number | null) => {
+    console.log('🗑️ [handleDeletePost] Intentando eliminar post:', { postId, postUserId, usuarioId });
+
     if (!usuarioId || postUserId !== usuarioId) {
+      console.log('🗑️ [handleDeletePost] ❌ No se puede eliminar - Usuario no autorizado');
       return;
     }
 
+    console.log('🗑️ [handleDeletePost] ✅ Usuario autorizado, mostrando modal');
     setPostToDelete({ id: postId, userId: postUserId });
     setShowDeleteModal(true);
   };
 
   const confirmDeletePost = async () => {
-    if (!postToDelete) return;
+    if (!postToDelete) {
+      console.log('🗑️ [confirmDeletePost] ❌ No hay post para eliminar');
+      return;
+    }
 
+    console.log('🗑️ [confirmDeletePost] Eliminando post:', postToDelete.id);
     setIsDeleting(true);
     try {
       const success = await postRepository.deletePost(postToDelete.id);
 
+      console.log('🗑️ [confirmDeletePost] Resultado de eliminación:', success);
+
       if (success) {
-        console.log('✅ Post eliminado exitosamente');
+        console.log('🗑️ [confirmDeletePost] ✅ Post eliminado exitosamente');
         setShowDeleteModal(false);
         setPostToDelete(null);
         refetch();
       } else {
+        console.log('🗑️ [confirmDeletePost] ❌ La eliminación retornó false');
         alert('Error al eliminar el post');
       }
     } catch (error) {
-      console.error('Error eliminando post:', error);
+      console.error('🗑️ [confirmDeletePost] ❌ Error eliminando post:', error);
       alert('Error al eliminar el post');
     } finally {
       setIsDeleting(false);
@@ -372,22 +452,27 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
       return;
     }
 
+    console.log('✏️ [handleSaveEdit] Guardando edición de post:', postId, 'Nuevo contenido:', editedContent.substring(0, 50));
+
     setIsSavingEdit(true);
     try {
       const updatedPost = await postRepository.updatePost(postId, {
         contenido: editedContent,
       });
 
+      console.log('✏️ [handleSaveEdit] Resultado de actualización:', updatedPost);
+
       if (updatedPost) {
-        console.log('✅ Post actualizado exitosamente');
+        console.log('✏️ [handleSaveEdit] ✅ Post actualizado exitosamente');
         setEditingPostId(null);
         setEditedContent('');
         refetch();
       } else {
+        console.log('✏️ [handleSaveEdit] ❌ La actualización retornó null');
         alert('Error al actualizar el post');
       }
     } catch (error) {
-      console.error('Error actualizando post:', error);
+      console.error('✏️ [handleSaveEdit] ❌ Error actualizando post:', error);
       alert('Error al actualizar el post');
     } finally {
       setIsSavingEdit(false);
@@ -488,7 +573,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   const handleViewNewPosts = () => {
     // Ir a la primera página para ver los posts más recientes
     setCurrentPage(1);
-    // Marcar como leídos
+    // Limpiar las notificaciones toast (no marcar posts como vistos aún)
     markAsRead();
     // Refrescar posts
     refetch();
@@ -496,6 +581,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    // Los posts se marcarán como vistos automáticamente por el efecto cuando se rendericen
   };
 
   // Handler para ver un post específico desde la notificación
@@ -834,49 +920,60 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
       {/* Paginación */}
       {!loading && !error && posts.length > 0 && (
         <div className="border-t border-gray-200 pt-4 mt-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             {!showNewPost && (
               <button
                 onClick={handleOpenNewPost}
-                className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 text-sm shadow-sm hover:shadow-md active:scale-95"
+                className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 text-sm shadow-sm hover:shadow-md active:scale-95 w-full sm:w-auto justify-center"
               >
                 Agregar post +
               </button>
             )}
-            {showNewPost && <div className="w-32"></div>}
+            {showNewPost && <div className="hidden sm:block sm:w-32"></div>}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-center w-full sm:w-auto">
               <button
                 onClick={irAPaginaAnterior}
                 disabled={currentPage === 1}
-                className="flex items-center gap-1 px-4 py-2 text-sm bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors shadow-sm text-gray-700 disabled:text-gray-300 select-none focus:outline-none disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors shadow-sm text-gray-700 disabled:text-gray-300 select-none focus:outline-none disabled:cursor-not-allowed flex-shrink-0"
               >
-                <ChevronLeft className="w-4 h-4" />
-                Anterior
+                <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden xs:inline">Anterior</span>
+                <span className="xs:hidden">Ant</span>
               </button>
 
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((pagina) => (
-                  <button
-                    key={pagina}
-                    onClick={() => setCurrentPage(pagina)}
-                    className={`w-10 h-10 text-sm rounded-lg transition-colors shadow-sm ${pagina === currentPage
-                        ? 'bg-blue-500 text-white border border-blue-500'
-                        : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
-                      }`}
-                  >
-                    {pagina}
-                  </button>
+              <div className="flex items-center gap-1 justify-center">
+                {getPaginasVisibles().map((pagina, index) => (
+                  pagina === '...' ? (
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="w-10 h-10 flex items-center justify-center text-gray-400 text-sm"
+                    >
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={pagina}
+                      onClick={() => setCurrentPage(pagina as number)}
+                      className={`w-8 h-8 sm:w-10 sm:h-10 text-xs sm:text-sm rounded-lg transition-colors shadow-sm flex-shrink-0 ${pagina === currentPage
+                          ? 'bg-blue-500 text-white border border-blue-500'
+                          : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
+                        }`}
+                    >
+                      {pagina}
+                    </button>
+                  )
                 ))}
               </div>
 
               <button
                 onClick={irAPaginaSiguiente}
                 disabled={currentPage === totalPaginas}
-                className="flex items-center gap-1 px-4 py-2 text-sm bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors shadow-sm text-gray-700 disabled:text-gray-300 select-none focus:outline-none disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors shadow-sm text-gray-700 disabled:text-gray-300 select-none focus:outline-none disabled:cursor-not-allowed flex-shrink-0"
               >
-                Siguiente
-                <ChevronRight className="w-4 h-4" />
+                <span className="hidden xs:inline">Siguiente</span>
+                <span className="xs:hidden">Sig</span>
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
               </button>
             </div>
           </div>
@@ -940,9 +1037,6 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
           </div>
         </div>
       )}
-
-      {/* Badge de nuevos posts */}
-      <NewPostsBadge count={newPostsCount} onClick={handleViewNewPosts} />
 
       {/* Notificación de nuevo post */}
       {currentNotification && (

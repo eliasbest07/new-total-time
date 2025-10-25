@@ -208,15 +208,23 @@ export const useDropHandler = (
         // RECURSO
         else if (resource.name && resource.resourceType) {
           console.log('📦 [PIZARRA DROP] Detectado RECURSO');
+          console.log('📦 [PIZARRA DROP] Datos de recurso recibidos:', resource);
           setCards(prev => [...prev, {
             id: generateUniqueId('resource', existingIds),
             type: 'resource',
             title: resource.name,
             content: `Tipo: ${resource.resourceType}`,
             x, y,
-            width: 180,
-            height: 110,
-            fontSize: 18
+            width: 280,
+            height: 220,
+            fontSize: 18,
+            recursoData: {
+              name: resource.name,
+              resourceType: resource.resourceType,
+              url: resource.url || null,
+              icon: resource.icon || null,
+              color: resource.color || 'bg-blue-500'
+            }
           }]);
           return;
         }

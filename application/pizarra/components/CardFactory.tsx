@@ -9,6 +9,7 @@ import { ProyectoCard } from './cards/ProyectoCard';
 import { ImageCard } from './cards/ImageCard';
 import { GenericCard } from './cards/GenericCard';
 import { NoteCard } from './cards/NoteCard';
+import { RecursoCard } from './cards/RecursoCard';
 
 interface CardFactoryProps {
   card: Card;
@@ -152,6 +153,16 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           updateCardTitle={props.updateCardTitle}
           setEditingTitle={props.setEditingTitle}
           pastedImages={props.pastedImages}
+        />
+      );
+
+    case 'resource':
+      return (
+        <RecursoCard
+          card={card}
+          editingTitle={props.editingTitle}
+          updateCardTitle={props.updateCardTitle}
+          setEditingTitle={props.setEditingTitle}
         />
       );
 

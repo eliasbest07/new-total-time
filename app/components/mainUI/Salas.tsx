@@ -7,6 +7,48 @@ import { useSalas } from "@/hooks/useSalas";
 import Ventana from "@/app/demo/components/Ventana";
 import SalaDetalle from "./SalaDetalle";
 import { createPortal } from "react-dom";
+import { UnviewedPostsBadge } from "@/components/notifications/UnviewedPostsBadge";
+import { useUnviewedPostsCount } from "@/hooks/useUnviewedPostsCount";
+
+// Componente interno para cada botón de sala con contador de posts no vistos
+function SalaButton({
+  sala,
+  isActive,
+  onClick,
+  currentUserId
+}: {
+  sala: any;
+  isActive: boolean;
+  onClick: () => void;
+  currentUserId: number | null;
+}) {
+  const { unviewedCount } = useUnviewedPostsCount(sala.id, currentUserId);
+
+  console.log(`🏠 [SalaButton] Sala "${sala.nombre}" (ID: ${sala.id}) - Posts no vistos:`, unviewedCount);
+
+  return (
+    <div className="relative inline-block">
+      {/* Badge de posts no vistos - FUERA del botón para que sobresalga */}
+      {unviewedCount > 0 && (
+        <div className="absolute -top-2 -right-2 z-50">
+          <UnviewedPostsBadge count={unviewedCount} compact={true} />
+        </div>
+      )}
+
+      <button
+        onClick={onClick}
+        className={`px-3 py-2 rounded-full font-medium transition-all duration-200 whitespace-nowrap min-w-[12px] max-w-[112px] overflow-hidden text-ellipsis ${
+          isActive
+            ? "bg-green-200 text-gray-800"
+            : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+        }`}
+        title={sala.nombre || 'Sala sin nombre'}
+      >
+        {sala.nombre || 'Sin nombre'}
+      </button>
+    </div>
+  );
+}
 
 export default function Salas() {
   const { usuario } = useAuth();
@@ -95,17 +137,13 @@ export default function Salas() {
             }}
           >
             {salasToShow.map((sala) => (
-              <button
+              <SalaButton
                 key={sala.id}
+                sala={sala}
+                isActive={salaActiva?.id === sala.id}
                 onClick={() => handleSalaClick(sala.id)}
-                className={`px-3 py-2 rounded-full font-medium transition-all duration-200 whitespace-nowrap min-w-[12px] max-w-[112px] overflow-hidden text-ellipsis ${salaActiva?.id === sala.id
-                    ? "bg-green-200 text-gray-800"
-                    : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                  }`}
-                title={sala.nombre || 'Sala sin nombre'}
-              >
-                {sala.nombre || 'Sin nombre'}
-              </button>
+                currentUserId={usuario?.id_usuario || null}
+              />
             ))}
             <div className="w-2"></div>
           </div>

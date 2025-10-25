@@ -16,6 +16,7 @@ import { Usuario } from '@/domain/entities/Usuario';
 import Ventana from './Ventana';
 import { Proyecto } from '@/domain/entities/Proyecto';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { createPortal } from 'react-dom';
 
 
 // Tipos/Interfaces
@@ -76,6 +77,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   const [selectedProyecto, setSelectedProyecto] = useState<Proyecto | null>(null);
   const [currentUserPage, setCurrentUserPage] = useState<number>(1);
   const [currentProyectoPage, setCurrentProyectoPage] = useState<number>(1);
+  const [hoveredRecurso, setHoveredRecurso] = useState<{ name: string; url?: string; x: number; y: number } | null>(null);
   const dragImageRef = useRef<HTMLDivElement>(null);
 
   // Obtener el estado de presencia desde AuthContext
@@ -460,18 +462,24 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                             >
                               {/* Logo del proyecto */}
                               <div className="w-12 h-12 flex-shrink-0 bg-white/10 rounded-lg overflow-hidden flex items-center justify-center">
-                                {proyecto.imagen_url ? (
+                                {proyecto.icono && proyecto.icono.startsWith('http') ? (
                                   <img
-                                    src={proyecto.imagen_url}
+                                    src={proyecto.icono}
                                     alt={proyecto.nombre}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none';
-                                      e.currentTarget.nextElementSibling!.classList.remove('hidden');
+                                      const parent = e.currentTarget.parentElement;
+                                      if (parent) {
+                                        parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-2xl">📁</div>';
+                                      }
                                     }}
                                   />
-                                ) : null}
-                                <span className={`text-2xl ${proyecto.imagen_url ? 'hidden' : ''}`}>✏️</span>
+                                ) : proyecto.icono && !proyecto.icono.startsWith('http') ? (
+                                  <span className="text-2xl">{proyecto.icono}</span>
+                                ) : (
+                                  <span className="text-2xl">✏️</span>
+                                )}
                               </div>
 
                               {/* Nombre y estado */}
@@ -533,10 +541,23 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                             return (
                               <div
                                 key={recurso.id}
-                                className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-grab hover:scale-105 flex flex-col items-center group"
+                                className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-grab hover:scale-105 flex flex-col items-center"
                                 draggable
+                                onMouseEnter={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setHoveredRecurso({
+                                    name: recurso.name,
+                                    url: recurso.url,
+                                    x: rect.left + rect.width / 2,
+                                    y: rect.top - 10
+                                  });
+                                }}
+                                onMouseLeave={() => {
+                                  setHoveredRecurso(null);
+                                }}
                                 onDragStart={(e) => {
                                   setIsDragging(true);
+                                  setHoveredRecurso(null);
                                   e.dataTransfer.setData('text/plain', `Recurso: ${recurso.name} (${recurso.type})`);
                                   e.dataTransfer.setData('application/json', JSON.stringify({
                                     type: 'resource',
@@ -572,12 +593,6 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                                 <span className="text-white text-[10px] text-center truncate w-full leading-tight">
                                   {recurso.name}
                                 </span>
-
-                                {/* Tooltip */}
-                                <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[9999] shadow-2xl border border-white/20">
-                                  {recurso.name}
-                                  {recurso.url && <div className="text-xs text-white/70 mt-1">Click para abrir</div>}
-                                </div>
                               </div>
                             );
                           })}
@@ -698,6 +713,23 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
           </div>
         )}
       </Ventana>
+
+      {/* Tooltip flotante con portal - renderizado en body para z-index máximo */}
+      {typeof document !== 'undefined' && hoveredRecurso && createPortal(
+        <div
+          className="fixed bg-black/90 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg shadow-2xl border border-white/20 pointer-events-none whitespace-nowrap transition-opacity duration-200"
+          style={{
+            left: `${hoveredRecurso.x}px`,
+            top: `${hoveredRecurso.y}px`,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 99999
+          }}
+        >
+          {hoveredRecurso.name}
+          {hoveredRecurso.url && <div className="text-xs text-white/70 mt-1">Click para abrir</div>}
+        </div>,
+        document.body
+      )}
     </>
   );
 };
