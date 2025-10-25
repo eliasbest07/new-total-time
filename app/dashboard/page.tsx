@@ -13,13 +13,17 @@ import InfoOrganizacion from "@/app/components/organizacion/InfoOrganizacion";
 import { useIncomingMessages } from "@/hooks/useIncomingMessages";
 import { useMisiones } from "@/hooks/useMisiones";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
-import { Target, Building2 } from "lucide-react";
+import { useProyectos } from "@/hooks/useProyectos";
+import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizacionContext";
+import { Target, Building2, X } from "lucide-react";
 
 export default function DashboardPage() {
   const pizarraRef = useRef<PizarraRef>(null);
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
   const { createMision } = useMisiones(usuarioId);
+  const { createProyecto } = useProyectos();
+  const { usuarios } = useUsuariosOrganizacionContext();
 
   const [showChatWindow, setShowChatWindow] = useState(false);
   const [selectedChatUser, setSelectedChatUser] = useState<{
@@ -40,6 +44,14 @@ export default function DashboardPage() {
   const [misionFechaFin, setMisionFechaFin] = useState("");
   const [misionHoras, setMisionHoras] = useState("");
   const [creandoMision, setCreandoMision] = useState(false);
+
+  // Estado del formulario de proyecto
+  const [showNuevoProyectoModal, setShowNuevoProyectoModal] = useState(false);
+  const [proyectoNombre, setProyectoNombre] = useState("");
+  const [proyectoDescripcion, setProyectoDescripcion] = useState("");
+  const [proyectoIcono, setProyectoIcono] = useState("");
+  const [usuariosSeleccionados, setUsuariosSeleccionados] = useState<number[]>([]);
+  const [creandoProyecto, setCreandoProyecto] = useState(false);
 
   // Handler para cuando se hace click en un usuario
   const handleUserClick = (userData: {
@@ -134,6 +146,73 @@ export default function DashboardPage() {
     }
   };
 
+  // Limpiar formulario de proyecto
+  const limpiarFormularioProyecto = () => {
+    setProyectoNombre("");
+    setProyectoDescripcion("");
+    setProyectoIcono("");
+    setUsuariosSeleccionados([]);
+  };
+
+  // Crear nuevo proyecto
+  const handleCrearProyecto = async () => {
+    if (!proyectoNombre.trim()) {
+      alert("Por favor ingresa un nombre para el proyecto");
+      return;
+    }
+
+    setCreandoProyecto(true);
+
+    try {
+      const nuevoProyecto = await createProyecto({
+        nombre: proyectoNombre.trim(),
+        descripcion: proyectoDescripcion.trim() || null,
+        icono: proyectoIcono.trim() || null,
+      });
+
+      if (nuevoProyecto) {
+        // Asignar usuarios al proyecto si hay usuarios seleccionados
+        if (usuariosSeleccionados.length > 0) {
+          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+          const usuarioProyectoRelaciones = usuariosSeleccionados.map(usuarioId => ({
+            id_proyecto: nuevoProyecto.id,
+            id_usuario: usuarioId
+          }));
+
+          const { error: relacionError } = await supabase
+            .from('usuario_proyecto')
+            .insert(usuarioProyectoRelaciones);
+
+          if (relacionError) {
+            console.error('Error asignando usuarios al proyecto:', relacionError);
+            alert("⚠️ Proyecto creado pero hubo un error asignando usuarios");
+          }
+        }
+
+        alert("✅ Proyecto creado exitosamente");
+        limpiarFormularioProyecto();
+        setShowNuevoProyectoModal(false);
+      } else {
+        alert("❌ Error al crear el proyecto");
+      }
+    } catch (error) {
+      console.error("Error creando proyecto:", error);
+      alert("❌ Error al crear el proyecto");
+    } finally {
+      setCreandoProyecto(false);
+    }
+  };
+
+  // Toggle selección de usuario
+  const toggleUsuarioSeleccionado = (usuarioId: number) => {
+    setUsuariosSeleccionados(prev =>
+      prev.includes(usuarioId)
+        ? prev.filter(id => id !== usuarioId)
+        : [...prev, usuarioId]
+    );
+  };
+
   return (
     <AuthWrapper>
       <div
@@ -170,10 +249,7 @@ export default function DashboardPage() {
               console.log("Proyecto seleccionado:", proyectoId);
               // TODO: Implementar navegación o modal de detalles del proyecto
             }}
-            onCrearProyecto={() => {
-              console.log("Crear nuevo proyecto");
-              // TODO: Implementar modal de creación de proyecto
-            }}
+            onCrearProyecto={() => setShowNuevoProyectoModal(true)}
           />
         </div>
 
@@ -367,6 +443,164 @@ export default function DashboardPage() {
           showOverlay={true}
         >
           <InfoOrganizacion />
+        </Ventana>
+      )}
+
+      {/* Modal para crear nuevo proyecto */}
+      {showNuevoProyectoModal && (
+        <Ventana
+          isOpen={showNuevoProyectoModal}
+          onClose={() => {
+            setShowNuevoProyectoModal(false);
+            limpiarFormularioProyecto();
+          }}
+          title="Crear Nuevo Proyecto"
+          initialWidth={700}
+          initialHeight={600}
+          minWidth={600}
+          minHeight={500}
+          showOverlay={true}
+        >
+          <div className="p-6 space-y-4" style={{ color: '#000000' }}>
+            {/* Nombre del proyecto */}
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                Nombre del Proyecto <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={proyectoNombre}
+                onChange={(e) => setProyectoNombre(e.target.value)}
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                style={{ color: '#000000' }}
+                placeholder="Ej: Sistema de Gestión"
+                disabled={creandoProyecto}
+              />
+            </div>
+
+            {/* Descripción */}
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                Descripción
+              </label>
+              <textarea
+                value={proyectoDescripcion}
+                onChange={(e) => setProyectoDescripcion(e.target.value)}
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                style={{ color: '#000000' }}
+                rows={4}
+                placeholder="Describe el proyecto..."
+                disabled={creandoProyecto}
+              />
+            </div>
+
+            {/* URL del ícono */}
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                URL del Ícono (opcional)
+              </label>
+              <input
+                type="text"
+                value={proyectoIcono}
+                onChange={(e) => setProyectoIcono(e.target.value)}
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                style={{ color: '#000000' }}
+                placeholder="https://ejemplo.com/icono.png"
+                disabled={creandoProyecto}
+              />
+              {proyectoIcono && (
+                <div className="mt-2">
+                  <p className="text-xs text-gray-600 mb-1">Vista previa:</p>
+                  <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-300">
+                    <img
+                      src={proyectoIcono}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Selección de usuarios */}
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                Asignar Usuarios (opcional)
+              </label>
+              <div className="border border-gray-300 rounded-lg p-3 max-h-60 overflow-y-auto bg-white">
+                {usuarios.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">No hay usuarios disponibles</p>
+                ) : (
+                  <div className="space-y-2">
+                    {usuarios.map((usuario) => (
+                      <label
+                        key={usuario.id}
+                        className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={usuariosSeleccionados.includes(usuario.id)}
+                          onChange={() => toggleUsuarioSeleccionado(usuario.id)}
+                          className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                          disabled={creandoProyecto}
+                        />
+                        <div className="flex items-center gap-2 flex-1">
+                          {usuario.profile.avatar ? (
+                            <img
+                              src={usuario.profile.avatar}
+                              alt={usuario.getNombreCompleto()}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                              {usuario.profile.nombre.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {usuario.getNombreCompleto()}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              @{usuario.profile.username}
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {usuariosSeleccionados.length > 0 && (
+                <p className="text-xs text-gray-600 mt-2">
+                  {usuariosSeleccionados.length} usuario(s) seleccionado(s)
+                </p>
+              )}
+            </div>
+
+            {/* Botones */}
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => {
+                  setShowNuevoProyectoModal(false);
+                  limpiarFormularioProyecto();
+                }}
+                className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-black rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={creandoProyecto}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCrearProyecto}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={creandoProyecto}
+              >
+                {creandoProyecto ? "Creando..." : "Crear Proyecto"}
+              </button>
+            </div>
+          </div>
         </Ventana>
       )}
     </AuthWrapper>

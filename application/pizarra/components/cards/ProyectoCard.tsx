@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Card } from '../../types/index';
 import { Actividad } from '@/domain/entities/Actividad';
 import { Mision } from '@/domain/entities/Mision';
-import { Plus, Image as ImageIcon, FileText, X } from 'lucide-react';
+import { Plus, Image as ImageIcon, FileText, X, Users } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
+import Image from 'next/image';
 
 interface ProyectoCardProps {
   card: Card;
@@ -26,8 +27,9 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
 
   const [actividades, setActividades] = useState<Actividad[]>([]);
   const [misiones, setMisiones] = useState<Mision[]>([]);
+  const [usuariosAsignados, setUsuariosAsignados] = useState<Array<{ id: number; nombre: string; avatar: string | null }>>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<'misiones' | 'actividades' | 'notas' | 'imagenes' | null>(null);
+  const [expanded, setExpanded] = useState<'misiones' | 'actividades' | 'notas' | 'imagenes' | 'usuarios' | null>(null);
   const [notas, setNotas] = useState<string[]>([]);
   const [imagenes, setImagenes] = useState<string[]>([]);
   const [nuevaNota, setNuevaNota] = useState('');
@@ -70,6 +72,27 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           .eq('id_proyecto', card.proyectoData.id)
           .order('created_at', { ascending: false });
 
+        // Cargar usuarios asignados al proyecto
+        // Intentar desde tabla de relación usuario_proyecto
+        const { data: usuarioProyectoData } = await supabase
+          .from('usuario_proyecto')
+          .select('id_usuario')
+          .eq('id_proyecto', card.proyectoData.id);
+
+        if (usuarioProyectoData && usuarioProyectoData.length > 0) {
+          const usuarioIds = usuarioProyectoData.map(up => up.id_usuario);
+
+          // Obtener datos de los usuarios
+          const { data: usuariosData } = await supabase
+            .from('usuario')
+            .select('id, nombre, avatar')
+            .in('id', usuarioIds);
+
+          setUsuariosAsignados(usuariosData || []);
+        } else {
+          setUsuariosAsignados([]);
+        }
+
         setActividades(actividadesData || []);
         setMisiones(misionesData || []);
       } catch (error) {
@@ -100,6 +123,24 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         .select('*')
         .eq('id_proyecto', card.proyectoData.id)
         .order('created_at', { ascending: false });
+
+      // Cargar usuarios asignados
+      const { data: usuarioProyectoData } = await supabase
+        .from('usuario_proyecto')
+        .select('id_usuario')
+        .eq('id_proyecto', card.proyectoData.id);
+
+      if (usuarioProyectoData && usuarioProyectoData.length > 0) {
+        const usuarioIds = usuarioProyectoData.map(up => up.id_usuario);
+        const { data: usuariosData } = await supabase
+          .from('usuario')
+          .select('id, nombre, avatar')
+          .in('id', usuarioIds);
+
+        setUsuariosAsignados(usuariosData || []);
+      } else {
+        setUsuariosAsignados([]);
+      }
 
       setActividades(actividadesData || []);
       setMisiones(misionesData || []);
@@ -308,7 +349,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       </div>
 
       {/* Estadísticas rápidas */}
-      <div className="flex gap-2 mb-2 text-xs">
+      <div className="flex gap-2 mb-2 text-xs flex-wrap">
         <div className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded flex items-center gap-1">
           🎯 <span className="font-semibold">{misiones.length}</span>
         </div>
@@ -320,6 +361,9 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         </div>
         <div className="bg-purple-100 text-purple-700 px-2 py-1 rounded flex items-center gap-1">
           🖼️ <span className="font-semibold">{imagenes.length}</span>
+        </div>
+        <div className="bg-orange-100 text-orange-700 px-2 py-1 rounded flex items-center gap-1">
+          👥 <span className="font-semibold">{usuariosAsignados.length}</span>
         </div>
       </div>
 
@@ -555,6 +599,67 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Usuarios Asignados */}
+            <div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(expanded === 'usuarios' ? null : 'usuarios');
+                }}
+                className="w-full text-left text-xs font-semibold text-orange-800 mb-1 flex items-center justify-between hover:bg-orange-100 px-1 py-0.5 rounded"
+                data-todo-interactive
+              >
+                <span>👥 Usuarios Asignados ({usuariosAsignados.length})</span>
+                <span>{expanded === 'usuarios' ? '▼' : '▶'}</span>
+              </button>
+              {expanded === 'usuarios' && (
+                <div className="space-y-1 ml-2">
+                  {usuariosAsignados.length === 0 ? (
+                    <div className="text-xs text-gray-500 italic">No hay usuarios asignados</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {usuariosAsignados.map((usuarioAsignado) => (
+                        <div
+                          key={usuarioAsignado.id}
+                          className="bg-white rounded p-2 border border-orange-100 text-xs flex items-center gap-2"
+                        >
+                          {/* Avatar del usuario */}
+                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                            {usuarioAsignado.avatar ? (
+                              <img
+                                src={usuarioAsignado.avatar}
+                                alt={usuarioAsignado.nombre}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.className = "w-8 h-8 bg-gradient-to-br from-orange-400 to-red-400 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0";
+                                    parent.textContent = usuarioAsignado.nombre.charAt(0).toUpperCase();
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-orange-400 to-red-400 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                                {usuarioAsignado.nombre.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          {/* Nombre del usuario */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-orange-900 truncate">
+                              {usuarioAsignado.nombre}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
