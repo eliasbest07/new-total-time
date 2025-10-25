@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { Usuario } from '@/domain/entities/Usuario';
 import { SupabaseUsuarioRepository } from '@/infrastructure/datasource/SupabaseUsuarioRepository';
 import { useAuth } from './AuthContext';
+import { retrySupabaseOperation } from '@/utils/retryWithBackoff';
 
 interface UsuariosOrganizacionContextType {
   usuarios: Usuario[];
@@ -19,6 +20,7 @@ export function UsuariosOrganizacionProvider({ children }: { children: ReactNode
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const { usuario } = useAuth();
 
   const usuarioRepository = new SupabaseUsuarioRepository();
@@ -36,7 +38,10 @@ export function UsuariosOrganizacionProvider({ children }: { children: ReactNode
       console.log('👥 [UsuariosContext] Cargando usuarios para organización:', organizacionId);
       setLoading(true);
       setError(null);
-      const usuariosData = await usuarioRepository.getUsuariosByOrganizacion(organizacionId);
+      const usuariosData = await retrySupabaseOperation(
+        () => usuarioRepository.getUsuariosByOrganizacion(organizacionId),
+        'Cargar usuarios de organización'
+      );
       console.log('👥 [UsuariosContext] Usuarios cargados:', usuariosData.length);
       setUsuarios(usuariosData);
     } catch (err) {
@@ -47,8 +52,19 @@ export function UsuariosOrganizacionProvider({ children }: { children: ReactNode
     }
   }, [usuario?.idOrganizacion]);
 
-  // Cargar usuarios cuando cambia la organización
+  // Marcar que hemos verificado la autenticación
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setAuthChecked(true);
+    }, 200); // Pequeño delay para evitar llamadas simultáneas
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Cargar usuarios cuando la autenticación esté verificada
+  useEffect(() => {
+    if (!authChecked) return;
+    
     if (!usuario?.idOrganizacion) {
       setUsuarios([]);
       setLoading(false);
@@ -56,7 +72,7 @@ export function UsuariosOrganizacionProvider({ children }: { children: ReactNode
     }
 
     loadUsuarios();
-  }, [usuario?.idOrganizacion, loadUsuarios]);
+  }, [authChecked, usuario?.idOrganizacion, loadUsuarios]);
 
   // Filtrar usuarios excluyendo al usuario actual (por email)
   const usuariosFiltrados = usuarios.filter(u => u.email !== usuario?.email);
@@ -64,7 +80,7 @@ export function UsuariosOrganizacionProvider({ children }: { children: ReactNode
   const value: UsuariosOrganizacionContextType = {
     usuarios,
     usuariosFiltrados,
-    loading,
+    loading: !authChecked || loading,
     error,
     refetch: loadUsuarios
   };

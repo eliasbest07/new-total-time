@@ -1,10 +1,15 @@
 import { supabase } from "@/infrastructure/services/SupabaseClient";
 import { ProyectoRepository } from "@/infrastructure/repositories/ProyectoRepository";
 import { Proyecto } from "@/domain/entities/Proyecto";
+import { trackAuthCall } from "@/utils/authCallTracker";
 
-// Cache para evitar múltiples llamadas a getUser()
+// Cache para evitar múltiples llamadas a getSession()
 let userOrgCache: { userId: string; organizacionId: string | null; timestamp: number } | null = null;
-const USER_ORG_CACHE_TTL = 60 * 1000; // 60 segundos
+const USER_ORG_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+// Rate limiting para evitar demasiadas llamadas
+let lastCallTimestamp = 0;
+const MIN_CALL_INTERVAL = 1000; // 1 segundo mínimo entre llamadas
 
 export class SupabaseProyectoRepository implements ProyectoRepository {
 
@@ -103,16 +108,34 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
 
   async getUserOrganizationId(): Promise<string | null> {
     try {
+      trackAuthCall('SupabaseProyectoRepository.getUserOrganizationId', 'getSession');
+      
       // console.log('👤 Obteniendo organización del usuario autenticado');
 
-      // Obtener el usuario autenticado actual
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Rate limiting: evitar llamadas muy frecuentes
+      const now = Date.now();
+      if (now - lastCallTimestamp < MIN_CALL_INTERVAL) {
+        // Si hay cache disponible, usarlo
+        if (userOrgCache && (now - userOrgCache.timestamp) < USER_ORG_CACHE_TTL) {
+          return userOrgCache.organizacionId;
+        }
+        // Si no hay cache, esperar un poco antes de hacer la llamada
+        await new Promise(resolve => setTimeout(resolve, MIN_CALL_INTERVAL - (now - lastCallTimestamp)));
+      }
+      lastCallTimestamp = Date.now();
 
-      if (authError || !user) {
-        console.error('❌ Error obteniendo usuario autenticado:', authError);
+      // Usar getSession() en lugar de getUser() para evitar rate limiting
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+
+      if (authError || !session?.user) {
+        // Solo loggear error si realmente hay un error, no si simplemente no hay sesión
+        if (authError) {
+          console.error('❌ Error obteniendo sesión del usuario:', authError);
+        }
         return null;
       }
 
+      const user = session.user;
       // console.log('👤 Usuario autenticado ID:', user.id);
 
       // Verificar cache primero
@@ -153,6 +176,15 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
       return organizacionId;
     } catch (error) {
       console.error('❌ Error en getUserOrganizationId:', error);
+      
+      // Si es un error de rate limiting, intentar usar cache aunque esté expirado
+      if (error instanceof Error && error.message.includes('429')) {
+        console.warn('⚠️ Rate limit detectado, usando cache expirado si está disponible');
+        if (userOrgCache) {
+          return userOrgCache.organizacionId;
+        }
+      }
+      
       return null;
     }
   }

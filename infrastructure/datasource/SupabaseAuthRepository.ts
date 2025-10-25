@@ -5,6 +5,7 @@ import { Usuario } from "@/domain/entities/Usuario";
 import { Rol } from "@/domain/enums/Rol";
 import { InfoUsuario } from "@/domain/entities/InfoUsuario";
 import { requestCache } from "@/infrastructure/services/RequestCache";
+import { trackAuthCall } from "@/utils/authCallTracker";
 
 // Tipo que representa la estructura exacta de la tabla usuario en Supabase
 interface UsuarioSupabase {
@@ -130,6 +131,8 @@ export class SupabaseAuthRepository implements AuthRepository {
 
     async getCurrentUser(): Promise<Usuario | null> {
         try {
+            trackAuthCall('SupabaseAuthRepository.getCurrentUser', 'getSession');
+            
             // Verificar que estamos en el cliente
             if (typeof window === 'undefined') {
                 // console.log('⚠️ getCurrentUser llamado en el servidor, retornando null');

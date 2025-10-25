@@ -1,8 +1,7 @@
 "use client";
 
-import Pizarra from "@/application/pizarra/pizarra";
-import type { PizarraRef } from "@/application/pizarra/types";
-import { useRef, useState, useMemo, useEffect, useCallback } from "react";
+import Pizarra, { PizarraRef } from "@/application/pizarra/pizarra";
+import { useRef, useState, useMemo } from "react";
 import Ventana from "@/app/demo/components/Ventana";
 import { useScreenshots } from "@/hooks/useScreenshots";
 
@@ -13,14 +12,13 @@ import { ChevronRight } from "lucide-react";
 import Cube from "./mainUI/cubo-acordion-carga";
 import Accordion from "../demo/components/Accordion";
 import { Resource } from "../demo/utils/resourceUtils";
-import ChatWindow from "./ChatWindow";
-import ProyectoWindow from "./ProyectoWindow";
 import ActividadesGrid from "../demo/components/ActividadesGrid";
 import MisionesCompact from "./mainUI/MisionesCompact";
 import { useRecursos } from "@/hooks/useRecursos";
 import { useProyectos } from "@/hooks/useProyectos";
-import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizacionContext";
+import { useUsuariosOrganizacion } from "@/hooks/useUsuariosOrganizacion";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { useEffect } from "react";
 import { FileText, Link, Code, Image, Video, Download, LucideIcon } from "lucide-react";
 import AgregarRecursoModal from "./modals/AgregarRecursoModal";
 import { Actividad } from "@/domain/entities/Actividad";
@@ -28,13 +26,12 @@ import { Mision } from "@/domain/entities/Mision";
 import MisionCard from "../demo/components/MisionCard";
 import InputArea from "./mainUI/InputArea";
 import { useChartHistory, BoardHistorySnapshot } from "@/hooks/useChartHistory";
-import EntregasVentana from "./mainUI/EntregasVentana";
-import { useIncomingMessages } from "@/hooks/useIncomingMessages";
 
 
 export default function MainScreen() {
   const pizarraRef = useRef<PizarraRef>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [recursos, setRecursos] = useState<Resource[]>([]);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [showScreenshotsModal, setShowScreenshotsModal] = useState<string | null>(null);
@@ -43,67 +40,70 @@ export default function MainScreen() {
   const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
   const [showMisionChat, setShowMisionChat] = useState(false);
   const [misionChatMessage, setMisionChatMessage] = useState('');
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [selectedHistorySnapshot, setSelectedHistorySnapshot] = useState<BoardHistorySnapshot | null>(null);
-  const [showChatWindow, setShowChatWindow] = useState(false);
-  const [selectedChatUser, setSelectedChatUser] = useState<{
-    userId: string;
-    name: string;
-    avatar?: string;
-    color?: string;
-    online?: boolean;
-  } | null>(null);
-  const [pendingMessage, setPendingMessage] = useState<string>("");
-
-  // Debug: Monitorear cambios en el estado del chat
-  // useEffect(() => {
-  //   console.log('💬 Estado del chat cambió:', {
-  //     showChatWindow,
-  //     selectedChatUser: selectedChatUser?.name
-  //   });
-  // }, [showChatWindow, selectedChatUser]);
-  const [showProyectoWindow, setShowProyectoWindow] = useState(false);
-  const [selectedProyectoWindow, setSelectedProyectoWindow] = useState<import('@/domain/entities/Proyecto').Proyecto | null>(null);
-  const [showEntregasModal, setShowEntregasModal] = useState(false);
 
   const { usuario } = useAuth();
-
-  // Delays escalonados para evitar múltiples peticiones simultáneas
-  const [enableHooks, setEnableHooks] = useState(false);
-  
-  useEffect(() => {
-    if (usuario) {
-      // Delay antes de habilitar todos los hooks
-      const timer = setTimeout(() => {
-        setEnableHooks(true);
-      }, 1000); // 1 segundo de delay
-      
-      return () => clearTimeout(timer);
-    } else {
-      setEnableHooks(false);
-    }
-  }, [usuario]);
-
-  // Hooks con delays escalonados para evitar 429
-  const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(
-    enableHooks ? usuario?.userAuth || null : null
-  );
-  
+  const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos();
+  const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
 
-  // Usar el context de usuarios (se carga una sola vez y se comparte globalmente)
-  const { usuariosFiltrados, loading: usuariosLoading } = useUsuariosOrganizacionContext();
+  // Mock data for chart - replace with actual hook when available
+  const previousDayBoardHistory = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      return {
+        id: `day-${i}`,
+        label: date.toLocaleDateString('es-ES', { weekday: 'short' }),
+        value: Math.floor(Math.random() * 20) + 5
+      };
+    });
+  }, []);
 
-  // Hook para datos del chart con delay adicional
-  const {
-    historyData: previousDayBoardHistory,
-    chartBarHeights,
-    chartMaxHeight,
-    loading: chartLoading,
-    error: chartError
-  } = useChartHistory(enableHooks ? usuario?.id || null : null);
+  const chartMaxHeight = 80;
+  const chartBarHeights = useMemo(() => {
+    const maxValue = Math.max(...previousDayBoardHistory.map(d => d.value));
+    return previousDayBoardHistory.map(d => Math.max(8, (d.value / maxValue) * chartMaxHeight));
+  }, [previousDayBoardHistory, chartMaxHeight]);
 
-  // Hook para screenshots con delay
+  // Filtrar usuarios de la organización excluyendo al usuario actual
+  const usuariosFiltrados = useMemo(() => {
+    console.log('🔍 Filtrado de usuarios - Usuario actual:', {
+      id: usuario?.id,
+      userAuth: usuario?.userAuth,
+      nombre: usuario?.getNombreCompleto(),
+      email: usuario?.email
+    });
+
+    console.log('🔍 Filtrado de usuarios - Todos los usuarios de la organización:',
+      usuariosOrganizacion.map(u => ({
+        id: u.id,
+        userAuth: u.userAuth,
+        nombre: u.getNombreCompleto(),
+        email: u.email
+      }))
+    );
+
+    if (!usuario) return usuariosOrganizacion;
+
+    const filtrados = usuariosOrganizacion.filter(u => {
+      // Comparar por email ya que los IDs pueden ser diferentes (uno es userAuth UUID, otro es id de tabla)
+      const esDiferente = u.email !== usuario.email;
+      console.log(`🔍 Comparando ${u.getNombreCompleto()} (email: ${u.email}) con usuario actual (email: ${usuario.email}): ${esDiferente ? 'INCLUIR' : 'EXCLUIR'}`);
+      return esDiferente;
+    });
+
+    console.log('🔍 Usuarios filtrados (resultado final):',
+      filtrados.map(u => ({
+        id: u.id,
+        nombre: u.getNombreCompleto(),
+        email: u.email
+      }))
+    );
+
+    return filtrados;
+  }, [usuariosOrganizacion, usuario]);
+
+  // Hook para screenshots
   const {
     screenshots,
     isCapturing,
@@ -114,6 +114,19 @@ export default function MainScreen() {
     reloadScreenshots,
     error: screenshotError
   } = useScreenshots();
+
+  // Función para convertir recursos de Supabase al formato del Accordion
+  const convertirRecursosSupabase = () => {
+    return recursosSupabase.map((recurso, index) => ({
+      id: recurso.id,
+      name: recurso.nombre || 'Sin nombre',
+      icon: getIconForRecurso(recurso.icono),
+      color: getColorForRecurso(index),
+      type: 'link',
+      url: recurso.link || undefined,
+      description: `Recurso creado el ${new Date(recurso.created_at).toLocaleDateString()}`
+    }));
+  };
 
   // Función para obtener icono basado en el icono del recurso
   const getIconForRecurso = (icono: string | null) => {
@@ -152,56 +165,48 @@ export default function MainScreen() {
     return colors[index % colors.length];
   };
 
-  // Convertir recursos de Supabase al formato del Accordion usando useMemo
-  const recursos = useMemo(() => {
-    if (!recursosSupabase || recursosSupabase.length === 0) {
-      // console.log('📚 MainScreen - No hay recursos de Supabase');
-      return [];
-    }
-
-    // console.log('📚 MainScreen - Convirtiendo recursos:', recursosSupabase);
-    const recursosConvertidos = recursosSupabase.map((recurso, index) => ({
-      id: recurso.id,
-      name: recurso.nombre || 'Sin nombre',
-      icon: getIconForRecurso(recurso.icono),
-      color: getColorForRecurso(index),
-      type: 'link',
-      url: recurso.link || undefined,
-      description: `Recurso creado el ${new Date(recurso.created_at).toLocaleDateString()}`
-    }));
-    // console.log('📚 MainScreen - Recursos convertidos:', recursosConvertidos);
-    return recursosConvertidos;
-  }, [recursosSupabase]);
-
-  // Configurar viewport zoom
+  // Actualizar recursos cuando cambien los de Supabase
   useEffect(() => {
-    const meta = document.querySelector("meta[name='viewport']");
-    const original = meta?.getAttribute("content");
-    meta?.setAttribute("content", "width=device-width, initial-scale=0.7"); // zoom out
-    return () => {
-      //if (original) meta?.setAttribute("content", original);
-    };
-  }, []);
+    console.log('📚 MainScreen - Estado recursos:', {
+      usuario: usuario?.id,
+      recursosLoading,
+      recursosSupabaseLength: recursosSupabase?.length,
+      recursosSupabase
+    });
 
-  // ✅ FIX: Console.logs comentados para reducir memoria
-  // useEffect(() => {
-  //   console.log('📁 MainScreen - Estado proyectos:', {
-  //     usuario: usuario?.id,
-  //     proyectosLoading,
-  //     proyectosSupabaseLength: proyectosSupabase?.length,
-  //     proyectosSupabase
-  //   });
-  // }, [proyectosSupabase, proyectosLoading]);
 
-  // useEffect(() => {
-  //   console.log('👥 MainScreen - Estado usuarios organización:', {
-  //     usuario: usuario?.id,
-  //     organizacion: usuario?.idOrganizacion,
-  //     usuariosLoading,
-  //     usuariosOrganizacionLength: usuariosOrganizacion?.length,
-  //     usuariosOrganizacion
-  //   });
-  // }, [usuariosOrganizacion, usuariosLoading]);
+
+
+    if (!recursosLoading && recursosSupabase) {
+      console.log('📚 MainScreen - Convirtiendo recursos:', recursosSupabase);
+      const recursosConvertidos = convertirRecursosSupabase();
+      console.log('📚 MainScreen - Recursos convertidos:', recursosConvertidos);
+      setRecursos(recursosConvertidos);
+    }
+  }, [recursosSupabase, recursosLoading]);
+
+  // Log para proyectos
+  useEffect(() => {
+    console.log('📁 MainScreen - Estado proyectos:', {
+      usuario: usuario?.id,
+      proyectosLoading,
+      proyectosSupabaseLength: proyectosSupabase?.length,
+      proyectosSupabase
+    });
+  }, [proyectosSupabase, proyectosLoading]);
+
+  // Log para usuarios de organización
+  useEffect(() => {
+    console.log('👥 MainScreen - Estado usuarios organización:', {
+      usuario: usuario?.id,
+      organizacion: usuario?.idOrganizacion,
+      usuariosLoading,
+      usuariosOrganizacionLength: usuariosOrganizacion?.length,
+      usuariosOrganizacion
+    });
+  }, [usuariosOrganizacion, usuariosLoading]);
+
+
 
   const handleAddResource = (): void => {
     setShowAddResourceModal(true);
@@ -226,10 +231,10 @@ export default function MainScreen() {
     setShowMisionDetails(true);
   };
 
-  // Función para manejar el clic en las barras del chart
-  const handleChartBarClick = (snapshot: BoardHistorySnapshot): void => {
-    setSelectedHistorySnapshot(snapshot);
-    setShowHistoryModal(true);
+  // Función para manejar clicks en las barras del chart
+  const handleChartBarClick = (snapshot: { id: string; label: string; value: number }) => {
+    console.log('Chart bar clicked:', snapshot);
+    // Aquí puedes agregar lógica para cargar el estado del tablero de ese día
   };
 
   // Funciones para formatear fecha y hora de actividades
@@ -264,50 +269,6 @@ export default function MainScreen() {
     }
   };
 
-  // Handler para cuando se hace click en un usuario
-  const handleUserClick = (userData: {
-    userId: string;
-    name: string;
-    avatar?: string;
-    color?: string;
-    online?: boolean;
-  }, message?: string) => {
-    setSelectedChatUser(userData);
-    if (message) {
-      setPendingMessage(message);
-    }
-    setShowChatWindow(true);
-  };
-
-  // Handler para mensajes entrantes
-  const handleIncomingMessage = useCallback((userData: {
-    userId: string;
-    userName: string;
-    userAvatar: string;
-    userColor: string;
-    isOnline: boolean;
-  }) => {
-    // Abrir la ventana del chat con el emisor
-    setSelectedChatUser({
-      userId: userData.userId,
-      name: userData.userName,
-      avatar: userData.userAvatar,
-      color: userData.userColor,
-      online: userData.isOnline
-    });
-    setShowChatWindow(true);
-  }, []);
-
-  // Suscribirse a mensajes entrantes
-  useIncomingMessages(usuario?.userAuth || null, {
-    onNewMessage: handleIncomingMessage
-  });
-
-  // Handler para cuando se hace click en un proyecto
-  const handleProyectoClick = (proyecto: import('@/domain/entities/Proyecto').Proyecto) => {
-    setSelectedProyectoWindow(proyecto);
-    setShowProyectoWindow(true);
-  };
 
   return (
     <div
@@ -328,9 +289,9 @@ export default function MainScreen() {
           onSaveToSupabase={async () => {
             const success = await pizarraRef.current?.saveToSupabase?.();
             if (success) {
-              alert('✅ Pizarra guardada exitosamente');
+              alert('✅ Pizarra guardada exitosamente en Supabase');
             } else {
-              alert('❌ Error al guardar la pizarra en la nube');
+              alert('❌ Error al guardar la pizarra en Supabase');
             }
           }}
           onLoadFromSupabase={async () => {
@@ -378,8 +339,6 @@ export default function MainScreen() {
               proyectos={proyectosSupabase}
               usuarios={usuariosFiltrados}
               onAddResource={handleAddResource}
-              onUserClick={handleUserClick}
-              onProyectoClick={handleProyectoClick}
             />
           </div>
         )}
@@ -397,11 +356,7 @@ export default function MainScreen() {
 
       {/* Missions positioned at fixed location */}
       <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 20 }}>
-        <h2
-          className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block cursor-pointer hover:bg-white/95 transition-colors"
-          onClick={() => setShowEntregasModal(true)}
-          title="Click para ver entregas"
-        >
+        <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Misiones 🎯
         </h2>
         <MisionesCompact onShowDetails={handleShowMisionDetails} />
@@ -413,7 +368,7 @@ export default function MainScreen() {
         onClose={() => setShowAddResourceModal(false)}
       />
 
- {/* Chart positioned at bottom left */}
+      {/* Chart positioned at bottom left */}
       <div
         className="flex items-end gap-2 pointer-events-auto"
         style={{ position: 'fixed', bottom: '1rem', left: '1rem', zIndex: 60 }}
@@ -787,249 +742,19 @@ export default function MainScreen() {
 
       {/* Input Area centrado abajo */}
       <InputArea
-        onCreateNote={(text) => {
+        onCreateNote={(text: string) => {
           if (pizarraRef.current) {
             pizarraRef.current.addNoteCard(text);
           }
         }}
-        onCreateTodoList={(text) => {
+        onCreateTodoList={(text: string) => {
           if (pizarraRef.current) {
             pizarraRef.current.addTodoCard(text);
           }
         }}
-        onSendToUser={(text, user) => {
-          handleUserClick(user, text);
-        }}
         className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
         placeholder="Escribe aquí para crear notas, tareas o enviar..."
       />
-
-      {/* Ventana de historial de pizarra */}
-      <Ventana
-        isOpen={showHistoryModal}
-        onClose={() => setShowHistoryModal(false)}
-        title={selectedHistorySnapshot ? `Historial de la pizarra • ${selectedHistorySnapshot.savedAt}` : 'Historial de la pizarra'}
-        initialWidth={960}
-        initialHeight={640}
-        minWidth={720}
-        minHeight={480}
-        showOverlay={true}
-      >
-        {selectedHistorySnapshot ? (
-          <div className="text-black space-y-6 p-2 md:p-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-              <div>
-                <h2 className="text-2xl font-semibold text-gray-900">{selectedHistorySnapshot.label}</h2>
-                <p className="text-gray-600 text-sm">
-                  Historial de los elementos guardados en la pizarra del {selectedHistorySnapshot.savedAt}
-                </p>
-              </div>
-              <div className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
-                {selectedHistorySnapshot.value} elementos almacenados
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              {selectedHistorySnapshot.highlights.map((highlight, index) => (
-                <div
-                  key={index}
-                  className="border border-gray-200 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700"
-                >
-                  {highlight}
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Elementos guardados</h3>
-                <span className="text-xs uppercase tracking-wide text-gray-500">
-                  {chartLoading ? 'Cargando...' : 'Datos en la nube'}
-                </span>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {selectedHistorySnapshot.items.map((item) => {
-                  // Determinar el color según el tipo
-                  const getColorForType = (type: string) => {
-                    switch(type) {
-                      case 'Nota':
-                        return {
-                          bg: 'bg-gray-50',
-                          border: 'border-gray-200',
-                          badge: 'bg-gray-500 text-white',
-                          text: 'text-gray-900'
-                        };
-                      case 'Tarea':
-                        return {
-                          bg: 'bg-yellow-50',
-                          border: 'border-yellow-200',
-                          badge: 'bg-yellow-500 text-white',
-                          text: 'text-yellow-900'
-                        };
-                      case 'Actividad':
-                        return {
-                          bg: 'bg-blue-50',
-                          border: 'border-blue-200',
-                          badge: 'bg-blue-500 text-white',
-                          text: 'text-blue-900'
-                        };
-                      case 'Mision':
-                        return {
-                          bg: 'bg-green-50',
-                          border: 'border-green-200',
-                          badge: 'bg-green-500 text-white',
-                          text: 'text-green-900'
-                        };
-                      case 'Proyecto':
-                        return {
-                          bg: 'bg-indigo-50',
-                          border: 'border-indigo-200',
-                          badge: 'bg-indigo-500 text-white',
-                          text: 'text-indigo-900'
-                        };
-                      case 'Chat':
-                        return {
-                          bg: 'bg-purple-50',
-                          border: 'border-purple-200',
-                          badge: 'bg-purple-500 text-white',
-                          text: 'text-purple-900'
-                        };
-                      case 'Recurso':
-                        return {
-                          bg: 'bg-orange-50',
-                          border: 'border-orange-200',
-                          badge: 'bg-orange-500 text-white',
-                          text: 'text-orange-900'
-                        };
-                      case 'Imagen':
-                        return {
-                          bg: 'bg-pink-50',
-                          border: 'border-pink-200',
-                          badge: 'bg-pink-500 text-white',
-                          text: 'text-pink-900'
-                        };
-                      default:
-                        return {
-                          bg: 'bg-gray-50',
-                          border: 'border-gray-200',
-                          badge: 'bg-gray-500 text-white',
-                          text: 'text-gray-900'
-                        };
-                    }
-                  };
-
-                  const colors = getColorForType(item.type);
-
-                  return (
-                    <div
-                      key={item.id}
-                      className={`border ${colors.border} rounded-xl ${colors.bg} p-4 shadow-sm hover:shadow-md transition-shadow`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <h4 className={`text-sm font-semibold ${colors.text} leading-snug`}>{item.title}</h4>
-                        <span className={`ml-2 inline-flex items-center rounded-full ${colors.badge} px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide`}>
-                          {item.type}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm text-gray-600 leading-relaxed">{item.summary}</p>
-                      <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
-                        <span>{item.owner}</span>
-                        <span>{item.lastUpdated}</span>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <button
-                          onClick={() => {
-                            if (item.cardData && pizarraRef.current) {
-                              // Usar el método de la pizarra para agregar el card
-                              pizarraRef.current.restoreCard?.(item.cardData);
-                              alert(`✅ ${item.type} "${item.title}" agregado a la pizarra`);
-                            }
-                          }}
-                          className={`w-full ${colors.badge} px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity`}
-                        >
-                          Agregar a pizarra
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {chartError && (
-              <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-                Error cargando datos: {chartError}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-sm text-gray-600 p-4">
-            Selecciona una barra del gráfico para ver el detalle de la pizarra.
-          </div>
-        )}
-      </Ventana>
-
-      {/* Ventana de Chat */}
-      {typeof window !== 'undefined' && showChatWindow && (
-        <Ventana
-          isOpen={showChatWindow}
-          onClose={() => {
-            setShowChatWindow(false);
-            setSelectedChatUser(null);
-            setPendingMessage("");
-          }}
-          title={`Chat con ${selectedChatUser?.name || 'Usuario'}`}
-          initialWidth={400}
-          initialHeight={600}
-          minWidth={350}
-          minHeight={400}
-          initialX={window.innerWidth / 2 - 200}
-          initialY={window.innerHeight / 2 - 300}
-        >
-          {selectedChatUser && usuario && (
-            <ChatWindow
-              key={`${selectedChatUser.userId}-${pendingMessage}`}
-              currentUserId={usuario.userAuth}
-              targetUser={selectedChatUser}
-              initialMessage={pendingMessage}
-            />
-          )}
-        </Ventana>
-      )}
-
-      {/* Ventana de Proyecto */}
-      <Ventana
-        isOpen={showProyectoWindow}
-        onClose={() => {
-          setShowProyectoWindow(false);
-          setSelectedProyectoWindow(null);
-        }}
-        title={selectedProyectoWindow?.nombre || 'Proyecto'}
-        initialWidth={700}
-        initialHeight={700}
-        minWidth={600}
-        minHeight={500}
-        initialX={window.innerWidth / 2 - 350}
-        initialY={window.innerHeight / 2 - 350}
-      >
-        {selectedProyectoWindow && (
-          <ProyectoWindow proyecto={selectedProyectoWindow} />
-        )}
-      </Ventana>
-
-      {/* Ventana de entregas */}
-      <Ventana
-        isOpen={showEntregasModal}
-        onClose={() => setShowEntregasModal(false)}
-        title="Entregas Realizadas"
-        initialWidth={900}
-        initialHeight={700}
-        minWidth={700}
-        minHeight={500}
-        showOverlay={true}
-      >
-        <EntregasVentana onClose={() => setShowEntregasModal(false)} />
-      </Ventana>
 
     </div>
   );

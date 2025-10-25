@@ -27,7 +27,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
       // Delay más largo para evitar rate limiting
       const timer = setTimeout(() => {
         initializeAuth();
-      }, 500); // Aumentado a 500ms
+      }, 1000); // Aumentado a 1 segundo para evitar rate limiting
       
       return () => clearTimeout(timer);
     }

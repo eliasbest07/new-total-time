@@ -6,6 +6,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { ChatWindowProvider } from "./contexts/ChatWindowContext";
 import { UsuariosOrganizacionProvider } from "./contexts/UsuariosOrganizacionContext";
+import { ProyectosProvider } from "./contexts/ProyectosContext";
+import { RecursosProvider } from "./contexts/RecursosContext";
 import TotalTimeNavbar from "./components/total-time-info";
 import SettingsModal from "./components/SettingsModal";
 import { ChatWindowManager } from "@/components/chat/ChatWindowManager";
@@ -41,8 +43,10 @@ export default function RootLayout({
       >
         <AuthProvider>
           <UsuariosOrganizacionProvider>
-            <SettingsProvider>
-              <ChatWindowProvider>
+            <ProyectosProvider>
+              <RecursosProvider>
+                <SettingsProvider>
+                  <ChatWindowProvider>
                 <AnimatedBackground />
                 <TotalTimeNavbar />
                 <SettingsModal />
@@ -53,8 +57,10 @@ export default function RootLayout({
                 <IncomingMessagesListener />
                 {/* Monitor de memoria - solo visible en desarrollo */}
                 {process.env.NODE_ENV === 'development' && <MemoryMonitor />}
-              </ChatWindowProvider>
-            </SettingsProvider>
+                  </ChatWindowProvider>
+                </SettingsProvider>
+              </RecursosProvider>
+            </ProyectosProvider>
           </UsuariosOrganizacionProvider>
         </AuthProvider>
       </body>
