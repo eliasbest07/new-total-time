@@ -30,9 +30,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   const { usuario } = useAuth();
 
   // Debug: Verificar que el usuario esté cargado
-  // useEffect(() => {
-  //   console.log('👤 Usuario en Pizarra:', usuario?.id, usuario?.email);
-  // }, [usuario]);
+  useEffect(() => {
+    console.log('👤 Usuario en Pizarra:', usuario?.id, usuario?.email);
+  }, [usuario]);
 
   // Hooks de Supabase - Cargar pizarra del usuario automáticamente
   const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(usuario?.id || null);
@@ -71,7 +71,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).pizarraCaptureNow = captureNow;
-      // console.log('✅ captureNow expuesto globalmente en window.pizarraCaptureNow');
+      console.log('✅ captureNow expuesto globalmente en window.pizarraCaptureNow');
     }
     return () => {
       if (typeof window !== 'undefined') {
@@ -341,7 +341,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         console.log('💾 [MISION ACTIVA] Creando/obteniendo misión activa en Supabase...');
         const misionActiva = await getOrCreateMisionActiva({
           tipo: 'mision',
-          id_referencia: parseInt(misionId),
+          id_referencia: typeof misionId === 'string' ? parseInt(misionId) : misionId,
           id_usuario_asignado: userId,
           id_creador: userId
         });
@@ -358,7 +358,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         // 3. TERCERO: Iniciar captura con el stream ya obtenido
         await startCapturing({
           userId: userId,
-          actividadId: misionId,
+          actividadId: String(misionId),
           misionActividad: misionActividad,
           totalTrabajadoHoy: misionData.hours?.toString(),
           mediaStream: mediaStream, // Pasar el stream ya obtenido
@@ -783,7 +783,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       // 3. Obtener las cards actuales de Supabase para esta pizarra
       const { data: cardsEnBD, error: cardsError } = await supabase
         .from('cards')
-        .select('card_id')
+        .select('id')
         .eq('id_pizarra', pizarraActual.id);
 
       if (cardsError) {
@@ -791,7 +791,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         return false;
       }
 
-      const currentCardsInDB = (cardsEnBD || []).map((c: any) => c.card_id);
+      const currentCardsInDB = (cardsEnBD || []).map((c: any) => c.id);
 
       // 4. Eliminar cards que ya no existen localmente
       console.log('   - Eliminando cards obsoletas...');
@@ -803,8 +803,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         const { error: deleteError } = await supabase
           .from('cards')
           .delete()
-          .eq('card_id', cardId)
-          .eq('id_pizarra', pizarraActual.id);
+          .eq('id', cardId);
 
         if (deleteError) {
           console.error('❌ Error eliminando card:', cardId, deleteError);
@@ -821,33 +820,24 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         if (cardExists) {
           // Actualizar card existente
           const cardData = mapCardToCardDB(card, pizarraActual.id);
-          const { data: updatedCard, error: updateError } = await supabase
+          const { error: updateError } = await supabase
             .from('cards')
             .update(cardData)
-            .eq('card_id', card.id)
-            .eq('id_pizarra', pizarraActual.id)
-            .select('id')
-            .maybeSingle();
+            .eq('id', card.id);
 
           if (updateError) {
             console.error('❌ Error actualizando card:', card.id, updateError);
-            continue; // Saltar esta card si hay error
+          } else {
+            console.log('   ✏️ Card actualizada:', card.id);
           }
-
-          if (!updatedCard) {
-            console.warn('⚠️ Card no encontrada para actualizar:', card.id);
-            continue; // Saltar si no existe
-          }
-
-          console.log('   ✏️ Card actualizada:', card.id);
 
           // Card existente - actualizar sus todos
-          if (updatedCard && card.type === 'todo' && card.todos) {
+          if (card.type === 'todo' && card.todos) {
             const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
             const cardTodoRepo = new SupabaseCardTodoRepository();
 
-            // Obtener todos existentes usando el UUID real
-            const todosExistentes = await cardTodoRepo.getByCardId(updatedCard.id);
+            // Obtener todos existentes
+            const todosExistentes = await cardTodoRepo.getByCardId(card.id);
             const todosExistentesIds = todosExistentes.map(t => t.todo_id);
 
             // Eliminar todos que ya no existen
@@ -856,7 +846,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                 await supabase
                   .from('card_todos')
                   .delete()
-                  .eq('id_card', updatedCard.id)
+                  .eq('id_card', card.id)
                   .eq('todo_id', todoExistente.todo_id);
               }
             }
@@ -873,12 +863,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                     position: todo.id - 1,
                     updated_at: new Date().toISOString()
                   })
-                  .eq('id_card', updatedCard.id)
+                  .eq('id_card', card.id)
                   .eq('todo_id', todo.id);
               } else {
                 // Crear nuevo todo
                 await cardTodoRepo.create({
-                  id_card: updatedCard.id,
+                  id_card: card.id,
                   todo_id: todo.id,
                   text: todo.text,
                   completed: todo.completed,
@@ -890,7 +880,6 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         } else {
           // Crear nueva card
           const cardData = mapCardToCardDB(card, pizarraActual.id);
-          console.log('📝 Datos a insertar:', cardData); // Debug
           const { data: createdCard, error: createError } = await supabase
             .from('cards')
             .insert([cardData])
@@ -898,9 +887,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             .single();
 
           if (createError) {
-            console.error('❌ Error creando card:', card.id);
-            console.error('❌ Error completo:', JSON.stringify(createError, null, 2));
-            console.error('❌ Datos que se intentaron insertar:', cardData);
+            console.error('❌ Error creando card:', card.id, createError);
           } else {
             console.log('   ➕ Card creada:', card.id);
 
@@ -909,7 +896,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
               const cardMisionRepo = new SupabaseCardMisionRepository();
               await cardMisionRepo.create({
                 id_card: createdCard.id,
-                id_mision: parseInt(card.misionData.id_mision),
+                id_mision: typeof card.misionData.id_mision === 'string' ? parseInt(card.misionData.id_mision) : card.misionData.id_mision,
                 is_running: card.misionData.isRunning || false,
                 last_capture_url: card.misionData.lastCaptureUrl || null
               });
@@ -977,9 +964,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
               // Extraer información del archivo desde la URL o usar valores por defecto
               const fileName = card.imageUrl.split('/').pop() || 'image.png';
               const mimeType = card.imageUrl.includes('.png') ? 'image/png' :
-                              card.imageUrl.includes('.jpg') || card.imageUrl.includes('.jpeg') ? 'image/jpeg' :
-                              card.imageUrl.includes('.gif') ? 'image/gif' :
-                              card.imageUrl.includes('.webp') ? 'image/webp' : 'image/png';
+                card.imageUrl.includes('.jpg') || card.imageUrl.includes('.jpeg') ? 'image/jpeg' :
+                  card.imageUrl.includes('.gif') ? 'image/gif' :
+                    card.imageUrl.includes('.webp') ? 'image/webp' : 'image/png';
 
               await cardImageRepo.create({
                 id_card: createdCard.id,
@@ -1135,7 +1122,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                 idCreador: mision?.id_creador,
                 isRunning: cardMision.is_running,
                 lastCaptureUrl: cardMision.last_capture_url,
-                id_mision: cardMision.id_mision.toString(),
+                id_mision: cardMision.id_mision,
                 id_usuario: mision?.id_usuario?.toString()
               };
             }
@@ -1350,21 +1337,21 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   // Effect: Marcar como inicializado cuando el usuario esté disponible
   useEffect(() => {
     if (usuario?.id && !isInitialized) {
-      // console.log('✅ Usuario cargado, listo para operaciones:', usuario.id);
+      console.log('✅ Usuario cargado, listo para operaciones:', usuario.id);
       setIsInitialized(true);
     }
   }, [usuario, isInitialized]);
 
 
   return (
-    <div className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center ${lightMode ? '' : 'p-8'} ${isReceivingDrag ? 'z-50' : ''}`}>
+    <div className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}>
       <div
         ref={canvasRef}
         className={`
-          relative ${lightMode ? 'w-full h-full' : 'w-4/5 h-4/5'}
-          ${lightMode ? '' : 'border-4 border-dashed rounded-3xl'}
+          relative w-4/5 h-4/5
+          border-4 border-dashed rounded-3xl
           transition-colors duration-300 ease-in-out overflow-hidden
-          ${isDragOver ? 'border-blue-500 bg-blue-50' : lightMode ? 'bg-transparent' : 'border-gray-300 bg-transparent'}
+          ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-transparent'}
           ${isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'}
         `}
         onDragEnter={handleDragEnter}
@@ -1442,6 +1429,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             onShowScreenshots={onShowScreenshots}
             screenshots={screenshots}
             isCapturing={isCapturing}
+            captureNow={captureNow}
             setCards={setCards}
             pastedImages={pastedImages}
             bringCardToFront={bringCardToFront}

@@ -24,6 +24,7 @@ export interface MisionActiva {
 
   capturas_urls: string[] | null;
   fecha_ultimo_capture: string | null;
+  capture_now: string | null;
 
   comentarios_entrega: string | null;
   calificacion: number | null;

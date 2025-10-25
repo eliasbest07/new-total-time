@@ -25,7 +25,8 @@ export interface MisionData {
   isRunning?: boolean;
   lastCaptureUrl?: string | null;
   id_usuario?: string; // ID del usuario que creó/ejecuta la misión
-  id_mision?: string; // ID único de la misión en la base de datos
+  id_mision?: number; // ID único de la misión en la base de datos
+  misionActivaId?: string; // ID de la misión activa en Supabase
 }
 
 export interface ChatMessage {
@@ -76,7 +77,7 @@ export interface Card {
 
 export interface Connection {
   id: string;
-  from: string;
+  from?: string; // Opcional - puede ser undefined para conexiones desde el canvas
   to: string;
 }
 

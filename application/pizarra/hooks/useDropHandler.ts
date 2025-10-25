@@ -136,9 +136,39 @@ export const useDropHandler = (
           }]);
           return;
         }
-        // MISIÓN
+        // MISIÓN ORGANIZACIÓN
+        else if (resource.type === 'mision-organizacion') {
+          console.log('🎯 [PIZARRA DROP] Detectado MISIÓN ORGANIZACIÓN');
+          console.log('🎯 [PIZARRA DROP] Datos de misión recibidos:', resource);
+
+          setCards(prev => [...prev, {
+            id: generateUniqueId('mision-org', existingIds),
+            type: 'mision-organizacion',
+            title: resource.title || 'Nueva Misión',
+            content: resource.description || '',
+            x, y,
+            width: 350,
+            height: 500,
+            fontSize: 14,
+            misionData: {
+              id_mision: resource.id_mision,
+              title: resource.title || 'Nueva Misión',
+              hours: resource.hours || 1,
+              description: resource.description || '',
+              estado: 'pendiente',
+              subtareas: [],
+              entregas: [],
+              id_usuario_asignado: resource.id_usuario || null,
+              idCreador: resource.id_creador,
+              isRunning: false
+            }
+          }]);
+          console.log('✅ [PIZARRA DROP] Card de misión organización creada');
+          return;
+        }
+        // MISIÓN (legacy)
         else if (resource.title && resource.hours !== undefined) {
-          console.log('🎯 [PIZARRA DROP] Detectado MISIÓN');
+          console.log('🎯 [PIZARRA DROP] Detectado MISIÓN (legacy)');
           console.log('🎯 [PIZARRA DROP] Datos de misión recibidos:', {
             id_usuario: resource.id_usuario,
             id_creador: resource.id_creador,

@@ -94,7 +94,27 @@ export class SupabaseMisionRepository implements MisionRepository {
 
   async updateMision(id: number, mision: Partial<Mision>): Promise<Mision | null> {
     try {
-      // console.log('✏️ Actualizando misión:', id, mision);
+      console.log('✏️ Intentando actualizar misión:', { id, tipo_id: typeof id, campos: Object.keys(mision) });
+
+      // Primero verificar si la misión existe y es accesible
+      const { data: existingMision, error: checkError } = await supabase
+        .from('misiones')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('❌ Error verificando existencia de misión:', checkError);
+        return null;
+      }
+
+      if (!existingMision) {
+        console.warn('⚠️ La misión no existe o no es accesible (ID:', id, ')');
+        console.warn('💡 Posibles causas: 1) La misión fue eliminada, 2) Políticas RLS bloquean el acceso, 3) El ID es incorrecto');
+        return null;
+      }
+
+      console.log('✅ Misión encontrada, procediendo con actualización');
 
       const { data, error } = await supabase
         .from('misiones')
@@ -104,14 +124,19 @@ export class SupabaseMisionRepository implements MisionRepository {
         .single();
 
       if (error) {
-        console.error('❌ Error actualizando misión:', error);
+        if (error.code === 'PGRST116') {
+          console.warn('⚠️ No se pudo actualizar la misión (ID:', id, ')');
+          console.warn('💡 Posible causa: Políticas RLS bloquean la actualización');
+        } else {
+          console.error('❌ Error actualizando misión:', error);
+        }
         return null;
       }
 
-      // console.log('✅ Misión actualizada exitosamente:', data);
+      console.log('✅ Misión actualizada exitosamente:', data);
       return data;
     } catch (error) {
-      console.error('❌ Error en updateMision:', error);
+      console.error('❌ Error inesperado en updateMision:', error);
       return null;
     }
   }

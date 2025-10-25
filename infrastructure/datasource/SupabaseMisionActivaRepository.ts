@@ -47,11 +47,62 @@ export class SupabaseMisionActivaRepository {
   }
 
   /**
-   * Crear nueva misión activa
+   * Obtener misión activa solo por tipo y referencia (cualquier usuario)
+   */
+  async getByTipoAndReferenciaOnly(
+    tipo: 'mision' | 'actividad',
+    idReferencia: number
+  ): Promise<MisionActiva | null> {
+    try {
+      console.log('🔍 [SUPABASE] Buscando misión activa:', { tipo, id_referencia: idReferencia });
+
+      // Usar .limit(1) en lugar de .maybeSingle() para evitar problemas con RLS
+      const { data, error } = await supabase
+        .from('misiones_activas')
+        .select('*')
+        .eq('tipo', tipo)
+        .eq('id_referencia', idReferencia)
+        .limit(1);
+
+      if (error) {
+        console.error('❌ [SUPABASE] Error obteniendo misión activa:', error);
+        console.error('💡 Posible problema de RLS (Row Level Security)');
+        return null;
+      }
+
+      // data es un array con .limit(1)
+      const mision = data && data.length > 0 ? data[0] : null;
+
+      if (mision) {
+        console.log('✅ [SUPABASE] Misión activa encontrada:', {
+          id: mision.id,
+          estado: mision.estado,
+          is_running: mision.is_running,
+          id_usuario_asignado: mision.id_usuario_asignado,
+          id_referencia: mision.id_referencia
+        });
+      } else {
+        console.log('ℹ️ [SUPABASE] No se encontró misión activa para id_referencia:', idReferencia);
+        console.log('💡 Esto puede ser por: 1) No existe, 2) RLS está bloqueando el acceso');
+      }
+
+      return mision;
+    } catch (error) {
+      console.error('❌ Error en getByTipoAndReferenciaOnly:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Crear nueva misión activa (solo INSERT)
    */
   async create(dto: CreateMisionActivaDTO): Promise<MisionActiva | null> {
     try {
-      // console.log('📝 Creando nueva misión activa:', dto);
+      console.log('📝 [CREATE] Creando nueva misión activa:', {
+        tipo: dto.tipo,
+        id_referencia: dto.id_referencia,
+        id_usuario_asignado: dto.id_usuario_asignado
+      });
 
       const { data, error } = await supabase
         .from('misiones_activas')
@@ -72,10 +123,51 @@ export class SupabaseMisionActivaRepository {
         return null;
       }
 
-      // console.log('✅ Misión activa creada:', data.id);
+      console.log('✅ [CREATE] Misión activa creada:', data.id);
       return data;
     } catch (error) {
       console.error('❌ Error en create:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Actualizar misión activa existente (resetear a estado inicial)
+   */
+  async resetMisionActiva(
+    idMisionActiva: string,
+    nuevoUsuarioAsignado: string
+  ): Promise<MisionActiva | null> {
+    try {
+      console.log('🔄 [RESET] Reseteando misión activa:', {
+        id: idMisionActiva,
+        nuevo_usuario: nuevoUsuarioAsignado
+      });
+
+      const { data, error } = await supabase
+        .from('misiones_activas')
+        .update({
+          id_usuario_asignado: nuevoUsuarioAsignado,
+          estado: 'pendiente',
+          is_running: false,
+          tiempo_total_segundos: 0,
+          fecha_inicio: null,
+          fecha_pausa: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', idMisionActiva)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error reseteando misión activa:', error);
+        return null;
+      }
+
+      console.log('✅ [RESET] Misión activa reseteada:', data.id);
+      return data;
+    } catch (error) {
+      console.error('❌ Error en resetMisionActiva:', error);
       return null;
     }
   }
@@ -269,6 +361,125 @@ export class SupabaseMisionActivaRepository {
       console.error('❌ Error en getEntregadasByUserId:', error);
       return [];
     }
+  }
+
+  /**
+   * Actualizar la columna capture_now
+   */
+  async updateCaptureNow(idMisionActiva: string, value: string): Promise<MisionActiva | null> {
+    try {
+      console.log('📸 Actualizando capture_now a:', value);
+
+      const { data, error } = await supabase
+        .from('misiones_activas')
+        .update({
+          capture_now: value,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', idMisionActiva)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error actualizando capture_now:', error);
+        return null;
+      }
+
+      console.log('✅ capture_now actualizado');
+      return data;
+    } catch (error) {
+      console.error('❌ Error en updateCaptureNow:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Suscribirse a cambios en tiempo real de una misión activa por ID
+   */
+  subscribeToMisionActiva(
+    idMisionActiva: string,
+    onUpdate: (misionActiva: MisionActiva) => void
+  ) {
+    const channel = supabase
+      .channel(`mision-activa-${idMisionActiva}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'misiones_activas',
+          filter: `id=eq.${idMisionActiva}`
+        },
+        (payload) => {
+          console.log('🔔 Cambio en misión activa:', payload.new);
+          onUpdate(payload.new as MisionActiva);
+        }
+      )
+      .subscribe();
+
+    return channel;
+  }
+
+  /**
+   * Suscribirse a cambios en tiempo real por tipo y referencia
+   * NOTA: El filtro se hace manualmente porque los filtros de Supabase Realtime
+   * no funcionan correctamente en algunos casos
+   */
+  subscribeToMisionActivaByReferencia(
+    tipo: 'mision' | 'actividad',
+    idReferencia: number,
+    onUpdate: (misionActiva: MisionActiva | null) => void
+  ) {
+    const channelName = `mision-activa-${tipo}-${idReferencia}-${Date.now()}`;
+
+    console.log('📡 [REALTIME] Suscripción creada:', { tipo, id_referencia: idReferencia });
+
+    const channel = supabase
+      .channel(channelName, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: '' }
+        }
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'misiones_activas'
+          // Sin filtro server-side, se filtra manualmente en el callback
+        },
+        (payload) => {
+          // Filtrar manualmente por tipo e id_referencia
+          const eventoTipo = (payload.new as any)?.tipo;
+          const eventoIdReferencia = (payload.new as any)?.id_referencia;
+
+          // Solo procesar eventos que coincidan
+          if (eventoTipo === tipo && eventoIdReferencia === idReferencia) {
+            console.log('📡 [REALTIME] Cambio detectado:', {
+              tipo: eventoTipo,
+              id_referencia: eventoIdReferencia,
+              estado: (payload.new as any)?.estado,
+              is_running: (payload.new as any)?.is_running
+            });
+
+            if (payload.eventType === 'DELETE') {
+              onUpdate(null);
+            } else {
+              onUpdate(payload.new as MisionActiva);
+            }
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [REALTIME] Suscripción activa para:', { tipo, id_referencia: idReferencia });
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('❌ [REALTIME] Error en suscripción:', err);
+        }
+      });
+
+    return channel;
   }
 
 }

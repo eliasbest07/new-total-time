@@ -59,6 +59,7 @@ export const useMisionActiva = () => {
   /**
    * Actualizar estado de ejecución (play/pause)
    */
+
   const updateRunningState = useCallback(async (
     misionActivaId: string,
     dto: UpdateRunningStateDTO
@@ -81,11 +82,14 @@ export const useMisionActiva = () => {
    * Agregar URL de captura
    */
   const addCaptureUrl = useCallback(async (misionActivaId: string, captureUrl: string) => {
+   console.log(misionActivaId)
     try {
       const data = await misionActivaRepository.addCaptureUrl(misionActivaId, captureUrl);
       setMisionActiva(data);
       return data;
     } catch (err) {
+      console.log((err as Error).message)
+      console.log("error")
       setError((err as Error).message);
       return null;
     }
@@ -118,16 +122,51 @@ export const useMisionActiva = () => {
   const getOrCreateMisionActiva = useCallback(async (
     createDto: CreateMisionActivaDTO
   ): Promise<MisionActiva | null> => {
-    // Intentar obtener primero por tipo + referencia + usuario
-    let mision = await misionActivaRepository.getByTipoAndReferencia(
+    console.log('🔍 [GET_OR_CREATE] Procesando misión activa:', {
+      tipo: createDto.tipo,
+      id_referencia: createDto.id_referencia,
+      id_usuario_asignado: createDto.id_usuario_asignado
+    });
+
+    // 1. Buscar si ya existe una misión activa para esta referencia
+    let mision = await misionActivaRepository.getByTipoAndReferenciaOnly(
       createDto.tipo,
-      createDto.id_referencia,
-      createDto.id_usuario_asignado
+      createDto.id_referencia
     );
 
-    // Si no existe, crear
-    if (!mision) {
+    if (mision) {
+      // Ya existe - reutilizar la misma fila
+      console.log('♻️ [GET_OR_CREATE] Misión activa encontrada, reutilizando:', {
+        id: mision.id,
+        usuario_actual: mision.id_usuario_asignado,
+        usuario_nuevo: createDto.id_usuario_asignado
+      });
+
+      // Si el usuario es diferente, resetear la misión
+      if (mision.id_usuario_asignado !== createDto.id_usuario_asignado) {
+        console.log('🔄 [GET_OR_CREATE] Usuario diferente, reseteando misión');
+        const reseteada = await misionActivaRepository.resetMisionActiva(
+          mision.id,
+          createDto.id_usuario_asignado
+        );
+        if (reseteada) {
+          mision = reseteada;
+        }
+      }
+    } else {
+      // No existe - crear nueva
+      console.log('➕ [GET_OR_CREATE] No existe, creando nueva misión activa');
       mision = await misionActivaRepository.create(createDto);
+    }
+
+    if (mision) {
+      console.log('✅ [GET_OR_CREATE] Misión activa lista:', {
+        id: mision.id,
+        estado: mision.estado,
+        is_running: mision.is_running
+      });
+    } else {
+      console.error('❌ [GET_OR_CREATE] No se pudo obtener/crear la misión activa');
     }
 
     setMisionActiva(mision);
@@ -151,6 +190,43 @@ export const useMisionActiva = () => {
     }
   }, []);
 
+  /**
+   * Actualizar capture_now
+   */
+  const updateCaptureNow = useCallback(async (misionActivaId: string, value: string) => {
+    try {
+      const data = await misionActivaRepository.updateCaptureNow(misionActivaId, value);
+      if (data) {
+        setMisionActiva(data);
+      }
+      return data;
+    } catch (err) {
+      setError((err as Error).message);
+      return null;
+    }
+  }, []);
+
+  /**
+   * Suscribirse a cambios en tiempo real
+   */
+  const subscribeToMisionActiva = useCallback((
+    misionActivaId: string,
+    onUpdate: (misionActiva: MisionActiva) => void
+  ) => {
+    return misionActivaRepository.subscribeToMisionActiva(misionActivaId, onUpdate);
+  }, []);
+
+  /**
+   * Suscribirse a cambios en tiempo real por tipo y referencia
+   */
+  const subscribeToMisionActivaByReferencia = useCallback((
+    tipo: 'mision' | 'actividad',
+    idReferencia: number,
+    onUpdate: (misionActiva: MisionActiva | null) => void
+  ) => {
+    return misionActivaRepository.subscribeToMisionActivaByReferencia(tipo, idReferencia, onUpdate);
+  }, []);
+
   return {
     misionActiva,
     loading,
@@ -161,6 +237,9 @@ export const useMisionActiva = () => {
     addCaptureUrl,
     submitEntrega,
     getOrCreateMisionActiva,
-    getMisionesEntregadas
+    getMisionesEntregadas,
+    updateCaptureNow,
+    subscribeToMisionActiva,
+    subscribeToMisionActivaByReferencia
   };
 };

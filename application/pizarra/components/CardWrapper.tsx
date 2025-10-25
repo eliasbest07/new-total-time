@@ -40,9 +40,12 @@ interface CardWrapperProps {
   onShowScreenshots?: (cardId: string) => void;
   screenshots: any[];
   isCapturing: boolean;
+  captureNow: () => Promise<string | null>;
   setCards: React.Dispatch<React.SetStateAction<Card[]>>;
   pastedImages: { [key: string]: string };
   bringCardToFront: (cardId: string) => void;
+  usuarios?: any[];
+  currentUserId?: string;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -107,8 +110,11 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         onShowScreenshots={props.onShowScreenshots}
         screenshots={props.screenshots}
         isCapturing={props.isCapturing}
+        captureNow={props.captureNow}
         setCards={props.setCards}
         pastedImages={props.pastedImages}
+        usuarios={props.usuarios}
+        currentUserId={props.currentUserId}
       />
 
       {/* Connection point */}

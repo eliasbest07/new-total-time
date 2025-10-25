@@ -7,7 +7,7 @@ import AuthWrapper from "@/app/components/AuthWrapper";
 import { useAuth } from "@/app/contexts/AuthContext";
 import ChatWindow from "@/app/components/ChatWindow";
 import InputAreaLight from "@/app/components/mainUI/InputAreaLight";
-import MisionesLight from "@/app/components/mainUI/MisionesLight";
+import MisionesOrganizacion from "@/app/components/organizacion/MisionesOrganizacion";
 import ListadoProyectos from "@/app/components/organizacion/ListadoProyectos";
 import InfoOrganizacion from "@/app/components/organizacion/InfoOrganizacion";
 import { useIncomingMessages } from "@/hooks/useIncomingMessages";
@@ -132,6 +132,17 @@ export default function DashboardPage() {
       });
 
       if (nuevaMision) {
+        // Crear el card en la pizarra automáticamente
+        if (pizarraRef.current?.addMisionCardOrganizacion) {
+          pizarraRef.current.addMisionCardOrganizacion({
+            id_mision: nuevaMision.id,
+            title: nuevaMision.nombre || 'Misión',
+            description: nuevaMision.descripcion || '',
+            hours: nuevaMision.horas || 1,
+            id_usuario_asignado: nuevaMision.id_usuario || undefined,
+          });
+        }
+
         alert("✅ Misión creada exitosamente");
         limpiarFormularioMision();
         setShowMisionesModal(false);
@@ -226,6 +237,8 @@ export default function DashboardPage() {
             onShowScreenshots={() => {}}
             storagePrefix="organizacion"
             lightMode={true}
+            usuarios={usuarios}
+            currentUserId={usuario?.userAuth}
           />
         </div>
 
@@ -255,7 +268,7 @@ export default function DashboardPage() {
 
         {/* Misiones - Esquina superior derecha */}
         <div className="fixed top-20 right-4 z-50 pointer-events-auto">
-          <MisionesLight />
+          <MisionesOrganizacion />
         </div>
 
         {/* Botón para crear misiones/actividades - Esquina inferior derecha */}

@@ -16,6 +16,22 @@ export interface ActivityData {
   id_actividad?: string; // ID único de la actividad en la base de datos
 }
 
+export interface SubtareaMision {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+export interface EntregaMision {
+  id: string;
+  fecha: string;
+  descripcion: string;
+  imagenes: string[];
+  archivos: string[];
+  usuario_id: string;
+  usuario_nombre: string;
+}
+
 export interface MisionData {
   title: string;
   hours: number;
@@ -23,6 +39,16 @@ export interface MisionData {
   idCreador?: string | null; // UUID del creador de la misión
   isRunning?: boolean;
   lastCaptureUrl?: string | null;
+  // Nuevos campos para card de organización
+  id_mision?: number; // ID de la misión en la BD
+  id_usuario?: string; // ID del usuario que creó/ejecuta la misión
+  id_usuario_asignado?: number | null; // ID del usuario asignado
+  usuario_asignado_nombre?: string | null; // Nombre del usuario asignado
+  usuario_asignado_avatar?: string | null; // Avatar del usuario asignado
+  estado?: 'pendiente' | 'en_progreso' | 'pausada' | 'entregada' | 'aprobada' | 'rechazada' | 'cancelada';
+  subtareas?: SubtareaMision[];
+  entregas?: EntregaMision[];
+  misionActivaId?: string; // ID de la misión activa
 }
 
 export interface ChatMessage {
@@ -80,6 +106,15 @@ export interface Connection {
 export interface PizarraRef {
   addNoteCard: (text: string) => void;
   addTodoCard: (text: string) => void;
+  addMisionCardOrganizacion?: (misionData: {
+    id_mision: number;
+    title: string;
+    description: string;
+    hours: number;
+    id_usuario_asignado?: number;
+    usuario_asignado_nombre?: string;
+    usuario_asignado_avatar?: string;
+  }) => string | void;
   restoreCard?: (cardData: any) => void;
   clearStorage?: () => void;
   exportStorage?: () => void;

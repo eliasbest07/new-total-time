@@ -3,6 +3,7 @@ import { Card } from '../../types';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
+import { misionActivaRepository } from '@/infrastructure/datasource/SupabaseMisionActivaRepository';
 import { createClient } from '@supabase/supabase-js';
 
 // Cliente de Supabase para subir archivos directamente
@@ -19,6 +20,7 @@ interface MisionCardProps {
   handleMisionPlayPause: (cardId: string, isRunning: boolean) => void;
   screenshots: any[];
   isCapturing: boolean;
+  captureNow: () => Promise<string | null>;
 }
 
 export const MisionCard: React.FC<MisionCardProps> = ({
@@ -28,7 +30,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   setEditingTitle,
   handleMisionPlayPause,
   screenshots,
-  isCapturing
+  isCapturing,
+  captureNow
 }) => {
   const [chatMessage, setChatMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
@@ -55,6 +58,17 @@ export const MisionCard: React.FC<MisionCardProps> = ({
 
   // Hook para gestionar misiones activas
   const { submitEntrega } = useMisionActiva();
+
+  // Estado para rastrear capture_now
+  const [captureNowValue, setCaptureNowValue] = useState<string | null>(null);
+  const captureNowValueRef = useRef<string | null>(null);
+  const isProcessingCapture = useRef(false);
+
+  // Mantener la ref sincronizada con el estado
+  useEffect(() => {
+    captureNowValueRef.current = captureNowValue;
+    console.log('🔔 [CAPTURE NOW VALUE CHANGED] captureNowValue cambió a:', captureNowValue);
+  }, [captureNowValue]);
 
   // Hook de chat para mensajes reales
   const {
@@ -104,7 +118,249 @@ export const MisionCard: React.FC<MisionCardProps> = ({
       }
     };
   }, [card.misionData?.isRunning, elapsedSeconds, card.misionData?.title, card.title]);
+// Efecto para suscribirse a cambios en capture_now
+useEffect(() => {
+  const idMision = card.misionData?.id_mision;
+  const isRunning = card.misionData?.isRunning;
+  const misionActivaId = card.misionData?.misionActivaId;
 
+  console.log('📡 [MISION CARD - SUBSCRIPTION CHECK]', {
+    cardId: card.id,
+    cardType: card.type,
+    isRunning,
+    idMision,
+    misionActivaId,
+    willSubscribe: !!(isRunning && idMision)
+  });
+
+  if (!isRunning || !idMision) {
+    console.log('⏸️ [MISION CARD] No se suscribe porque:', {
+      isRunning,
+      idMision,
+      razon: !isRunning ? 'misión no está corriendo' : 'no tiene id_mision'
+    });
+    return;
+  }
+
+  console.log('✅ [MISION CARD] *** INICIANDO SUSCRIPCIÓN A CAPTURE_NOW ***');
+  console.log('📡 [MISION CARD] Suscribiéndose a capture_now para:', {
+    tipo: 'mision',
+    id_referencia: idMision,
+    misionActivaId
+  });
+
+  const normalizarCaptureNow = (valor: string | null): string | null => {
+    if (!valor) return valor;
+    let valorNormalizado = valor;
+    try {
+      if (typeof valor === 'string' && (valor.startsWith('"{') || valor.startsWith('"'))) {
+        valorNormalizado = JSON.parse(valor);
+      }
+    } catch {
+      // no-op
+    }
+    return valorNormalizado;
+  };
+
+  // 🔹 Obtener el valor actual
+  const obtenerValorActual = async () => {
+    try {
+      console.log('🔍 [MISION CARD] Consultando valor actual de capture_now en BD...');
+      const misionActual = await misionActivaRepository.getByTipoAndReferenciaOnly('mision', Number(idMision));
+
+      if (misionActual) {
+        const valorNormalizado = normalizarCaptureNow(misionActual.capture_now);
+        console.log('📊 [MISION CARD] Valor inicial de capture_now:', valorNormalizado);
+        setCaptureNowValue(valorNormalizado);
+      } else {
+        console.warn('⚠️ [MISION CARD] No se encontró la misión activa en BD');
+      }
+    } catch (error) {
+      console.error('❌ [MISION CARD] Error obteniendo valor actual de capture_now:', error);
+    }
+  };
+
+  obtenerValorActual();
+
+  // 🔹 Suscripción realtime mejorada
+  const channelName = `misiones_activas_mision_${idMision}_${Date.now()}`;
+  console.log('🔌 [MISION CARD] Creando canal:', channelName);
+  
+  const channel = supabase
+    .channel(channelName)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'misiones_activas',
+        // Usar filtro simple y verificar condiciones en el callback
+        filter: `tipo=eq.mision`,
+      },
+      (payload) => {
+        console.log('📡 [MISION CARD] *** EVENTO RECIBIDO EN TIEMPO REAL ***');
+        console.log('📡 [MISION CARD] payload completo:', JSON.stringify(payload, null, 2));
+
+        const updatedMision = payload.new;
+        if (!updatedMision) {
+          console.log('⚠️ [MISION CARD] updatedMision es null, ignorando');
+          return;
+        }
+
+        // Verificar que sea nuestra misión específica
+        if (updatedMision.id_referencia !== Number(idMision)) {
+          console.log('⏭️ [MISION CARD] No es nuestra misión, ignorando:', {
+            recibido: updatedMision.id_referencia,
+            esperado: Number(idMision)
+          });
+          return;
+        }
+
+        console.log('✅ [MISION CARD] Es nuestra misión, procesando...');
+        console.log('📡 [MISION CARD] Datos de la misión actualizada:', {
+          id: updatedMision.id,
+          tipo: updatedMision.tipo,
+          id_referencia: updatedMision.id_referencia,
+          capture_now: updatedMision.capture_now,
+          capture_now_type: typeof updatedMision.capture_now
+        });
+
+        const newCaptureNow = updatedMision.capture_now;
+        const valorNormalizado = normalizarCaptureNow(newCaptureNow);
+
+        console.log('📡 [MISION CARD] Cambio en capture_now:', {
+          anterior: captureNowValue,
+          nuevo: valorNormalizado,
+          esIgual: captureNowValue === valorNormalizado,
+          tipoAnterior: typeof captureNowValue,
+          tipoNuevo: typeof valorNormalizado
+        });
+
+        setCaptureNowValue(valorNormalizado);
+      }
+    )
+    .on('system', {}, (payload) => {
+      console.log('🔌 [MISION CARD] Evento del sistema:', payload);
+    })
+    .subscribe((status, err) => {
+      console.log('🔌 [MISION CARD] Estado de suscripción:', status);
+      if (err) {
+        console.error('❌ [MISION CARD] Error en suscripción:', err);
+      }
+      if (status === 'SUBSCRIBED') {
+        console.log('✅ [MISION CARD] *** SUSCRIPCIÓN ACTIVA Y CONFIRMADA ***');
+      }
+    });
+
+  // 🔹 Suscripción adicional para debugging (escucha TODOS los cambios)
+  const debugChannelName = `debug_misiones_activas_${Date.now()}`;
+  const debugChannel = supabase
+    .channel(debugChannelName)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'misiones_activas',
+      },
+      (payload) => {
+        console.log('🐛 [DEBUG] Cambio detectado en misiones_activas:', {
+          id: payload.new?.id,
+          tipo: payload.new?.tipo,
+          id_referencia: payload.new?.id_referencia,
+          capture_now: payload.new?.capture_now,
+          esNuestraMision: payload.new?.tipo === 'mision' && payload.new?.id_referencia === Number(idMision)
+        });
+      }
+    )
+    .subscribe();
+
+  console.log('📡 [MISION CARD] *** SUSCRIPCIONES ACTIVAS Y ESCUCHANDO ***');
+
+  return () => {
+    console.log('🔌 [MISION CARD] *** DESUSCRIBIÉNDOSE DE CAPTURE_NOW ***');
+    supabase.removeChannel(channel);
+    supabase.removeChannel(debugChannel);
+  };
+}, [card.misionData?.isRunning, card.misionData?.id_mision]);
+
+// Efecto para procesar capturas cuando capture_now = "0"
+useEffect(() => {
+  console.log('🔍 [CAPTURE EFFECT] *** EFECTO EJECUTADO ***');
+  console.log('🔍 [CAPTURE EFFECT] Estado actual:', {
+    captureNowValue,
+    captureNowValueTipo: typeof captureNowValue,
+    captureNowValueString: String(captureNowValue),
+    isProcessingCapture: isProcessingCapture.current,
+    isRunning: card.misionData?.isRunning,
+    misionActivaId: card.misionData?.misionActivaId,
+    cardId: card.id
+  });
+
+  const processCaptureRequest = async () => {
+    console.log('🔍 [CAPTURE EFFECT] Evaluando condiciones:', {
+      'captureNowValue === "0"': captureNowValue === '0',
+      'captureNowValue': captureNowValue,
+      'captureNowValue (JSON)': JSON.stringify(captureNowValue),
+      'isProcessingCapture.current': isProcessingCapture.current,
+      'isRunning': card.misionData?.isRunning
+    });
+
+    // Verificar cada condición individualmente
+    const condicion1 = captureNowValue === '0';
+    const condicion2 = !isProcessingCapture.current;
+    const condicion3 = card.misionData?.isRunning;
+
+    console.log('🔍 [CAPTURE EFFECT] Condiciones individuales:', {
+      'captureNowValue === "0"': condicion1,
+      '!isProcessingCapture.current': condicion2,
+      'isRunning': condicion3,
+      'todasLasCondiciones': condicion1 && condicion2 && condicion3
+    });
+
+    if (!condicion1 || !condicion2 || !condicion3) {
+      console.log('⏭️ [CAPTURE EFFECT] No se cumplieron las condiciones para capturar:', {
+        razon: !condicion1 ? 'captureNowValue no es "0"' : 
+               !condicion2 ? 'ya se está procesando una captura' :
+               !condicion3 ? 'la misión no está corriendo' : 'desconocida'
+      });
+      return;
+    }
+
+    console.log('🚀 [CAPTURE NOW] *** INICIANDO CAPTURA BAJO DEMANDA ***');
+
+    const misionActivaId = card.misionData?.misionActivaId;
+    if (!misionActivaId) {
+      console.error('❌ [CAPTURE NOW] No hay misionActivaId disponible');
+      return;
+    }
+
+    try {
+      isProcessingCapture.current = true;
+
+      const captureUrl = await captureNow();
+      if (!captureUrl) {
+        console.error('❌ [CAPTURE NOW] No se pudo obtener la captura');
+        return;
+      }
+
+      console.log('✅ [CAPTURE NOW] Captura obtenida:', captureUrl);
+
+      const resultado = await misionActivaRepository.updateCaptureNow(misionActivaId, captureUrl);
+      if (resultado) {
+        console.log('✅ [CAPTURE NOW] *** CAPTURA COMPLETADA Y GUARDADA EN BD ***');
+      } else {
+        console.error('❌ [CAPTURE NOW] Error actualizando capture_now en BD');
+      }
+    } catch (error) {
+      console.error('❌ [CAPTURE NOW] Error en procesamiento:', error);
+    } finally {
+      isProcessingCapture.current = false;
+    }
+  };
+
+  processCaptureRequest();
+}, [captureNowValue, card.misionData?.isRunning, card.misionData?.misionActivaId, captureNow]);
   // Función para formatear el tiempo
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -172,6 +428,45 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   // La solicitud de permiso de pantalla se maneja automáticamente en useScreenshots
   const handlePlayPauseClick = (cardId: string, isRunning: boolean) => {
     handleMisionPlayPause(cardId, isRunning);
+  };
+
+  // 🧪 Función de prueba para simular cambio en capture_now
+  const testCaptureNow = async () => {
+    const idMision = card.misionData?.id_mision;
+    if (!idMision) {
+      console.log('❌ [TEST] No hay id_mision para probar');
+      return;
+    }
+
+    try {
+      console.log('🧪 [TEST] Simulando cambio en capture_now...');
+      
+      // Primero obtener la misión activa
+      const misionActual = await misionActivaRepository.getByTipoAndReferenciaOnly('mision', Number(idMision));
+      
+      if (!misionActual) {
+        console.log('❌ [TEST] No se encontró la misión activa');
+        return;
+      }
+
+      console.log('🧪 [TEST] Misión encontrada:', misionActual.id);
+      
+      // Actualizar capture_now a "0" directamente en Supabase
+      const { data, error } = await supabase
+        .from('misiones_activas')
+        .update({ capture_now: '0' })
+        .eq('id', misionActual.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ [TEST] Error actualizando capture_now:', error);
+      } else {
+        console.log('✅ [TEST] capture_now actualizado exitosamente:', data);
+      }
+    } catch (error) {
+      console.error('❌ [TEST] Error en testCaptureNow:', error);
+    }
   };
 
   // Función para manejar el botón de entregar
@@ -459,7 +754,14 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     <div className="flex flex-col h-full w-full p-3">
       {/* Botón Entregar - Solo visible cuando está corriendo */}
       {isRunning && (
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-between mb-2">
+          <button
+            onClick={testCaptureNow}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
+            data-todo-interactive
+          >
+            🧪 Test
+          </button>
           <button
             onClick={handleEntregar}
             className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"

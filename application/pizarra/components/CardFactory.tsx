@@ -3,6 +3,7 @@ import { Card } from '../types/index';
 import { ActivityCard } from './cards/ActivityCard';
 import { TodoCard } from './cards/TodoCard';
 import { MisionCard } from './cards/MisionCard';
+import { MisionCardOrganizacion } from './cards/MisionCardOrganizacion';
 import { UsuarioCard } from './cards/UsuarioCard';
 import { ProyectoCard } from './cards/ProyectoCard';
 import { ImageCard } from './cards/ImageCard';
@@ -26,8 +27,11 @@ interface CardFactoryProps {
   onShowScreenshots?: (cardId: string) => void;
   screenshots: any[];
   isCapturing: boolean;
+  captureNow: () => Promise<string | null>;
   setCards: React.Dispatch<React.SetStateAction<Card[]>>;
   pastedImages: { [key: string]: string };
+  usuarios?: any[];
+  currentUserId?: string;
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -85,6 +89,37 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           handleMisionPlayPause={props.handleMisionPlayPause}
           screenshots={props.screenshots}
           isCapturing={props.isCapturing}
+          captureNow={props.captureNow}
+        />
+      );
+
+    case 'mision-organizacion':
+      return (
+        <MisionCardOrganizacion
+          card={card}
+          updateCard={(cardId, updates) => {
+            props.setCards((prevCards) =>
+              prevCards.map((c) => {
+                if (c.id !== cardId) return c;
+
+                // Si updates tiene misionData, hacer merge profundo
+                if (updates.misionData && c.misionData) {
+                  return {
+                    ...c,
+                    ...updates,
+                    misionData: {
+                      ...c.misionData,
+                      ...updates.misionData
+                    }
+                  };
+                }
+
+                return { ...c, ...updates };
+              })
+            );
+          }}
+          usuarios={props.usuarios}
+          currentUserId={props.currentUserId}
         />
       );
 
