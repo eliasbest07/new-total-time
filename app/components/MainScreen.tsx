@@ -26,6 +26,7 @@ import { Mision } from "@/domain/entities/Mision";
 import MisionCard from "../demo/components/MisionCard";
 import InputArea from "./mainUI/InputArea";
 import { useChartHistory, BoardHistorySnapshot } from "@/hooks/useChartHistory";
+import ChatWindow from "@/app/components/ChatWindow";
 
 
 export default function MainScreen() {
@@ -40,6 +41,14 @@ export default function MainScreen() {
   const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
   const [showMisionChat, setShowMisionChat] = useState(false);
   const [misionChatMessage, setMisionChatMessage] = useState('');
+  const [showChatWindow, setShowChatWindow] = useState(false);
+  const [selectedChatUser, setSelectedChatUser] = useState<{
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  } | null>(null);
 
   const { usuario } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
@@ -237,6 +246,19 @@ export default function MainScreen() {
     // Aquí puedes agregar lógica para cargar el estado del tablero de ese día
   };
 
+  // Función para manejar click en usuario del acordeón (abrir chat)
+  const handleUserClick = (userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => {
+    console.log('👤 Usuario seleccionado para chat:', userData);
+    setSelectedChatUser(userData);
+    setShowChatWindow(true);
+  };
+
   // Funciones para formatear fecha y hora de actividades
   const formatDate = (fecha: string | null) => {
     if (!fecha) return 'Sin fecha';
@@ -339,6 +361,7 @@ export default function MainScreen() {
               proyectos={proyectosSupabase}
               usuarios={usuariosFiltrados}
               onAddResource={handleAddResource}
+              onUserClick={handleUserClick}
             />
           </div>
         )}
@@ -755,6 +778,28 @@ export default function MainScreen() {
         className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
         placeholder="Escribe aquí para crear notas, tareas o enviar..."
       />
+
+      {/* Ventana de Chat */}
+      {showChatWindow && (
+        <Ventana
+          isOpen={showChatWindow}
+          onClose={() => {
+            setShowChatWindow(false);
+            setSelectedChatUser(null);
+          }}
+          title={`Chat con ${selectedChatUser?.name || 'Usuario'}`}
+          initialWidth={450}
+          initialHeight={600}
+          defaultMaximized={false}
+        >
+          {selectedChatUser && usuario && (
+            <ChatWindow
+              currentUserId={usuario.userAuth}
+              targetUser={selectedChatUser}
+            />
+          )}
+        </Ventana>
+      )}
 
     </div>
   );
