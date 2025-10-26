@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import { Card, ChatMessage } from '../../types/index';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useChatMessages } from '@/hooks/useChatMessages';
-import { useChatWindows } from '@/app/contexts/ChatWindowContext';
 
 interface UsuarioCardProps {
   card: Card;
@@ -10,6 +9,13 @@ interface UsuarioCardProps {
   updateCardTitle: (cardId: string, newTitle: string) => void;
   setEditingTitle: (id: string | null) => void;
   setCards: React.Dispatch<React.SetStateAction<Card[]>>;
+  onOpenUserChat?: (userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => void;
 }
 
 export const UsuarioCard: React.FC<UsuarioCardProps> = ({
@@ -17,11 +23,11 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
   editingTitle,
   updateCardTitle,
   setEditingTitle,
-  setCards
+  setCards,
+  onOpenUserChat
 }) => {
   const { usuario } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { openChatWindow } = useChatWindows();
 
   // Hook para manejar mensajes en tiempo real con Supabase
   const {
@@ -37,14 +43,14 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
 
   // Función para abrir ventana de chat
   const handleOpenChatWindow = () => {
-    if (!card.usuarioData) return;
+    if (!card.usuarioData || !onOpenUserChat) return;
 
-    openChatWindow({
+    onOpenUserChat({
       userId: card.usuarioData.userId,
-      userName: card.usuarioData.name || card.title,
-      userAvatar: card.usuarioData.avatar || 'US',
-      userColor: card.usuarioData.color || 'bg-purple-600',
-      isOnline: card.usuarioData.online || false
+      name: card.usuarioData.name || card.title,
+      avatar: card.usuarioData.avatar || 'US',
+      color: card.usuarioData.color || 'bg-purple-600',
+      online: card.usuarioData.online || false
     });
   };
 

@@ -84,6 +84,7 @@ export default function LightPage() {
               onShowScreenshots={() => { }}
               storagePrefix="light"
               lightMode={true}
+              onOpenUserChat={handleUserClick}
             />
           </div>
         </div>

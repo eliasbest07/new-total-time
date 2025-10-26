@@ -14,6 +14,13 @@ interface PizarraProps {
   onShowScreenshots?: (cardId: string) => void;
   storagePrefix?: string;
   lightMode?: boolean;
+  onOpenUserChat?: (userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => void;
 }
 import { generateUniqueId, generatePosition } from './utils/idGenerator';
 import { useCardDrag } from './hooks/useCardDrag';
@@ -26,7 +33,7 @@ import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false }, ref) => {
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, onOpenUserChat }, ref) => {
   const { usuario } = useAuth();
 
   // Debug: Verificar que el usuario esté cargado
@@ -655,6 +662,20 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     setConfirmDelete(null);
     setConfigOpenCard(null);
   }, [pastedImages, setPastedImages]);
+
+  // Función para abrir ventana de chat desde UsuarioCard
+  const handleOpenUserChat = useCallback((userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => {
+    console.log('👤 Abriendo chat con usuario desde pizarra:', userData);
+    if (onOpenUserChat) {
+      onOpenUserChat(userData);
+    }
+  }, [onOpenUserChat]);
 
   // Funciones públicas expuestas via ref
   const addNoteCard = useCallback((text: string) => {
@@ -1433,6 +1454,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             setCards={setCards}
             pastedImages={pastedImages}
             bringCardToFront={bringCardToFront}
+            onOpenUserChat={handleOpenUserChat}
           />
         ))}
 

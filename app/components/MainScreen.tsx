@@ -298,7 +298,12 @@ export default function MainScreen() {
       style={{ height: 'calc(100vh - 1rem)', padding: '0.5rem' }}>
 
       <div className="absolute inset-0" style={{ zIndex: 10 }}>
-        <Pizarra ref={pizarraRef} onShowScreenshots={handleShowScreenshots} storagePrefix="real" />
+        <Pizarra
+          ref={pizarraRef}
+          onShowScreenshots={handleShowScreenshots}
+          storagePrefix="real"
+          onOpenUserChat={handleUserClick}
+        />
       </div>
 
       {/* estos dos componentes abajo estan dentro de demo, tiene que estar afuera para ser usados en cualquier parte */}

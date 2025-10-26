@@ -46,6 +46,13 @@ interface CardWrapperProps {
   bringCardToFront: (cardId: string) => void;
   usuarios?: any[];
   currentUserId?: string;
+  onOpenUserChat?: (userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => void;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -115,6 +122,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         pastedImages={props.pastedImages}
         usuarios={props.usuarios}
         currentUserId={props.currentUserId}
+        onOpenUserChat={props.onOpenUserChat}
       />
 
       {/* Connection point */}

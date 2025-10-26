@@ -33,6 +33,13 @@ interface CardFactoryProps {
   pastedImages: { [key: string]: string };
   usuarios?: any[];
   currentUserId?: string;
+  onOpenUserChat?: (userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => void;
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -132,6 +139,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           updateCardTitle={props.updateCardTitle}
           setEditingTitle={props.setEditingTitle}
           setCards={props.setCards}
+          onOpenUserChat={props.onOpenUserChat}
         />
       );
 
