@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { useSettings } from '@/app/contexts/SettingsContext';
 import { Card, PizarraRef, TodoItem, ActivityData, MisionData } from './types';
 import { usePizarra } from '@/hooks/usePizarra';
 import { useCards } from '@/hooks/useCards';
@@ -35,6 +36,7 @@ import { CardWrapperComponent } from './components/CardWrapper';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, onOpenUserChat }, ref) => {
   const { usuario } = useAuth();
+  const { autoSave } = useSettings();
 
   // Debug: Verificar que el usuario esté cargado
   useEffect(() => {
@@ -161,7 +163,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   const {
     clearLocalStorage,
     exportToJSON,
-    importFromJSON
+    importFromJSON,
+    saveHistorySnapshot
   } = usePizarraLocalStorage(
     cards,
     connections,
@@ -680,36 +683,56 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   // Funciones públicas expuestas via ref
   const addNoteCard = useCallback((text: string) => {
     const existingIds = cards.map(card => card.id);
+
+    // Calcular el centro visible de la pizarra
+    const canvasWidth = canvasRef.current?.clientWidth || 1000;
+    const canvasHeight = canvasRef.current?.clientHeight || 800;
+    const centerX = -panOffset.x + (canvasWidth / 2);
+    const centerY = -panOffset.y + (canvasHeight / 2);
+
+    // Agregar un pequeño offset aleatorio para que no se superpongan
+    const randomOffset = () => (Math.random() - 0.5) * 100;
+
     const newCard = {
       id: generateUniqueId('note', existingIds),
       type: 'text',
       title: 'Nota',
       content: text.length > 100 ? text.substring(0, 100) + '...' : text,
-      x: generatePosition(),
-      y: generatePosition(),
+      x: centerX + randomOffset() - 100, // -100 para centrar la card (width/2)
+      y: centerY + randomOffset() - 60,  // -60 para centrar la card (height/2)
       width: 200,
       height: 120,
       fontSize: 18
     };
     setCards(prev => [...prev, newCard]);
-  }, [cards]);
+  }, [cards, panOffset, canvasRef]);
 
   const addTodoCard = useCallback((text: string) => {
     const existingIds = cards.map(card => card.id);
+
+    // Calcular el centro visible de la pizarra
+    const canvasWidth = canvasRef.current?.clientWidth || 1000;
+    const canvasHeight = canvasRef.current?.clientHeight || 800;
+    const centerX = -panOffset.x + (canvasWidth / 2);
+    const centerY = -panOffset.y + (canvasHeight / 2);
+
+    // Agregar un pequeño offset aleatorio para que no se superpongan
+    const randomOffset = () => (Math.random() - 0.5) * 100;
+
     const newCard = {
       id: generateUniqueId('todo', existingIds),
       type: 'todo',
       title: 'Lista de Tareas',
       content: `Iniciado con: ${text}`,
-      x: generatePosition(),
-      y: generatePosition(),
+      x: centerX + randomOffset() - 125, // -125 para centrar la card (width/2)
+      y: centerY + randomOffset() - 100, // -100 para centrar la card (height/2)
       width: 250,
       height: 200,
       fontSize: 18,
       todos: [{ id: 1, text: text, completed: false }]
     };
     setCards(prev => [...prev, newCard]);
-  }, [cards]);
+  }, [cards, panOffset, canvasRef]);
 
   const addUsuarioCard = useCallback((userData: {
     userId: string;
@@ -719,13 +742,23 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     online?: boolean;
   }) => {
     const existingIds = cards.map(card => card.id);
+
+    // Calcular el centro visible de la pizarra
+    const canvasWidth = canvasRef.current?.clientWidth || 1000;
+    const canvasHeight = canvasRef.current?.clientHeight || 800;
+    const centerX = -panOffset.x + (canvasWidth / 2);
+    const centerY = -panOffset.y + (canvasHeight / 2);
+
+    // Agregar un pequeño offset aleatorio para que no se superpongan
+    const randomOffset = () => (Math.random() - 0.5) * 100;
+
     const newCard = {
       id: generateUniqueId('usuario', existingIds),
       type: 'usuario',
       title: userData.name || 'Usuario',
       content: `Usuario: ${userData.name}`,
-      x: generatePosition(),
-      y: generatePosition(),
+      x: centerX + randomOffset() - 140, // -140 para centrar la card (width/2)
+      y: centerY + randomOffset() - 200, // -200 para centrar la card (height/2)
       width: 280,
       height: 400,
       fontSize: 18,
@@ -739,7 +772,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       }
     };
     setCards(prev => [...prev, newCard]);
-  }, [cards]);
+  }, [cards, panOffset, canvasRef]);
 
   const restoreCard = useCallback((cardData: any) => {
     console.log('🔧 restoreCard ejecutado con:', cardData);
@@ -804,7 +837,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       // 3. Obtener las cards actuales de Supabase para esta pizarra
       const { data: cardsEnBD, error: cardsError } = await supabase
         .from('cards')
-        .select('id')
+        .select('id, card_id')
         .eq('id_pizarra', pizarraActual.id);
 
       if (cardsError) {
@@ -812,7 +845,13 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         return false;
       }
 
-      const currentCardsInDB = (cardsEnBD || []).map((c: any) => c.id);
+      const currentCardsInDB = (cardsEnBD || []).map((c: any) => c.card_id);
+
+      // Crear un mapa de card_id (frontend) → id (UUID de BD) para las operaciones relacionadas
+      const cardIdToUUID = new Map<string, string>();
+      (cardsEnBD || []).forEach((c: any) => {
+        cardIdToUUID.set(c.card_id, c.id);
+      });
 
       // 4. Eliminar cards que ya no existen localmente
       console.log('   - Eliminando cards obsoletas...');
@@ -824,7 +863,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         const { error: deleteError } = await supabase
           .from('cards')
           .delete()
-          .eq('id', cardId);
+          .eq('id_pizarra', pizarraActual.id)
+          .eq('card_id', cardId);
 
         if (deleteError) {
           console.error('❌ Error eliminando card:', cardId, deleteError);
@@ -844,7 +884,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           const { error: updateError } = await supabase
             .from('cards')
             .update(cardData)
-            .eq('id', card.id);
+            .eq('id_pizarra', pizarraActual.id)
+            .eq('card_id', card.id);
 
           if (updateError) {
             console.error('❌ Error actualizando card:', card.id, updateError);
@@ -857,8 +898,15 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
             const cardTodoRepo = new SupabaseCardTodoRepository();
 
+            // Obtener el UUID de la card en la BD
+            const cardUUID = cardIdToUUID.get(card.id);
+            if (!cardUUID) {
+              console.error('❌ No se encontró UUID para card:', card.id);
+              continue;
+            }
+
             // Obtener todos existentes
-            const todosExistentes = await cardTodoRepo.getByCardId(card.id);
+            const todosExistentes = await cardTodoRepo.getByCardId(cardUUID);
             const todosExistentesIds = todosExistentes.map(t => t.todo_id);
 
             // Eliminar todos que ya no existen
@@ -867,7 +915,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                 await supabase
                   .from('card_todos')
                   .delete()
-                  .eq('id_card', card.id)
+                  .eq('id_card', cardUUID)
                   .eq('todo_id', todoExistente.todo_id);
               }
             }
@@ -884,12 +932,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                     position: todo.id - 1,
                     updated_at: new Date().toISOString()
                   })
-                  .eq('id_card', card.id)
+                  .eq('id_card', cardUUID)
                   .eq('todo_id', todo.id);
               } else {
                 // Crear nuevo todo
                 await cardTodoRepo.create({
-                  id_card: card.id,
+                  id_card: cardUUID,
                   todo_id: todo.id,
                   text: todo.text,
                   completed: todo.completed,
@@ -901,6 +949,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         } else {
           // Crear nueva card
           const cardData = mapCardToCardDB(card, pizarraActual.id);
+          console.log('📝 Intentando crear card:', {
+            card_id: card.id,
+            type: card.type,
+            pizarraId: pizarraActual.id
+          });
+
           const { data: createdCard, error: createError } = await supabase
             .from('cards')
             .insert([cardData])
@@ -908,9 +962,13 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             .single();
 
           if (createError) {
-            console.error('❌ Error creando card:', card.id, createError);
+            console.error('❌ Error creando card:', card.id);
+            console.error('   Error completo:', JSON.stringify(createError, null, 2));
+            console.error('   Datos enviados:', JSON.stringify(cardData, null, 2));
+            // No continuar si hay error
+            continue;
           } else {
-            console.log('   ➕ Card creada:', card.id);
+            console.log('   ➕ Card creada exitosamente:', card.id);
 
             // Si es una misión, crear también su entrada en card_misiones
             if (createdCard && card.type === 'mision' && card.misionData?.id_mision) {
@@ -1046,6 +1104,13 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         }
       }
 
+      // Guardar snapshot histórico del día
+      const today = new Date();
+      const todayDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      if (cards.length > 0) {
+        saveHistorySnapshot(todayDate, cards);
+      }
+
       console.log('✅ Pizarra guardada exitosamente');
       console.log('   - ID Pizarra:', pizarraActual.id);
       console.log('   - Cards guardadas:', cards.length);
@@ -1055,7 +1120,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       console.error('❌ Error guardando en Supabase:', error);
       return false;
     }
-  }, [pizarra, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections]);
+  }, [pizarra, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections, saveHistorySnapshot]);
 
   // Función manual para cargar desde Supabase
   const loadFromSupabase = useCallback(async () => {
@@ -1291,6 +1356,26 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       alert('❌ Error al cargar la pizarra desde Supabase.');
     }
   }, [usuario, setConnections]);
+
+  // Auto-guardado en Supabase cuando está activado
+  useEffect(() => {
+    if (!autoSave || !usuario || !isInitialized || cards.length === 0) {
+      return;
+    }
+
+    // Debounce para evitar guardados excesivos
+    const timeoutId = setTimeout(async () => {
+      try {
+        console.log('🔄 Auto-guardado en Supabase...');
+        await saveToSupabase();
+      } catch (error) {
+        console.error('❌ Error en auto-guardado:', error);
+      }
+    }, 3000); // Esperar 3 segundos después del último cambio
+
+    return () => clearTimeout(timeoutId);
+  }, [cards, connections, panOffset, autoSave, usuario, isInitialized, saveToSupabase]);
+
 
   useImperativeHandle(ref, () => ({
     addNoteCard,

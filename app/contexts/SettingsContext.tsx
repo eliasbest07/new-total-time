@@ -1,11 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 interface SettingsContextType {
   showSettingsModal: boolean;
+  autoSave: boolean;
   openSettings: () => void;
   closeSettings: () => void;
+  setAutoSave: (value: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -24,16 +26,38 @@ interface SettingsProviderProps {
 
 export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [autoSave, setAutoSaveState] = useState(true); // Por defecto activado
+
+  // Cargar configuración de auto-guardado desde localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedAutoSave = localStorage.getItem('total-time-auto-save');
+      if (savedAutoSave !== null) {
+        setAutoSaveState(savedAutoSave === 'true');
+      }
+    }
+  }, []);
+
+  // Función para actualizar auto-guardado
+  const setAutoSave = (value: boolean) => {
+    setAutoSaveState(value);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('total-time-auto-save', String(value));
+      console.log('💾 Auto-guardado', value ? 'activado' : 'desactivado');
+    }
+  };
 
   const openSettings = () => setShowSettingsModal(true);
   const closeSettings = () => setShowSettingsModal(false);
 
   return (
-    <SettingsContext.Provider 
-      value={{ 
-        showSettingsModal, 
-        openSettings, 
-        closeSettings 
+    <SettingsContext.Provider
+      value={{
+        showSettingsModal,
+        autoSave,
+        openSettings,
+        closeSettings,
+        setAutoSave
       }}
     >
       {children}

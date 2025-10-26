@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, RefObject } from 'react';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
+import { PizarraRef } from '@/application/pizarra/pizarra';
 
 export interface BoardHistoryItem {
   id: string;
@@ -22,31 +23,29 @@ export interface BoardHistorySnapshot {
 }
 
 interface UseChartHistoryReturn {
-  historyData: BoardHistorySnapshot[];
-  chartBarHeights: number[];
-  chartMaxHeight: number;
+  snapshots: BoardHistorySnapshot[];
   loading: boolean;
   error: string | null;
+  getSnapshotById: (id: string) => Promise<BoardHistorySnapshot | null>;
 }
 
 /**
  * Hook para obtener datos históricos de la pizarra agrupados por fecha
  * para generar el gráfico de barras
  */
-export const useChartHistory = (idUsuario: string | null): UseChartHistoryReturn => {
+export const useChartHistory = (pizarraRef: RefObject<PizarraRef>): UseChartHistoryReturn => {
   const [historyData, setHistoryData] = useState<BoardHistorySnapshot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadHistoryData = useCallback(async () => {
-    if (!idUsuario) {
+    if (!pizarraRef?.current) {
       setHistoryData([]);
       return;
     }
 
     // Solo ejecutar en el cliente
     if (typeof window === 'undefined') {
-      // console.log('⚠️ useChartHistory ejecutándose en el servidor, saltando...');
       return;
     }
 
@@ -54,136 +53,112 @@ export const useChartHistory = (idUsuario: string | null): UseChartHistoryReturn
     setError(null);
 
     try {
-      // console.log('📊 Cargando datos históricos para el chart:', idUsuario);
+      // Obtener historial desde localStorage usando el storagePrefix de la pizarra
+      const storagePrefix = 'real'; // MainScreen usa 'real' como prefijo
+      const historyKey = `pizarra-${storagePrefix}-history`;
 
-      // Obtener los últimos 7 días de datos
-      // NO verificar sesión aquí para evitar rate limiting
-      const today = new Date();
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(today.getDate() - 7);
+      const storedHistory = localStorage.getItem(historyKey);
 
-      // Query para obtener cards agrupadas por fecha desde pizarras del usuario
-      const { data: pizarrasData, error: pizarrasError } = await supabase
-        .from('pizarras')
-        .select('id, created_at')
-        .eq('id_usuario', idUsuario)
-        .gte('created_at', sevenDaysAgo.toISOString())
-        .order('created_at', { ascending: false });
+      if (storedHistory) {
+        const parsedHistory = JSON.parse(storedHistory);
 
-      if (pizarrasError) {
-        throw new Error(pizarrasError.message);
-      }
+        // Convertir el historial guardado a snapshots
+        const snapshots: BoardHistorySnapshot[] = Object.entries(parsedHistory)
+          .map(([dateKey, data]: [string, any]) => {
+            const cards = data.cards || [];
+            const date = new Date(data.timestamp || dateKey);
 
-      const historySnapshots: BoardHistorySnapshot[] = [];
+            // Contar tipos de cards
+            const notasCount = cards.filter((c: any) => c.type === 'text' || c.type === 'note').length;
+            const tareasCount = cards.filter((c: any) => c.type === 'todo').length;
+            const actividadesCount = cards.filter((c: any) => c.type === 'actividad').length;
+            const misionesCount = cards.filter((c: any) => c.type === 'mision').length;
+            const recursosCount = cards.filter((c: any) =>
+              c.type === 'resource' ||
+              c.type === 'usuario' ||
+              c.type === 'proyecto'
+            ).length;
 
-      // Para cada pizarra, obtener las cards y agrupar por fecha
-      for (const pizarra of pizarrasData || []) {
-        const { data: cardsData, error: cardsError } = await supabase
-          .from('cards')
-          .select('*')
-          .eq('id_pizarra', pizarra.id);
+            // Crear items del snapshot
+            const items: BoardHistoryItem[] = cards.map((card: any) => ({
+              id: card.id,
+              title: card.title || 'Sin título',
+              type: getCardTypeLabel(card.type),
+              owner: 'Usuario',
+              summary: card.content || card.description || 'Sin contenido',
+              lastUpdated: date.toLocaleDateString('es-ES') + ' • ' +
+                          date.toLocaleTimeString('es-ES', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }),
+              cardData: card
+            }));
 
-        if (cardsError) {
-          console.error('Error obteniendo cards:', cardsError);
-          continue;
-        }
+            // Determinar el tipo principal de snapshot
+            let snapshotType = 'Elementos';
+            let highlights: string[] = [];
 
-        if (cardsData && cardsData.length > 0) {
-          const fecha = new Date(pizarra.created_at);
-          const fechaFormateada = fecha.toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-          });
+            if (notasCount > tareasCount && notasCount > recursosCount) {
+              snapshotType = 'Notas';
+              highlights = [
+                `${notasCount} notas creadas`,
+                `${tareasCount} tareas`,
+                'Ideas capturadas'
+              ];
+            } else if (tareasCount >= notasCount && tareasCount >= recursosCount) {
+              snapshotType = 'Tareas';
+              highlights = [
+                `${tareasCount} tareas`,
+                `${notasCount} notas`,
+                'Organización de pendientes'
+              ];
+            } else {
+              snapshotType = 'Recursos';
+              highlights = [
+                `${recursosCount} recursos`,
+                `${notasCount + tareasCount} otros elementos`,
+                'Material organizado'
+              ];
+            }
 
-          // Contar tipos de cards
-          const notasCount = cardsData.filter(c => c.type === 'note' || c.type === 'nota').length;
-          const tareasCount = cardsData.filter(c => c.type === 'todo' || c.type === 'tarea').length;
-          const recursosCount = cardsData.filter(c => 
-            c.type === 'mision' || 
-            c.type === 'usuario' || 
-            c.type === 'proyecto' ||
-            c.type === 'recurso'
-          ).length;
+            return {
+              id: dateKey,
+              label: date.toLocaleDateString('es-ES', { weekday: 'short' }),
+              value: cards.length,
+              savedAt: date.toLocaleDateString('es-ES', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              }),
+              summary: `${cards.length} elementos guardados`,
+              highlights,
+              items
+            };
+          })
+          .sort((a, b) => {
+            // Ordenar por fecha más reciente primero
+            const dateA = new Date(a.id);
+            const dateB = new Date(b.id);
+            return dateB.getTime() - dateA.getTime();
+          })
+          .slice(0, 5); // Solo los últimos 5 días
 
-          // Crear items de ejemplo basados en las cards reales
-          const items: BoardHistoryItem[] = cardsData.map((card, index) => ({
-            id: card.id,
-            title: card.title || 'Sin título',
-            type: getCardTypeLabel(card.type),
-            owner: 'Usuario',
-            summary: card.content || 'Sin contenido',
-            lastUpdated: new Date(card.updated_at).toLocaleDateString('es-ES') + ' • ' +
-                        new Date(card.updated_at).toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }),
-            cardData: card // Guardar todos los datos del card
-          }));
-
-          // Determinar el tipo principal de snapshot
-          let snapshotType = 'Elementos';
-          let highlights: string[] = [];
-
-          if (notasCount > tareasCount && notasCount > recursosCount) {
-            snapshotType = 'Notas';
-            highlights = [
-              `${notasCount} notas creadas`,
-              `${tareasCount} tareas registradas`,
-              'Ideas y recordatorios capturados'
-            ];
-          } else if (tareasCount > recursosCount) {
-            snapshotType = 'Tareas';
-            highlights = [
-              `${tareasCount} tareas creadas`,
-              `${notasCount} notas de apoyo`,
-              'Organización de pendientes'
-            ];
-          } else {
-            snapshotType = 'Recursos';
-            highlights = [
-              `${recursosCount} recursos agregados`,
-              `${notasCount + tareasCount} elementos adicionales`,
-              'Material de trabajo organizado'
-            ];
-          }
-
-          historySnapshots.push({
-            id: `${snapshotType.toLowerCase()}-${pizarra.id}`,
-            label: snapshotType,
-            value: cardsData.length,
-            savedAt: fechaFormateada,
-            summary: `Elementos guardados en la pizarra del ${fechaFormateada}`,
-            highlights,
-            items
-          });
-        }
-      }
-
-      // Si no hay datos reales, crear datos de ejemplo
-      if (historySnapshots.length === 0) {
-        const fallbackData = createFallbackData();
-        setHistoryData(fallbackData);
+        setHistoryData(snapshots);
       } else {
-        // Limitar a los últimos 5 días y ordenar
-        const sortedData = historySnapshots
-          .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())
-          .slice(0, 5);
-        setHistoryData(sortedData);
+        // Si no hay historial, crear datos de ejemplo
+        setHistoryData(createFallbackData());
       }
-
-      // console.log('✅ Datos históricos cargados:', historySnapshots.length);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       console.error('❌ Error cargando datos históricos:', errorMessage);
       setError(errorMessage);
-      
+
       // En caso de error, usar datos de ejemplo
       setHistoryData(createFallbackData());
     } finally {
       setLoading(false);
     }
-  }, [idUsuario]);
+  }, [pizarraRef]);
 
   // Función auxiliar para obtener etiqueta del tipo de card
   const getCardTypeLabel = (type: string): 'Nota' | 'Tarea' | 'Actividad' | 'Mision' | 'Proyecto' | 'Chat' | 'Recurso' | 'Imagen' => {
@@ -265,31 +240,111 @@ export const useChartHistory = (idUsuario: string | null): UseChartHistoryReturn
     ];
   };
 
-  // Calcular alturas de las barras basadas en los valores
-  const chartBarHeights = historyData.map(snapshot => {
-    const maxValue = 20; // Valor máximo esperado
-    const minHeight = 24; // Altura mínima de la barra
-    const maxHeight = 80; // Altura máxima de la barra
-    const ratio = Math.min(snapshot.value / maxValue, 1);
-    return Math.max(minHeight, ratio * maxHeight);
-  });
+  // Función para obtener un snapshot específico por ID
+  const getSnapshotById = useCallback(async (id: string): Promise<BoardHistorySnapshot | null> => {
+    try {
+      // Buscar en los datos ya cargados
+      const snapshot = historyData.find(s => s.id === id);
+      if (snapshot) {
+        return snapshot;
+      }
 
-  const chartMaxHeight = Math.max(...chartBarHeights, 80);
+      // Si no está en los datos cargados, buscar en localStorage
+      const storagePrefix = 'real';
+      const historyKey = `pizarra-${storagePrefix}-history`;
+      const storedHistory = localStorage.getItem(historyKey);
 
-  // Cargar datos al montar el componente con debounce
+      if (storedHistory) {
+        const parsedHistory = JSON.parse(storedHistory);
+        const data = parsedHistory[id];
+
+        if (data) {
+          const cards = data.cards || [];
+          const date = new Date(data.timestamp || id);
+
+          // Contar tipos de cards
+          const notasCount = cards.filter((c: any) => c.type === 'text' || c.type === 'note').length;
+          const tareasCount = cards.filter((c: any) => c.type === 'todo').length;
+          const recursosCount = cards.filter((c: any) =>
+            c.type === 'resource' ||
+            c.type === 'usuario' ||
+            c.type === 'proyecto'
+          ).length;
+
+          // Crear items del snapshot
+          const items: BoardHistoryItem[] = cards.map((card: any) => ({
+            id: card.id,
+            title: card.title || 'Sin título',
+            type: getCardTypeLabel(card.type),
+            owner: 'Usuario',
+            summary: card.content || card.description || 'Sin contenido',
+            lastUpdated: date.toLocaleDateString('es-ES') + ' • ' +
+                        date.toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }),
+            cardData: card
+          }));
+
+          // Determinar el tipo principal
+          let snapshotType = 'Elementos';
+          let highlights: string[] = [];
+
+          if (notasCount > tareasCount && notasCount > recursosCount) {
+            snapshotType = 'Notas';
+            highlights = [
+              `${notasCount} notas creadas`,
+              `${tareasCount} tareas`,
+              'Ideas capturadas'
+            ];
+          } else if (tareasCount >= notasCount && tareasCount >= recursosCount) {
+            snapshotType = 'Tareas';
+            highlights = [
+              `${tareasCount} tareas`,
+              `${notasCount} notas`,
+              'Organización de pendientes'
+            ];
+          } else {
+            snapshotType = 'Recursos';
+            highlights = [
+              `${recursosCount} recursos`,
+              `${notasCount + tareasCount} otros elementos`,
+              'Material organizado'
+            ];
+          }
+
+          return {
+            id,
+            label: date.toLocaleDateString('es-ES', { weekday: 'short' }),
+            value: cards.length,
+            savedAt: date.toLocaleDateString('es-ES', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            }),
+            summary: `${cards.length} elementos guardados`,
+            highlights,
+            items
+          };
+        }
+      }
+
+      return null;
+    } catch (err) {
+      console.error('❌ Error obteniendo snapshot:', err);
+      return null;
+    }
+  }, [historyData]);
+
+  // Cargar datos al montar el componente
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadHistoryData();
-    }, 1000); // Esperar 1 segundo antes de cargar para evitar rate limiting
-
-    return () => clearTimeout(timer);
+    loadHistoryData();
   }, [loadHistoryData]);
 
   return {
-    historyData,
-    chartBarHeights,
-    chartMaxHeight,
+    snapshots: historyData,
     loading,
-    error
+    error,
+    getSnapshotById
   };
 };

@@ -49,30 +49,58 @@ export default function MainScreen() {
     color?: string;
     online?: boolean;
   } | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistorySnapshot, setSelectedHistorySnapshot] = useState<BoardHistorySnapshot | null>(null);
 
   const { usuario } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos();
   const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
 
-  // Mock data for chart - replace with actual hook when available
+  // Hook para el historial de la pizarra
+  const {
+    snapshots: chartSnapshots,
+    loading: chartLoading,
+    error: chartError,
+    getSnapshotById
+  } = useChartHistory(pizarraRef);
+
+  // Usar datos del hook de historial o mock data como fallback
+  // Solo mostrar los últimos 5 días
   const previousDayBoardHistory = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
+    if (chartSnapshots && chartSnapshots.length > 0) {
+      // Tomar solo los últimos 5 días
+      return chartSnapshots.slice(-5);
+    }
+    // Fallback a mock data - últimos 5 días
+    return Array.from({ length: 5 }, (_, i) => {
       const date = new Date();
-      date.setDate(date.getDate() - (6 - i));
+      date.setDate(date.getDate() - (4 - i));
       return {
         id: `day-${i}`,
         label: date.toLocaleDateString('es-ES', { weekday: 'short' }),
         value: Math.floor(Math.random() * 20) + 5
       };
     });
-  }, []);
+  }, [chartSnapshots]);
 
+  // Tamaño máximo del chart en px
   const chartMaxHeight = 80;
+
+  // Calcular altura de cada barra basado en la cantidad de cards
   const chartBarHeights = useMemo(() => {
-    const maxValue = Math.max(...previousDayBoardHistory.map(d => d.value));
-    return previousDayBoardHistory.map(d => Math.max(8, (d.value / maxValue) * chartMaxHeight));
-  }, [previousDayBoardHistory, chartMaxHeight]);
+    if (previousDayBoardHistory.length === 0) return [];
+
+    // Obtener el valor máximo (cantidad de cards)
+    const maxValue = Math.max(...previousDayBoardHistory.map(d => d.value), 1);
+
+    // Calcular altura proporcional para cada barra
+    return previousDayBoardHistory.map(d => {
+      const ratio = d.value / maxValue;
+      // Mínimo 12px para que siempre sea visible, máximo 80px
+      return Math.max(12, Math.floor(chartMaxHeight * ratio));
+    });
+  }, [previousDayBoardHistory]);
 
   // Filtrar usuarios de la organización excluyendo al usuario actual
   const usuariosFiltrados = useMemo(() => {
@@ -241,9 +269,13 @@ export default function MainScreen() {
   };
 
   // Función para manejar clicks en las barras del chart
-  const handleChartBarClick = (snapshot: { id: string; label: string; value: number }) => {
+  const handleChartBarClick = async (snapshot: { id: string; label: string; value: number }) => {
     console.log('Chart bar clicked:', snapshot);
-    // Aquí puedes agregar lógica para cargar el estado del tablero de ese día
+    const fullSnapshot = await getSnapshotById(snapshot.id);
+    if (fullSnapshot) {
+      setSelectedHistorySnapshot(fullSnapshot);
+      setShowHistoryModal(true);
+    }
   };
 
   // Función para manejar click en usuario del acordeón (abrir chat)
@@ -805,6 +837,171 @@ export default function MainScreen() {
           )}
         </Ventana>
       )}
+
+      {/* Ventana de historial de pizarra */}
+      <Ventana
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        title={selectedHistorySnapshot ? `Historial de la pizarra • ${selectedHistorySnapshot.savedAt}` : 'Historial de la pizarra'}
+        initialWidth={960}
+        initialHeight={640}
+        minWidth={720}
+        minHeight={480}
+        showOverlay={true}
+      >
+        {selectedHistorySnapshot ? (
+          <div className="text-black space-y-6 p-2 md:p-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">{selectedHistorySnapshot.label}</h2>
+                <p className="text-gray-600 text-sm">
+                  Historial de los elementos guardados en la pizarra del {selectedHistorySnapshot.savedAt}
+                </p>
+              </div>
+              <div className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
+                {selectedHistorySnapshot.value} elementos almacenados
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              {selectedHistorySnapshot.highlights.map((highlight, index) => (
+                <div
+                  key={index}
+                  className="border border-gray-200 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700"
+                >
+                  {highlight}
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Elementos guardados</h3>
+                <span className="text-xs uppercase tracking-wide text-gray-500">
+                  {chartLoading ? 'Cargando...' : 'Datos en la nube'}
+                </span>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {selectedHistorySnapshot.items.map((item) => {
+                  // Determinar el color según el tipo
+                  const getColorForType = (type: string) => {
+                    switch(type) {
+                      case 'Nota':
+                        return {
+                          bg: 'bg-gray-50',
+                          border: 'border-gray-200',
+                          badge: 'bg-gray-500 text-white',
+                          text: 'text-gray-900'
+                        };
+                      case 'Tarea':
+                        return {
+                          bg: 'bg-yellow-50',
+                          border: 'border-yellow-200',
+                          badge: 'bg-yellow-500 text-white',
+                          text: 'text-yellow-900'
+                        };
+                      case 'Actividad':
+                        return {
+                          bg: 'bg-blue-50',
+                          border: 'border-blue-200',
+                          badge: 'bg-blue-500 text-white',
+                          text: 'text-blue-900'
+                        };
+                      case 'Mision':
+                        return {
+                          bg: 'bg-green-50',
+                          border: 'border-green-200',
+                          badge: 'bg-green-500 text-white',
+                          text: 'text-green-900'
+                        };
+                      case 'Proyecto':
+                        return {
+                          bg: 'bg-indigo-50',
+                          border: 'border-indigo-200',
+                          badge: 'bg-indigo-500 text-white',
+                          text: 'text-indigo-900'
+                        };
+                      case 'Chat':
+                        return {
+                          bg: 'bg-purple-50',
+                          border: 'border-purple-200',
+                          badge: 'bg-purple-500 text-white',
+                          text: 'text-purple-900'
+                        };
+                      case 'Recurso':
+                        return {
+                          bg: 'bg-orange-50',
+                          border: 'border-orange-200',
+                          badge: 'bg-orange-500 text-white',
+                          text: 'text-orange-900'
+                        };
+                      case 'Imagen':
+                        return {
+                          bg: 'bg-pink-50',
+                          border: 'border-pink-200',
+                          badge: 'bg-pink-500 text-white',
+                          text: 'text-pink-900'
+                        };
+                      default:
+                        return {
+                          bg: 'bg-gray-50',
+                          border: 'border-gray-200',
+                          badge: 'bg-gray-500 text-white',
+                          text: 'text-gray-900'
+                        };
+                    }
+                  };
+
+                  const colors = getColorForType(item.type);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`border ${colors.border} rounded-xl ${colors.bg} p-4 shadow-sm hover:shadow-md transition-shadow`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <h4 className={`text-sm font-semibold ${colors.text} leading-snug`}>{item.title}</h4>
+                        <span className={`ml-2 inline-flex items-center rounded-full ${colors.badge} px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide`}>
+                          {item.type}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600 leading-relaxed">{item.summary}</p>
+                      <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
+                        <span>{item.owner}</span>
+                        <span>{item.lastUpdated}</span>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <button
+                          onClick={() => {
+                            if (item.cardData && pizarraRef.current) {
+                              // Usar el método de la pizarra para agregar el card
+                              pizarraRef.current.restoreCard?.(item.cardData);
+                              alert(`✅ ${item.type} "${item.title}" agregado a la pizarra`);
+                            }
+                          }}
+                          className={`w-full ${colors.badge} px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity`}
+                        >
+                          Agregar a pizarra
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {chartError && (
+              <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Error cargando datos: {chartError}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-600 p-4">
+            Selecciona una barra del gráfico para ver el detalle de la pizarra.
+          </div>
+        )}
+      </Ventana>
 
     </div>
   );

@@ -23,6 +23,7 @@ export const usePizarraLocalStorage = (
   const CONNECTIONS_STORAGE_KEY = `pizarra-${storagePrefix}-connections-v1`;
   const PAN_OFFSET_STORAGE_KEY = `pizarra-${storagePrefix}-pan-offset-v1`;
   const DATE_STORAGE_KEY = `pizarra-${storagePrefix}-date-v1`;
+  const HISTORY_STORAGE_KEY = `pizarra-${storagePrefix}-history`;
 
   // Función helper para obtener la fecha del día en formato YYYY-MM-DD
   const getTodayDate = (): string => {
@@ -56,6 +57,45 @@ export const usePizarraLocalStorage = (
     }
   };
 
+  // Función para guardar snapshot histórico
+  const saveHistorySnapshot = useCallback((date: string, cardsToSave: Card[]) => {
+    try {
+      if (!cardsToSave || cardsToSave.length === 0) {
+        console.log('📊 [HISTORY] No hay cards para guardar en el historial');
+        return;
+      }
+
+      // Obtener historial existente
+      const existingHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
+      const history = existingHistory ? safeJsonParse(existingHistory, {}) : {};
+
+      // Agregar snapshot del día
+      history[date] = {
+        cards: cardsToSave,
+        timestamp: new Date().toISOString(),
+        cardCount: cardsToSave.length
+      };
+
+      // Limpiar snapshots antiguos (mantener solo últimos 30 días)
+      const allDates = Object.keys(history).sort();
+      if (allDates.length > 30) {
+        const datesToKeep = allDates.slice(-30);
+        const cleanedHistory: any = {};
+        datesToKeep.forEach(d => {
+          cleanedHistory[d] = history[d];
+        });
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(cleanedHistory));
+        console.log('📊 [HISTORY] Historial limpiado, manteniendo últimos 30 días');
+      } else {
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+      }
+
+      console.log(`📊 [HISTORY] Snapshot guardado para ${date}:`, cardsToSave.length, 'cards');
+    } catch (error) {
+      console.error('❌ [HISTORY] Error guardando snapshot:', error);
+    }
+  }, [HISTORY_STORAGE_KEY]);
+
   // Cargar datos desde localStorage al montar
   const loadFromLocalStorage = useCallback(() => {
     try {
@@ -67,9 +107,20 @@ export const usePizarraLocalStorage = (
       // console.log('   - Fecha guardada:', savedDate);
       // console.log('   - Fecha actual:', todayDate);
 
-      // Si hay una fecha guardada y NO es el mismo día, limpiar todo
+      // Si hay una fecha guardada y NO es el mismo día, guardar snapshot histórico antes de limpiar
       if (savedDate && savedDate !== todayDate) {
-        console.log('🗑️ [PIZARRA STORAGE] ¡Nuevo día detectado! Limpiando pizarra anterior...');
+        console.log('🗑️ [PIZARRA STORAGE] ¡Nuevo día detectado! Guardando snapshot histórico antes de limpiar...');
+
+        // Guardar snapshot del día anterior
+        const savedCards = localStorage.getItem(PIZARRA_STORAGE_KEY);
+        if (savedCards) {
+          const parsedCards = safeJsonParse(savedCards, []) as Card[];
+          if (parsedCards && Array.isArray(parsedCards) && parsedCards.length > 0) {
+            saveHistorySnapshot(savedDate, parsedCards);
+          }
+        }
+
+        // Ahora sí limpiar todo
         localStorage.removeItem(PIZARRA_STORAGE_KEY);
         localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
         localStorage.removeItem(PAN_OFFSET_STORAGE_KEY);
@@ -160,7 +211,7 @@ export const usePizarraLocalStorage = (
         console.error('❌ [PIZARRA STORAGE] Error limpiando localStorage:', cleanError);
       }
     }
-  }, [setCards, setConnections, setPanOffset]);
+  }, [setCards, setConnections, setPanOffset, saveHistorySnapshot]);
 
   // Guardar datos en localStorage cuando cambien
   const saveToLocalStorage = useCallback(() => {
@@ -358,6 +409,7 @@ export const usePizarraLocalStorage = (
     clearLocalStorage,
     exportToJSON,
     importFromJSON,
-    forceCleanStorage
+    forceCleanStorage,
+    saveHistorySnapshot
   };
 };
