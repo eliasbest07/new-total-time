@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState } from 'react';
 import { Usuario } from '@/domain/entities/Usuario';
 import { StorageService } from '@/infrastructure/services/StorageService';
 import { usePresence, PresenceUser } from '@/hooks/usePresence';
+import { userCacheService } from '@/infrastructure/services/UserCacheService';
 
 interface AuthContextType {
   usuario: Usuario | null;
@@ -54,6 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearUsuario = () => {
     setUsuarioState(null);
     StorageService.clearUser();
+    // ✅ Limpiar el caché de usuarios al hacer logout
+    userCacheService.clearAll();
   };
 
   const value = {

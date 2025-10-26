@@ -92,6 +92,9 @@ class RequestCache {
   }
 }
 
+// Exportar la clase para que otros servicios puedan crear instancias
+export { RequestCache };
+
 // Instancia singleton
 export const requestCache = new RequestCache();
 

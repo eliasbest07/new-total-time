@@ -6,6 +6,7 @@ import {
   markPostAsViewed,
   isPostViewed
 } from '@/services/viewedPostsService';
+import { userCacheService } from '@/infrastructure/services/UserCacheService';
 
 interface NewPostNotification {
   postId: string;
@@ -123,7 +124,7 @@ export const useNewPostsNotification = (
             // console.log('📬 Nuevo post detectado:', payload);
 
             const newPost = payload.new;
-            const autorId = newPost.id_usuario;
+            const autorId = newPost.id_usuario; // ID numérico del usuario
 
             // Solo mostrar notificación si NO es del usuario actual
             if (autorId === currentUserId) {
@@ -137,15 +138,13 @@ export const useNewPostsNotification = (
               return;
             }
 
-            // Obtener información del autor
+            // ✅ Obtener información del autor usando el servicio de caché (buscar por ID numérico)
             try {
-              const { data: autor, error } = await supabase
-                .from('usuario')
-                .select('nombre, username')
-                .eq('id_usuario', autorId)
-                .single();
+              // Obtener el usuario usando el ID numérico
+              const usuariosData = await userCacheService.getUsersById([autorId]);
+              const autorData = usuariosData.get(autorId);
 
-              const autorNombre = autor?.nombre || autor?.username || 'Usuario Desconocido';
+              const autorNombre = autorData?.nombre || autorData?.username || 'Usuario Desconocido';
 
               const notification: NewPostNotification = {
                 postId: newPost.id,

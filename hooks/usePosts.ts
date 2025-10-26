@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 import { Post } from '@/domain/entities/Post';
+import { userCacheService } from '@/infrastructure/services/UserCacheService';
 
 interface UsePostsReturn {
   posts: Post[];
@@ -43,31 +44,24 @@ export const usePosts = (idSala: number | null): UsePostsReturn => {
       }
 
       // Obtener los IDs únicos de usuarios (filtrar null y undefined)
+      // El id_usuario en post_sala es un número que corresponde al campo "id" en la tabla usuario
       const userIds = [...new Set(posts.map(p => p.id_usuario).filter(id => id !== null && id !== undefined))];
 
-      // console.log('👥 IDs de usuarios a buscar:', userIds);
+      // console.log('👥 [usePosts] IDs de usuarios a buscar:', userIds);
 
       if (userIds.length === 0) {
-        // console.log('⚠️ No hay IDs de usuarios válidos');
+        // console.log('⚠️ [usePosts] No hay IDs de usuarios válidos');
         setPosts(posts);
         return;
       }
 
-      // Obtener los datos de los usuarios
-      const { data: usuarios, error: userError } = await supabase
-        .from('usuario')
-        .select('id, id_usuario, nombre, avatar')
-        .in('id_usuario', userIds);
+      // ✅ Usar el servicio de caché con getUsersById (IDs numéricos)
+      const usuariosData = await userCacheService.getUsersById(userIds);
+      // console.log('👥 [usePosts] Usuarios obtenidos del caché:', usuariosData.size);
 
-      if (userError) {
-        console.error('❌ Error obteniendo usuarios:', userError);
-        setPosts(posts);
-        return;
-      }
-
-      // Crear un mapa de usuarios por id_usuario
+      // Crear un mapa de usuarios por id (numérico)
       const usuariosMap = new Map(
-        (usuarios || []).map(u => [u.id_usuario, { nombre: u.nombre, avatar: u.avatar }])
+        Array.from(usuariosData.entries()).map(([id, u]) => [id, { nombre: u.nombre, avatar: u.avatar }])
       );
 
       // Combinar los posts con los datos de usuario

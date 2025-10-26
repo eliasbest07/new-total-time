@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useChatWindows } from '@/app/contexts/ChatWindowContext';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
+import { userCacheService } from '@/infrastructure/services/UserCacheService';
 
 interface UseIncomingMessagesOptions {
   onNewMessage?: (userData: {
@@ -67,43 +68,11 @@ export const useIncomingMessages = (
           // Marcar como procesado
           processedMessagesRef.current.add(mensajeId);
 
-          // Obtener información del emisor
+          // ✅ Obtener información del emisor usando el servicio de caché
           try {
+            const emisorData = await userCacheService.getUserByAuth(idEmisor);
 
-            // Intentar con user_auth primero
-            let { data: emisorData, error } = await supabase
-              .from('usuario')
-              .select('id, correo, nombre, avatar, marco, username, user_auth')
-              .eq('user_auth', idEmisor)
-              .maybeSingle(); // maybeSingle no falla si no hay resultados
-
-            // Si no se encuentra con user_auth, intentar con id_usuario
-            if (!emisorData || error) {
-              console.log('📬 useIncomingMessages - No encontrado con user_auth, intentando con id_usuario');
-              const result = await supabase
-                .from('usuario')
-                .select('id, correo, nombre, avatar, marco, username, user_auth, id_usuario')
-                .eq('id_usuario', idEmisor)
-                .maybeSingle();
-
-              emisorData = result.data;
-              error = result.error;
-            }
-
-            // Si aún no se encuentra, intentar con id
-            if (!emisorData || error) {
-              console.log('📬 useIncomingMessages - No encontrado con id_usuario, intentando con id');
-              const result = await supabase
-                .from('usuario')
-                .select('id, correo, nombre, avatar, marco, username, user_auth, id_usuario')
-                .eq('id', idEmisor)
-                .maybeSingle();
-
-              emisorData = result.data;
-              error = result.error;
-            }
-
-            if (!emisorData || error) {
+            if (!emisorData) {
               // Abrir ventana con datos por defecto si hay error
               const defaultUserData = {
                 userId: idEmisor,

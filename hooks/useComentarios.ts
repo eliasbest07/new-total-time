@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 import { Comentario } from '@/domain/entities/Comentario';
+import { userCacheService } from '@/infrastructure/services/UserCacheService';
 
 interface UseComentariosReturn {
     comentarios: Comentario[];
@@ -49,17 +50,13 @@ export const useComentarios = (comentarioIds: string[] | null): UseComentariosRe
             // Obtener los IDs únicos de usuarios - la columna puede ser idUsuario o "idUsuario"
             const userIds = [...new Set(comentarios.map(c => (c as any).idUsuario || (c as any)['idUsuario']).filter(id => id !== null))];
 
-            // Obtener los datos de los usuarios si hay IDs
+            // ✅ Usar el servicio de caché para obtener usuarios por ID numérico
             let usuariosMap = new Map();
             if (userIds.length > 0) {
-                const { data: usuarios, error: userError } = await supabase
-                    .from('usuario')
-                    .select('id, nombre, avatar')
-                    .in('id', userIds);
-
-                if (!userError && usuarios) {
-                    usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre, avatar: u.avatar }]));
-                }
+                const usuariosData = await userCacheService.getUsersById(userIds);
+                usuariosMap = new Map(
+                    Array.from(usuariosData.entries()).map(([id, u]) => [id, { nombre: u.nombre, avatar: u.avatar }])
+                );
             }
 
             // Mapear los comentarios al formato esperado
@@ -134,17 +131,13 @@ export const useComentariosByPostId = (postId: string | null): UseComentariosRet
             // Obtener los IDs únicos de usuarios
             const userIds = [...new Set(comentariosData.map(c => (c as any).idUsuario || (c as any)['idUsuario']).filter(id => id !== null))];
 
-            // Obtener los datos de los usuarios si hay IDs
+            // ✅ Usar el servicio de caché para obtener usuarios por ID numérico
             let usuariosMap = new Map();
             if (userIds.length > 0) {
-                const { data: usuarios, error: userError } = await supabase
-                    .from('usuario')
-                    .select('id, nombre, avatar')
-                    .in('id', userIds);
-
-                if (!userError && usuarios) {
-                    usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre, avatar: u.avatar }]));
-                }
+                const usuariosData = await userCacheService.getUsersById(userIds);
+                usuariosMap = new Map(
+                    Array.from(usuariosData.entries()).map(([id, u]) => [id, { nombre: u.nombre, avatar: u.avatar }])
+                );
             }
 
             // Mapear los comentarios al formato esperado
@@ -233,19 +226,13 @@ export const useComentariosByPost = (comentarioIds: string[] | null): UseComenta
             const userIds = [...new Set(comentariosData.map(c => (c as any).idUsuario || (c as any)['idUsuario']).filter(id => id !== null))];
             // console.log('👥 IDs de usuarios a buscar:', userIds);
 
-            // Obtener los datos de los usuarios si hay IDs
+            // ✅ Usar el servicio de caché para obtener usuarios por ID numérico
             let usuariosMap = new Map();
             if (userIds.length > 0) {
-                const { data: usuarios, error: userError } = await supabase
-                    .from('usuario')
-                    .select('id, nombre')
-                    .in('id', userIds);
-
-                // console.log('📊 Respuesta usuarios:', { data: usuarios, error: userError });
-
-                if (!userError && usuarios) {
-                    usuariosMap = new Map(usuarios.map(u => [u.id, { nombre: u.nombre }]));
-                }
+                const usuariosData = await userCacheService.getUsersById(userIds);
+                usuariosMap = new Map(
+                    Array.from(usuariosData.entries()).map(([id, u]) => [id, { nombre: u.nombre }])
+                );
             }
 
             // Mapear los comentarios al formato esperado
