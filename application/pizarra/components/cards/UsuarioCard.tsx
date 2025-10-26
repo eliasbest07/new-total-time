@@ -77,10 +77,19 @@ export const UsuarioCard: React.FC<UsuarioCardProps> = ({
       {/* Header con avatar y nombre */}
       <div className="flex items-center gap-2 mb-2 border-b border-purple-200 pb-2">
         <div className="relative">
-          <div className={`w-10 h-10 rounded-full ${card.usuarioData?.color || 'bg-purple-500'} flex items-center justify-center text-white font-semibold shadow-md`}
-            style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
+          <div
+  className={`w-10 h-10 rounded-full overflow-hidden ${card.usuarioData?.color || 'bg-purple-500'} flex items-center justify-center text-white font-semibold shadow-md`}
+  style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
           >
-            {card.usuarioData?.avatar || 'US'}
+            {card.usuarioData?.avatar ? (
+              <img
+                src={card.usuarioData.avatar}
+                alt="avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              'US'
+            )}
           </div>
           {card.usuarioData?.online && (
             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white"></div>
