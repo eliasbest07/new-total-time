@@ -63,7 +63,7 @@ export default function MainScreen() {
     loading: chartLoading,
     error: chartError,
     getSnapshotById
-  } = useChartHistory(pizarraRef);
+  } = useChartHistory(pizarraRef, usuario?.id);
 
   // Usar datos del hook de historial o mock data como fallback
   // Solo mostrar los últimos 5 días
@@ -269,8 +269,10 @@ export default function MainScreen() {
   };
 
   // Función para manejar clicks en las barras del chart
-  const handleChartBarClick = async (snapshot: { id: string; label: string; value: number }) => {
+  const handleChartBarClick = async (snapshot: { id: string; label: string; value: number; pizarraId?: string }) => {
     console.log('Chart bar clicked:', snapshot);
+
+    // Obtener el snapshot completo con las cards desde Supabase
     const fullSnapshot = await getSnapshotById(snapshot.id);
     if (fullSnapshot) {
       setSelectedHistorySnapshot(fullSnapshot);
@@ -858,8 +860,28 @@ export default function MainScreen() {
                   Historial de los elementos guardados en la pizarra del {selectedHistorySnapshot.savedAt}
                 </p>
               </div>
-              <div className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
-                {selectedHistorySnapshot.value} elementos almacenados
+              <div className="flex gap-2">
+                {selectedHistorySnapshot.pizarraId && (
+                  <button
+                    onClick={async () => {
+                      if (pizarraRef.current?.loadPizarraById && selectedHistorySnapshot.pizarraId) {
+                        try {
+                          await pizarraRef.current.loadPizarraById(selectedHistorySnapshot.pizarraId);
+                          setShowHistoryModal(false);
+                          console.log('✅ Pizarra cargada desde el historial');
+                        } catch (error) {
+                          console.error('❌ Error cargando pizarra:', error);
+                        }
+                      }
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
+                  >
+                    Cargar pizarra
+                  </button>
+                )}
+                <div className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
+                  {selectedHistorySnapshot.value} elementos almacenados
+                </div>
               </div>
             </div>
 

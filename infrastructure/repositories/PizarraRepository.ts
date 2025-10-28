@@ -1,7 +1,7 @@
 import { Pizarra } from "@/domain/entities/Pizarra";
 
 export interface PizarraRepository {
-  // Obtener pizarra del día de un usuario (crea una si no existe)
+  // Obtener pizarra del dï¿½a de un usuario (crea una si no existe)
   getPizarraDelDia(idUsuario: string, fecha: Date): Promise<Pizarra | null>;
 
   // Actualizar el pan offset de la pizarra
@@ -12,4 +12,7 @@ export interface PizarraRepository {
 
   // Crear pizarra
   createPizarra(pizarra: Omit<Pizarra, 'id' | 'created_at' | 'updated_at'>): Promise<Pizarra | null>;
+
+  // Obtener las Ãºltimas N pizarras de un usuario
+  getUltimasPizarras(idUsuario: string, limit?: number): Promise<Pizarra[]>;
 }

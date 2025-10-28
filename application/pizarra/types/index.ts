@@ -128,6 +128,7 @@ export interface PizarraRef {
   clearStorage?: () => void;
   exportStorage?: () => void;
   importStorage?: (content: string) => void;
+  loadPizarraById?: (pizarraId: string) => Promise<void>;
 }
 
 export interface PizarraProps {

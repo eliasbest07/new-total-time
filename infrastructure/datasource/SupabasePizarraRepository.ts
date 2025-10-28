@@ -141,4 +141,28 @@ export class SupabasePizarraRepository implements PizarraRepository {
       return null;
     }
   }
+
+  /**
+   * Obtiene las últimas N pizarras de un usuario, ordenadas por fecha de creación
+   */
+  async getUltimasPizarras(idUsuario: string, limit: number = 5): Promise<Pizarra[]> {
+    try {
+      const { data, error } = await supabase
+        .from('pizarras')
+        .select('*')
+        .eq('id_usuario', idUsuario)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('❌ Error obteniendo últimas pizarras:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error en getUltimasPizarras:', error);
+      return [];
+    }
+  }
 }

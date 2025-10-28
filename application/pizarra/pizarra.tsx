@@ -1357,6 +1357,224 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [usuario, setConnections]);
 
+  // Función para cargar una pizarra específica por ID
+  const loadPizarraById = useCallback(async (pizarraId: string) => {
+    if (!usuario) {
+      console.error('❌ No hay usuario para cargar');
+      alert('❌ Error: No se ha iniciado sesión.');
+      return;
+    }
+
+    console.log('📥 Cargando pizarra por ID:', pizarraId);
+
+    try {
+      // 1. Obtener la pizarra por ID
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+      const SupabasePizarraRepository = (await import('@/infrastructure/datasource/SupabasePizarraRepository')).SupabasePizarraRepository;
+      const pizarraRepo = new SupabasePizarraRepository();
+
+      const pizarraActual = await pizarraRepo.getPizarraById(pizarraId);
+
+      if (!pizarraActual) {
+        console.log('   - No se encontró la pizarra con ID:', pizarraId);
+        alert('ℹ️ No se encontró la pizarra.');
+        return;
+      }
+
+      console.log('   ✅ Pizarra obtenida:', pizarraActual.id);
+
+      // 2. Cargar panOffset
+      setPanOffset({
+        x: Number(pizarraActual.pan_offset_x) || 0,
+        y: Number(pizarraActual.pan_offset_y) || 0
+      });
+
+      // 3. Obtener las cards de esta pizarra
+      const { data: cardsEnBD, error: cardsError } = await supabase
+        .from('cards')
+        .select('*')
+        .eq('id_pizarra', pizarraActual.id);
+
+      if (cardsError) {
+        console.error('❌ Error obteniendo cards de la BD:', cardsError);
+        alert('❌ Error al cargar las cards desde Supabase.');
+        return;
+      }
+
+      console.log('   - Cards encontradas:', cardsEnBD?.length || 0);
+
+      // Limpiar cards actuales
+      setCards([]);
+
+      if (!cardsEnBD || cardsEnBD.length === 0) {
+        console.log('   - No hay cards para esta pizarra');
+        return;
+      }
+
+      // 4. Mapear las cards (mismo código que loadFromSupabase)
+      const cardMisionRepo = new SupabaseCardMisionRepository();
+      const misionRepo = new SupabaseMisionRepository();
+      const { SupabaseCardActividadRepository } = await import('@/infrastructure/datasource/SupabaseCardActividadRepository');
+      const cardActividadRepo = new SupabaseCardActividadRepository();
+      const { SupabaseCardUsuarioRepository } = await import('@/infrastructure/datasource/SupabaseCardUsuarioRepository');
+      const cardUsuarioRepo = new SupabaseCardUsuarioRepository();
+      const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
+      const cardTodoRepo = new SupabaseCardTodoRepository();
+
+      const cardsLoaded: Card[] = [];
+
+      for (const cardDB of cardsEnBD) {
+        // IMPORTANTE: Generar un nuevo ID para evitar conflictos con cards existentes
+        // Esto permite cargar pizarras históricas sin colisiones de IDs
+        const newCardId = generateUniqueId();
+
+        const card: Card = {
+          id: newCardId, // Usar nuevo ID generado
+          type: cardDB.type,
+          title: cardDB.title,
+          content: cardDB.content,
+          x: cardDB.x,
+          y: cardDB.y,
+          width: cardDB.width,
+          height: cardDB.height,
+          fontSize: cardDB.font_size
+        };
+
+        // Cargar datos específicos según el tipo de card
+        if (cardDB.type === 'mision') {
+          try {
+            const cardMision = await cardMisionRepo.getByCardId(cardDB.id);
+            if (cardMision) {
+              const mision = await misionRepo.getById(cardMision.mision_id);
+              if (mision) {
+                card.misionData = {
+                  title: mision.nombre,
+                  description: mision.descripcion || '',
+                  hours: mision.horas_estimadas || 0,
+                  id_mision: mision.id
+                };
+              }
+            }
+          } catch (error) {
+            console.error('Error cargando datos de misión para card:', cardDB.id, error);
+          }
+        }
+
+        if (cardDB.type === 'actividad') {
+          try {
+            const cardActividad = await cardActividadRepo.getByCardId(cardDB.id);
+            if (cardActividad && usuario) {
+              const currentUserParticipant = {
+                name: usuario.getNombreCompleto(),
+                initial: usuario.getNombreCompleto().charAt(0).toUpperCase(),
+                color: usuario.profile.marco || '#3b82f6'
+              };
+
+              card.activityData = {
+                subject: cardActividad.subject || '',
+                participants: [currentUserParticipant],
+                date: cardActividad.date || '',
+                time: cardActividad.time || '',
+                duration: cardActividad.duration || 0,
+                isRunning: cardActividad.is_running || false,
+                timeLeft: cardActividad.time_left || 0,
+                id_actividad: cardDB.id
+              };
+            }
+          } catch (error) {
+            console.error('Error cargando datos de actividad para card:', cardDB.id, error);
+          }
+        }
+
+        if (cardDB.type === 'usuario') {
+          try {
+            const cardUsuario = await cardUsuarioRepo.getByCardId(cardDB.id);
+            if (cardUsuario) {
+              card.usuarioData = {
+                userId: cardUsuario.user_id,
+                name: cardUsuario.name || '',
+                avatar: cardUsuario.avatar || '',
+                color: cardUsuario.color || '#3b82f6',
+                online: cardUsuario.online || false,
+                messages: []
+              };
+
+              if (card.content) {
+                try {
+                  const parsedContent = JSON.parse(card.content);
+                  if (parsedContent.messages && Array.isArray(parsedContent.messages)) {
+                    card.usuarioData.messages = parsedContent.messages.map((msg: any) => ({
+                      ...msg,
+                      timestamp: new Date(msg.timestamp)
+                    }));
+                  }
+                } catch (e) {
+                  console.log('No hay mensajes en formato JSON para esta card de usuario');
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error cargando datos de usuario para card:', cardDB.id, error);
+          }
+        }
+
+        if (cardDB.type === 'todo') {
+          try {
+            const cardTodos = await cardTodoRepo.getByCardId(cardDB.id);
+            if (cardTodos && cardTodos.length > 0) {
+              card.todos = cardTodos.map((todo: any) => ({
+                id: todo.todo_id,
+                text: todo.text,
+                completed: todo.completed
+              }));
+            }
+          } catch (error) {
+            console.error('Error cargando todos para card:', cardDB.id, error);
+          }
+        }
+
+        // Si es una card de tipo image, cargar sus datos desde card_images
+        if (cardDB.type === 'image') {
+          try {
+            const { SupabaseCardImageRepository } = await import('@/infrastructure/datasource/SupabaseCardImageRepository');
+            const cardImageRepo = new SupabaseCardImageRepository();
+            const cardImage = await cardImageRepo.getByCardId(cardDB.id);
+            if (cardImage) {
+              card.imageUrl = cardImage.image_url;
+            }
+          } catch (error) {
+            console.error('Error cargando imagen para card:', cardDB.id, error);
+          }
+        }
+
+        cardsLoaded.push(card);
+      }
+
+      setCards(cardsLoaded);
+      console.log('✅ Cards cargadas:', cardsLoaded.length);
+
+      // 5. Cargar conexiones
+      const { SupabaseCardConnectionRepository } = await import('@/infrastructure/datasource/SupabaseCardConnectionRepository');
+      const cardConnectionRepo = new SupabaseCardConnectionRepository();
+
+      const connectionesEnBD = await cardConnectionRepo.getByPizarraId(pizarraActual.id);
+      console.log('   - Conexiones encontradas:', connectionesEnBD.length);
+
+      const mappedConnections = connectionesEnBD.map(connDB => ({
+        id: connDB.connection_id,
+        from: connDB.from_card_id || undefined,
+        to: connDB.to_card_id
+      }));
+
+      setConnections(mappedConnections);
+      console.log('✅ Pizarra cargada completamente');
+
+    } catch (error) {
+      console.error('❌ Error cargando pizarra por ID:', error);
+      alert('❌ Error al cargar la pizarra.');
+    }
+  }, [usuario, setConnections]);
+
   // Auto-guardado en Supabase cuando está activado
   useEffect(() => {
     if (!autoSave || !usuario || !isInitialized || cards.length === 0) {
@@ -1386,8 +1604,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     exportStorage: exportToJSON,
     importStorage: importFromJSON,
     saveToSupabase,
-    loadFromSupabase
-  }), [addNoteCard, addTodoCard, addUsuarioCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase]);
+    loadFromSupabase,
+    loadPizarraById
+  }), [addNoteCard, addTodoCard, addUsuarioCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
