@@ -15,6 +15,7 @@ interface PizarraProps {
   onShowScreenshots?: (cardId: string) => void;
   storagePrefix?: string;
   lightMode?: boolean;
+  viewingUserId?: string; // ID del usuario cuya pizarra se está viendo (para vista de solo lectura)
   onOpenUserChat?: (userData: {
     userId: string;
     name: string;
@@ -34,17 +35,79 @@ import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, onOpenUserChat }, ref) => {
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, viewingUserId, onOpenUserChat }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
+
+  // Estado para almacenar el ID numérico del usuario que se está viendo
+  const [viewingUserNumericId, setViewingUserNumericId] = useState<number | null>(null);
+
+  // Determinar qué usuario se está viendo (el actual o uno específico)
+  const isViewingOtherUser = !!viewingUserId && viewingUserId !== usuario?.userAuth;
+  // Para pizarra, siempre usamos UUID (id_usuario), no ID numérico
+  const effectiveUserId = isViewingOtherUser ? viewingUserId : (usuario?.userAuth || null);
+
+  // Convertir viewingUserId (user_auth UUID) a id numérico
+  useEffect(() => {
+    const loadViewingUserId = async () => {
+      if (!viewingUserId) {
+        setViewingUserNumericId(null);
+        return;
+      }
+
+      try {
+        console.log('🔍 [Pizarra] Buscando ID numérico para id_usuario:', viewingUserId);
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+        const { data, error } = await supabase
+          .from('usuario')
+          .select('id, id_usuario, nombre, username')
+          .eq('id_usuario', viewingUserId)
+          .maybeSingle();
+
+        if (error) {
+          console.error('❌ [Pizarra] Error obteniendo ID de usuario:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            viewingUserId: viewingUserId
+          });
+
+          // Si no se encuentra el usuario, es un error esperado
+          if (error.code === 'PGRST116') {
+            console.warn('⚠️ [Pizarra] No se encontró usuario con id_usuario:', viewingUserId);
+          }
+          return;
+        }
+
+        if (data) {
+          console.log('✅ [Pizarra] Usuario encontrado:', {
+            id: data.id,
+            id_usuario: data.id_usuario,
+            nombre: data.nombre || data.username
+          });
+          setViewingUserNumericId(parseInt(data.id));
+        } else {
+          console.warn('⚠️ [Pizarra] No se encontró usuario con id_usuario:', viewingUserId);
+        }
+      } catch (error) {
+        console.error('❌ Error en loadViewingUserId:', error);
+      }
+    };
+
+    loadViewingUserId();
+  }, [viewingUserId]);
 
   // Debug: Verificar que el usuario esté cargado
   useEffect(() => {
     console.log('👤 Usuario en Pizarra:', usuario?.id, usuario?.email);
-  }, [usuario]);
+    if (isViewingOtherUser) {
+      console.log('👁️ Viendo pizarra de otro usuario:', viewingUserId, '(ID numérico:', viewingUserNumericId, ')');
+    }
+  }, [usuario, viewingUserId, isViewingOtherUser, viewingUserNumericId]);
 
   // Hooks de Supabase - Cargar pizarra del usuario automáticamente
-  const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(usuario?.id || null);
+  const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(effectiveUserId);
   const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB } = useCards(
     pizarra?.id || null
   );

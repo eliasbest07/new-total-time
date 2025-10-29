@@ -2,6 +2,8 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { useChatMessages } from '@/hooks/useChatMessages';
+import { useRouter } from 'next/navigation';
+import { LayoutGrid } from 'lucide-react';
 
 interface ChatWindowProps {
   currentUserId: string;
@@ -19,6 +21,7 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = useState('');
+  const router = useRouter();
 
   const {
     mensajes,
@@ -87,6 +90,15 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
             </span>
           </div>
         </div>
+
+        {/* Botón para ir a la pizarra del usuario */}
+        <button
+          onClick={() => router.push(`/pizarra/${targetUser.userId}`)}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 group"
+          title="Pizarra"
+        >
+          <LayoutGrid className="w-5 h-5 text-gray-600 group-hover:text-blue-600" />
+        </button>
       </div>
 
       {/* Mensajes */}
