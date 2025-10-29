@@ -6,27 +6,79 @@ export class SupabaseOrganizacionRepository implements OrganizacionRepository {
 
   async getByUsuarioId(userId: string): Promise<Organizacion | null> {
     try {
-      // console.log('🏢 Obteniendo organización para usuario:', userId);
+      if (!userId) {
+        return null;
+      }
 
-      // Primero obtener el id_organizacion del usuario
-      const { data: userData, error: userError } = await supabase
+      // Intentar primero con user_auth
+      let { data: usuariosData, error: userError } = await supabase
         .from('usuario')
-        .select('id_organizacion')
-        .eq('user_auth', userId)
-        .single();
+        .select('id, id_organizacion')
+        .eq('user_auth', userId);
+
+      // Si no encuentra nada, intentar con id_usuario
+      if ((!usuariosData || usuariosData.length === 0) && !userError) {
+        const { data: usuariosData2, error: userError2 } = await supabase
+          .from('usuario')
+          .select('id, id_organizacion')
+          .eq('id_usuario', userId);
+
+        usuariosData = usuariosData2;
+        userError = userError2;
+      }
 
       if (userError) {
         console.error('❌ Error obteniendo usuario:', userError);
         return null;
       }
 
-      if (!userData?.id_organizacion) {
-        // console.log('⚠️ Usuario no tiene organización asignada');
+      if (!usuariosData || usuariosData.length === 0) {
         return null;
       }
 
-      // Obtener la organización
-      return await this.getById(userData.id_organizacion);
+      const userData = usuariosData[0];
+
+      // Si tiene id_organizacion directo, usarlo
+      if (userData.id_organizacion) {
+        return await this.getById(userData.id_organizacion);
+      }
+
+      // Si no, buscar en el array de usuarios de la organización
+      const { data: organizaciones, error: orgError } = await supabase
+        .from('organizacion')
+        .select('*')
+        .contains('usuarios', [userData.id]);
+
+      if (orgError) {
+        console.error('❌ Error buscando organización:', orgError);
+        return null;
+      }
+
+      if (!organizaciones || organizaciones.length === 0) {
+        return null;
+      }
+
+      // Tomar la primera organización encontrada
+      const data = organizaciones[0];
+
+      // Mapear los datos a la interfaz Organizacion
+      const organizacion: Organizacion = {
+        id: data.id,
+        created_at: data.created_at,
+        nombre: data.nombre ?? 'Sin nombre',
+        sector: data.sector ?? 'Sin tipo definido',
+        configuracion: data.configuracion,
+        isActive: data.isActive ?? true,
+        idAdmin: data.idAdmin,
+        usuarios: data.usuarios,
+        nivelDeSuscripcion: data.nivelDeSuscripcion || 'free',
+        id_recursos: data.id_recursos,
+        id_salas: data.id_salas,
+        proyectos: data.proyectos ?? [],
+        img_profile: data.img_profile
+      };
+
+      return organizacion;
     } catch (error) {
       console.error('❌ Error en getByUsuarioId:', error);
       return null;
@@ -35,8 +87,6 @@ export class SupabaseOrganizacionRepository implements OrganizacionRepository {
 
   async getById(id: string): Promise<Organizacion | null> {
     try {
-      // console.log('🏢 Obteniendo organización por ID:', id);
-
       const { data, error } = await supabase
         .from('organizacion')
         .select('*')
@@ -56,8 +106,8 @@ export class SupabaseOrganizacionRepository implements OrganizacionRepository {
       const organizacion: Organizacion = {
         id: data.id,
         created_at: data.created_at,
-        nombre: data.nombre,
-        sector: data.sector,
+        nombre: data.nombre ?? 'Sin nombre',
+        sector: data.sector ?? 'Sin tipo definido',
         configuracion: data.configuracion,
         isActive: data.isActive ?? true,
         idAdmin: data.idAdmin,
@@ -65,7 +115,8 @@ export class SupabaseOrganizacionRepository implements OrganizacionRepository {
         nivelDeSuscripcion: data.nivelDeSuscripcion || 'free',
         id_recursos: data.id_recursos,
         id_salas: data.id_salas,
-        id_proyectos: data.id_proyectos
+        proyectos: data.proyectos ?? [],
+        img_profile: data.img_profile
       };
 
       // console.log('✅ Organización encontrada:', organizacion.nombre);

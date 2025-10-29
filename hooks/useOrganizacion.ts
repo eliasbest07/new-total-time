@@ -23,7 +23,7 @@ export const useOrganizacion = (userId: string | null) => {
         const data = await organizacionRepository.getByUsuarioId(userId);
         setOrganizacion(data);
       } catch (err: any) {
-        // console.error('❌ Error cargando organización:', err);
+        console.error('❌ Error cargando organización:', err);
         setError(err.message || 'Error desconocido');
       } finally {
         setLoading(false);

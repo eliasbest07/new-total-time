@@ -200,12 +200,12 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   // Función para crear actividad
   const handleCrearActividad = async () => {
     if (!actividadDescripcion.trim()) {
-      alert('Por favor ingresa una descripción para la actividad');
+      console.warn('⚠️ Por favor ingresa una descripción para la actividad');
       return;
     }
 
-    if (!usuarioId) {
-      alert('Error: No se pudo identificar el usuario');
+    if (!usuario?.userAuth) {
+      console.error('❌ Error: No se pudo identificar el usuario (UUID)');
       return;
     }
 
@@ -214,20 +214,42 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
     try {
       const { supabase } = await import('@/infrastructure/services/SupabaseClient');
 
+      console.log('📝 Creando actividad con datos:', {
+        descripcion: actividadDescripcion.trim(),
+        cant_horas: actividadHoras ? parseFloat(actividadHoras) : null,
+        fecha: actividadFecha || new Date().toISOString(),
+        id_usuario: usuario.userAuth,
+        id_proyecto: card.proyectoData?.id || null,
+        tiempo_dedicado: 0
+      });
+
       const { data, error } = await supabase
         .from('actividades')
         .insert({
           descripcion: actividadDescripcion.trim(),
           cant_horas: actividadHoras ? parseFloat(actividadHoras) : null,
           fecha: actividadFecha || new Date().toISOString(),
-          id_usuario: usuarioId,
+          id_usuario: usuario.userAuth,
           id_proyecto: card.proyectoData?.id || null,
           tiempo_dedicado: 0
         })
         .select()
         .single();
 
-      if (!error && data) {
+      console.log('📝 Resultado de crear actividad:', { data, error });
+
+      if (error) {
+        console.error('❌ ERROR AL CREAR ACTIVIDAD:');
+        console.error('   - Message:', error.message);
+        console.error('   - Details:', error.details);
+        console.error('   - Hint:', error.hint);
+        console.error('   - Code:', error.code);
+        console.error('   - Error completo:', error);
+        return;
+      }
+
+      if (data) {
+        console.log('✅ Actividad creada exitosamente:', data);
         // Limpiar formulario
         setActividadDescripcion('');
         setActividadHoras('');
@@ -237,11 +259,10 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         // Recargar datos
         await recargarDatos();
       } else {
-        alert('Error al crear la actividad');
+        console.error('❌ Error: No se recibió respuesta del servidor');
       }
     } catch (error) {
-      console.error('Error creando actividad:', error);
-      alert('Error al crear la actividad');
+      console.error('❌ EXCEPCIÓN AL CREAR ACTIVIDAD:', error);
     } finally {
       setCreandoActividad(false);
     }
@@ -399,7 +420,23 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                     misiones.slice(0, 5).map((mision) => (
                       <div
                         key={mision.id}
-                        className="bg-white rounded p-2 border border-indigo-100 text-xs"
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          e.dataTransfer.setData('application/json', JSON.stringify({
+                            type: 'mision-organizacion',
+                            id_mision: mision.id,
+                            title: mision.nombre,
+                            description: mision.descripcion,
+                            hours: mision.horas,
+                            fecha_start: mision.fecha_start,
+                            fecha_end: mision.fecha_end,
+                            id_usuario: mision.id_usuario,
+                            id_creador: mision.id_creador
+                          }));
+                          e.dataTransfer.effectAllowed = 'copy';
+                        }}
+                        className="bg-white rounded p-2 border border-indigo-100 text-xs cursor-move hover:bg-indigo-50 transition-colors"
                       >
                         <div className="font-medium text-indigo-900 truncate">
                           {mision.nombre || 'Sin nombre'}

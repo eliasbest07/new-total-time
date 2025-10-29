@@ -1,18 +1,17 @@
-let idCounter = 0;
-
 export const generateUniqueId = (prefix: string, existingIds: string[] = []) => {
-  // Encontrar el mayor número usado para este prefijo
-  const existingNumbers = existingIds
-    .filter(id => id.startsWith(`${prefix}-`))
-    .map(id => parseInt(id.split('-')[1]) || 0)
-    .filter(num => !isNaN(num));
-  
-  const maxExisting = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
-  
-  // Usar el mayor entre el contador actual y el máximo existente + 1
-  idCounter = Math.max(idCounter, maxExisting);
-  
-  return `${prefix}-${++idCounter}`;
+  // Generar un ID único usando timestamp y random
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10000);
+  let newId = `${prefix}-${timestamp}-${random}`;
+
+  // Asegurar que el ID es único
+  let counter = 0;
+  while (existingIds.includes(newId)) {
+    counter++;
+    newId = `${prefix}-${timestamp}-${random}-${counter}`;
+  }
+
+  return newId;
 };
 
 let positionCounter = 0;

@@ -15,7 +15,9 @@ import { useMisiones } from "@/hooks/useMisiones";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
 import { useProyectos } from "@/hooks/useProyectos";
 import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizacionContext";
+import { useOrganizacion } from "@/hooks/useOrganizacion";
 import { Target, Building2, X } from "lucide-react";
+import Image from "next/image";
 
 export default function DashboardPage() {
   const pizarraRef = useRef<PizarraRef>(null);
@@ -24,6 +26,7 @@ export default function DashboardPage() {
   const { createMision } = useMisiones(usuarioId);
   const { createProyecto } = useProyectos();
   const { usuarios } = useUsuariosOrganizacionContext();
+  const { organizacion } = useOrganizacion(usuario?.userAuth || null);
 
   const [showChatWindow, setShowChatWindow] = useState(false);
   const [selectedChatUser, setSelectedChatUser] = useState<{
@@ -250,10 +253,29 @@ export default function DashboardPage() {
           <div className="mb-3">
             <button
               onClick={() => setShowInfoOrganizacion(true)}
-              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg p-3 shadow-lg transition-all hover:scale-105 flex items-center justify-center mb-3"
+              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg p-3 shadow-lg transition-all hover:scale-105 flex flex-col items-center justify-center gap-2 mb-3"
               title="Información de la Organización"
             >
-              <Building2 size={20} />
+              {organizacion?.img_profile ? (
+                <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/20 flex items-center justify-center">
+                  <Image
+                    src={organizacion.img_profile}
+                    alt={organizacion.nombre}
+                    width={48}
+                    height={48}
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-white/20 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-white">
+                    {organizacion ? organizacion.nombre.charAt(0).toUpperCase() : 'O'}
+                  </span>
+                </div>
+              )}
+              <span className="text-xs font-semibold text-center line-clamp-2 leading-tight">
+                {organizacion ? organizacion.nombre : 'Organización'}
+              </span>
             </button>
           </div>
 

@@ -69,8 +69,8 @@ export default function MainScreen() {
   // Solo mostrar los últimos 5 días
   const previousDayBoardHistory = useMemo(() => {
     if (chartSnapshots && chartSnapshots.length > 0) {
-      // Tomar solo los últimos 5 días
-      return chartSnapshots.slice(-5);
+      // Filtrar pizarras sin cards (value > 0) y tomar solo los últimos 5 días
+      return chartSnapshots.filter(snapshot => snapshot.value > 0).slice(-5);
     }
     // Fallback a mock data - últimos 5 días
     return Array.from({ length: 5 }, (_, i) => {

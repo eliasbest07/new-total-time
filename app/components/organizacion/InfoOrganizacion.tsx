@@ -65,7 +65,16 @@ export default function InfoOrganizacion() {
         {/* Avatar de la organización */}
         <div className="relative flex-shrink-0">
           <div className="w-20 h-20 rounded-xl overflow-hidden bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center shadow-lg">
-            <Building2 className="w-10 h-10 text-white" />
+            {organizacion.img_profile ? (
+              <Image
+                src={organizacion.img_profile}
+                alt={organizacion.nombre}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <Building2 className="w-10 h-10 text-white" />
+            )}
           </div>
           {/* Badge de nivel de suscripción */}
           <div className="absolute -bottom-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
@@ -167,7 +176,7 @@ export default function InfoOrganizacion() {
               <span className="text-xl">📁</span>
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              {organizacion.id_proyectos?.length || 0}
+              {organizacion.proyectos?.length || 0}
             </p>
             <p className="text-xs text-gray-600">Proyectos</p>
           </div>
