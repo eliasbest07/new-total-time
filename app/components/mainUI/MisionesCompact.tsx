@@ -20,6 +20,7 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
     console.log('Drag started for mission:', mision.nombre);
     console.log('🔍 [MisionCompactCard] id_creador en misión:', mision.id_creador);
     console.log('🔍 [MisionCompactCard] id_usuario en misión:', mision.id_usuario);
+    console.log('🔍 [MisionCompactCard] card_todos en misión:', mision.card_todos);
     const misionData = {
       type: 'mision',
       title: mision.nombre || 'Sin nombre',
@@ -29,7 +30,8 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
       fechaEnd: mision.fecha_end,
       id: mision.id,
       id_usuario: mision.id_usuario,
-      id_creador: mision.id_creador // UUID del creador de la misión
+      id_creador: mision.id_creador, // UUID del creador de la misión
+      card_todos: mision.card_todos || [] // Array de UUIDs de cards TODO
     };
 
     e.dataTransfer.setData('application/json', JSON.stringify(misionData));

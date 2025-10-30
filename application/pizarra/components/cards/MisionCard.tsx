@@ -5,6 +5,8 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
 import { misionActivaRepository } from '@/infrastructure/datasource/SupabaseMisionActivaRepository';
 import { createClient } from '@supabase/supabase-js';
+import { useCardTodos } from '@/hooks/useCardTodos';
+import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
 
 // Cliente de Supabase para subir archivos directamente
 const supabase = createClient(
@@ -43,6 +45,11 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   const [entregaTexto, setEntregaTexto] = useState('');
   const [entregaImagen, setEntregaImagen] = useState<File | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Estados para la sección de todos expandible
+  const [showTodos, setShowTodos] = useState(false);
+  const [todoCards, setTodoCards] = useState<Array<{ id: string; title: string; todos: any[] }>>([]);
+  const [loadingTodos, setLoadingTodos] = useState(false);
 
   // Obtener el usuario actual (UUID del auth)
   const { usuario } = useAuth();
@@ -361,6 +368,60 @@ useEffect(() => {
 
   processCaptureRequest();
 }, [captureNowValue, card.misionData?.isRunning, card.misionData?.misionActivaId, captureNow]);
+
+// Efecto para cargar los card_todos asociados a esta misión
+useEffect(() => {
+  const loadTodoCards = async () => {
+    const cardTodoIds = card.misionData?.card_todos;
+
+    if (!cardTodoIds || cardTodoIds.length === 0) {
+      setTodoCards([]);
+      return;
+    }
+
+    setLoadingTodos(true);
+    try {
+      // Cargar los cards de tipo todo desde Supabase
+      const { data: cardsData, error } = await supabase
+        .from('cards')
+        .select('id, title')
+        .in('id', cardTodoIds);
+
+      if (error) {
+        console.error('Error cargando cards de todos:', error);
+        setTodoCards([]);
+        return;
+      }
+
+      // Para cada card, cargar sus todos
+      const cardsWithTodos = await Promise.all(
+        (cardsData || []).map(async (cardData) => {
+          const { data: todosData } = await supabase
+            .from('card_todos')
+            .select('*')
+            .eq('id_card', cardData.id)
+            .order('position', { ascending: true });
+
+          return {
+            id: cardData.id,
+            title: cardData.title,
+            todos: todosData || []
+          };
+        })
+      );
+
+      setTodoCards(cardsWithTodos);
+    } catch (error) {
+      console.error('Error cargando todos:', error);
+      setTodoCards([]);
+    } finally {
+      setLoadingTodos(false);
+    }
+  };
+
+  loadTodoCards();
+}, [card.misionData?.card_todos]);
+
   // Función para formatear el tiempo
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -570,6 +631,33 @@ useEffect(() => {
     setShowEntregarModal(false);
     setEntregaTexto('');
     setEntregaImagen(null);
+  };
+
+  // Función para toggle completado de un todo
+  const handleToggleTodo = async (todoId: string, currentCompleted: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('card_todos')
+        .update({ completed: !currentCompleted })
+        .eq('id', todoId);
+
+      if (error) {
+        console.error('Error actualizando todo:', error);
+        return;
+      }
+
+      // Actualizar el estado local
+      setTodoCards(prevCards =>
+        prevCards.map(cardData => ({
+          ...cardData,
+          todos: cardData.todos.map(todo =>
+            todo.id === todoId ? { ...todo, completed: !currentCompleted } : todo
+          )
+        }))
+      );
+    } catch (error) {
+      console.error('Error en handleToggleTodo:', error);
+    }
   };
 
   // Vista de chat
@@ -825,6 +913,77 @@ useEffect(() => {
           {card.misionData?.description || card.title}
         </p>
       </div>
+
+      {/* Sección de Todos Expandible */}
+      {todoCards.length > 0 && (
+        <div className="mb-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTodos(!showTodos);
+            }}
+            className={`w-full text-left text-xs font-semibold ${textColor} flex items-center justify-between px-2 py-1 rounded transition-colors ${
+              isRunning ? 'hover:bg-orange-100' : 'hover:bg-green-100'
+            }`}
+            data-todo-interactive
+          >
+            <span>✓ Lista de tareas ({todoCards.length})</span>
+            {showTodos ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+          {showTodos && (
+            <div
+              className="mt-1 space-y-2 max-h-32 overflow-y-auto"
+              onWheel={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {loadingTodos ? (
+                <div className="text-center text-gray-400 text-xs py-2">Cargando...</div>
+              ) : (
+                todoCards.map((todoCard) => (
+                  <div
+                    key={todoCard.id}
+                    className={`rounded p-2 border ${
+                      isRunning
+                        ? 'bg-orange-50 border-orange-200'
+                        : 'bg-green-50 border-green-200'
+                    }`}
+                  >
+                    <div className="font-medium text-xs mb-1 text-gray-800">{todoCard.title}</div>
+                    <div className="space-y-1">
+                      {todoCard.todos.length === 0 ? (
+                        <div className="text-xs text-gray-500 italic">No hay tareas</div>
+                      ) : (
+                        todoCard.todos.map((todo) => (
+                          <div
+                            key={todo.id}
+                            className="flex items-center gap-1.5 text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={todo.completed}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleToggleTodo(todo.id, todo.completed);
+                              }}
+                              className="w-3 h-3 cursor-pointer"
+                              data-todo-interactive
+                            />
+                            <span className={`flex-1 ${todo.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+                              {todo.text}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Sección central con botón de play e imagen */}
       <div className="flex-1 flex flex-col justify-center items-center gap-2 data-todo-interactive">

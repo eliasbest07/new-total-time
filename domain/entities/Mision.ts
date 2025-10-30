@@ -9,4 +9,5 @@ export interface Mision {
   id_usuario: number | null; // bigint
   id_proyecto: number | null; // bigint
   id_creador: string | null; // uuid - El usuario que creó la misión
+  card_todos: string[] | null; // uuid[]
 }

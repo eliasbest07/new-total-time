@@ -49,6 +49,7 @@ export interface MisionData {
   subtareas?: SubtareaMision[];
   entregas?: EntregaMision[];
   misionActivaId?: string; // ID de la misión activa
+  card_todos?: string[]; // Array de UUIDs de cards de tipo TODO asociados a esta misión
 }
 
 export interface ChatMessage {

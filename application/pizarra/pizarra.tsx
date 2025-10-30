@@ -1272,7 +1272,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                 isRunning: cardMision.is_running,
                 lastCaptureUrl: cardMision.last_capture_url,
                 id_mision: cardMision.id_mision,
-                id_usuario: mision?.id_usuario?.toString()
+                id_usuario: mision?.id_usuario?.toString(),
+                card_todos: mision?.card_todos || []
               };
             }
           } catch (error) {
@@ -1514,7 +1515,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                   title: mision.nombre,
                   description: mision.descripcion || '',
                   hours: mision.horas_estimadas || 0,
-                  id_mision: mision.id
+                  id_mision: mision.id,
+                  card_todos: mision.card_todos || []
                 };
               }
             }

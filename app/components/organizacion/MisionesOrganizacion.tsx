@@ -34,7 +34,8 @@ export default function MisionesOrganizacion() {
       fecha_start: mision.fecha_start,
       fecha_end: mision.fecha_end,
       id_usuario: mision.id_usuario,
-      id_creador: mision.id_creador
+      id_creador: mision.id_creador,
+      card_todos: mision.card_todos || []
     }));
     e.dataTransfer.effectAllowed = 'copy';
   };

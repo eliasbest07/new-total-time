@@ -160,7 +160,8 @@ export const useDropHandler = (
               entregas: [],
               id_usuario_asignado: resource.id_usuario || null,
               idCreador: resource.id_creador,
-              isRunning: false
+              isRunning: false,
+              card_todos: resource.card_todos || []
             }
           }]);
           console.log('✅ [PIZARRA DROP] Card de misión organización creada');
@@ -174,7 +175,8 @@ export const useDropHandler = (
             id_creador: resource.id_creador,
             id: resource.id,
             title: resource.title,
-            hours: resource.hours
+            hours: resource.hours,
+            card_todos: resource.card_todos
           });
 
           // Verificar si ya existe una card de misión
@@ -199,10 +201,11 @@ export const useDropHandler = (
               description: resource.description || resource.title,
               idCreador: resource.id_creador,
               id_usuario: resource.id_usuario,
-              id_mision: resource.id?.toString()
+              id_mision: resource.id?.toString(),
+              card_todos: resource.card_todos || []
             }
           }]);
-          console.log('✅ [PIZARRA DROP] Card de misión creada con id_usuario:', resource.id_usuario, 'y id_creador:', resource.id_creador);
+          console.log('✅ [PIZARRA DROP] Card de misión creada con id_usuario:', resource.id_usuario, 'y id_creador:', resource.id_creador, 'y card_todos:', resource.card_todos);
           return;
         }
         // RECURSO
