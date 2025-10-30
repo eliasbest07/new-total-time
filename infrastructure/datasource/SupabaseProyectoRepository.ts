@@ -41,35 +41,11 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
     try {
       // console.log('📁 Obteniendo proyectos para organización:', organizacionId);
 
-      // Primero obtener la organización para conseguir el array de proyectos
-      const { data: organizacionData, error: organizacionError } = await supabase
-        .from('organizacion')
-        .select('proyectos')
-        .eq('id', organizacionId)
-        .maybeSingle();
-
-      if (organizacionError) {
-        console.error('❌ Error obteniendo organización:', organizacionError);
-        return [];
-      }
-
-      if (!organizacionData) {
-        // console.log('⚠️ No se encontró la organización con ID:', organizacionId);
-        return [];
-      }
-
-      const proyectosIds = organizacionData?.proyectos || [];
-
-      if (proyectosIds.length === 0) {
-        // console.log('✅ No hay proyectos en esta organización');
-        return [];
-      }
-
-      // Ahora obtener los proyectos usando los IDs
+      // Consulta directa usando la foreign key id_organizacion
       const { data, error } = await supabase
         .from('proyecto')
         .select('*')
-        .in('id', proyectosIds)
+        .eq('id_organizacion', organizacionId)
         .order('created_at', { ascending: false });
 
       if (error) {
