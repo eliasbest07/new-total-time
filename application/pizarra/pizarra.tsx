@@ -15,6 +15,7 @@ interface PizarraProps {
   onShowScreenshots?: (cardId: string) => void;
   storagePrefix?: string;
   lightMode?: boolean;
+  fullMode?: boolean;
   viewingUserId?: string; // ID del usuario cuya pizarra se está viendo (para vista de solo lectura)
   onOpenUserChat?: (userData: {
     userId: string;
@@ -35,7 +36,7 @@ import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, viewingUserId, onOpenUserChat }, ref) => {
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
 
@@ -1736,8 +1737,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       <div
         ref={canvasRef}
         className={`
-          relative w-4/5 h-4/5
-          border-4 border-dashed rounded-3xl
+          relative ${fullMode ? 'w-full h-full' : 'w-4/5 h-4/5'}
+          ${fullMode ? ' border-4 border-dashed rounded-3xl' : 'border-4 border-dashed rounded-3xl'}
           transition-colors duration-300 ease-in-out overflow-hidden
           ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-transparent'}
           ${isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'}

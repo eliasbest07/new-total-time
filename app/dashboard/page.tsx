@@ -240,6 +240,7 @@ export default function DashboardPage() {
             onShowScreenshots={() => {}}
             storagePrefix="organizacion"
             lightMode={true}
+            fullMode={true}
             usuarios={usuarios}
             currentUserId={usuario?.userAuth}
           />
