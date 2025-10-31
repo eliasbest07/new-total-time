@@ -1152,7 +1152,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       id: generateUniqueId('note', existingIds),
       type: 'text',
       title: 'Nota',
-      content: text.length > 100 ? text.substring(0, 100) + '...' : text,
+      content: text, // Guardar todo el texto sin cortar
       x: centerX + randomOffset() - 100, // -100 para centrar la card (width/2)
       y: centerY + randomOffset() - 60,  // -60 para centrar la card (height/2)
       width: 200,

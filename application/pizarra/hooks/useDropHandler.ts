@@ -297,7 +297,7 @@ export const useDropHandler = (
         id: generateUniqueId('text', existingIds),
         type: 'text',
         title: 'Texto',
-        content: text.length > 50 ? text.substring(0, 50) + '...' : text,
+        content: text, // Guardar todo el texto sin cortar
         x, y,
         width: 200,
         height: 100

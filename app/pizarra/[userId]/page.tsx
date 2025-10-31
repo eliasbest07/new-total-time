@@ -21,6 +21,7 @@ export default function PizarraUsuarioPage() {
   const [historialPizarras, setHistorialPizarras] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const { usuario } = useAuth();
+  const [mensajeEnviado, setMensajeEnviado] = useState(false);
 
   // Debug: Verificar qué viene en los params
   useEffect(() => {
@@ -170,6 +171,45 @@ export default function PizarraUsuarioPage() {
       console.warn('⚠️ [Page] useEffect: userId es falsy, no se carga nada');
     }
   }, [userId]);
+
+  // Enviar mensaje automático al entrar a la pizarra
+  useEffect(() => {
+    const enviarMensajeAutomatico = async () => {
+      // Verificar que tenemos todos los datos necesarios
+      if (!usuario?.userAuth || !userId || mensajeEnviado) {
+        return;
+      }
+
+      // No enviar mensaje si es el propio usuario viendo su pizarra
+      if (usuario.userAuth === userId) {
+        console.log('👤 [AUTO-MESSAGE] Usuario viendo su propia pizarra, no se envía mensaje');
+        return;
+      }
+
+      try {
+        console.log('📤 [AUTO-MESSAGE] Enviando mensaje automático a:', userId);
+        const { SupabaseMensajeRepository } = await import('@/infrastructure/datasource/SupabaseMensajeRepository');
+        const mensajeRepo = new SupabaseMensajeRepository();
+
+        const mensaje = await mensajeRepo.enviarMensaje(
+          usuario.userAuth, // id del emisor (visitante)
+          userId,           // id del receptor (dueño de la pizarra)
+          '~actualizapirazza'
+        );
+
+        if (mensaje) {
+          console.log('✅ [AUTO-MESSAGE] Mensaje automático enviado exitosamente');
+          setMensajeEnviado(true);
+        } else {
+          console.error('❌ [AUTO-MESSAGE] Error enviando mensaje automático');
+        }
+      } catch (error) {
+        console.error('❌ [AUTO-MESSAGE] Error en enviarMensajeAutomatico:', error);
+      }
+    };
+
+    enviarMensajeAutomatico();
+  }, [usuario?.userAuth, userId, mensajeEnviado]);
 
   // Si no hay usuario logueado, mostrar mensaje
   if (!usuario) {
