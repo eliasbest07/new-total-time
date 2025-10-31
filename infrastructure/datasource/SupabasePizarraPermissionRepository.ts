@@ -36,6 +36,12 @@ export class SupabasePizarraPermissionRepository implements PizarraPermissionRep
    */
   async createRequest(dto: CreatePizarraPermissionDTO): Promise<PizarraPermission | null> {
     try {
+      console.log('📝 Creando solicitud de permiso:', {
+        owner: dto.id_usuario_owner,
+        editor: dto.id_usuario_editor,
+        granted: dto.granted || false
+      });
+
       const { data, error } = await supabase
         .from('pizarra_permissions')
         .insert([{
@@ -48,7 +54,13 @@ export class SupabasePizarraPermissionRepository implements PizarraPermissionRep
         .single();
 
       if (error) {
-        console.error('❌ Error creando solicitud de permiso:', error);
+        console.error('❌ Error creando solicitud de permiso:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          fullError: error
+        });
         return null;
       }
 

@@ -46,8 +46,24 @@ export const usePizarraPermissions = (
 
   // Solicitar permiso
   const requestPermission = useCallback(async () => {
+    console.log('🔍 [Hook] requestPermission llamado con:', {
+      ownerId,
+      ownerIdType: typeof ownerId,
+      editorId,
+      editorIdType: typeof editorId,
+      ownerIdIsNull: ownerId === null,
+      editorIdIsNull: editorId === null,
+      ownerIdIsUndefined: ownerId === undefined,
+      editorIdIsUndefined: editorId === undefined,
+    });
+
     if (!ownerId || !editorId) {
-      console.error('Falta ownerId o editorId');
+      console.error('❌ Falta ownerId o editorId:', {
+        ownerId,
+        editorId,
+        ownerIdMissing: !ownerId,
+        editorIdMissing: !editorId
+      });
       return;
     }
 

@@ -24,6 +24,16 @@ interface PizarraProps {
     color?: string;
     online?: boolean;
   }) => void;
+  usuarios?: Array<{
+    id: number;
+    userAuth?: string;
+    profile: {
+      nombre: string;
+      apellido: string;
+      avatar?: string;
+    };
+  }>;
+  currentUserId?: string;
 }
 import { generateUniqueId, generatePosition } from './utils/idGenerator';
 import { useCardDrag } from './hooks/useCardDrag';
@@ -36,7 +46,7 @@ import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat }, ref) => {
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
 
@@ -153,6 +163,162 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
   }, [captureNow]);
 
+  // Sincronizar cardsDB con cards SOLO cuando se visualiza la pizarra de otro usuario
+  useEffect(() => {
+    const syncCardsFromDB = async () => {
+      // IMPORTANTE: Solo sincronizar cuando estamos viendo la pizarra de OTRO usuario
+      if (!isViewingOtherUser) {
+        return; // Para la pizarra propia, usar LocalStorage normalmente
+      }
+
+      if (!cardsDB || cardsDB.length === 0 || !pizarra) {
+        return;
+      }
+
+      console.log('🔄 [PIZARRA COMPARTIDA] Sincronizando cards desde Supabase:', cardsDB.length);
+
+      // Mapear cardsDB a cards locales
+      const { SupabaseCardMisionRepository } = await import('@/infrastructure/datasource/SupabaseCardMisionRepository');
+      const { SupabaseMisionRepository } = await import('@/infrastructure/datasource/SupabaseMisionRepository');
+      const { SupabaseCardActividadRepository } = await import('@/infrastructure/datasource/SupabaseCardActividadRepository');
+      const { SupabaseCardUsuarioRepository } = await import('@/infrastructure/datasource/SupabaseCardUsuarioRepository');
+      const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
+      const { SupabaseCardImageRepository } = await import('@/infrastructure/datasource/SupabaseCardImageRepository');
+
+      const cardMisionRepo = new SupabaseCardMisionRepository();
+      const misionRepo = new SupabaseMisionRepository();
+      const cardActividadRepo = new SupabaseCardActividadRepository();
+      const cardUsuarioRepo = new SupabaseCardUsuarioRepository();
+      const cardTodoRepo = new SupabaseCardTodoRepository();
+      const cardImageRepo = new SupabaseCardImageRepository();
+
+      const mappedCards: Card[] = [];
+
+      for (const cardDB of cardsDB) {
+        const card = mapCardDBToCard(cardDB);
+
+        // Cargar datos específicos según el tipo de card
+        if (cardDB.type === 'mision') {
+          try {
+            const cardMision = await cardMisionRepo.getByCardId(cardDB.id);
+            if (cardMision) {
+              const mision = await misionRepo.getMisionById(cardMision.id_mision);
+              if (mision) {
+                card.misionData = {
+                  title: mision.nombre || card.title,
+                  hours: mision.horas || 1,
+                  description: mision.descripcion || card.content,
+                  idCreador: mision.id_creador,
+                  isRunning: cardMision.is_running,
+                  lastCaptureUrl: cardMision.last_capture_url,
+                  id_mision: cardMision.id_mision,
+                  id_usuario: mision.id_usuario?.toString()
+                };
+              }
+            }
+          } catch (error) {
+            console.error('Error cargando datos de misión para card:', cardDB.id, error);
+          }
+        }
+
+        if (cardDB.type === 'actividad') {
+          try {
+            const cardActividad = await cardActividadRepo.getByCardId(cardDB.id);
+            if (cardActividad && usuario) {
+              const currentUserParticipant = {
+                name: usuario.getNombreCompleto(),
+                initial: usuario.getNombreCompleto().charAt(0).toUpperCase(),
+                color: usuario.profile.marco || '#3b82f6'
+              };
+
+              card.activityData = {
+                subject: cardActividad.subject || '',
+                participants: [currentUserParticipant],
+                date: cardActividad.date || '',
+                time: cardActividad.time || '',
+                duration: cardActividad.duration || 0,
+                isRunning: cardActividad.is_running || false,
+                timeLeft: cardActividad.time_left || 0,
+                id_actividad: cardDB.id
+              };
+            }
+          } catch (error) {
+            console.error('Error cargando datos de actividad:', error);
+          }
+        }
+
+        if (cardDB.type === 'usuario') {
+          try {
+            const cardUsuario = await cardUsuarioRepo.getByCardId(cardDB.id);
+            if (cardUsuario) {
+              card.usuarioData = {
+                userId: cardUsuario.user_id,
+                name: cardUsuario.name || '',
+                avatar: cardUsuario.avatar || '',
+                color: cardUsuario.color || '#3b82f6',
+                online: cardUsuario.online || false,
+                messages: []
+              };
+
+              if (card.content) {
+                try {
+                  const parsedContent = JSON.parse(card.content);
+                  if (parsedContent.messages && Array.isArray(parsedContent.messages)) {
+                    card.usuarioData.messages = parsedContent.messages.map((msg: any) => ({
+                      ...msg,
+                      timestamp: new Date(msg.timestamp)
+                    }));
+                  }
+                } catch (e) {
+                  console.log('No hay mensajes en formato JSON para esta card de usuario');
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error cargando datos de usuario:', error);
+          }
+        }
+
+        if (cardDB.type === 'todo') {
+          try {
+            const cardTodos = await cardTodoRepo.getByCardId(cardDB.id);
+            if (cardTodos && cardTodos.length > 0) {
+              card.todos = cardTodos.map(todo => ({
+                id: todo.todo_id,
+                text: todo.text,
+                completed: todo.completed
+              }));
+            }
+          } catch (error) {
+            console.error('Error cargando todos:', error);
+          }
+        }
+
+        if (cardDB.type === 'image') {
+          try {
+            const cardImage = await cardImageRepo.getByCardId(cardDB.id);
+            if (cardImage) {
+              card.imageUrl = cardImage.image_url;
+              setPastedImages(prev => ({
+                ...prev,
+                [card.id]: cardImage.image_url
+              }));
+            }
+          } catch (error) {
+            console.error('Error cargando imagen:', error);
+          }
+        }
+
+        mappedCards.push(card);
+      }
+
+      console.log('✅ [PIZARRA COMPARTIDA] Cards sincronizadas:', mappedCards.length);
+      setCards(mappedCards);
+    };
+
+    syncCardsFromDB();
+  }, [cardsDB, pizarra, usuario, setPastedImages, isViewingOtherUser]);
+
   const {
     connections,
     setConnections,
@@ -165,6 +331,41 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     deleteConnection
   } = useConnections();
 
+  // Cargar conexiones desde Supabase SOLO cuando se visualiza la pizarra de otro usuario
+  useEffect(() => {
+    const loadConnectionsFromDB = async () => {
+      // IMPORTANTE: Solo cargar conexiones cuando estamos viendo la pizarra de OTRO usuario
+      if (!isViewingOtherUser) {
+        return; // Para la pizarra propia, usar LocalStorage normalmente
+      }
+
+      if (!pizarra) {
+        return;
+      }
+
+      try {
+        console.log('🔗 [PIZARRA COMPARTIDA] Cargando conexiones desde Supabase...');
+        const { SupabaseCardConnectionRepository } = await import('@/infrastructure/datasource/SupabaseCardConnectionRepository');
+        const cardConnectionRepo = new SupabaseCardConnectionRepository();
+
+        const connectionesEnBD = await cardConnectionRepo.getByPizarraId(pizarra.id);
+
+        const mappedConnections = connectionesEnBD.map(connDB => ({
+          id: connDB.connection_id,
+          from: connDB.from_card_id || undefined,
+          to: connDB.to_card_id
+        }));
+
+        setConnections(mappedConnections);
+        console.log('✅ [PIZARRA COMPARTIDA] Conexiones cargadas:', mappedConnections.length);
+      } catch (error) {
+        console.error('❌ Error cargando conexiones:', error);
+      }
+    };
+
+    loadConnectionsFromDB();
+  }, [pizarra, setConnections, isViewingOtherUser]);
+
   const {
     isPanning,
     panOffset,
@@ -173,6 +374,27 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleGlobalMouseMove: panGlobalMouseMove,
     handleMouseUp: panHandleMouseUp
   } = useCanvasPan();
+
+  // Sincronizar panOffset SOLO cuando se carga la pizarra de otro usuario
+  useEffect(() => {
+    // IMPORTANTE: Solo sincronizar cuando estamos viendo la pizarra de OTRO usuario
+    if (!isViewingOtherUser) {
+      return; // Para la pizarra propia, usar LocalStorage normalmente
+    }
+
+    if (pizarra) {
+      const newPanOffset = {
+        x: Number(pizarra.pan_offset_x) || 0,
+        y: Number(pizarra.pan_offset_y) || 0
+      };
+
+      // Solo actualizar si es diferente para evitar loops
+      if (panOffset.x !== newPanOffset.x || panOffset.y !== newPanOffset.y) {
+        console.log('🗺️ [PIZARRA COMPARTIDA] Sincronizando panOffset:', newPanOffset);
+        setPanOffset(newPanOffset);
+      }
+    }
+  }, [pizarra, isViewingOtherUser]); // No incluir panOffset ni setPanOffset para evitar loops
 
   const bringCardToFront = useCallback((cardId: string) => {
     const newZIndex = maxZIndex + 1;
@@ -223,21 +445,24 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleDrop
   } = useDropHandler(setCards, panOffset, canvasRef, cards);
 
-  // LocalStorage para persistencia
+  // LocalStorage para persistencia - SOLO para pizarra propia, NO para pizarras compartidas
+  const localStorageHookResult = usePizarraLocalStorage(
+    isViewingOtherUser ? [] : cards, // No guardar cards de otros usuarios
+    isViewingOtherUser ? [] : connections, // No guardar conexiones de otros usuarios
+    isViewingOtherUser ? { x: 0, y: 0 } : panOffset, // No guardar panOffset de otros usuarios
+    isViewingOtherUser ? () => {} : setCards, // No setear cards si es otro usuario
+    isViewingOtherUser ? () => {} : setConnections, // No setear conexiones si es otro usuario
+    isViewingOtherUser ? () => {} : setPanOffset, // No setear panOffset si es otro usuario
+    storagePrefix
+  );
+
+  // Solo usar funciones de LocalStorage si NO es otro usuario
   const {
     clearLocalStorage,
     exportToJSON,
     importFromJSON,
     saveHistorySnapshot
-  } = usePizarraLocalStorage(
-    cards,
-    connections,
-    panOffset,
-    setCards,
-    setConnections,
-    setPanOffset,
-    storagePrefix
-  );
+  } = localStorageHookResult;
 
   // Funciones para actividades
   const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
@@ -874,7 +1099,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
     try {
       console.log('💾 Guardando pizarra en Supabase...');
-      console.log('   - ID Usuario:', usuario.id);
+      console.log('   - ID Usuario (UUID):', usuario.userAuth);
       console.log('   - Cards a guardar:', cards.length);
 
       // 1. Verificar/Obtener la pizarra del día
@@ -883,8 +1108,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       const SupabasePizarraRepository = (await import('@/infrastructure/datasource/SupabasePizarraRepository')).SupabasePizarraRepository;
       const pizarraRepo = new SupabasePizarraRepository();
 
-      // Obtener o crear la pizarra del día
-      const pizarraActual = await pizarraRepo.getPizarraDelDia(usuario.id, new Date());
+      // Obtener o crear la pizarra del día usando el UUID
+      const pizarraActual = await pizarraRepo.getPizarraDelDia(usuario.userAuth, new Date());
 
       if (!pizarraActual) {
         console.error('❌ No se pudo obtener o crear la pizarra del día');
@@ -1195,7 +1420,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
 
     console.log('📥 Cargando pizarra desde Supabase...');
-    console.log('   - ID Usuario:', usuario.id);
+    console.log('   - ID Usuario (UUID):', usuario.userAuth);
     console.log('   - Usuario logeado:', usuario.getNombreCompleto());
 
     try {
@@ -1204,7 +1429,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       const SupabasePizarraRepository = (await import('@/infrastructure/datasource/SupabasePizarraRepository')).SupabasePizarraRepository;
       const pizarraRepo = new SupabasePizarraRepository();
 
-      const pizarraActual = await pizarraRepo.getPizarraDelDia(usuario.id, new Date());
+      const pizarraActual = await pizarraRepo.getPizarraDelDia(usuario.userAuth, new Date());
 
       if (!pizarraActual) {
         console.log('   - No hay pizarra para el día de hoy');
@@ -1509,13 +1734,17 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           try {
             const cardMision = await cardMisionRepo.getByCardId(cardDB.id);
             if (cardMision) {
-              const mision = await misionRepo.getById(cardMision.mision_id);
+              const mision = await misionRepo.getMisionById(cardMision.id_mision);
               if (mision) {
                 card.misionData = {
                   title: mision.nombre,
                   description: mision.descripcion || '',
-                  hours: mision.horas_estimadas || 0,
-                  id_mision: mision.id
+                  hours: mision.horas || 0,
+                  id_mision: mision.id,
+                  idCreador: mision.id_creador,
+                  isRunning: cardMision.is_running,
+                  lastCaptureUrl: cardMision.last_capture_url,
+                  id_usuario: mision.id_usuario?.toString()
                 };
               }
             }
@@ -1823,6 +2052,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             pastedImages={pastedImages}
             bringCardToFront={bringCardToFront}
             onOpenUserChat={handleOpenUserChat}
+            usuarios={usuarios}
+            currentUserId={currentUserId}
           />
         ))}
 

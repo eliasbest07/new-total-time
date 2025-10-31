@@ -175,6 +175,11 @@ export default function DashboardPage() {
       return;
     }
 
+    if (!organizacion?.id) {
+      alert("Error: No se pudo identificar la organización");
+      return;
+    }
+
     setCreandoProyecto(true);
 
     try {
@@ -182,6 +187,7 @@ export default function DashboardPage() {
         nombre: proyectoNombre.trim(),
         descripcion: proyectoDescripcion.trim() || null,
         icono: proyectoIcono.trim() || null,
+        id_organizacion: organizacion.id,
       });
 
       if (nuevoProyecto) {
