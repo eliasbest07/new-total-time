@@ -264,6 +264,7 @@ export default function PizarraUsuarioPage() {
       {/* Pizarra del usuario - modo solo lectura */}
       <div className="w-full h-full">
         <Pizarra
+          fullMode={true}
           ref={pizarraRef}
           storagePrefix={`user-${userId}`}
           viewingUserId={userId}

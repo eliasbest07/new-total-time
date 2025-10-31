@@ -129,6 +129,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   // Estado de inicialización
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Estado para trackear misiones ya verificadas (evitar queries repetidas)
+  const verifiedMisionesRef = useRef<Set<string>>(new Set());
+
+  // Estado para trackear conexiones auto-creadas (evitar duplicados)
+  const autoConnectionsRef = useRef<Set<string>>(new Set());
+
   const [cards, setCards] = useState<Card[]>([]);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [editingTodo, setEditingTodo] = useState<{ cardId: string, todoId: number } | null>(null);
@@ -328,8 +334,19 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleConnectionPointClick: baseHandleConnectionPointClick,
     handleCardClick,
     updateMousePosition,
-    deleteConnection
+    deleteConnection: baseDeleteConnection
   } = useConnections();
+
+  // Wrapper para deleteConnection que también limpia el tracking
+  const deleteConnection = useCallback((connectionId: string) => {
+    // Limpiar del tracking si es auto-creada
+    if (connectionId.startsWith('auto-')) {
+      autoConnectionsRef.current.delete(connectionId);
+      console.log('🗑️ Conexión auto-creada eliminada del tracking:', connectionId);
+    }
+    // Llamar a la función original
+    baseDeleteConnection(connectionId);
+  }, [baseDeleteConnection]);
 
   // Cargar conexiones desde Supabase SOLO cuando se visualiza la pizarra de otro usuario
   useEffect(() => {
@@ -396,6 +413,123 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [pizarra, isViewingOtherUser]); // No incluir panOffset ni setPanOffset para evitar loops
 
+  // Función para auto-conectar una misión a su proyecto (llamada desde drop)
+  const autoConnectMisionToProyecto = useCallback(async (misionCardId: string, misionId: number) => {
+    try {
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+      console.log('🔍 [AUTO-CONEXIÓN] Verificando misión:', { misionCardId, misionId });
+
+      // Obtener id_proyecto de la misión desde Supabase
+      const { data: misionData } = await supabase
+        .from('misiones')
+        .select('id_proyecto')
+        .eq('id', misionId)
+        .single();
+
+      if (misionData?.id_proyecto) {
+        // Buscar el proyecto correspondiente en las cards
+        const proyectoCard = cards.find(card =>
+          (card.type === 'proyecto-organizacion' || card.type === 'proyecto') &&
+          (card.proyectoData as any)?.id === misionData.id_proyecto
+        );
+
+        if (proyectoCard) {
+          // Crear ID único para esta conexión
+          const connectionId = `auto-${misionCardId}-${proyectoCard.id}`;
+
+          // Verificar si ya existe una conexión
+          const connectionExists = connections.some(conn =>
+            conn.from === misionCardId && conn.to === proyectoCard.id
+          );
+
+          if (!connectionExists) {
+            console.log('🔗 [AUTO-CONEXIÓN] Creando conexión:', {
+              mision: cards.find(c => c.id === misionCardId)?.title,
+              proyecto: proyectoCard.title,
+              id_proyecto: misionData.id_proyecto
+            });
+
+            // Marcar como creada
+            autoConnectionsRef.current.add(connectionId);
+
+            // Crear la conexión
+            setConnections(prev => [...prev, {
+              id: connectionId,
+              from: misionCardId,
+              to: proyectoCard.id
+            }]);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error en auto-conexión:', error);
+    }
+  }, [cards, connections, setConnections]);
+
+  // Función para conectar un proyecto con todas las misiones existentes que le pertenecen
+  const autoConnectProyectoToMisiones = useCallback(async (proyectoCardId: string, proyectoId: number) => {
+    try {
+      console.log('🔍 [AUTO-CONEXIÓN] Verificando misiones del proyecto:', { proyectoCardId, proyectoId });
+
+      // Buscar todas las cards de misión que ya están en la pizarra
+      const misionCards = cards.filter(card =>
+        (card.type === 'mision-organizacion' || card.type === 'mision') &&
+        card.misionData?.id_mision
+      );
+
+      if (misionCards.length === 0) return;
+
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+      const newConnections: Array<{ id: string; from: string; to: string }> = [];
+
+      // Verificar cada misión
+      for (const misionCard of misionCards) {
+        try {
+          // Obtener id_proyecto de la misión
+          const { data: misionData } = await supabase
+            .from('misiones')
+            .select('id_proyecto')
+            .eq('id', misionCard.misionData!.id_mision)
+            .single();
+
+          if (misionData?.id_proyecto === proyectoId) {
+            // Esta misión pertenece a este proyecto
+            const connectionId = `auto-${misionCard.id}-${proyectoCardId}`;
+
+            // Verificar si ya existe
+            const connectionExists = connections.some(conn =>
+              conn.from === misionCard.id && conn.to === proyectoCardId
+            );
+
+            if (!connectionExists && !autoConnectionsRef.current.has(connectionId)) {
+              console.log('🔗 [AUTO-CONEXIÓN] Conectando misión existente al proyecto:', {
+                mision: misionCard.title,
+                proyecto: cards.find(c => c.id === proyectoCardId)?.title
+              });
+
+              autoConnectionsRef.current.add(connectionId);
+              newConnections.push({
+                id: connectionId,
+                from: misionCard.id,
+                to: proyectoCardId
+              });
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error verificando misión:', error);
+        }
+      }
+
+      // Agregar las nuevas conexiones
+      if (newConnections.length > 0) {
+        setConnections(prev => [...prev, ...newConnections]);
+      }
+    } catch (error) {
+      console.error('❌ Error en auto-conexión de proyecto:', error);
+    }
+  }, [cards, connections, setConnections]);
+
   const bringCardToFront = useCallback((cardId: string) => {
     const newZIndex = maxZIndex + 1;
     setCardZIndices(prev => ({ ...prev, [cardId]: newZIndex }));
@@ -443,7 +577,15 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleDragLeave,
     handleDragOver,
     handleDrop
-  } = useDropHandler(setCards, panOffset, canvasRef, cards);
+  } = useDropHandler(
+    setCards,
+    panOffset,
+    canvasRef,
+    cards,
+    storagePrefix === 'organizacion',
+    autoConnectMisionToProyecto,
+    autoConnectProyectoToMisiones
+  );
 
   // LocalStorage para persistencia - SOLO para pizarra propia, NO para pizarras compartidas
   const localStorageHookResult = usePizarraLocalStorage(
@@ -949,11 +1091,35 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       });
     }
 
+    // Limpiar del tracking de misiones verificadas y conexiones auto-creadas
+    const cardToDelete = cards.find(c => c.id === cardId);
+    if (cardToDelete?.misionData?.id_mision) {
+      const misionKey = `${cardId}-${cardToDelete.misionData.id_mision}`;
+      verifiedMisionesRef.current.delete(misionKey);
+    }
+
+    // Limpiar conexiones auto-creadas del tracking
+    const connectionsToDelete = connections.filter(conn =>
+      conn.from === cardId || conn.to === cardId
+    );
+    connectionsToDelete.forEach(conn => {
+      if (conn.id.startsWith('auto-')) {
+        autoConnectionsRef.current.delete(conn.id);
+      }
+    });
+
+    // Eliminar conexiones asociadas a esta card
+    setConnections(prev => prev.filter(conn =>
+      conn.from !== cardId && conn.to !== cardId
+    ));
+
+    console.log('🗑️ Card eliminada junto con sus conexiones:', cardId);
+
     // Eliminar solo localmente (no eliminar de Supabase automáticamente)
     setCards(prev => prev.filter(card => card.id !== cardId));
     setConfirmDelete(null);
     setConfigOpenCard(null);
-  }, [pastedImages, setPastedImages]);
+  }, [pastedImages, setPastedImages, cards, setConnections]);
 
   // Función para abrir ventana de chat desde UsuarioCard
   const handleOpenUserChat = useCallback((userData: {

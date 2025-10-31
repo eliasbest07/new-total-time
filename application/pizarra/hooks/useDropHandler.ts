@@ -6,7 +6,10 @@ export const useDropHandler = (
   setCards: React.Dispatch<React.SetStateAction<Card[]>>,
   panOffset: { x: number; y: number },
   canvasRef: React.RefObject<HTMLDivElement>,
-  cards: Card[]
+  cards: Card[],
+  isOrganizacion: boolean = false,
+  autoConnectMisionToProyecto?: (misionCardId: string, misionId: number) => void,
+  autoConnectProyectoToMisiones?: (proyectoCardId: string, proyectoId: number) => void
 ) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isReceivingDrag, setIsReceivingDrag] = useState(false);
@@ -95,9 +98,14 @@ export const useDropHandler = (
         else if (resource.dragType === 'proyecto') {
           console.log('📁 [PIZARRA DROP] Detectado PROYECTO');
           console.log('📁 [PIZARRA DROP] Datos de proyecto recibidos:', resource);
+          console.log('📁 [PIZARRA DROP] Es organización:', isOrganizacion);
+
+          const cardType = isOrganizacion ? 'proyecto-organizacion' : 'proyecto';
+          const newProyectoCardId = generateUniqueId(cardType, existingIds);
+
           setCards(prev => [...prev, {
-            id: generateUniqueId('proyecto', existingIds),
-            type: 'proyecto',
+            id: newProyectoCardId,
+            type: cardType,
             title: resource.nombre || 'Proyecto',
             content: resource.descripcion || `Proyecto: ${resource.nombre}`,
             x, y,
@@ -105,12 +113,24 @@ export const useDropHandler = (
             height: 500,
             fontSize: 14,
             proyectoData: {
-              id: resource.id,
+              id: resource.id, // Campo extra no en el tipo, se accede con (as any)
               nombre: resource.nombre || 'Proyecto',
-              descripcion: resource.descripcion || null,
-              icono: resource.icono || null
+              description: resource.descripcion || null,
+              imagen_url: resource.icono || null,
+              type: null,
+              utility: null,
+              palette: null,
+              colors: null,
+              producto: null,
+              publico: false
             }
           }]);
+
+          // Auto-conectar proyecto a sus misiones si existen en la pizarra
+          if (resource.id && autoConnectProyectoToMisiones) {
+            autoConnectProyectoToMisiones(newProyectoCardId, resource.id);
+          }
+
           return;
         }
         // USUARIO
@@ -141,8 +161,10 @@ export const useDropHandler = (
           console.log('🎯 [PIZARRA DROP] Detectado MISIÓN ORGANIZACIÓN');
           console.log('🎯 [PIZARRA DROP] Datos de misión recibidos:', resource);
 
+          const newMisionCardId = generateUniqueId('mision-org', existingIds);
+
           setCards(prev => [...prev, {
-            id: generateUniqueId('mision-org', existingIds),
+            id: newMisionCardId,
             type: 'mision-organizacion',
             title: resource.title || 'Nueva Misión',
             content: resource.description || '',
@@ -164,6 +186,12 @@ export const useDropHandler = (
             }
           }]);
           console.log('✅ [PIZARRA DROP] Card de misión organización creada');
+
+          // Auto-conectar misión a su proyecto si existe
+          if (resource.id_mision && autoConnectMisionToProyecto) {
+            autoConnectMisionToProyecto(newMisionCardId, resource.id_mision);
+          }
+
           return;
         }
         // MISIÓN (legacy)
@@ -184,8 +212,10 @@ export const useDropHandler = (
             return;
           }
 
+          const newMisionCardId = generateUniqueId('mision', existingIds);
+
           setCards(prev => [...prev, {
-            id: generateUniqueId('mision', existingIds),
+            id: newMisionCardId,
             type: 'mision',
             title: resource.title || 'Nueva Misión',
             content: `${resource.hours}h - ${resource.description || resource.title}`,
@@ -203,6 +233,13 @@ export const useDropHandler = (
             }
           }]);
           console.log('✅ [PIZARRA DROP] Card de misión creada con id_usuario:', resource.id_usuario, 'y id_creador:', resource.id_creador);
+
+          // Auto-conectar misión a su proyecto si existe
+          if (resource.id && autoConnectMisionToProyecto) {
+            const misionId = typeof resource.id === 'string' ? parseInt(resource.id) : resource.id;
+            autoConnectMisionToProyecto(newMisionCardId, misionId);
+          }
+
           return;
         }
         // RECURSO
@@ -266,7 +303,7 @@ export const useDropHandler = (
         height: 100
       }]);
     }
-  }, [panOffset, canvasRef, setCards, cards]);
+  }, [panOffset, canvasRef, setCards, cards, isOrganizacion, autoConnectMisionToProyecto, autoConnectProyectoToMisiones]);
 
   return {
     isDragOver,

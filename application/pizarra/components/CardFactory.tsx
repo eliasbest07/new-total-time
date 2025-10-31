@@ -6,6 +6,7 @@ import { MisionCard } from './cards/MisionCard';
 import { MisionCardOrganizacion } from './cards/MisionCardOrganizacion';
 import { UsuarioCard } from './cards/UsuarioCard';
 import { ProyectoCard } from './cards/ProyectoCard';
+import { ProyectoCardOrganizacion } from './cards/ProyectoCardOrganizacion';
 import { ImageCard } from './cards/ImageCard';
 import { GenericCard } from './cards/GenericCard';
 import { NoteCard } from './cards/NoteCard';
@@ -146,6 +147,16 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
     case 'proyecto':
       return (
         <ProyectoCard
+          card={card}
+          editingTitle={props.editingTitle}
+          updateCardTitle={props.updateCardTitle}
+          setEditingTitle={props.setEditingTitle}
+        />
+      );
+
+    case 'proyecto-organizacion':
+      return (
+        <ProyectoCardOrganizacion
           card={card}
           editingTitle={props.editingTitle}
           updateCardTitle={props.updateCardTitle}
