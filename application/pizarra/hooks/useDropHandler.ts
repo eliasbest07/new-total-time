@@ -127,7 +127,9 @@ export const useDropHandler = (
           }]);
 
           // Auto-conectar proyecto a sus misiones si existen en la pizarra
-          if (resource.id && autoConnectProyectoToMisiones) {
+          // SOLO en pizarra de organización
+          if (resource.id && autoConnectProyectoToMisiones && isOrganizacion) {
+            console.log('🔗 [AUTO-CONEXIÓN] Iniciando auto-conexión para ProyectoCardOrganizacion...');
             autoConnectProyectoToMisiones(newProyectoCardId, resource.id);
           }
 
@@ -188,7 +190,9 @@ export const useDropHandler = (
           console.log('✅ [PIZARRA DROP] Card de misión organización creada');
 
           // Auto-conectar misión a su proyecto si existe
-          if (resource.id_mision && autoConnectMisionToProyecto) {
+          // SOLO en pizarra de organización
+          if (resource.id_mision && autoConnectMisionToProyecto && isOrganizacion) {
+            console.log('🔗 [AUTO-CONEXIÓN] Iniciando auto-conexión de MisionCardOrganizacion a su proyecto...');
             autoConnectMisionToProyecto(newMisionCardId, resource.id_mision);
           }
 

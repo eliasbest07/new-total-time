@@ -1,13 +1,31 @@
 "use client"
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, File, Link, FileText, StickyNote, User, Wifi, Check, Circle, Plus, Edit2, Trash2, X } from 'lucide-react';
+import AvatarCube from './usuarios_face_cubo';
 
 const sides = ['front', 'right', 'back', 'left', 'top', 'bottom'];
 
-const Cube = () => {
+interface CubeProps {
+  usuarios?: Array<{
+    id: string | number;
+    nombre?: string;
+    username?: string;
+    avatar?: string;
+    avatarUrl?: string;
+    color?: string;
+    online?: boolean;
+  }>;
+  proyectos?: Array<{
+    id: number;
+    nombre: string;
+    icono?: string | null;
+    type?: string | null;
+  }>;
+}
+
+const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
   const [currentClass, setCurrentClass] = useState('front');
   const [newsIndex, setNewsIndex] = useState(0);
-  const [iconIndex, setIconIndex] = useState(0);
   const [todos, setTodos] = useState([
     { id: 1, text: "Revisar documentos", completed: true },
     { id: 2, text: "Llamar al cliente", completed: false },
@@ -59,29 +77,12 @@ const Cube = () => {
     return () => clearInterval(newsInterval);
   }, []);
 
-  const iconList = [
-    { icon: "📊", title: "Analytics" },
-    { icon: "🎨", title: "Design" },
-    { icon: "⚡", title: "Performance" },
-    { icon: "🔒", title: "Security" },
-    { icon: "🚀", title: "Deploy" }
-  ];
-
-  // Icon carousel animation - Optimized with proper cleanup
-  useEffect(() => {
-    const iconInterval = setInterval(() => {
-      setIconIndex(prev => (prev + 1) % iconList.length);
-    }, 2500);
-
-    return () => clearInterval(iconInterval);
-  }, []); // Removed dependency since iconList is now static
-
   // Mouse event handlers for cube rotation (sequential faces only)
   const handleMouseDown = (e: React.MouseEvent) => {
     // Don't start if clicking on interactive elements
     const target = e.target as HTMLElement;
-    
-    // Check for any interactive elements
+
+    // Check for any interactive elements including avatar scroll container
     if (target.closest('button') ||
       target.closest('input') ||
       target.closest('.add-btn') ||
@@ -92,6 +93,10 @@ const Cube = () => {
       target.closest('.cancel-btn') ||
       target.closest('.add-todo-form') ||
       target.closest('.edit-form') ||
+      target.closest('.avatar-scroll-container') || // Permitir scroll en avatares
+      target.closest('.avatar-card') || // Permitir interacción con cards de avatar
+      target.closest('.proyectos-horizontal-container') || // Permitir scroll en proyectos
+      target.closest('.proyecto-item-horizontal') || // Permitir interacción con proyectos
       target.tagName === 'BUTTON' ||
       target.tagName === 'INPUT') {
       return;
@@ -256,11 +261,26 @@ const Cube = () => {
     "NOVEDAD: Integración con servicios en la nube completada exitosamente"
   ];
 
-  const avatarUsers = [
-    { id: 1, name: "Juan", online: true, hasFrame: true },
-    { id: 2, name: "Ana", online: false, hasFrame: false },
-    { id: 3, name: "Luis", online: true, hasFrame: true }
-  ];
+  // Mapear usuarios de props o usar valores por defecto si no hay usuarios
+  const avatarUsers = usuarios.length > 0
+    ? usuarios.slice(0, 3).map((user, index) => {
+        const avatarUser = {
+          id: user.id,
+          name: user.nombre || user.username || 'Usuario',
+          avatar: user.avatar || (user.nombre?.[0] || user.username?.[0] || 'U').toUpperCase(),
+          avatarUrl: user.avatarUrl,
+          color: user.color || 'bg-blue-500',
+          online: user.online ?? false,
+          hasFrame: index === 0 // Solo el primero tiene marco dorado
+        };
+        console.log(`🎯 [Cube] Mapeando usuario: ${avatarUser.name} -> Online: ${avatarUser.online}`);
+        return avatarUser;
+      })
+    : [
+        { id: 1, name: "Juan", avatar: 'J', avatarUrl: undefined, color: 'bg-blue-500', online: true, hasFrame: true },
+        { id: 2, name: "Ana", avatar: 'A', avatarUrl: undefined, color: 'bg-purple-500', online: false, hasFrame: false },
+        { id: 3, name: "Luis", avatar: 'L', avatarUrl: undefined, color: 'bg-green-500', online: true, hasFrame: false }
+      ];
 
   const goToPrevious = () => {
     setAutoRotate(false);
@@ -301,40 +321,17 @@ const Cube = () => {
         role="application"
         aria-label="Cubo 3D interactivo con contenido"
       >
-        <div className={`cube move-${currentClass} ${isRotating ? 'rotating' : ''}`}>
+       
+       <div className={`cube move-${currentClass} ${isRotating ? 'rotating' : ''}`}>
+        
+        
           {/* Face 1: Avatar with thought bubble */}
           <div className="front avatar-face">
-            <div className="avatar-stack mt-50">
-              {avatarUsers.map((user, index) => (
-                <div
-                  key={user.id}
-                  className={`avatar-container ${user.hasFrame ? 'with-frame' : ''}`}
-                  style={{
-                    zIndex: avatarUsers.length - index,
-                    transform: `translateZ(${index * 15}px) translateY(-${index * 10}px)`,
-                    filter: index > 0 ? `brightness(${1 - index * 0.1})` : 'none'
-                  }}
-                >
-                  <div className="avatar">
-                    <User size={20} />
-                    {user.online && (
-                      <div className="online-indicator">
-                          <div 
-          className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-            true ? 'bg-green-400' : 'bg-gray-400'
-          }`}
-        />
-                      </div>
-                    )}
-                  </div>
-                  {index === 0 && (
-                    <div className="thought-bubble">
-                      <div className="bubble-content">💡 Nueva idea genial!</div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+
+     <AvatarCube avatarUsers={avatarUsers} currentClass={currentClass} isRotating={isRotating}/>
+
+
+           
           </div>
 
           {/* Face 2: Continuous text ticker */}
@@ -521,21 +518,54 @@ const Cube = () => {
             </div>
           </div>
 
-          {/* Face 5: Horizontal icon carousel */}
-          <div className="top icon-carousel">
-            <div className="carousel-container">
-              <div
-                className="carousel-track"
-                style={{ transform: `translateX(-${iconIndex * 100}%)` }}
-              >
-                {iconList.map((item, index) => (
-                  <div key={index} className="carousel-item">
-                    <div className="carousel-icon">{item.icon}</div>
-                    <span className="carousel-title">{item.title}</span>
-                  </div>
-                ))}
+          {/* Face 5: Proyectos lista horizontal */}
+          <div className="top proyectos-carousel">
+            {proyectos.length > 0 ? (
+              <div className="proyectos-horizontal-wrapper">
+                <div className="proyectos-horizontal-container">
+                  {proyectos.map((proyecto) => (
+                    <div key={proyecto.id} className="proyecto-item-horizontal">
+                      {/* Logo del proyecto */}
+                      <div className="proyecto-icon-wrapper-large">
+                        {proyecto.icono && proyecto.icono.startsWith('http') ? (
+                          <img
+                            src={proyecto.icono}
+                            alt={proyecto.nombre}
+                            className="proyecto-icon-img"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const parent = e.currentTarget.parentElement;
+                              if (parent) {
+                                parent.innerHTML = '<div class="proyecto-icon-fallback">📁</div>';
+                              }
+                            }}
+                          />
+                        ) : proyecto.icono && !proyecto.icono.startsWith('http') ? (
+                          <span className="proyecto-icon-emoji-large">{proyecto.icono}</span>
+                        ) : (
+                          <span className="proyecto-icon-emoji-large">📁</span>
+                        )}
+                      </div>
+                      {/* Nombre del proyecto */}
+                      <span className="proyecto-nombre" title={proyecto.nombre}>
+                        {proyecto.nombre.length > 8
+                          ? proyecto.nombre.substring(0, 8) + '...'
+                          : proyecto.nombre}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="proyectos-empty">
+                <div className="proyecto-item-horizontal">
+                  <div className="proyecto-icon-wrapper-large">
+                    <span className="proyecto-icon-emoji-large">📂</span>
+                  </div>
+                  <span className="proyecto-nombre">Sin proyectos</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Face 6: Image */}
@@ -689,10 +719,10 @@ const Cube = () => {
         /* Avatar Face Styles */
         .avatar-face {
           flex-direction: column;
-          padding: 5px 15px 30px 15px; /* Minimal top padding, more bottom */
+          padding: 0; /* Sin padding para ocupar todo el espacio */
           perspective: 1000px;
           transform-style: preserve-3d;
-          justify-content: flex-end; /* Align content to bottom */
+          justify-content: flex-start; /* Empezar desde arriba */
         }
         
         .avatar-stack {
@@ -745,18 +775,32 @@ const Cube = () => {
           justify-content: center;
           position: relative;
           border: 2px solid rgba(0, 0, 0, 0.8);
-          box-shadow: 
+          box-shadow:
             0 4px 15px rgba(255, 255, 255, 0.2),
             inset 0 1px 0 rgba(0, 0, 0, 0.3);
           transition: all 0.3s ease;
         }
-        
+
         .avatar:hover {
-          box-shadow: 
+          box-shadow:
             0 6px 20px rgba(255, 255, 255, 0.3),
             inset 0 1px 0 rgba(0, 0, 0, 0.4);
         }
-        
+
+        .avatar-text {
+          font-size: 1.2em;
+          font-weight: bold;
+          color: white;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .avatar-image {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+
         .online-indicator {
           position: absolute;
           top: -3px;
@@ -1125,40 +1169,130 @@ const Cube = () => {
           gap: 2px;
         }
         
-        /* Icon Carousel Styles */
-        .icon-carousel {
-          padding: 10px;
+        /* Proyectos Horizontal List Styles */
+        .proyectos-carousel {
+          padding: 5px;
           overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
-        
-        .carousel-container {
+
+        .proyectos-horizontal-wrapper {
           width: 100%;
           height: 100%;
           overflow: hidden;
-        }
-        
-        .carousel-track {
           display: flex;
-          transition: transform 0.5s ease-in-out;
-          height: 100%;
+          align-items: center;
+          justify-content: flex-start;
         }
-        
-        .carousel-item {
-          min-width: 100%;
+
+        .proyectos-horizontal-container {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          justify-content: flex-start;
+          overflow-x: auto;
+          overflow-y: hidden;
+          width: 100%;
+          height: 100%;
+          padding: 5px 8px;
+          scroll-behavior: smooth;
+        }
+
+        /* Scrollbar horizontal personalizado */
+        .proyectos-horizontal-container::-webkit-scrollbar {
+          height: 3px;
+        }
+
+        .proyectos-horizontal-container::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 2px;
+        }
+
+        .proyectos-horizontal-container::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 2px;
+        }
+
+        .proyectos-horizontal-container::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.5);
+        }
+
+        .proyectos-empty {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .proyecto-item-horizontal {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 10px;
+          gap: 4px;
+          min-width: 55px;
+          flex-shrink: 0;
+          cursor: pointer;
+          transition: transform 0.3s ease;
         }
-        
-        .carousel-icon {
+
+        .proyecto-item-horizontal:hover {
+          transform: scale(1.08);
+        }
+
+        .proyecto-icon-wrapper-large {
+          width: 50px;
+          height: 50px;
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          border: 2px solid rgba(255, 255, 255, 0.25);
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .proyecto-item-horizontal:hover .proyecto-icon-wrapper-large {
+          transform: scale(1.1);
+          background: rgba(255, 255, 255, 0.25);
+          border-color: rgba(255, 255, 255, 0.4);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .proyecto-icon-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .proyecto-icon-emoji-large {
           font-size: 2em;
         }
-        
-        .carousel-title {
-          font-size: 0.8em;
+
+        .proyecto-icon-fallback {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2em;
+        }
+
+        .proyecto-nombre {
+          font-size: 0.55em;
           text-align: center;
+          color: #222;
+          font-weight: 600;
+          max-width: 55px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          line-height: 1.2;
         }
         
         /* Image Face Styles */

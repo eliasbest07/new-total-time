@@ -1,0 +1,166 @@
+.avatar-scroll-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 5px; /* Padding mínimo uniforme */
+  height: 100%; /* Ocupar todo el alto disponible */
+  width: 100%; /* Ocupar todo el ancho disponible */
+  overflow-y: auto !important; /* Forzar scroll vertical */
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  box-sizing: border-box; /* Incluir padding en el tamaño total */
+  -webkit-overflow-scrolling: touch; /* Mejor scroll en móviles */
+  overscroll-behavior: contain; /* Evitar scroll en elementos padres */
+}
+
+/* Scrollbar personalizado */
+.avatar-scroll-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.avatar-scroll-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.avatar-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+.avatar-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Card del avatar */
+.avatar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px; /* Padding más compacto */
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: slideInScale 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateX(-50px) scale(0.8);
+  flex-shrink: 0; /* Evitar que se compriman los cards */
+  cursor: pointer; /* Indicar que es interactivo */
+  user-select: none; /* Evitar selección de texto al interactuar */
+}
+
+/* Animación de entrada */
+@keyframes slideInScale {
+  0% {
+    opacity: 0;
+    transform: translateX(-50px) scale(0.8) rotateY(-15deg);
+  }
+  60% {
+    transform: translateX(10px) scale(1.05) rotateY(5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotateY(0deg);
+  }
+}
+
+/* Hover effect */
+.avatar-card:hover {
+  transform: translateX(10px) scale(1.08);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Avatar circular */
+.avatar-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0; /* Mantener tamaño fijo */
+}
+
+.avatar-card:hover .avatar-circle {
+  transform: scale(1.15) rotateZ(5deg);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Indicador online */
+.online-indicator {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  background: white;
+  border-radius: 50%;
+  padding: 1.5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Etiqueta del nombre */
+.name-tag {
+  background: #d0d0d0;
+  border-radius: 12px;
+  padding: 4px 10px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  max-width: 100%; /* Evitar desbordamiento */
+}
+
+.avatar-card:hover .name-tag {
+  background: #e0e0e0;
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.name-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px; /* Limitar ancho del nombre */
+}
+
+/* Animación al hacer scroll */
+.avatar-scroll-container:hover .avatar-card {
+  transform: scale(0.98);
+}
+
+.avatar-scroll-container:hover .avatar-card:hover {
+  transform: translateX(10px) scale(1.08);
+}
+
+/* Efecto de pulso para nuevos items */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.avatar-card.new-item {
+  animation: pulse 0.6s ease-in-out;
+}

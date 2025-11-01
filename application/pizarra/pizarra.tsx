@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, f
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useSettings } from '@/app/contexts/SettingsContext';
-import { Card, PizarraRef, TodoItem, ActivityData, MisionData } from './types';
+import { Card, PizarraRef, TodoItem, ActivityData, MisionData, Connection } from './types';
 import { usePizarra } from '@/hooks/usePizarra';
 import { useCards } from '@/hooks/useCards';
 import { useCardMision } from '@/hooks/useCardMision';
@@ -34,6 +34,7 @@ interface PizarraProps {
     };
   }>;
   currentUserId?: string;
+  onConnectionCreate?: (connection: Connection, fromCard: Card, toCard: Card) => void;
 }
 import { generateUniqueId, generatePosition } from './utils/idGenerator';
 import { useCardDrag } from './hooks/useCardDrag';
@@ -46,7 +47,7 @@ import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId }, ref) => {
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
 
@@ -335,7 +336,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleCardClick,
     updateMousePosition,
     deleteConnection: baseDeleteConnection
-  } = useConnections();
+  } = useConnections({ cards, onConnectionCreate });
 
   // Wrapper para deleteConnection que también limpia el tracking
   const deleteConnection = useCallback((connectionId: string) => {
@@ -1229,6 +1230,56 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     setCards(prev => [...prev, newCard]);
   }, [cards, panOffset, canvasRef]);
 
+  const addMisionCardOrganizacion = useCallback((misionData: {
+    id_mision: number;
+    title: string;
+    description: string;
+    hours: number;
+    id_usuario_asignado?: number;
+    usuario_asignado_nombre?: string;
+    usuario_asignado_avatar?: string;
+  }): string => {
+    const existingIds = cards.map(card => card.id);
+
+    // Calcular el centro visible de la pizarra
+    const canvasWidth = canvasRef.current?.clientWidth || 1000;
+    const canvasHeight = canvasRef.current?.clientHeight || 800;
+    const centerX = -panOffset.x + (canvasWidth / 2);
+    const centerY = -panOffset.y + (canvasHeight / 2);
+
+    // Agregar un pequeño offset aleatorio para que no se superpongan
+    const randomOffset = () => (Math.random() - 0.5) * 100;
+
+    const newCardId = generateUniqueId('mision-org', existingIds);
+    const newCard = {
+      id: newCardId,
+      type: 'mision-organizacion',
+      title: misionData.title || 'Nueva Misión',
+      content: misionData.description || '',
+      x: centerX + randomOffset() - 175, // -175 para centrar la card (width/2)
+      y: centerY + randomOffset() - 250, // -250 para centrar la card (height/2)
+      width: 350,
+      height: 500,
+      fontSize: 14,
+      misionData: {
+        title: misionData.title,
+        hours: misionData.hours,
+        description: misionData.description,
+        id_mision: misionData.id_mision,
+        id_usuario_asignado: misionData.id_usuario_asignado,
+        usuario_asignado_nombre: misionData.usuario_asignado_nombre,
+        usuario_asignado_avatar: misionData.usuario_asignado_avatar,
+        estado: 'pendiente' as const,
+        subtareas: [],
+        entregas: []
+      }
+    };
+
+    console.log('✅ Misión card creada en pizarra:', newCardId);
+    setCards(prev => [...prev, newCard]);
+    return newCardId; // Retornar el ID del card creado
+  }, [cards, panOffset, canvasRef]);
+
   const restoreCard = useCallback((cardData: any) => {
     console.log('🔧 restoreCard ejecutado con:', cardData);
     // Restaurar un card desde el historial
@@ -2053,19 +2104,110 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     return () => clearTimeout(timeoutId);
   }, [cards, connections, panOffset, autoSave, usuario, isInitialized, saveToSupabase]);
 
+  // Función para agregar una conexión programáticamente
+  const addConnection = useCallback((fromCardId: string, toCardId: string, skipValidation = false) => {
+    console.log('🔗 Agregando conexión programática:', { fromCardId, toCardId, skipValidation });
+
+    if (!skipValidation) {
+      // Verificar que ambas cards existan
+      const fromCard = cards.find(c => c.id === fromCardId);
+      const toCard = cards.find(c => c.id === toCardId);
+
+      if (!fromCard || !toCard) {
+        console.warn('⚠️ No se puede crear conexión, una o ambas cards no existen:', { fromCardId, toCardId });
+        console.log('Cards disponibles:', cards.map(c => ({ id: c.id, type: c.type })));
+        return;
+      }
+    }
+
+    // Verificar que no exista ya la conexión
+    const connectionExists = connections.some(conn =>
+      conn.from === fromCardId && conn.to === toCardId
+    );
+
+    if (!connectionExists) {
+      const newConnection: Connection = {
+        id: `connection-${fromCardId}-${toCardId}-${Date.now()}`,
+        from: fromCardId,
+        to: toCardId
+      };
+      setConnections(prev => [...prev, newConnection]);
+      console.log('✅ Conexión creada exitosamente:', newConnection);
+    } else {
+      console.log('ℹ️ La conexión ya existe');
+    }
+  }, [cards, connections, setConnections]);
+
+  // Función para eliminar conexiones entre dos cards (en cualquier dirección)
+  const removeConnectionBetween = useCallback((cardId1: string, cardId2: string) => {
+    console.log('🗑️ Eliminando conexiones entre:', { cardId1, cardId2 });
+
+    setConnections(prev => {
+      const filtered = prev.filter(conn =>
+        !(
+          (conn.from === cardId1 && conn.to === cardId2) ||
+          (conn.from === cardId2 && conn.to === cardId1)
+        )
+      );
+
+      const removedCount = prev.length - filtered.length;
+      console.log(`✅ ${removedCount} conexión(es) eliminada(s)`);
+
+      return filtered;
+    });
+  }, [setConnections]);
+
+  // Función para buscar un card por id_mision
+  const findCardByMisionId = useCallback((misionId: number): string | null => {
+    const card = cards.find(c =>
+      (c.type === 'mision-organizacion' || c.type === 'mision') &&
+      c.misionData?.id_mision === misionId
+    );
+    return card ? card.id : null;
+  }, [cards]);
+
+  // Función para centrar la vista en un card específico
+  const centerOnCard = useCallback((cardId: string) => {
+    const card = cards.find(c => c.id === cardId);
+    if (!card || !canvasRef.current) {
+      console.warn('⚠️ No se puede centrar: card o canvas no encontrado');
+      return;
+    }
+
+    console.log('🎯 Centrando vista en card:', cardId);
+
+    // Obtener dimensiones del canvas visible
+    const canvasWidth = canvasRef.current.clientWidth;
+    const canvasHeight = canvasRef.current.clientHeight;
+
+    // Calcular el offset necesario para centrar el card
+    // La posición del card es relativa al canvas, necesitamos ajustar el panOffset
+    const targetPanX = -(card.x + card.width / 2 - canvasWidth / 2);
+    const targetPanY = -(card.y + card.height / 2 - canvasHeight / 2);
+
+    setPanOffset({ x: targetPanX, y: targetPanY });
+
+    // Resaltar el card temporalmente
+    bringCardToFront(cardId);
+  }, [cards, canvasRef, bringCardToFront]);
 
   useImperativeHandle(ref, () => ({
     addNoteCard,
     addTodoCard,
     addUsuarioCard,
+    addMisionCardOrganizacion,
     restoreCard,
     clearStorage: clearLocalStorage,
     exportStorage: exportToJSON,
     importStorage: importFromJSON,
     saveToSupabase,
     loadFromSupabase,
-    loadPizarraById
-  }), [addNoteCard, addTodoCard, addUsuarioCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById]);
+    loadPizarraById,
+    addConnection,
+    removeConnectionBetween,
+    centerOnCard,
+    findCardByMisionId
+  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, centerOnCard, findCardByMisionId]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {

@@ -68,6 +68,7 @@ export interface UsuarioData {
 }
 
 export interface ProyectoData {
+  id?: number; // ID del proyecto en la base de datos
   nombre: string;
   description: string | null;
   imagen_url: string | null;
@@ -124,6 +125,10 @@ export interface PizarraRef {
     usuario_asignado_nombre?: string;
     usuario_asignado_avatar?: string;
   }) => string | void;
+  addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void;
+  removeConnectionBetween?: (cardId1: string, cardId2: string) => void;
+  centerOnCard?: (cardId: string) => void;
+  findCardByMisionId?: (misionId: number) => string | null;
   restoreCard?: (cardData: any) => void;
   clearStorage?: () => void;
   exportStorage?: () => void;
