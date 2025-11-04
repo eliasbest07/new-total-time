@@ -14,7 +14,7 @@ export default function MisionesLight() {
     const { usuario } = useAuth();
   const { usuarioId, loading: loadingUserId } = useUsuarioId();
   const { misiones, loading: loadingMisiones } = useMisiones(usuarioId);
-  const { actividades, loading: loadingActividades } = useActividades(usuario?.id);
+  const { actividades, loading: loadingActividades } = useActividades(usuario?.id ?? null);
 
   const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
   const [showMisionModal, setShowMisionModal] = useState(false);
