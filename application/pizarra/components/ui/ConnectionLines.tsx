@@ -49,6 +49,32 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
         const deleteX = fromEdge.x;
         const deleteY = fromEdge.y;
 
+        // Detectar la dirección de la flecha para posicionar el botón correctamente
+        const deltaX = toEdge.x - fromEdge.x;
+        const deltaY = toEdge.y - fromEdge.y;
+        const isPointingLeft = deltaX < 0; // Flecha apunta hacia la izquierda
+        const isPointingUp = deltaY < 0; // Flecha apunta hacia arriba
+
+        // Calcular el ángulo de la flecha para determinar la dirección predominante
+        const angle = Math.atan2(Math.abs(deltaY), Math.abs(deltaX)) * (180 / Math.PI);
+        const isMoreVertical = angle > 45; // Si el ángulo es > 45°, la flecha es más vertical que horizontal
+
+        // Calcular el ángulo desde el destino hacia el origen (para rotar la flecha del botón)
+        const angleToOrigin = Math.atan2(fromEdge.y - toEdge.y, fromEdge.x - toEdge.x) * (180 / Math.PI);
+
+        // Ajustar posición del botón según la dirección
+        let navButtonX, navButtonY;
+
+        if (isMoreVertical) {
+          // Flecha principalmente vertical - colocar botón a un lado
+          navButtonX = toEdge.x + (isPointingLeft ? 5 : -22);
+          navButtonY = isPointingUp ? toEdge.y + 5 : toEdge.y - 22;
+        } else {
+          // Flecha principalmente horizontal
+          navButtonX = isPointingLeft ? toEdge.x + 5 : toEdge.x - 22;
+          navButtonY = toEdge.y - 10; // Centrado verticalmente
+        }
+
         return (
           <g
             key={connection.id}
@@ -108,8 +134,8 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
                 </foreignObject>
                 {/* Navigate button to origin - at destination point */}
                 <foreignObject
-                  x={toEdge.x - 22}
-                  y={toEdge.y - 22}
+                  x={navButtonX}
+                  y={navButtonY}
                   width="20"
                   height="20"
                   className="pointer-events-auto"
@@ -123,9 +149,12 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
                       }
                     }}
                     className="w-5 h-5 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-xs transition-colors shadow-lg"
+                    style={{
+                      transform: `rotate(${angleToOrigin}deg)`
+                    }}
                     title="Navegar al origen"
                   >
-                    ←
+                    →
                   </button>
                 </foreignObject>
               </>

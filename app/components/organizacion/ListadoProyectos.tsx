@@ -1,8 +1,9 @@
 "use client";
 
 import { useProyectos } from "@/hooks/useProyectos";
-import { Folder, Plus } from "lucide-react";
+import { Folder, Plus, RefreshCw } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 
 interface ListadoProyectosProps {
   onProyectoClick?: (proyectoId: number) => void;
@@ -13,7 +14,25 @@ export default function ListadoProyectos({
   onProyectoClick,
   onCrearProyecto
 }: ListadoProyectosProps) {
-  const { proyectos, loading, error } = useProyectos();
+  const { proyectos, loading, error, refetch, lastUpdated } = useProyectos();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
+
+  // Calcular tiempo desde última actualización
+  const getTimeSinceUpdate = () => {
+    if (!lastUpdated) return '';
+    const seconds = Math.floor((Date.now() - lastUpdated) / 1000);
+    if (seconds < 60) return `hace ${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `hace ${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    return `hace ${hours}h`;
+  };
 
   if (loading) {
     return (
@@ -50,6 +69,24 @@ export default function ListadoProyectos({
             <Plus size={24} />
           </button>
         )}
+
+        {/* Botón de refresh */}
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing || loading}
+          className="w-16 h-16 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-xl font-medium transition-all hover:scale-110 flex flex-col items-center justify-center shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group relative"
+          title={`Actualizar proyectos${lastUpdated ? ` (${getTimeSinceUpdate()})` : ''}`}
+        >
+          <RefreshCw
+            size={20}
+            className={`${isRefreshing ? 'animate-spin' : ''}`}
+          />
+          {lastUpdated && (
+            <span className="text-[10px] mt-1 opacity-70">
+              {getTimeSinceUpdate()}
+            </span>
+          )}
+        </button>
       </div>
 
       {proyectos.length === 0 ? (

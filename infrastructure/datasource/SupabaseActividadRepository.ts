@@ -40,6 +40,34 @@ export class SupabaseActividadRepository implements ActividadRepository {
     }
   }
 
+  async getActividadesByUsuarios(idsUsuarios: string[]): Promise<Actividad[]> {
+    try {
+      if (idsUsuarios.length === 0) {
+        return [];
+      }
+
+      // console.log('📅 Obteniendo actividades para usuarios:', idsUsuarios);
+
+      const { data, error } = await supabase
+        .from('actividades')
+        .select('*')
+        .in('id_usuario', idsUsuarios)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error obteniendo actividades de usuarios:', error);
+        return [];
+      }
+
+      const actividades = data || [];
+      // console.log('✅ Actividades de usuarios encontradas:', actividades.length);
+      return actividades;
+    } catch (error) {
+      console.error('❌ Error en getActividadesByUsuarios:', error);
+      return [];
+    }
+  }
+
   async createActividad(actividad: Omit<Actividad, 'id' | 'created_at'>): Promise<Actividad | null> {
     try {
       // console.log('➕ Creando nueva actividad:', actividad);
@@ -130,6 +158,78 @@ export class SupabaseActividadRepository implements ActividadRepository {
       console.error('❌ Error en getActividadById:', error);
       return null;
     }
+  }
+
+  // Suscribirse a cambios en tiempo real de actividades de múltiples usuarios
+  subscribeToActividadesChangesByUsuarios(idsUsuarios: string[], callbacks: RealtimeCallbacks): RealtimeChannel {
+    const channelName = `actividades-usuarios-${idsUsuarios.sort().join('-')}`;
+
+    const existingChannel = this.activeChannels.get(channelName);
+    if (existingChannel) {
+      // console.log('♻️ Reutilizando canal realtime actividades usuarios');
+      return existingChannel;
+    }
+
+    // console.log('📡 Iniciando suscripción realtime para actividades de usuarios:', idsUsuarios);
+
+    const setupChannel = (): RealtimeChannel => {
+      const channel = supabase
+        .channel(channelName, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' }
+          }
+        })
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'actividades'
+          },
+          async (payload) => {
+            // console.log('📡 Cambio detectado en actividades:', payload);
+
+            try {
+              // Recargar actividades de todos los usuarios
+              const nuevasActividades = await this.getActividadesByUsuarios(idsUsuarios);
+              callbacks.onActividadesUpdated(nuevasActividades);
+            } catch (error) {
+              console.error('❌ Error procesando cambio de actividades:', error);
+              callbacks.onError('Error al procesar cambios de actividades');
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            // console.log('✅ Suscripción realtime actividades usuarios activa');
+            this.reconnectAttempts.set(channelName, 0);
+            this.activeChannels.set(channelName, channel);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            if (attempts < this.maxReconnectAttempts) {
+              console.warn(`⚠️ Error en canal actividades usuarios (${attempts + 1}/${this.maxReconnectAttempts})`);
+              this.activeChannels.delete(channelName);
+              this.handleReconnect(channelName, () => this.subscribeToActividadesChangesByUsuarios(idsUsuarios, callbacks), callbacks);
+            } else {
+              console.error('❌ Canal realtime actividades usuarios: máximo de reintentos alcanzado');
+              callbacks.onError('No se pudo conectar al servicio realtime');
+            }
+          } else if (status === 'CLOSED') {
+            this.activeChannels.delete(channelName);
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            if (attempts < this.maxReconnectAttempts) {
+              this.handleReconnect(channelName, () => this.subscribeToActividadesChangesByUsuarios(idsUsuarios, callbacks), callbacks);
+            }
+          }
+        });
+
+      return channel;
+    };
+
+    const newChannel = setupChannel();
+    this.activeChannels.set(channelName, newChannel);
+    return newChannel;
   }
 
   // Suscribirse a cambios en tiempo real de actividades del usuario

@@ -37,6 +37,12 @@ export function UsuariosOrganizacionProvider({ children }: { children: ReactNode
 
     try {
       console.log('👥 [UsuariosContext] Cargando usuarios para organización:', organizacionId);
+      console.log('👥 [UsuariosContext] Usuario actual:', usuario ? {
+        id: usuario.id,
+        userAuth: usuario.userAuth,
+        email: usuario.email,
+        idOrganizacion: usuario.idOrganizacion
+      } : 'null');
       setLoading(true);
       setError(null);
       const usuariosData = await retrySupabaseOperation(
@@ -44,6 +50,12 @@ export function UsuariosOrganizacionProvider({ children }: { children: ReactNode
         'Cargar usuarios de organización'
       );
       console.log('👥 [UsuariosContext] Usuarios cargados:', usuariosData.length);
+      console.log('👥 [UsuariosContext] Usuarios data:', usuariosData.map(u => ({
+        id: u.id,
+        userAuth: u.userAuth,
+        email: u.email,
+        nombre: u.getNombreCompleto()
+      })));
       setUsuarios(usuariosData);
 
       // ✅ Pre-cargar usuarios en el caché para optimizar consultas futuras
@@ -59,7 +71,7 @@ export function UsuariosOrganizacionProvider({ children }: { children: ReactNode
           correo: u.email
         }));
 
-      // console.log('📦 [UsuariosContext] Pre-cargando', basicUserData.length, 'usuarios en caché');
+      console.log('📦 [UsuariosContext] Pre-cargando', basicUserData.length, 'usuarios en caché');
       userCacheService.preloadUsers(basicUserData);
     } catch (err) {
       console.error('👥 [UsuariosContext] Error cargando usuarios:', err);

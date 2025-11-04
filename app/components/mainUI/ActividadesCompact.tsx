@@ -126,7 +126,7 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
         {/* Indicador de estado y botón de screenshots */}
         <div className="flex justify-between w-full relative z-10 items-center">
           <div
-            className={`w-3 h-3 rounded-full transition-colors duration-300 ${isCapturing ? 'bg-red-500 animate-pulse' : 'bg-green-400'
+            className={`w-3 h-3 rounded-full transition-colors duration-300 ${isCapturing ? 'bg-red-500 animate-pulse' : 'bg-gray-400'
               }`}
           />
           {activityScreenshots.length > 0 && (

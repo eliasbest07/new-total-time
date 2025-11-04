@@ -20,7 +20,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuarioState] = useState<Usuario | null>(() => {
     // Intentar cargar usuario desde localStorage al inicializar
-    return StorageService.getUser();
+    const savedUser = StorageService.getUser();
+    console.log('🔐 [AuthContext] Inicializando con usuario desde localStorage:', savedUser ? {
+      id: savedUser.id,
+      userAuth: savedUser.userAuth,
+      email: savedUser.email,
+      idOrganizacion: savedUser.idOrganizacion
+    } : 'null');
+    return savedUser;
   });
 
   // Hook de presencia que trackea usuarios online
@@ -34,21 +41,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } : null
   );
 
-  // console.log('🔍 AuthContext: Usuario actual:', usuario ? {
-  //   id: usuario.id,
-  //   userAuth: usuario.userAuth,
-  //   username: usuario.profile.username,
-  //   idOrganizacion: usuario.idOrganizacion
-  // } : 'null');
+  console.log('🔍 [AuthContext] Usuario actual:', usuario ? {
+    id: usuario.id,
+    userAuth: usuario.userAuth,
+    username: usuario.profile.username,
+    email: usuario.email,
+    idOrganizacion: usuario.idOrganizacion
+  } : 'null');
 
   const setUsuario = (usuario: Usuario | null) => {
-    // console.log('🔄 AuthContext: Estableciendo usuario:', usuario ? 'Usuario presente' : 'Usuario null');
+    console.log('🔄 [AuthContext] Estableciendo usuario:', usuario ? {
+      id: usuario.id,
+      userAuth: usuario.userAuth,
+      email: usuario.email,
+      idOrganizacion: usuario.idOrganizacion
+    } : 'Usuario null');
     setUsuarioState(usuario);
     if (usuario) {
       StorageService.saveUser(usuario);
-      // console.log('✅ AuthContext: Usuario guardado en localStorage');
+      console.log('✅ [AuthContext] Usuario guardado en localStorage');
     } else {
-      console.log('⚠️ AuthContext: Usuario es null, no se guarda');
+      console.log('⚠️ [AuthContext] Usuario es null, no se guarda');
     }
   };
 

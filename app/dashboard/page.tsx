@@ -40,10 +40,22 @@ export default function DashboardPage() {
   const [showMisionesModal, setShowMisionesModal] = useState(false);
   const [showInfoOrganizacion, setShowInfoOrganizacion] = useState(false);
 
+  // Contexto de conexión TODO ↔ Proyecto para crear misión
+  const [connectionContext, setConnectionContext] = useState<{
+    proyectoId: number;
+    proyectoNombre: string;
+    todoCardId: string;
+    proyectoCardId: string;
+  } | null>(null);
+
   // Estado del formulario de misión
   const [misionNombre, setMisionNombre] = useState("");
   const [misionDescripcion, setMisionDescripcion] = useState("");
-  const [misionFechaInicio, setMisionFechaInicio] = useState("");
+  const [misionFechaInicio, setMisionFechaInicio] = useState(() => {
+    // Fecha de hoy en formato YYYY-MM-DD
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
   const [misionFechaFin, setMisionFechaFin] = useState("");
   const [misionHoras, setMisionHoras] = useState("");
   const [creandoMision, setCreandoMision] = useState(false);
@@ -98,13 +110,110 @@ export default function DashboardPage() {
     onNewMessage: handleIncomingMessage
   });
 
+  // Handler para cuando se crea una conexión entre cards
+  const handleConnectionCreate = useCallback(async (
+    connection: any,
+    fromCard: any,
+    toCard: any
+  ) => {
+    console.log('🔗 Conexión creada:', { connection, fromCard, toCard });
+
+    // 1. Detectar si es una conexión TODO ↔ proyecto-organizacion
+    const isTodoToProyecto =
+      (fromCard.type === 'todo' && toCard.type === 'proyecto-organizacion') ||
+      (fromCard.type === 'proyecto-organizacion' && toCard.type === 'todo');
+
+    if (isTodoToProyecto) {
+      // Determinar qué card es el TODO y cuál el proyecto
+      const todoCard = fromCard.type === 'todo' ? fromCard : toCard;
+      const proyectoCard = fromCard.type === 'proyecto-organizacion' ? fromCard : toCard;
+
+      console.log('✅ Conexión TODO ↔ Proyecto detectada:', { todoCard, proyectoCard });
+
+      // Extraer datos del proyecto
+      const proyectoData = proyectoCard.proyectoData;
+      if (proyectoData && proyectoData.id) {
+        console.log('📦 Datos del proyecto:', proyectoData);
+
+        // Guardar contexto de la conexión
+        setConnectionContext({
+          proyectoId: proyectoData.id,
+          proyectoNombre: proyectoData.nombre || 'Proyecto',
+          todoCardId: todoCard.id,
+          proyectoCardId: proyectoCard.id
+        });
+
+        // Abrir modal de creación de misión
+        setShowMisionesModal(true);
+      } else {
+        console.warn('⚠️ Card de proyecto sin ID, no se puede crear misión');
+      }
+      return;
+    }
+
+    // 2. Detectar si es una conexión Misión ↔ proyecto-organizacion
+    const isMisionToProyecto =
+      (fromCard.type === 'mision-organizacion' && toCard.type === 'proyecto-organizacion') ||
+      (fromCard.type === 'proyecto-organizacion' && toCard.type === 'mision-organizacion');
+
+    if (isMisionToProyecto) {
+      // Determinar qué card es la misión y cuál el proyecto
+      const misionCard = fromCard.type === 'mision-organizacion' ? fromCard : toCard;
+      const proyectoCard = fromCard.type === 'proyecto-organizacion' ? fromCard : toCard;
+
+      console.log('✅ Conexión Misión ↔ Proyecto detectada:', { misionCard, proyectoCard });
+
+      const proyectoData = proyectoCard.proyectoData;
+      const misionData = misionCard.misionData;
+
+      if (proyectoData?.id && misionData?.id_mision) {
+        console.log('📦 Asociando misión al proyecto...');
+
+        try {
+          // Importar repositorio de misiones
+          const { SupabaseMisionRepository } = await import('@/infrastructure/datasource/SupabaseMisionRepository');
+          const misionRepo = new SupabaseMisionRepository();
+
+          // Obtener la misión actual de la BD para verificar si ya tiene proyecto
+          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+          const { data: misionActual } = await supabase
+            .from('misiones')
+            .select('id_proyecto')
+            .eq('id', misionData.id_mision)
+            .single();
+
+          if (misionActual && !misionActual.id_proyecto) {
+            // La misión NO tiene proyecto asignado, actualizar
+            console.log('🔄 Actualizando misión con proyecto:', {
+              misionId: misionData.id_mision,
+              proyectoId: proyectoData.id
+            });
+
+            await misionRepo.update(misionData.id_mision, {
+              id_proyecto: proyectoData.id
+            });
+
+            console.log('✅ Misión actualizada con proyecto exitosamente');
+          } else if (misionActual?.id_proyecto) {
+            console.log('ℹ️ La misión ya tiene un proyecto asignado:', misionActual.id_proyecto);
+          }
+        } catch (error) {
+          console.error('❌ Error al actualizar misión con proyecto:', error);
+        }
+      }
+    }
+  }, []);
+
   // Limpiar formulario de misión
   const limpiarFormularioMision = () => {
     setMisionNombre("");
     setMisionDescripcion("");
-    setMisionFechaInicio("");
+    // Restaurar fecha de hoy
+    const today = new Date();
+    setMisionFechaInicio(today.toISOString().split('T')[0]);
     setMisionFechaFin("");
     setMisionHoras("");
+    setConnectionContext(null); // Limpiar contexto de conexión
   };
 
   // Crear nueva misión
@@ -130,25 +239,63 @@ export default function DashboardPage() {
         fecha_start: misionFechaInicio || null,
         fecha_end: misionFechaFin || null,
         id_usuario: usuarioId,
-        id_proyecto: null, // Por ahora null
+        id_proyecto: connectionContext?.proyectoId || null, // Usar proyecto del contexto si existe
         id_creador: usuario?.userAuth || null
       });
 
       if (nuevaMision) {
+        console.log('✅ Misión creada en BD:', nuevaMision);
+
         // Crear el card en la pizarra automáticamente
+        let newMisionCardId: string | void = undefined;
         if (pizarraRef.current?.addMisionCardOrganizacion) {
-          pizarraRef.current.addMisionCardOrganizacion({
+          newMisionCardId = pizarraRef.current.addMisionCardOrganizacion({
             id_mision: nuevaMision.id,
             title: nuevaMision.nombre || 'Misión',
             description: nuevaMision.descripcion || '',
             hours: nuevaMision.horas || 1,
             id_usuario_asignado: nuevaMision.id_usuario || undefined,
           });
+          console.log('📝 Card de misión creado con ID:', newMisionCardId);
+        }
+
+        // Si hay contexto de conexión, manejar las conexiones
+        if (connectionContext && newMisionCardId) {
+          console.log('🔄 Procesando conexiones...', {
+            todoCardId: connectionContext.todoCardId,
+            proyectoCardId: connectionContext.proyectoCardId,
+            newMisionCardId: newMisionCardId
+          });
+
+          // 1. Eliminar la conexión original TODO <-> Proyecto
+          if (pizarraRef.current?.removeConnectionBetween) {
+            console.log('🗑️ Eliminando conexión TODO <-> Proyecto...');
+            pizarraRef.current.removeConnectionBetween(
+              connectionContext.todoCardId,
+              connectionContext.proyectoCardId
+            );
+          }
+
+          // 2. Crear la nueva conexión TODO -> Misión
+          if (pizarraRef.current?.addConnection) {
+            console.log('🔗 Creando conexión TODO -> Misión...');
+            // Dar un pequeño delay para asegurar que el estado se actualice
+            setTimeout(() => {
+              if (pizarraRef.current?.addConnection) {
+                pizarraRef.current.addConnection(
+                  connectionContext.todoCardId,
+                  newMisionCardId as string,
+                  true // skipValidation = true porque sabemos que acabamos de crear el card
+                );
+              }
+            }, 150);
+          }
         }
 
         alert("✅ Misión creada exitosamente");
         limpiarFormularioMision();
         setShowMisionesModal(false);
+        setConnectionContext(null); // Limpiar contexto
       } else {
         alert("❌ Error al crear la misión");
       }
@@ -242,6 +389,7 @@ export default function DashboardPage() {
             lightMode={true}
             usuarios={usuarios}
             currentUserId={usuario?.userAuth}
+            onConnectionCreate={handleConnectionCreate}
           />
         </div>
 
@@ -290,19 +438,70 @@ export default function DashboardPage() {
 
         {/* Misiones - Esquina superior derecha */}
         <div className="fixed top-20 right-4 z-50 pointer-events-auto">
-          <MisionesOrganizacion />
+          <MisionesOrganizacion pizarraRef={pizarraRef} />
         </div>
 
         {/* Botón para crear misiones/actividades - Esquina inferior derecha */}
         <div className="fixed bottom-20 right-4 z-50 pointer-events-auto">
           <button
             onClick={() => setShowMisionesModal(true)}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full p-4 shadow-lg transition-all hover:scale-110 flex items-center gap-2"
+            className="crear-mision-btn flex items-center gap-2 relative"
             title="Crear Misión/Actividad"
           >
-            <Target size={24} />
-            <span className="font-semibold">Nueva Misión</span>
+            <Target size={20} />
+            <span>Nueva Misión</span>
           </button>
+          <style jsx>{`
+            .crear-mision-btn {
+              background: transparent;
+              color: #fff;
+              font-size: 17px;
+              text-transform: uppercase;
+              font-weight: 600;
+              border: none;
+              padding: 20px 30px;
+              cursor: pointer;
+              perspective: 30rem;
+              border-radius: 10px;
+              box-shadow: 0 5px 15px rgba(0, 0, 0, 0.308);
+              position: relative;
+              overflow: hidden;
+              z-index: 2;
+            }
+
+            .crear-mision-btn::before {
+              content: "";
+              display: block;
+              position: absolute;
+              width: 100%;
+              height: 100%;
+              top: 0;
+              left: 0;
+              border-radius: 10px;
+              background: linear-gradient(
+                320deg,
+                rgba(0, 140, 255, 0.678),
+                rgba(128, 0, 128, 0.308)
+              );
+              z-index: -1;
+              transition: background 3s;
+            }
+
+            .crear-mision-btn:hover::before {
+              animation: rotate 1s;
+              transition: all 0.5s;
+            }
+
+            @keyframes rotate {
+              0% {
+                transform: rotateY(180deg);
+              }
+
+              100% {
+                transform: rotateY(360deg);
+              }
+            }
+          `}</style>
         </div>
 
         {/* Input Area centrado abajo con lista de usuarios */}

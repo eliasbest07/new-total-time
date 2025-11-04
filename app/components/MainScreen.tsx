@@ -16,7 +16,7 @@ import ActividadesGrid from "../demo/components/ActividadesGrid";
 import MisionesCompact from "./mainUI/MisionesCompact";
 import { useRecursos } from "@/hooks/useRecursos";
 import { useProyectos } from "@/hooks/useProyectos";
-import { useUsuariosOrganizacion } from "@/hooks/useUsuariosOrganizacion";
+import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizacionContext";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useEffect } from "react";
 import { FileText, Link, Code, Image, Video, Download, LucideIcon } from "lucide-react";
@@ -52,10 +52,12 @@ export default function MainScreen() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistorySnapshot, setSelectedHistorySnapshot] = useState<BoardHistorySnapshot | null>(null);
 
-  const { usuario } = useAuth();
+  const { usuario, isUserOnline } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
   const { proyectos: proyectosSupabase, loading: proyectosLoading } = useProyectos();
-  const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacion(usuario?.idOrganizacion || null);
+  const { usuarios: usuariosOrganizacion, loading: usuariosLoading } = useUsuariosOrganizacionContext();
+
+  console.log('📁 [MainScreen] Proyectos cargados:', proyectosSupabase.length, proyectosSupabase);
 
   // Hook para el historial de la pizarra
   const {
@@ -104,38 +106,41 @@ export default function MainScreen() {
 
   // Filtrar usuarios de la organización excluyendo al usuario actual
   const usuariosFiltrados = useMemo(() => {
-    console.log('🔍 Filtrado de usuarios - Usuario actual:', {
+    console.log('🔍 [MainScreen] Filtrado de usuarios - Usuario actual:', {
       id: usuario?.id,
       userAuth: usuario?.userAuth,
       nombre: usuario?.getNombreCompleto(),
       email: usuario?.email
     });
 
-    console.log('🔍 Filtrado de usuarios - Todos los usuarios de la organización:',
-      usuariosOrganizacion.map(u => ({
-        id: u.id,
-        userAuth: u.userAuth,
-        nombre: u.getNombreCompleto(),
-        email: u.email
-      }))
-    );
+    console.log('🔍 [MainScreen] Filtrado de usuarios - Todos los usuarios de la organización:', usuariosOrganizacion.length);
+    console.log('🔍 [MainScreen] Usuarios completos:', usuariosOrganizacion.map(u => ({
+      id: u.id,
+      userAuth: u.userAuth,
+      nombre: u.getNombreCompleto(),
+      email: u.email
+    })));
 
-    if (!usuario) return usuariosOrganizacion;
+    if (!usuario) {
+      console.log('🔍 [MainScreen] No hay usuario actual, retornando TODOS los usuarios:', usuariosOrganizacion.length);
+      return usuariosOrganizacion;
+    }
 
     const filtrados = usuariosOrganizacion.filter(u => {
       // Comparar por email ya que los IDs pueden ser diferentes (uno es userAuth UUID, otro es id de tabla)
       const esDiferente = u.email !== usuario.email;
-      console.log(`🔍 Comparando ${u.getNombreCompleto()} (email: ${u.email}) con usuario actual (email: ${usuario.email}): ${esDiferente ? 'INCLUIR' : 'EXCLUIR'}`);
+      console.log(`🔍 [MainScreen] Comparando ${u.getNombreCompleto()} (email: ${u.email}) con usuario actual (email: ${usuario.email}): ${esDiferente ? 'INCLUIR' : 'EXCLUIR'}`);
       return esDiferente;
     });
 
-    console.log('🔍 Usuarios filtrados (resultado final):',
-      filtrados.map(u => ({
-        id: u.id,
-        nombre: u.getNombreCompleto(),
-        email: u.email
-      }))
-    );
+    console.log('🔍 [MainScreen] Usuarios filtrados (resultado final):', filtrados.length);
+    console.log('🔍 [MainScreen] Usuarios detalle:', filtrados.map(u => ({
+      id: u.id,
+      nombre: u.getNombreCompleto(),
+      email: u.email
+    })));
+
+    console.log('🎯 [MainScreen] Pasando', filtrados.length, 'usuarios al Cube');
 
     return filtrados;
   }, [usuariosOrganizacion, usuario]);
@@ -235,13 +240,22 @@ export default function MainScreen() {
   // Log para usuarios de organización
   useEffect(() => {
     console.log('👥 MainScreen - Estado usuarios organización:', {
-      usuario: usuario?.id,
-      organizacion: usuario?.idOrganizacion,
+      usuario: usuario ? {
+        id: usuario.id,
+        userAuth: usuario.userAuth,
+        email: usuario.email,
+        idOrganizacion: usuario.idOrganizacion
+      } : 'null',
       usuariosLoading,
       usuariosOrganizacionLength: usuariosOrganizacion?.length,
-      usuariosOrganizacion
+      usuariosOrganizacion: usuariosOrganizacion?.map(u => ({
+        id: u.id,
+        userAuth: u.userAuth,
+        email: u.email,
+        nombre: u.getNombreCompleto()
+      }))
     });
-  }, [usuariosOrganizacion, usuariosLoading]);
+  }, [usuariosOrganizacion, usuariosLoading, usuario]);
 
 
 
@@ -385,7 +399,24 @@ export default function MainScreen() {
         {/* Cubo */}
         {rightPanelCollapsed && (
           <div className="fixed top-18 right-0">
-            <Cube />
+            <Cube
+              usuarios={usuariosFiltrados.map(u => {
+                // IMPORTANTE: Usar userAuth (UUID de Supabase) para verificar presencia
+                const online = isUserOnline(u.userAuth);
+                console.log(`🔍 [MainScreen] Usuario ${u.getNombreCompleto()} (userAuth: ${u.userAuth}) -> Online: ${online}`);
+
+                return {
+                  id: u.id,
+                  nombre: u.profile.nombre,
+                  username: u.profile.username,
+                  avatar: u.getNombreCompleto().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+                  avatarUrl: u.profile.avatar,
+                  color: (u as any).color || 'linear-gradient(135deg, #667eea, #764ba2)',
+                  online: online
+                };
+              })}
+              proyectos={proyectosSupabase}
+            />
           </div>
         )}
       </div>

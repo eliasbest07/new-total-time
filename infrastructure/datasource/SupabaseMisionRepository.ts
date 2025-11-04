@@ -69,6 +69,34 @@ export class SupabaseMisionRepository implements MisionRepository {
     }
   }
 
+  async getMisionesByUsuarios(idsUsuarios: number[]): Promise<Mision[]> {
+    try {
+      if (idsUsuarios.length === 0) {
+        return [];
+      }
+
+      // console.log('🎯 Obteniendo misiones para usuarios:', idsUsuarios);
+
+      const { data, error } = await supabase
+        .from('misiones')
+        .select('*')
+        .in('id_usuario', idsUsuarios)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error obteniendo misiones de usuarios:', error);
+        return [];
+      }
+
+      const misiones = data || [];
+      // console.log('✅ Misiones de usuarios encontradas:', misiones.length);
+      return misiones;
+    } catch (error) {
+      console.error('❌ Error en getMisionesByUsuarios:', error);
+      return [];
+    }
+  }
+
   async createMision(mision: Omit<Mision, 'id' | 'created_at'>): Promise<Mision | null> {
     try {
       // console.log('➕ Creando nueva misión:', mision);
@@ -247,6 +275,78 @@ export class SupabaseMisionRepository implements MisionRepository {
             const attempts = this.reconnectAttempts.get(channelName) || 0;
             if (attempts < this.maxReconnectAttempts) {
               this.handleReconnect(channelName, () => this.subscribeToAllMisionesChanges(callbacks), callbacks);
+            }
+          }
+        });
+
+      return channel;
+    };
+
+    const newChannel = setupChannel();
+    this.activeChannels.set(channelName, newChannel);
+    return newChannel;
+  }
+
+  // Suscribirse a cambios en tiempo real de misiones de múltiples usuarios
+  subscribeToMisionesChangesByUsuarios(idsUsuarios: number[], callbacks: RealtimeCallbacks): RealtimeChannel {
+    const channelName = `misiones-usuarios-${idsUsuarios.sort().join('-')}`;
+
+    const existingChannel = this.activeChannels.get(channelName);
+    if (existingChannel) {
+      if (!this.silentMode) console.log('♻️ Reutilizando canal realtime misiones usuarios');
+      return existingChannel;
+    }
+
+    if (!this.silentMode) console.log('📡 Iniciando suscripción realtime para misiones de usuarios:', idsUsuarios);
+
+    const setupChannel = (): RealtimeChannel => {
+      const channel = supabase
+        .channel(channelName, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' }
+          }
+        })
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'misiones'
+          },
+          async (payload) => {
+            // console.log('📡 Cambio detectado en misiones:', payload);
+
+            try {
+              // Recargar misiones de todos los usuarios
+              const nuevasMisiones = await this.getMisionesByUsuarios(idsUsuarios);
+              callbacks.onMisionesUpdated(nuevasMisiones);
+            } catch (error) {
+              console.error('❌ Error procesando cambio de misiones:', error);
+              callbacks.onError('Error al procesar cambios de misiones');
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            if (!this.silentMode) console.log('✅ Suscripción realtime misiones usuarios activa');
+            this.reconnectAttempts.set(channelName, 0);
+            this.activeChannels.set(channelName, channel);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            if (attempts < this.maxReconnectAttempts) {
+              if (!this.silentMode) console.warn(`⚠️ Error en canal misiones usuarios (${attempts + 1}/${this.maxReconnectAttempts})`);
+              this.activeChannels.delete(channelName);
+              this.handleReconnect(channelName, () => this.subscribeToMisionesChangesByUsuarios(idsUsuarios, callbacks), callbacks);
+            } else {
+              console.error('❌ Canal realtime misiones usuarios: máximo de reintentos alcanzado');
+              callbacks.onError('No se pudo conectar al servicio realtime');
+            }
+          } else if (status === 'CLOSED') {
+            this.activeChannels.delete(channelName);
+            const attempts = this.reconnectAttempts.get(channelName) || 0;
+            if (attempts < this.maxReconnectAttempts) {
+              this.handleReconnect(channelName, () => this.subscribeToMisionesChangesByUsuarios(idsUsuarios, callbacks), callbacks);
             }
           }
         });
