@@ -66,10 +66,34 @@ export default function MisionesLight() {
 
   return (
     <>
-      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md p-3" style={{ maxWidth: '200px' }}>
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md p-3" style={{ maxWidth: '280px' }}>
         <h3 className="text-xs font-semibold text-gray-700 mb-2">📋 Misiones</h3>
-        <div className="space-y-1.5">
-          {misiones.slice(0, 3).map((mision) => (
+        {/* Contenedor con altura fija y scroll */}
+        <div
+          className="overflow-y-auto space-y-1.5"
+          style={{
+            maxHeight: '400px',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#9CA3AF #E5E7EB'
+          }}
+        >
+          <style jsx>{`
+            div::-webkit-scrollbar {
+              width: 6px;
+            }
+            div::-webkit-scrollbar-track {
+              background: #E5E7EB;
+              border-radius: 3px;
+            }
+            div::-webkit-scrollbar-thumb {
+              background: #9CA3AF;
+              border-radius: 3px;
+            }
+            div::-webkit-scrollbar-thumb:hover {
+              background: #6B7280;
+            }
+          `}</style>
+          {misiones.map((mision) => (
             <div
               key={mision.id}
               draggable
@@ -90,14 +114,6 @@ export default function MisionesLight() {
             </div>
           ))}
         </div>
-
-        {misiones.length > 3 && (
-          <div className="mt-1.5 text-center">
-            <span className="text-xs text-gray-500">
-              +{misiones.length - 3}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Modal de detalles de misión */}
