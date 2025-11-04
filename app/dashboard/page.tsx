@@ -27,9 +27,9 @@ export default function DashboardPage() {
   // 🔹 Si el usuario NO es admin (false o null), mostrar DashboardUsuario
   if (!usuario?.admin) {
     return (
-      <AuthWrapper>
+      // <AuthWrapper>
         <DashboardUsuario />
-      </AuthWrapper>
+      // </AuthWrapper>
     );
   }
 
