@@ -93,7 +93,8 @@ export default function Dashboard() {
     return futureTime.toISOString();
   };
 
-  const mockActividades: Actividad[] = [
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mockActividades: any[] = [
     {
       id: 1,
       created_at: '2025-10-09T08:00:00Z',
@@ -104,7 +105,8 @@ export default function Dashboard() {
       cant_horas: 2,
       captures: '',
       link: 'https://meet.google.com/abc-defg-hij',
-      tiempo_dedicado: 0
+      tiempo_dedicado: 0,
+      id_proyecto: null
     },
     {
       id: 2,
@@ -116,7 +118,8 @@ export default function Dashboard() {
       cant_horas: 4,
       captures: '',
       link: '',
-      tiempo_dedicado: 0
+      tiempo_dedicado: 0,
+      id_proyecto: null
     },
     {
       id: 3,
@@ -128,7 +131,8 @@ export default function Dashboard() {
       cant_horas: 1,
       captures: '',
       link: 'https://github.com/proyecto/pr/245',
-      tiempo_dedicado: 0
+      tiempo_dedicado: 0,
+      id_proyecto: null
     },
     {
       id: 4,
@@ -140,7 +144,8 @@ export default function Dashboard() {
       cant_horas: 3,
       captures: '',
       link: 'https://figma.com/design/dashboard',
-      tiempo_dedicado: 0
+      tiempo_dedicado: 0,
+      id_proyecto: null
     },
     {
       id: 5,
@@ -152,12 +157,14 @@ export default function Dashboard() {
       cant_horas: 2,
       captures: '',
       link: '',
-      tiempo_dedicado: 0
+      tiempo_dedicado: 0,
+      id_proyecto: null
     }
   ];
 
-  // Misiones mock para testing
-  const mockMisiones: Mision[] = [
+  // Misiones mock for testing
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mockMisiones: any[] = [
     {
       id: 1,
       created_at: '2025-10-09T08:00:00Z',
@@ -194,7 +201,8 @@ export default function Dashboard() {
   ];
 
   // Proyectos mock para testing
-  const mockProyectos: Proyecto[] = [
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mockProyectos: any[] = [
     {
       id: 1,
       created_at: '2024-01-15T10:00:00Z',

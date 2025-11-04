@@ -212,7 +212,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
     clearNotifications,
     markAsRead,
     markPostAsViewed
-  } = useNewPostsNotification(usuario?.id_usuario || null, sala.id, allPostIds);
+  } = useNewPostsNotification(usuario?.id ? parseInt(usuario.id) : null, sala.id, allPostIds);
 
   // Estado para mostrar la notificación actual
   const [currentNotification, setCurrentNotification] = useState<typeof notifications[0] | null>(null);
@@ -362,6 +362,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
         id_sala: sala.id,
         contenido: newPostContent,
         id_usuario: usuarioId, // ID numérico del usuario
+        id_comentarios: null,
         edited_at: null,
         likes_count: 0,
         dislikes_count: 0

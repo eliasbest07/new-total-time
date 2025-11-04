@@ -8,7 +8,7 @@ import Ventana from '@/app/demo/components/Ventana';
 import { PizarraRef } from '@/application/pizarra/types';
 
 interface MisionesOrganizacionProps {
-  pizarraRef?: React.RefObject<PizarraRef>;
+  pizarraRef?: React.RefObject<PizarraRef | null>;
 }
 
 export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacionProps) {

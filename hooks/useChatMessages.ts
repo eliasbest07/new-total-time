@@ -78,9 +78,22 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
       const success = await mensajeRepository.marcarComoLeido(mensajeId);
       if (success) {
         // Actualizar estado local
-        setMensajes(prev => prev.map(m =>
-          m.id === mensajeId ? { ...m, leido: true } : m
-        ));
+        setMensajes(prev => prev.map(m => {
+          if (m.id === mensajeId) {
+            const updated = new Mensaje(
+              m.id,
+              m.idEmisor,
+              m.idReceptor,
+              m.texto,
+              true, // leido
+              m.createdAt,
+              m.updatedAt,
+              m.idConversacion
+            );
+            return updated;
+          }
+          return m;
+        }));
       }
       return success;
     } catch (err) {
@@ -96,9 +109,21 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
       const success = await mensajeRepository.marcarConversacionComoLeida(currentUserId, otherUserId);
       if (success) {
         // Actualizar estado local
-        setMensajes(prev => prev.map(m =>
-          m.idReceptor === currentUserId ? { ...m, leido: true } : m
-        ));
+        setMensajes(prev => prev.map(m => {
+          if (m.idReceptor === currentUserId) {
+            return new Mensaje(
+              m.id,
+              m.idEmisor,
+              m.idReceptor,
+              m.texto,
+              true, // leido
+              m.createdAt,
+              m.updatedAt,
+              m.idConversacion
+            );
+          }
+          return m;
+        }));
       }
       return success;
     } catch (err) {

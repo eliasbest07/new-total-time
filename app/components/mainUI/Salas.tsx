@@ -9,6 +9,7 @@ import SalaDetalle from "./SalaDetalle";
 import { createPortal } from "react-dom";
 import { UnviewedPostsBadge } from "@/components/notifications/UnviewedPostsBadge";
 import { useUnviewedPostsCount } from "@/hooks/useUnviewedPostsCount";
+import { Sala } from "@/domain/entities/Sala";
 
 // Componente interno para cada botón de sala con contador de posts no vistos
 function SalaButton({
@@ -17,7 +18,7 @@ function SalaButton({
   onClick,
   currentUserId
 }: {
-  sala: any;
+  sala: Sala;
   isActive: boolean;
   onClick: () => void;
   currentUserId: number | null;
@@ -142,7 +143,7 @@ export default function Salas() {
                 sala={sala}
                 isActive={salaActiva?.id === sala.id}
                 onClick={() => handleSalaClick(sala.id)}
-                currentUserId={usuario?.id_usuario || null}
+                currentUserId={usuario?.id ? parseInt(usuario.id) : null}
               />
             ))}
             <div className="w-2"></div>

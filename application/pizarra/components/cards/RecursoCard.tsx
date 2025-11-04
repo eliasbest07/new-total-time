@@ -101,7 +101,7 @@ export const RecursoCard: React.FC<RecursoCardProps> = ({
       {/* URL (si existe) */}
       {hasUrl && (
         <div className="mt-auto pt-2 border-t border-purple-200">
-          <p className="text-xs text-purple-600 truncate" title={recursoData.url}>
+          <p className="text-xs text-purple-600 truncate" title={recursoData.url ?? undefined}>
             {recursoData.url}
           </p>
         </div>

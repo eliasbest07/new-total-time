@@ -131,9 +131,9 @@ function DashboardAdmin() {
 
   // Handler para cuando se crea una conexión entre cards
   const handleConnectionCreate = useCallback(async (
-    connection: any,
-    fromCard: any,
-    toCard: any
+    connection: { id: string; from?: string; to: string },
+    fromCard: { id: string; type: string; misionData?: { id_mision?: number }; proyectoData?: { id?: number; nombre?: string } },
+    toCard: { id: string; type: string; misionData?: { id_mision?: number }; proyectoData?: { id?: number; nombre?: string } }
   ) => {
     console.log('🔗 Conexión creada:', { connection, fromCard, toCard });
 
@@ -208,7 +208,7 @@ function DashboardAdmin() {
               proyectoId: proyectoData.id
             });
 
-            await misionRepo.update(misionData.id_mision, {
+            await misionRepo.updateMision(misionData.id_mision, {
               id_proyecto: proyectoData.id
             });
 
@@ -352,8 +352,12 @@ function DashboardAdmin() {
       const nuevoProyecto = await createProyecto({
         nombre: proyectoNombre.trim(),
         descripcion: proyectoDescripcion.trim() || null,
+        description: proyectoDescripcion.trim() || null,
         icono: proyectoIcono.trim() || null,
-        id_organizacion: organizacion.id,
+        imagen_url: null,
+        type: null,
+        colors: null,
+        user_id: usuario?.userAuth || null,
       });
 
       if (nuevoProyecto) {
@@ -802,8 +806,8 @@ function DashboardAdmin() {
                       >
                         <input
                           type="checkbox"
-                          checked={usuariosSeleccionados.includes(usuario.id)}
-                          onChange={() => toggleUsuarioSeleccionado(usuario.id)}
+                          checked={usuariosSeleccionados.includes(parseInt(usuario.id))}
+                          onChange={() => toggleUsuarioSeleccionado(parseInt(usuario.id))}
                           className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                           disabled={creandoProyecto}
                         />

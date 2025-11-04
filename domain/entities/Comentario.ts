@@ -9,5 +9,6 @@ export interface Comentario {
   // Datos del usuario (join)
   usuario?: {
     nombre: string | null;
+    avatar?: string | null;
   };
 }

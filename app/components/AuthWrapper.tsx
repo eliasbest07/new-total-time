@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { SupabaseAuthRepository } from '@/infrastructure/datasource/SupabaseAuthRepository';
 import { StorageService } from '@/infrastructure/services/StorageService';
 import { initializeSupabaseSession, supabase } from '@/infrastructure/services/SupabaseClient';
+import { Session } from '@supabase/supabase-js';
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -15,7 +16,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { usuario, setUsuario, clearUsuario } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [authEvent, setAuthEvent] = useState<{ event: string; session: any } | null>(null);
+  const [authEvent, setAuthEvent] = useState<{ event: string; session: Session | null } | null>(null);
   const router = useRouter();
 
   // Mover authRepository a useMemo para evitar recreaciones

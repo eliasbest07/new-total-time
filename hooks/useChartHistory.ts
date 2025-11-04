@@ -35,7 +35,7 @@ interface UseChartHistoryReturn {
  * Hook para obtener datos históricos de la pizarra agrupados por fecha
  * para generar el gráfico de barras
  */
-export const useChartHistory = (pizarraRef: RefObject<PizarraRef>, userId?: string): UseChartHistoryReturn => {
+export const useChartHistory = (pizarraRef: RefObject<PizarraRef | null>, userId?: string): UseChartHistoryReturn => {
   const [historyData, setHistoryData] = useState<BoardHistorySnapshot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

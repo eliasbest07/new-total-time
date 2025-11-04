@@ -124,7 +124,7 @@ export default function LightPage() {
         </div>
 
         {/* Misiones - Esquina inferior izquierda */}
-        <div className="fixed bottom-4 left-4 z-50 pointer-events-auto">
+        <div className="fixed bottom-4 left-4 z-20 pointer-events-auto">
           <MisionesLight />
         </div>
 

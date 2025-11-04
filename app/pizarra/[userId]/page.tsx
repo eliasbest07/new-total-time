@@ -10,6 +10,12 @@ import { usePizarraPermissions } from '@/hooks/usePizarraPermissions';
 import InputArea from '@/app/components/mainUI/InputArea';
 import Ventana from '@/app/demo/components/Ventana';
 
+interface PizarraHistorial {
+  id: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export default function PizarraUsuarioPage() {
   const params = useParams();
   const router = useRouter();
@@ -18,7 +24,7 @@ export default function PizarraUsuarioPage() {
   const [userName, setUserName] = useState<string>('Usuario');
   const [ownerNumericId, setOwnerNumericId] = useState<number | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [historialPizarras, setHistorialPizarras] = useState<any[]>([]);
+  const [historialPizarras, setHistorialPizarras] = useState<PizarraHistorial[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const { usuario } = useAuth();
   const [mensajeEnviado, setMensajeEnviado] = useState(false);
