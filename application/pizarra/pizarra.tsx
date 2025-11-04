@@ -162,7 +162,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleCardClick,
     updateMousePosition,
     deleteConnection
-  } = useConnections();
+  } = useConnections({ cards });
 
   const {
     isPanning,

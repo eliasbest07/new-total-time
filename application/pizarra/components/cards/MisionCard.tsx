@@ -88,19 +88,27 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   // Efecto para el contador de tiempo
   useEffect(() => {
     if (card.misionData?.isRunning) {
+      // ✅ FIX MEMORY LEAK: Limpiar intervalo anterior antes de crear uno nuevo
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+
       intervalRef.current = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
       }, 1000);
     } else {
+      // Limpiar cuando no está corriendo
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     }
 
+    // ✅ FIX MEMORY LEAK: Cleanup que siempre limpia el intervalo y la ref
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
   }, [card.misionData?.isRunning]);
@@ -192,7 +200,7 @@ useEffect(() => {
   // 🔹 Suscripción realtime mejorada
   const channelName = `misiones_activas_mision_${idMision}_${Date.now()}`;
   console.log('🔌 [MISION CARD] Creando canal:', channelName);
-  
+
   const channel = supabase
     .channel(channelName)
     .on(
@@ -284,10 +292,20 @@ useEffect(() => {
 
   console.log('📡 [MISION CARD] *** SUSCRIPCIONES ACTIVAS Y ESCUCHANDO ***');
 
+  // ✅ FIX MEMORY LEAK: Cleanup que desuscribe correctamente ambos canales
   return () => {
     console.log('🔌 [MISION CARD] *** DESUSCRIBIÉNDOSE DE CAPTURE_NOW ***');
-    supabase.removeChannel(channel);
-    supabase.removeChannel(debugChannel);
+
+    // Desuscribir y eliminar los canales correctamente
+    channel.unsubscribe().then(() => {
+      console.log('✅ [MISION CARD] Canal principal desuscrito');
+      supabase.removeChannel(channel);
+    });
+
+    debugChannel.unsubscribe().then(() => {
+      console.log('✅ [MISION CARD] Canal debug desuscrito');
+      supabase.removeChannel(debugChannel);
+    });
   };
 }, [card.misionData?.isRunning, card.misionData?.id_mision]);
 
