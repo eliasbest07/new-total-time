@@ -97,19 +97,23 @@ export const usePasteImage = (setCards: React.Dispatch<React.SetStateAction<Card
               [newCard.id]: publicUrl
             }));
 
-            // Liberar la URL temporal
+            // ✅ FIX MEMORY LEAK: Liberar la URL temporal
             URL.revokeObjectURL(imageUrl);
             console.log('🗑️ [PIZARRA PASTE] URL temporal liberada');
 
           } catch (error) {
             console.error('❌ [PIZARRA PASTE] Error inesperado al subir imagen:', error);
+            // ✅ FIX MEMORY LEAK: Liberar la URL temporal incluso si hay error
+            URL.revokeObjectURL(imageUrl);
           }
         }
       }
     }
-  }, [setCards]);
+  }, [setCards, setPastedImages]); // ✅ FIX MEMORY LEAK: Agregar setPastedImages a las dependencias
 
   useEffect(() => {
+    // ✅ FIX MEMORY LEAK: El event listener se registra solo una vez
+    // porque handlePaste está memoizado correctamente con useCallback
     document.addEventListener('paste', handlePaste);
     return () => {
       document.removeEventListener('paste', handlePaste);
