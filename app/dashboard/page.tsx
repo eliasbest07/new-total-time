@@ -10,6 +10,7 @@ import InputAreaLight from "@/app/components/mainUI/InputAreaLight";
 import MisionesOrganizacion from "@/app/components/organizacion/MisionesOrganizacion";
 import ListadoProyectos from "@/app/components/organizacion/ListadoProyectos";
 import InfoOrganizacion from "@/app/components/organizacion/InfoOrganizacion";
+import DashboardUsuario from "@/app/components/DashboardUsuario";
 import { useIncomingMessages } from "@/hooks/useIncomingMessages";
 import { useMisiones } from "@/hooks/useMisiones";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
@@ -20,6 +21,24 @@ import { Target, Building2, X } from "lucide-react";
 import Image from "next/image";
 
 export default function DashboardPage() {
+  const pizarraRef = useRef<PizarraRef>(null);
+  const { usuario } = useAuth();
+
+  // 🔹 Si el usuario NO es admin (false o null), mostrar DashboardUsuario
+  if (!usuario?.admin) {
+    return (
+      <AuthWrapper>
+        <DashboardUsuario />
+      </AuthWrapper>
+    );
+  }
+
+  // 🔹 Si el usuario ES admin, continuar con el dashboard normal
+  return <DashboardAdmin />;
+}
+
+// Componente separado para el Dashboard de Administrador
+function DashboardAdmin() {
   const pizarraRef = useRef<PizarraRef>(null);
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
@@ -847,3 +866,4 @@ export default function DashboardPage() {
     </AuthWrapper>
   );
 }
+// Fin del componente DashboardAdmin

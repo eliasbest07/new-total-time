@@ -108,7 +108,7 @@ export default function InputArea({
           <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
             <button
               onClick={handleCreateNote}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-full text-white text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded-full text-white text-sm font-medium transition-colors"
               title="Crear Nota"
             >
               <StickyNote size={16} />
@@ -116,7 +116,7 @@ export default function InputArea({
             </button>
             <button
               onClick={handleCreateTodoList}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 rounded-full text-white text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-800 rounded-full text-white text-sm font-medium transition-colors"
               title="Crear Lista de Tareas"
             >
               <CheckSquare size={16} />
