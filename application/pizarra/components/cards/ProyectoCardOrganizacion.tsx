@@ -95,8 +95,8 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
         // Detectar tecnologías
         const techs: string[] = [];
-        if (card.proyectoData?.description) {
-          const descripcionLower = card.proyectoData.description.toLowerCase();
+        if (card.proyectoData?.descripcion) {
+          const descripcionLower = card.proyectoData.descripcion.toLowerCase();
           if (descripcionLower.includes('flutter')) techs.push('Flutter');
           if (descripcionLower.includes('firebase')) techs.push('Firebase');
           if (descripcionLower.includes('react')) techs.push('React');
@@ -218,7 +218,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     return url;
   };
 
-  const cleanIcono = card.proyectoData?.imagen_url ? sanitizeIconUrl(card.proyectoData.imagen_url) : null;
+  const cleanIcono = card.proyectoData?.icono ? sanitizeIconUrl(card.proyectoData.icono) : null;
 
   return (
     <div className="flex flex-col h-full w-full bg-gray-200 rounded-xl shadow-lg overflow-hidden">

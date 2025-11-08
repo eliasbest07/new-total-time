@@ -403,9 +403,9 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       </div>
 
       {/* Descripción */}
-      {card.proyectoData?.description && (
+      {card.proyectoData?.descripcion && (
         <div className="text-xs text-gray-700 mb-2 line-clamp-2">
-          {card.proyectoData.description}
+          {card.proyectoData.descripcion}
         </div>
       )}
 

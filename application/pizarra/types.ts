@@ -70,15 +70,11 @@ export interface UsuarioData {
 export interface ProyectoData {
   id?: number; // ID del proyecto en la base de datos
   nombre: string;
-  description: string | null;
-  imagen_url: string | null;
+  descripcion: string | null; // Changed from 'description' to match DB
   icono: string | null;
-  type: string | null;
-  utility: string | null;
-  palette: string | null;
+  id_organizacion?: string | null; // UUID de la organización
   colors: string[] | null;
-  producto: string | null;
-  publico: boolean;
+  created_at?: string;
 }
 
 export interface RecursoData {

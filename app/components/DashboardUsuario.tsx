@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import MenuDashboardUsuario from './MenuDashboardUsuario';
+import IntervalosTiempo from './IntervalosTiempo';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useOrganizacion } from '@/hooks/useOrganizacion';
 import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
@@ -272,31 +273,37 @@ export default function DashboardUsuario() {
                 </div>
 
                 {/* Contenido principal - Grid responsivo */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                <div className="space-y-6 lg:space-y-8">
+                    {/* Intervalos de Tiempo - Ancho completo */}
+                    {/* {usuario?.userAuth && (
+                        <IntervalosTiempo userId={usuario.userAuth} />
+                    )} */}
 
-                    {/* Mis últimas tareas */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-80">
-                        <h3 className="text-white text-lg sm:text-xl font-medium mb-4">Mis Últimas Tareas</h3>
-                        <div className="h-60 overflow-y-auto pr-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {ultimasTareas.map(tarea => (
-                                <TaskCard key={tarea.id} tarea={tarea} />
-                            ))}
+                    {/* Grid de tareas y screenshots */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                        {/* Mis últimas tareas */}
+                        <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-80">
+                            <h3 className="text-white text-lg sm:text-xl font-medium mb-4">Mis Últimas Tareas</h3>
+                            <div className="h-60 overflow-y-auto pr-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {ultimasTareas.map(tarea => (
+                                    <TaskCard key={tarea.id} tarea={tarea} />
+                                ))}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Mis últimos screenshots */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-80 flex flex-col">
-                        <h3 className="text-white text-lg sm:text-xl font-medium mb-4">Últimos Screenshots</h3>
+                        {/* Mis últimos screenshots */}
+                        <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-80 flex flex-col">
+                            <h3 className="text-white text-lg sm:text-xl font-medium mb-4">Últimos Screenshots</h3>
 
                         {/* Contenido con altura fija */}
-                        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                            {loadingCaptures ? (
+                            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                                {loadingCaptures ? (
                                 <div className="text-white/70 text-center py-8">
                                     Cargando captures...
                                 </div>
                             ) : captures.length > 0 ? (
                                 currentCaptures.map(capture => (
-                                    <ScreenshotCard
+                                        <ScreenshotCard
                                         key={capture.id}
                                         capture={capture}
                                         onImageClick={setSelectedImage}
@@ -306,7 +313,8 @@ export default function DashboardUsuario() {
                                 <div className="text-white/70 text-center py-8">
                                     No hay captures disponibles
                                 </div>
-                            )}
+                                )}
+                            </div>
                         </div>
 
                         {/* Paginación */}

@@ -483,6 +483,8 @@ export default function MainScreen() {
           </button>
         ))}
       </div>
+      {/* COMIENZAS LAS VENTANAS ++++++++++++++++++++++++++++++++++++++++++++++ */}
+
 
       {/* Ventana de Screenshots */}
       <Ventana
@@ -938,7 +940,7 @@ export default function MainScreen() {
                 {selectedHistorySnapshot.items.map((item) => {
                   // Determinar el color según el tipo
                   const getColorForType = (type: string) => {
-                    switch(type) {
+                    switch (type) {
                       case 'Nota':
                         return {
                           bg: 'bg-gray-50',

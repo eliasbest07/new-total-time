@@ -166,10 +166,10 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   const convertirProyectosSupabase = (): ProyectoConvertido[] => {
     return proyectos.map((proyecto) => ({
       id: proyecto.id,
-      nombre: proyecto.nombre,
-      descripcion: proyecto.description || 'Sin descripción',
+      nombre: proyecto.nombre || 'Sin nombre',
+      descripcion: proyecto.descripcion || 'Sin descripción',
       fechaCreacion: proyecto.created_at.split('T')[0], // Convertir timestamp a fecha
-      estado: getEstadoFromType(proyecto.type),
+      estado: getEstadoFromType(null), // type ya no existe en la tabla
       colores: {
         primario: proyecto.colors?.[0] || '#3B82F6',
         secundario: proyecto.colors?.[1] || '#1E40AF',
@@ -488,12 +488,12 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                                   className="text-white font-medium text-sm truncate"
                                   title={proyecto.nombre}
                                 >
-                                  {proyecto.nombre.length > 14
+                                  {proyecto.nombre && proyecto.nombre.length > 14
                                     ? proyecto.nombre.substring(0, 14) + '...'
-                                    : proyecto.nombre}
+                                    : (proyecto.nombre || 'Sin nombre')}
                                 </h4>
-                                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getEstadoColor(getEstadoFromType(proyecto.type))}`}>
-                                  {getEstadoFromType(proyecto.type)}
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getEstadoColor(getEstadoFromType(null))}`}>
+                                  {getEstadoFromType(null)}
                                 </span>
                               </div>
                             </div>

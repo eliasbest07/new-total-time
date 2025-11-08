@@ -170,7 +170,7 @@ export default function Salas() {
           initialHeight={600}
           minWidth={600}
           minHeight={400}
-          showOverlay={true}
+          showOverlay={false}
         >
           {salaActiva && <SalaDetalle sala={salaActiva} />}
         </Ventana>,

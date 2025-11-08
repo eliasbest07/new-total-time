@@ -376,12 +376,9 @@ function DashboardAdmin() {
       const nuevoProyecto = await createProyecto({
         nombre: proyectoNombre.trim(),
         descripcion: proyectoDescripcion.trim() || null,
-        description: proyectoDescripcion.trim() || null,
         icono: proyectoIcono.trim() || null,
-        imagen_url: null,
-        type: null,
+        id_organizacion: organizacion.id,
         colors: null,
-        user_id: usuario?.userAuth || null,
       });
 
       if (nuevoProyecto) {

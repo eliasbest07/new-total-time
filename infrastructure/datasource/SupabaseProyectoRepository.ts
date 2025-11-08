@@ -17,10 +17,23 @@ export class SupabaseProyectoRepository implements ProyectoRepository {
     try {
       // console.log('📁 Obteniendo proyectos para usuario:', userId);
 
+      // Primero obtener la organización del usuario
+      const { data: userData, error: userError } = await supabase
+        .from('usuario')
+        .select('id_organizacion')
+        .eq('id_usuario', userId)
+        .maybeSingle();
+
+      if (userError || !userData) {
+        console.error('❌ Error obteniendo organización del usuario:', userError);
+        return [];
+      }
+
+      // Luego obtener los proyectos de esa organización
       const { data, error } = await supabase
         .from('proyecto')
         .select('*')
-        .eq('user_id', userId)
+        .eq('id_organizacion', userData.id_organizacion)
         .order('created_at', { ascending: false });
 
       if (error) {

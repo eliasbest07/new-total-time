@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { SupabaseAuthRepository } from '@/infrastructure/datasource/SupabaseAuthRepository';
+import { supabase } from '@/infrastructure/services/SupabaseClient';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -13,9 +14,65 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const router = useRouter();
   const { usuario, setUsuario } = useAuth();
   const authRepository = new SupabaseAuthRepository();
+
+  // Manejar magic link y confirmación de email con tokens en el hash
+  useEffect(() => {
+    const handleAuthCallback = async () => {
+      // Obtener los parámetros del hash de la URL
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+
+      // Si hay tokens en el hash, establecer la sesión automáticamente
+      if (accessToken && refreshToken) {
+        console.log('🔍 Tokens encontrados en URL, tipo:', type);
+        setIsLoading(true);
+
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            console.error('❌ Error estableciendo sesión:', error);
+            setError('Error al confirmar tu email. Intenta nuevamente.');
+            setIsLoading(false);
+            return;
+          }
+
+          console.log('✅ Sesión establecida exitosamente');
+          console.log('✅ Usuario:', data.user?.email);
+
+          // Obtener el usuario completo del repositorio
+          const fullUser = await authRepository.getCurrentUser();
+          if (fullUser) {
+            setUsuario(fullUser);
+            setSuccessMessage('Email confirmado exitosamente. Redirigiendo...');
+
+            // Limpiar el hash de la URL
+            window.history.replaceState(null, '', window.location.pathname);
+
+            // Redirigir a la página principal
+            setTimeout(() => {
+              router.replace('/');
+            }, 1000);
+          }
+        } catch (error) {
+          console.error('❌ Error procesando magic link:', error);
+          setError('Error al procesar la confirmación');
+          setIsLoading(false);
+        }
+      }
+    };
+
+    handleAuthCallback();
+  }, [router, setUsuario, authRepository]);
 
   // Redirigir si el usuario ya está autenticado
   useEffect(() => {

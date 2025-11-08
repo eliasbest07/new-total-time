@@ -119,7 +119,7 @@ export default function LightPage() {
       </div> */}
 
         {/* Barra de salas - Debajo de usuarios conectados */}
-        <div className="fixed left-1/2 transform -translate-x-1/2 z-30 pointer-events-auto" style={{ width: '80%', top: '60px' }}>
+        <div className="fixed left-1/2 transform -translate-x-1/2 z-30 pointer-events-auto w-1/2" style={{ top: '60px' }}>
           <SalasBar />
         </div>
 

@@ -92,6 +92,60 @@ export class SupabasePostRepository implements PostRepository {
     }
   }
 
+  async getPostById(idPost: string): Promise<Post | null> {
+    try {
+      console.log('📋 [SupabasePostRepository] Obteniendo post con ID:', idPost);
+
+      // Obtener el post
+      const { data: post, error } = await supabase
+        .from('post_sala')
+        .select('*')
+        .eq('id', idPost)
+        .single();
+
+      if (error) {
+        console.error('❌ [SupabasePostRepository] Error obteniendo post:', error);
+        return null;
+      }
+
+      if (!post) {
+        console.log('⚠️ [SupabasePostRepository] Post no encontrado');
+        return null;
+      }
+
+      // Obtener datos del usuario si existe id_usuario
+      if (post.id_usuario) {
+        const { data: usuario, error: userError } = await supabase
+          .from('usuario')
+          .select('id, id_usuario, nombre, avatar')
+          .eq('id_usuario', post.id_usuario)
+          .single();
+
+        if (!userError && usuario) {
+          return {
+            ...post,
+            edited_at: post.edited_at || null,
+            likes_count: post.likes_count || 0,
+            dislikes_count: post.dislikes_count || 0,
+            usuario: { nombre: usuario.nombre, avatar: usuario.avatar }
+          };
+        }
+      }
+
+      // Si no hay usuario o hubo error, devolver post sin datos de usuario
+      return {
+        ...post,
+        edited_at: post.edited_at || null,
+        likes_count: post.likes_count || 0,
+        dislikes_count: post.dislikes_count || 0,
+        usuario: undefined
+      };
+    } catch (error) {
+      console.error('❌ [SupabasePostRepository] Error en getPostById:', error);
+      return null;
+    }
+  }
+
   async createPost(post: Omit<Post, 'id' | 'created_at'>): Promise<Post | null> {
     try {
       // Crear el objeto con solo los campos que existen en la tabla
