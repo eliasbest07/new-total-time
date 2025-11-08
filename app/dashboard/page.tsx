@@ -78,6 +78,7 @@ function DashboardAdmin() {
   const [misionFechaFin, setMisionFechaFin] = useState("");
   const [misionHoras, setMisionHoras] = useState("");
   const [creandoMision, setCreandoMision] = useState(false);
+  const [crearListaTodo, setCrearListaTodo] = useState(false); // ✅ Nuevo estado
 
   // Estado del formulario de proyecto
   const [showNuevoProyectoModal, setShowNuevoProyectoModal] = useState(false);
@@ -232,6 +233,7 @@ function DashboardAdmin() {
     setMisionFechaInicio(today.toISOString().split('T')[0]);
     setMisionFechaFin("");
     setMisionHoras("");
+    setCrearListaTodo(false); // ✅ Limpiar checkbox
     setConnectionContext(null); // Limpiar contexto de conexión
   };
 
@@ -311,7 +313,29 @@ function DashboardAdmin() {
           }
         }
 
-        alert("✅ Misión creada exitosamente");
+        // ✅ Crear lista TODO si el checkbox está activo
+        if (crearListaTodo && newMisionCardId && pizarraRef.current?.addTodoCard) {
+          console.log('📋 Creando lista TODO asociada a la misión...');
+
+          const todoCardId = pizarraRef.current.addTodoCard();
+          console.log('📝 Card TODO creado con ID:', todoCardId);
+
+          // Crear conexión TODO -> Misión
+          if (todoCardId && pizarraRef.current?.addConnection) {
+            setTimeout(() => {
+              if (pizarraRef.current?.addConnection) {
+                pizarraRef.current.addConnection(
+                  todoCardId,
+                  newMisionCardId as string,
+                  true // skipValidation
+                );
+                console.log('🔗 Conexión TODO -> Misión creada');
+              }
+            }, 200);
+          }
+        }
+
+        alert("✅ Misión creada exitosamente" + (crearListaTodo ? " con lista TODO asociada" : ""));
         limpiarFormularioMision();
         setShowMisionesModal(false);
         setConnectionContext(null); // Limpiar contexto
@@ -665,6 +689,21 @@ function DashboardAdmin() {
                 min="0"
                 disabled={creandoMision}
               />
+            </div>
+
+            {/* ✅ Checkbox para crear lista TODO */}
+            <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
+              <input
+                type="checkbox"
+                id="crearListaTodo"
+                checked={crearListaTodo}
+                onChange={(e) => setCrearListaTodo(e.target.checked)}
+                className="w-4 h-4 text-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500"
+                disabled={creandoMision}
+              />
+              <label htmlFor="crearListaTodo" className="text-sm font-medium cursor-pointer" style={{ color: '#000000' }}>
+                📋 Crear lista TODO asociada a esta misión
+              </label>
             </div>
 
             <div className="flex gap-3 pt-4">

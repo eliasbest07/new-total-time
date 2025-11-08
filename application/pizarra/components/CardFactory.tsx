@@ -41,6 +41,9 @@ interface CardFactoryProps {
     color?: string;
     online?: boolean;
   }) => void;
+  addTodoCard?: (text?: string) => string; // ✅ Función para crear TODO cards
+  addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void; // ✅ Función para crear conexiones
+  addMisionCardOrganizacion?: (misionData: any) => string | void; // ✅ Función para crear cards de misión
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -151,6 +154,9 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           editingTitle={props.editingTitle}
           updateCardTitle={props.updateCardTitle}
           setEditingTitle={props.setEditingTitle}
+          addTodoCard={props.addTodoCard}
+          addConnection={props.addConnection}
+          addMisionCardOrganizacion={props.addMisionCardOrganizacion}
         />
       );
 

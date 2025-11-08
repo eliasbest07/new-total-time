@@ -13,17 +13,23 @@ interface ProyectoCardProps {
   editingTitle: string | null;
   updateCardTitle: (cardId: string, newTitle: string) => void;
   setEditingTitle: (id: string | null) => void;
+  addTodoCard?: (text?: string) => string;
+  addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void;
+  addMisionCardOrganizacion?: (misionData: any) => string | void;
 }
 
 export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   card,
   editingTitle,
   updateCardTitle,
-  setEditingTitle
+  setEditingTitle,
+  addTodoCard,
+  addConnection,
+  addMisionCardOrganizacion
 }) => {
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
-  const { createMision } = useMisiones(usuarioId);
+  const { createMision, deleteMision } = useMisiones(usuarioId);
 
   const [actividades, setActividades] = useState<Actividad[]>([]);
   const [misiones, setMisiones] = useState<Mision[]>([]);
@@ -43,6 +49,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   const [misionFechaInicio, setMisionFechaInicio] = useState('');
   const [misionFechaFin, setMisionFechaFin] = useState('');
   const [creandoMision, setCreandoMision] = useState(false);
+  const [crearListaTodo, setCrearListaTodo] = useState(false); // ✅ Estado para checkbox TODO
 
   // Form states para actividad
   const [actividadDescripcion, setActividadDescripcion] = useState('');
@@ -176,16 +183,53 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       });
 
       if (nuevaMision) {
+        // ✅ Crear lista TODO si el checkbox está activo y las funciones están disponibles
+        if (crearListaTodo && addTodoCard && addMisionCardOrganizacion && addConnection) {
+          console.log('📋 Creando lista TODO asociada a la misión...');
+
+          // Crear card de misión en la pizarra
+          const newMisionCardId = addMisionCardOrganizacion({
+            id_mision: nuevaMision.id,
+            title: nuevaMision.nombre || '',
+            description: nuevaMision.descripcion || '',
+            hours: nuevaMision.horas || 0,
+            id_usuario_asignado: nuevaMision.id_usuario,
+          });
+
+          if (newMisionCardId) {
+            // Crear card TODO
+            const todoCardId = addTodoCard();
+            console.log('📝 Card TODO creado con ID:', todoCardId);
+
+            // Crear conexión TODO -> Misión
+            if (todoCardId) {
+              setTimeout(() => {
+                if (addConnection) {
+                  addConnection(
+                    todoCardId,
+                    newMisionCardId as string,
+                    true // skipValidation
+                  );
+                  console.log('🔗 Conexión TODO -> Misión creada');
+                }
+              }, 200);
+            }
+          }
+        }
+
         // Limpiar formulario
         setMisionNombre('');
         setMisionDescripcion('');
         setMisionHoras('');
         setMisionFechaInicio('');
         setMisionFechaFin('');
+        setCrearListaTodo(false); // ✅ Limpiar checkbox
         setShowNuevaMisionModal(false);
 
         // Recargar datos
         await recargarDatos();
+
+        alert('✅ Misión creada exitosamente' + (crearListaTodo ? ' con lista TODO asociada' : ''));
       } else {
         alert('Error al crear la misión');
       }
@@ -194,6 +238,28 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       alert('Error al crear la misión');
     } finally {
       setCreandoMision(false);
+    }
+  };
+
+  // ✅ Función para eliminar misión
+  const handleDeleteMision = async (misionId: number, misionNombre: string) => {
+    const confirmacion = confirm(`¿Estás seguro de que deseas eliminar la misión "${misionNombre}"?`);
+
+    if (!confirmacion) return;
+
+    try {
+      const success = await deleteMision(misionId);
+
+      if (success) {
+        console.log('✅ Misión eliminada:', misionId);
+        setMisiones(prev => prev.filter(m => m.id !== misionId));
+        alert('✅ Misión eliminada exitosamente');
+      } else {
+        alert('❌ Error al eliminar la misión');
+      }
+    } catch (error) {
+      console.error('Error eliminando misión:', error);
+      alert('❌ Error al eliminar la misión');
     }
   };
 
@@ -436,9 +502,22 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                           }));
                           e.dataTransfer.effectAllowed = 'copy';
                         }}
-                        className="bg-white rounded p-2 border border-indigo-100 text-xs cursor-move hover:bg-indigo-50 transition-colors"
+                        className="bg-white rounded p-2 border border-indigo-100 text-xs cursor-move hover:bg-indigo-50 transition-colors relative group"
                       >
-                        <div className="font-medium text-indigo-900 truncate">
+                        {/* ✅ Botón de eliminar en la esquina superior derecha */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteMision(mision.id, mision.nombre || 'Sin nombre');
+                          }}
+                          className="absolute top-2 right-2 w-5 h-5 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs z-10"
+                          title="Eliminar misión"
+                          data-todo-interactive
+                        >
+                          ×
+                        </button>
+
+                        <div className="font-medium text-indigo-900 truncate pr-6">
                           {mision.nombre || 'Sin nombre'}
                         </div>
                         <div className="text-gray-600 text-xs flex gap-2 mt-0.5">
@@ -819,6 +898,24 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                   data-todo-interactive
                 />
               </div>
+
+              {/* ✅ Checkbox para crear lista TODO */}
+              {addTodoCard && addConnection && addMisionCardOrganizacion && (
+                <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <input
+                    type="checkbox"
+                    id="crearListaTodo"
+                    checked={crearListaTodo}
+                    onChange={(e) => setCrearListaTodo(e.target.checked)}
+                    className="w-4 h-4 text-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500"
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  />
+                  <label htmlFor="crearListaTodo" className="text-sm font-medium cursor-pointer text-gray-900">
+                    📋 Crear lista TODO asociada a esta misión
+                  </label>
+                </div>
+              )}
 
               <div className="flex gap-2 pt-3">
                 <button

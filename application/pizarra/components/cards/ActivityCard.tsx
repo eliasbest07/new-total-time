@@ -145,28 +145,47 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
             )}
           </button>
 
-          {/* Botón play/pause */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleActivityPlayPause(card.id, card.activityData?.isRunning || false);
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 transition-colors shadow-md"
-            data-todo-interactive
-            style={{
-              width: `${Math.max(32, (card.fontSize || 18) + 14)}px`,
-              height: `${Math.max(32, (card.fontSize || 18) + 14)}px`
-            }}
-          >
-            <div style={{ fontSize: `${Math.max(12, (card.fontSize || 18) - 6)}px` }}>
-              {card.activityData?.isRunning ? '⏸️' : '▶️'}
-            </div>
-          </button>
+          {/* Botón play/pause o botón "Comenzar" */}
+          {(card.activityData?.timeLeft || 0) < 0 ? (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleActivityPlayPause(card.id, card.activityData?.isRunning || false);
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 transition-colors shadow-md font-semibold"
+              data-todo-interactive
+              style={{ fontSize: `${Math.max(12, (card.fontSize || 18) - 4)}px` }}
+            >
+              Comenzar
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleActivityPlayPause(card.id, card.activityData?.isRunning || false);
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 transition-colors shadow-md"
+              data-todo-interactive
+              style={{
+                width: `${Math.max(32, (card.fontSize || 18) + 14)}px`,
+                height: `${Math.max(32, (card.fontSize || 18) + 14)}px`
+              }}
+            >
+              <div style={{ fontSize: `${Math.max(12, (card.fontSize || 18) - 6)}px` }}>
+                {card.activityData?.isRunning ? '⏸️' : '▶️'}
+              </div>
+            </button>
+          )}
         </div>
       </div>
     </div>

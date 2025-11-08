@@ -6,6 +6,8 @@ import { useUsuariosOrganizacionContext } from '@/app/contexts/UsuariosOrganizac
 import { Mision } from '@/domain/entities/Mision';
 import Ventana from '@/app/demo/components/Ventana';
 import { PizarraRef } from '@/application/pizarra/types';
+import { useMisiones } from '@/hooks/useMisiones';
+import { useUsuarioId } from '@/hooks/useUsuarioId';
 
 interface MisionesOrganizacionProps {
   pizarraRef?: React.RefObject<PizarraRef>;

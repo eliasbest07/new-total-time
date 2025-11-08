@@ -1163,7 +1163,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     setCards(prev => [...prev, newCard]);
   }, [cards, panOffset, canvasRef]);
 
-  const addTodoCard = useCallback((text: string) => {
+  const addTodoCard = useCallback((text?: string) => {
     const existingIds = cards.map(card => card.id);
 
     // Calcular el centro visible de la pizarra
@@ -1175,19 +1175,21 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     // Agregar un pequeño offset aleatorio para que no se superpongan
     const randomOffset = () => (Math.random() - 0.5) * 100;
 
+    const newCardId = generateUniqueId('todo', existingIds);
     const newCard = {
-      id: generateUniqueId('todo', existingIds),
+      id: newCardId,
       type: 'todo',
       title: 'Lista de Tareas',
-      content: `Iniciado con: ${text}`,
+      content: text ? `Iniciado con: ${text}` : '',
       x: centerX + randomOffset() - 125, // -125 para centrar la card (width/2)
       y: centerY + randomOffset() - 100, // -100 para centrar la card (height/2)
       width: 250,
       height: 200,
       fontSize: 18,
-      todos: [{ id: 1, text: text, completed: false }]
+      todos: text ? [{ id: 1, text: text, completed: false }] : []
     };
     setCards(prev => [...prev, newCard]);
+    return newCardId; // ✅ Retornar el ID del card creado
   }, [cards, panOffset, canvasRef]);
 
   const addUsuarioCard = useCallback((userData: {

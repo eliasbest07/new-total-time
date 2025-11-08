@@ -22,7 +22,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 }) => {
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
-  const { createMision } = useMisiones(usuarioId);
+  const { createMision, deleteMision } = useMisiones(usuarioId);
 
   // Estados principales
   const [actividades, setActividades] = useState<Actividad[]>([]);
@@ -182,6 +182,29 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       alert('Error al crear la misión');
     } finally {
       setCreandoMision(false);
+    }
+  };
+
+  // ✅ Función para eliminar misión
+  const handleDeleteMision = async (misionId: number, misionNombre: string) => {
+    const confirmacion = confirm(`¿Estás seguro de que deseas eliminar la misión "${misionNombre}"?`);
+
+    if (!confirmacion) return;
+
+    try {
+      const success = await deleteMision(misionId);
+
+      if (success) {
+        console.log('✅ Misión eliminada:', misionId);
+        // Actualizar la lista de misiones localmente
+        setMisiones(prev => prev.filter(m => m.id !== misionId));
+        alert('✅ Misión eliminada exitosamente');
+      } else {
+        alert('❌ Error al eliminar la misión');
+      }
+    } catch (error) {
+      console.error('Error eliminando misión:', error);
+      alert('❌ Error al eliminar la misión');
     }
   };
 
@@ -403,9 +426,22 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                           }));
                           e.dataTransfer.effectAllowed = 'copy';
                         }}
-                        className="bg-gray-600 rounded-lg p-3 cursor-move hover:bg-gray-550 transition-colors shadow-sm"
+                        className="bg-gray-600 rounded-lg p-3 cursor-move hover:bg-gray-550 transition-colors shadow-sm relative group"
                       >
-                        <div className="font-medium text-white truncate mb-1 text-sm">
+                        {/* ✅ Botón de eliminar en la esquina superior derecha */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteMision(mision.id, mision.nombre || 'Sin nombre');
+                          }}
+                          className="absolute top-2 right-2 w-5 h-5 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs z-10"
+                          title="Eliminar misión"
+                          data-todo-interactive
+                        >
+                          ×
+                        </button>
+
+                        <div className="font-medium text-white truncate mb-1 text-sm pr-6">
                           {mision.nombre || 'Sin nombre'}
                         </div>
                         {mision.descripcion && (

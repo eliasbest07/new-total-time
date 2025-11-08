@@ -49,20 +49,60 @@ interface Tarea {
   nombre: string;
   tiempo: string;
   estado: string;
+  todos?: { id: number; text: string; completed: boolean }[];
 }
 
-const TaskCard = ({ tarea }: { tarea: Tarea }) => (
-    <div className="bg-white/10 rounded-lg p-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+interface TaskCardProps {
+    tarea: Tarea;
+    onDelete: (id: number) => void;
+    onCreateTodo: (tareaId: number) => void;
+    onViewTodos: (tareaId: number) => void;
+}
+
+const TaskCard = ({ tarea, onDelete, onCreateTodo, onViewTodos }: TaskCardProps) => (
+    <div className="bg-white/10 rounded-lg p-3 flex flex-col gap-2 relative group">
+        {/* Botón de eliminar en la esquina */}
+        <button
+            onClick={() => onDelete(tarea.id)}
+            className="absolute top-2 right-2 w-6 h-6 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs"
+            title="Eliminar tarea"
+        >
+            ×
+        </button>
+
         <div className="min-w-0 flex-1">
-            <p className="text-white font-medium truncate">{tarea.nombre}</p>
+            <p className="text-white font-medium truncate pr-8">{tarea.nombre}</p>
             <p className="text-white/70 text-sm">{tarea.tiempo}</p>
         </div>
-        <span className={`px-2 py-1 rounded text-xs w-fit ${tarea.estado === 'completada'
-            ? 'bg-green-600 text-white'
-            : 'bg-yellow-600 text-white'
-            }`}>
-            {tarea.estado}
-        </span>
+
+        <div className="flex items-center justify-between gap-2">
+            <span className={`px-2 py-1 rounded text-xs w-fit ${tarea.estado === 'completada'
+                ? 'bg-green-600 text-white'
+                : 'bg-yellow-600 text-white'
+                }`}>
+                {tarea.estado}
+            </span>
+
+            {/* Botones de acciones */}
+            <div className="flex gap-1">
+                {tarea.todos && tarea.todos.length > 0 && (
+                    <button
+                        onClick={() => onViewTodos(tarea.id)}
+                        className="px-2 py-1 bg-blue-500/80 hover:bg-blue-600 text-white rounded text-xs transition-colors"
+                        title="Ver lista TODO"
+                    >
+                        📋 {tarea.todos.length}
+                    </button>
+                )}
+                <button
+                    onClick={() => onCreateTodo(tarea.id)}
+                    className="px-2 py-1 bg-purple-500/80 hover:bg-purple-600 text-white rounded text-xs transition-colors"
+                    title="Crear lista TODO"
+                >
+                    + TODO
+                </button>
+            </div>
+        </div>
     </div>
 );
 

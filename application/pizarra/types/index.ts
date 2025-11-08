@@ -115,7 +115,7 @@ export interface Connection {
 
 export interface PizarraRef {
   addNoteCard: (text: string) => void;
-  addTodoCard: (text: string) => void;
+  addTodoCard: (text?: string) => string; // ✅ Retorna el ID del card creado
   addMisionCardOrganizacion?: (misionData: {
     id_mision: number;
     title: string;
