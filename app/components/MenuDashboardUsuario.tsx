@@ -1,5 +1,8 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/app/contexts/AuthContext';
+
 interface MenuDashboardUsuarioProps {
     isOpen: boolean;
     onClose: () => void;
@@ -19,6 +22,16 @@ const MenuDashboardUsuario = ({
     userOrganization = "Sin organización",
     userAvatar = "/total-time_logo.png"
 }: MenuDashboardUsuarioProps) => {
+    const router = useRouter();
+    const { usuario } = useAuth();
+
+    const handlePizarraClick = () => {
+        if (usuario?.id) {
+            router.push(`/`);
+        }
+        onClose();
+    };
+
     return (
         <>
             {/* Overlay */}
@@ -66,9 +79,9 @@ const MenuDashboardUsuario = ({
 
                 {/* Contenido del menú */}
                 <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                    {/* Botón Dashboard */}
+                    {/* Botón Pizarra */}
                     <button
-                        onClick={onClose}
+                        onClick={handlePizarraClick}
                         className="w-full bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white py-3 sm:py-4 px-4 sm:px-6 rounded-xl transition-all duration-200 flex items-center gap-3 sm:gap-4 group hover:scale-[1.02] active:scale-[0.98]"
                     >
                         <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500/30 to-purple-500/30 rounded-xl flex items-center justify-center group-hover:from-blue-500/40 group-hover:to-purple-500/40 transition-all duration-200 flex-shrink-0">
@@ -77,8 +90,7 @@ const MenuDashboardUsuario = ({
                             </svg>
                         </div>
                         <div className="text-left min-w-0 flex-1">
-                            <p className="font-semibold text-sm sm:text-base">Dashboard</p>
-                            <p className="text-white/70 text-xs sm:text-sm">Vista principal</p>
+                            <p className="font-semibold text-sm sm:text-base">Pizarra</p>
                         </div>
                         <div className="ml-auto flex-shrink-0">
                             <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white/50 group-hover:text-white/80 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">

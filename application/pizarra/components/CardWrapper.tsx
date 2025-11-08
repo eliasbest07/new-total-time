@@ -53,6 +53,7 @@ interface CardWrapperProps {
     color?: string;
     online?: boolean;
   }) => void;
+  openImageWindow?: (imageUrl: string, title: string) => void;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -123,6 +124,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         usuarios={props.usuarios}
         currentUserId={props.currentUserId}
         onOpenUserChat={props.onOpenUserChat}
+        openImageWindow={props.openImageWindow}
       />
 
       {/* Connection point */}

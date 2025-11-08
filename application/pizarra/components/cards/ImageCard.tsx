@@ -7,6 +7,7 @@ interface ImageCardProps {
   updateCardTitle: (cardId: string, newTitle: string) => void;
   setEditingTitle: (id: string | null) => void;
   pastedImages: { [key: string]: string };
+  openImageWindow?: (imageUrl: string, title: string) => void;
 }
 
 export const ImageCard: React.FC<ImageCardProps> = ({
@@ -14,9 +15,22 @@ export const ImageCard: React.FC<ImageCardProps> = ({
   editingTitle,
   updateCardTitle,
   setEditingTitle,
-  pastedImages
+  pastedImages,
+  openImageWindow
 }) => {
+  const imageUrl = card.imageUrl || pastedImages[card.id];
+
+  const handleImageClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!imageUrl || !openImageWindow) return;
+
+    openImageWindow(imageUrl, card.title || 'Imagen');
+  };
+
   return (
+    <>
     <div className="flex flex-col h-full w-full p-2">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2 flex-shrink-0">
@@ -49,12 +63,28 @@ export const ImageCard: React.FC<ImageCardProps> = ({
       </div>
 
       {/* Imagen */}
-      <div className="flex-1 rounded-lg overflow-hidden border-2 border-pink-200 bg-pink-50 flex items-center justify-center">
-        {(card.imageUrl || pastedImages[card.id]) ? (
+      <div
+        className="flex-1 rounded-lg overflow-hidden border-2 border-pink-200 bg-pink-50 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+        onClick={handleImageClick}
+        onMouseDown={(e) => {
+          // Prevenir completamente que el card se mueva
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+        onMouseMove={(e) => {
+          e.stopPropagation();
+        }}
+        onMouseUp={(e) => {
+          e.stopPropagation();
+        }}
+        data-todo-interactive
+        data-image-area="true"
+      >
+        {imageUrl ? (
           <img
-            src={card.imageUrl || pastedImages[card.id]}
+            src={imageUrl}
             alt={card.title}
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain pointer-events-none"
           />
         ) : (
           <div className="text-pink-400 text-4xl">🖼️</div>
@@ -66,5 +96,6 @@ export const ImageCard: React.FC<ImageCardProps> = ({
         {card.content}
       </div>
     </div>
+    </>
   );
 };

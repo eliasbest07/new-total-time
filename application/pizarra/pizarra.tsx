@@ -20,6 +20,7 @@ import { useDropHandler } from './hooks/useDropHandler';
 import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
+import Ventana from '@/app/demo/components/Ventana';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate }, ref) => {
   const { usuario } = useAuth();
@@ -130,6 +131,73 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   } = useScreenshots();
 
   const { pastedImages, setPastedImages } = usePasteImage(setCards);
+
+  // Estado para ventanas de imágenes independientes
+  const [imageWindows, setImageWindows] = useState<Array<{
+    id: string;
+    title: string;
+    imageUrl: string;
+    width: number;
+    height: number;
+  }>>([]);
+
+  // Función para abrir una ventana de imagen
+  const openImageWindow = useCallback((imageUrl: string, title: string) => {
+    const img = new Image();
+    img.onload = () => {
+      const aspectRatio = img.naturalWidth / img.naturalHeight;
+      const maxWidth = window.innerWidth * 0.9;
+      const maxHeight = window.innerHeight * 0.9;
+
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
+
+      if (width > maxWidth) {
+        width = maxWidth;
+        height = width / aspectRatio;
+      }
+
+      if (height > maxHeight) {
+        height = maxHeight;
+        width = height * aspectRatio;
+      }
+
+      // Reducir 25% el tamaño
+      width = width * 0.75;
+      height = height * 0.75;
+
+      setImageWindows(prev => [...prev, {
+        id: `img-${Date.now()}`,
+        title,
+        imageUrl,
+        width,
+        height
+      }]);
+    };
+    img.src = imageUrl;
+  }, []);
+
+  // Función para cerrar una ventana de imagen
+  const closeImageWindow = useCallback((id: string) => {
+    setImageWindows(prev => prev.filter(w => w.id !== id));
+  }, []);
+
+  // Efecto para bajar z-index de salas cuando hay ventanas de imagen abiertas
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (imageWindows.length > 0) {
+      // Agregar clase al body para bajar z-index de salas
+      document.body.classList.add('image-window-open');
+    } else {
+      // Remover clase cuando no hay ventanas de imagen
+      document.body.classList.remove('image-window-open');
+    }
+
+    return () => {
+      document.body.classList.remove('image-window-open');
+    };
+  }, [imageWindows.length]);
 
   // Exponer captureNow globalmente para el API endpoint
   useEffect(() => {
@@ -2339,6 +2407,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             onOpenUserChat={handleOpenUserChat}
             usuarios={usuarios}
             currentUserId={currentUserId}
+            openImageWindow={openImageWindow}
           />
         ))}
 
@@ -2366,6 +2435,46 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         )}
 
       </div>
+
+      {/* Ventanas de imágenes independientes */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 99999, pointerEvents: 'none' }} data-image-window>
+        {imageWindows.map(window => (
+          <div key={window.id} style={{ pointerEvents: 'auto' }} data-image-window>
+            <Ventana
+              isOpen={true}
+              onClose={() => closeImageWindow(window.id)}
+              title={window.title}
+              initialWidth={window.width}
+              initialHeight={window.height}
+              minWidth={300}
+              minHeight={200}
+              resizable={true}
+              draggable={true}
+              showOverlay={false}
+            >
+              <div className="w-full h-full flex items-center justify-center bg-white">
+                <img
+                  src={window.imageUrl}
+                  alt={window.title}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+            </Ventana>
+          </div>
+        ))}
+      </div>
+
+      <style jsx global>{`
+        /* Bajar z-index de salas cuando hay ventanas de imagen abiertas */
+        body.image-window-open .fixed.bg-white.border.border-gray-200.rounded-xl {
+          z-index: 5 !important;
+        }
+
+        /* Las ventanas de imagen mantienen su z-index alto */
+        body.image-window-open [data-image-window] {
+          z-index: 99999 !important;
+        }
+      `}</style>
 
       <style jsx>{`
         .todo-scroll {

@@ -75,7 +75,7 @@ const TaskCard = ({ tarea }: { tarea: Tarea }) => (
     </div>
 );
 
-const ScreenshotCard = ({ capture }: { capture: Capture }) => {
+const ScreenshotCard = ({ capture, onImageClick }: { capture: Capture; onImageClick: (url: string) => void }) => {
     const formatDate = (date: Date) => {
         const now = new Date();
         const captureDate = new Date(date);
@@ -104,18 +104,16 @@ const ScreenshotCard = ({ capture }: { capture: Capture }) => {
                 )}
             </div>
             {capture.img_url && (
-                <a
-                    href={capture.img_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-16 h-12 bg-white/20 rounded border flex-shrink-0 overflow-hidden hover:opacity-80 transition-opacity"
+                <button
+                    onClick={() => onImageClick(capture.img_url!)}
+                    className="w-16 h-12 bg-white/20 rounded border flex-shrink-0 overflow-hidden hover:opacity-80 transition-opacity cursor-pointer"
                 >
                     <img
                         src={capture.img_url}
                         alt="Screenshot"
                         className="w-full h-full object-cover"
                     />
-                </a>
+                </button>
             )}
         </div>
     );
@@ -128,6 +126,7 @@ export default function DashboardUsuario() {
     const [captures, setCaptures] = useState<Capture[]>([]);
     const [loadingCaptures, setLoadingCaptures] = useState(true);
     const [currentPage, setCurrentPage] = useState(0);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     const CAPTURES_PER_PAGE = 3;
 
@@ -297,7 +296,11 @@ export default function DashboardUsuario() {
                                 </div>
                             ) : captures.length > 0 ? (
                                 currentCaptures.map(capture => (
-                                    <ScreenshotCard key={capture.id} capture={capture} />
+                                    <ScreenshotCard
+                                        key={capture.id}
+                                        capture={capture}
+                                        onImageClick={setSelectedImage}
+                                    />
                                 ))
                             ) : (
                                 <div className="text-white/70 text-center py-8">
