@@ -44,7 +44,7 @@ export const useConnections = ({ cards, onConnectionCreate }: UseConnectionsProp
         if (!connectionExists) {
           const newConnection = {
             id: `connection-${connectingFrom}-${cardId}-${Date.now()}`,
-            from: connectingFrom,
+            from: connectingFrom ?? undefined,
             to: cardId
           };
           setConnections(prev => [...prev, newConnection]);
@@ -83,7 +83,7 @@ export const useConnections = ({ cards, onConnectionCreate }: UseConnectionsProp
         if (!connectionExists) {
           const newConnection = {
             id: `connection-${connectingFrom}-${cardId}-${Date.now()}`,
-            from: connectingFrom,
+            from: connectingFrom ?? undefined,
             to: cardId
           };
           setConnections(prev => [...prev, newConnection]);

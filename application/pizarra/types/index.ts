@@ -72,6 +72,7 @@ export interface ProyectoData {
   nombre: string;
   description: string | null;
   imagen_url: string | null;
+  icono: string | null;
   type: string | null;
   utility: string | null;
   palette: string | null;
@@ -138,4 +139,26 @@ export interface PizarraRef {
 
 export interface PizarraProps {
   onShowScreenshots?: (cardId: string) => void;
+  storagePrefix?: string;
+  lightMode?: boolean;
+  fullMode?: boolean;
+  viewingUserId?: string;
+  onOpenUserChat?: (userData: {
+    userId: string;
+    name: string;
+    avatar?: string;
+    color?: string;
+    online?: boolean;
+  }) => void;
+  usuarios?: Array<{
+    id: string | number;
+    userAuth?: string;
+    profile: {
+      nombre: string;
+      apellido?: string;
+      avatar?: string;
+    };
+  }>;
+  currentUserId?: string;
+  onConnectionCreate?: (connection: Connection, fromCard: Card, toCard: Card) => void;
 }

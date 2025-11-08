@@ -5,6 +5,8 @@ import AvatarCube from './usuarios_face_cubo';
 
 const sides = ['front', 'right', 'back', 'left', 'top', 'bottom'];
 
+import { Proyecto } from '@/domain/entities/Proyecto';
+
 interface CubeProps {
   usuarios?: Array<{
     id: string | number;
@@ -15,17 +17,13 @@ interface CubeProps {
     color?: string;
     online?: boolean;
   }>;
-  proyectos?: Array<{
-    id: number;
-    nombre: string;
-    icono?: string | null;
-    type?: string | null;
-  }>;
+  proyectos?: Proyecto[];
 }
 
 const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
   const [currentClass, setCurrentClass] = useState('front');
   const [newsIndex, setNewsIndex] = useState(0);
+  const [iconIndex, setIconIndex] = useState(0);
   const [todos, setTodos] = useState([
     { id: 1, text: "Revisar documentos", completed: true },
     { id: 2, text: "Llamar al cliente", completed: false },
@@ -77,12 +75,29 @@ const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
     return () => clearInterval(newsInterval);
   }, []);
 
+  const iconList = [
+    { icon: "📊", title: "Analytics" },
+    { icon: "🎨", title: "Design" },
+    { icon: "⚡", title: "Performance" },
+    { icon: "🔒", title: "Security" },
+    { icon: "🚀", title: "Deploy" }
+  ];
+
+  // Icon carousel animation - Optimized with proper cleanup
+  useEffect(() => {
+    const iconInterval = setInterval(() => {
+      setIconIndex(prev => (prev + 1) % iconList.length);
+    }, 2500);
+
+    return () => clearInterval(iconInterval);
+  }, []); // Removed dependency since iconList is now static
+
   // Mouse event handlers for cube rotation (sequential faces only)
   const handleMouseDown = (e: React.MouseEvent) => {
     // Don't start if clicking on interactive elements
     const target = e.target as HTMLElement;
-
-    // Check for any interactive elements including avatar scroll container
+    
+    // Check for any interactive elements
     if (target.closest('button') ||
       target.closest('input') ||
       target.closest('.add-btn') ||
@@ -93,10 +108,6 @@ const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
       target.closest('.cancel-btn') ||
       target.closest('.add-todo-form') ||
       target.closest('.edit-form') ||
-      target.closest('.avatar-scroll-container') || // Permitir scroll en avatares
-      target.closest('.avatar-card') || // Permitir interacción con cards de avatar
-      target.closest('.proyectos-horizontal-container') || // Permitir scroll en proyectos
-      target.closest('.proyecto-item-horizontal') || // Permitir interacción con proyectos
       target.tagName === 'BUTTON' ||
       target.tagName === 'INPUT') {
       return;
@@ -263,19 +274,15 @@ const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
 
   // Mapear usuarios de props o usar valores por defecto si no hay usuarios
   const avatarUsers = usuarios.length > 0
-    ? usuarios.slice(0, 3).map((user, index) => {
-        const avatarUser = {
-          id: user.id,
-          name: user.nombre || user.username || 'Usuario',
-          avatar: user.avatar || (user.nombre?.[0] || user.username?.[0] || 'U').toUpperCase(),
-          avatarUrl: user.avatarUrl,
-          color: user.color || 'bg-blue-500',
-          online: user.online ?? false,
-          hasFrame: index === 0 // Solo el primero tiene marco dorado
-        };
-        console.log(`🎯 [Cube] Mapeando usuario: ${avatarUser.name} -> Online: ${avatarUser.online}`);
-        return avatarUser;
-      })
+    ? usuarios.slice(0, 3).map((user, index) => ({
+        id: user.id,
+        name: user.nombre || user.username || 'Usuario',
+        avatar: user.avatar || (user.nombre?.[0] || user.username?.[0] || 'U').toUpperCase(),
+        avatarUrl: user.avatarUrl,
+        color: user.color || 'bg-blue-500',
+        online: user.online ?? false,
+        hasFrame: index === 0 // Solo el primero tiene marco dorado
+      }))
     : [
         { id: 1, name: "Juan", avatar: 'J', avatarUrl: undefined, color: 'bg-blue-500', online: true, hasFrame: true },
         { id: 2, name: "Ana", avatar: 'A', avatarUrl: undefined, color: 'bg-purple-500', online: false, hasFrame: false },
@@ -330,8 +337,6 @@ const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
 
      <AvatarCube avatarUsers={avatarUsers} currentClass={currentClass} isRotating={isRotating}/>
 
-
-           
           </div>
 
           {/* Face 2: Continuous text ticker */}
@@ -518,54 +523,21 @@ const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
             </div>
           </div>
 
-          {/* Face 5: Proyectos lista horizontal */}
-          <div className="top proyectos-carousel">
-            {proyectos.length > 0 ? (
-              <div className="proyectos-horizontal-wrapper">
-                <div className="proyectos-horizontal-container">
-                  {proyectos.map((proyecto) => (
-                    <div key={proyecto.id} className="proyecto-item-horizontal">
-                      {/* Logo del proyecto */}
-                      <div className="proyecto-icon-wrapper-large">
-                        {proyecto.icono && proyecto.icono.startsWith('http') ? (
-                          <img
-                            src={proyecto.icono}
-                            alt={proyecto.nombre}
-                            className="proyecto-icon-img"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              const parent = e.currentTarget.parentElement;
-                              if (parent) {
-                                parent.innerHTML = '<div class="proyecto-icon-fallback">📁</div>';
-                              }
-                            }}
-                          />
-                        ) : proyecto.icono && !proyecto.icono.startsWith('http') ? (
-                          <span className="proyecto-icon-emoji-large">{proyecto.icono}</span>
-                        ) : (
-                          <span className="proyecto-icon-emoji-large">📁</span>
-                        )}
-                      </div>
-                      {/* Nombre del proyecto */}
-                      <span className="proyecto-nombre" title={proyecto.nombre}>
-                        {proyecto.nombre.length > 8
-                          ? proyecto.nombre.substring(0, 8) + '...'
-                          : proyecto.nombre}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="proyectos-empty">
-                <div className="proyecto-item-horizontal">
-                  <div className="proyecto-icon-wrapper-large">
-                    <span className="proyecto-icon-emoji-large">📂</span>
+          {/* Face 5: Horizontal icon carousel */}
+          <div className="top icon-carousel">
+            <div className="carousel-container">
+              <div
+                className="carousel-track"
+                style={{ transform: `translateX(-${iconIndex * 100}%)` }}
+              >
+                {iconList.map((item, index) => (
+                  <div key={index} className="carousel-item">
+                    <div className="carousel-icon">{item.icon}</div>
+                    <span className="carousel-title">{item.title}</span>
                   </div>
-                  <span className="proyecto-nombre">Sin proyectos</span>
-                </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Face 6: Image */}
@@ -719,10 +691,10 @@ const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
         /* Avatar Face Styles */
         .avatar-face {
           flex-direction: column;
-          padding: 0; /* Sin padding para ocupar todo el espacio */
+          padding: 5px 15px 30px 15px; /* Minimal top padding, more bottom */
           perspective: 1000px;
           transform-style: preserve-3d;
-          justify-content: flex-start; /* Empezar desde arriba */
+          justify-content: flex-end; /* Align content to bottom */
         }
         
         .avatar-stack {
@@ -1169,130 +1141,40 @@ const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
           gap: 2px;
         }
         
-        /* Proyectos Horizontal List Styles */
-        .proyectos-carousel {
-          padding: 5px;
+        /* Icon Carousel Styles */
+        .icon-carousel {
+          padding: 10px;
           overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
         }
-
-        .proyectos-horizontal-wrapper {
+        
+        .carousel-container {
           width: 100%;
           height: 100%;
           overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: flex-start;
         }
-
-        .proyectos-horizontal-container {
+        
+        .carousel-track {
           display: flex;
-          gap: 10px;
-          align-items: center;
-          justify-content: flex-start;
-          overflow-x: auto;
-          overflow-y: hidden;
-          width: 100%;
+          transition: transform 0.5s ease-in-out;
           height: 100%;
-          padding: 5px 8px;
-          scroll-behavior: smooth;
         }
-
-        /* Scrollbar horizontal personalizado */
-        .proyectos-horizontal-container::-webkit-scrollbar {
-          height: 3px;
-        }
-
-        .proyectos-horizontal-container::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 2px;
-        }
-
-        .proyectos-horizontal-container::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 2px;
-        }
-
-        .proyectos-horizontal-container::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.5);
-        }
-
-        .proyectos-empty {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .proyecto-item-horizontal {
+        
+        .carousel-item {
+          min-width: 100%;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 4px;
-          min-width: 55px;
-          flex-shrink: 0;
-          cursor: pointer;
-          transition: transform 0.3s ease;
+          gap: 10px;
         }
-
-        .proyecto-item-horizontal:hover {
-          transform: scale(1.08);
-        }
-
-        .proyecto-icon-wrapper-large {
-          width: 50px;
-          height: 50px;
-          background: rgba(255, 255, 255, 0.15);
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          border: 2px solid rgba(255, 255, 255, 0.25);
-          transition: all 0.3s ease;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .proyecto-item-horizontal:hover .proyecto-icon-wrapper-large {
-          transform: scale(1.1);
-          background: rgba(255, 255, 255, 0.25);
-          border-color: rgba(255, 255, 255, 0.4);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .proyecto-icon-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .proyecto-icon-emoji-large {
+        
+        .carousel-icon {
           font-size: 2em;
         }
-
-        .proyecto-icon-fallback {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 2em;
-        }
-
-        .proyecto-nombre {
-          font-size: 0.55em;
+        
+        .carousel-title {
+          font-size: 0.8em;
           text-align: center;
-          color: #222;
-          font-weight: 600;
-          max-width: 55px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          line-height: 1.2;
         }
         
         /* Image Face Styles */

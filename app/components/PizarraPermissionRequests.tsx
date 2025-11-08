@@ -12,6 +12,15 @@ interface UserInfo {
   avatar?: string;
 }
 
+interface UserDataFromDB {
+  id: string | number;
+  nombre?: string;
+  username?: string;
+  profile?: {
+    avatar?: string;
+  };
+}
+
 export default function PizarraPermissionRequests() {
   const { usuario } = useAuth();
   const [requests, setRequests] = useState<PizarraPermission[]>([]);
@@ -28,7 +37,7 @@ export default function PizarraPermissionRequests() {
 
       setLoading(true);
       try {
-        const pending = await repo.getPendingRequests(usuario.id);
+        const pending = await repo.getPendingRequests(parseInt(usuario.id));
         setRequests(pending);
 
         // Cargar información de los usuarios que solicitan
@@ -43,9 +52,9 @@ export default function PizarraPermissionRequests() {
 
           if (data && !error) {
             const usersMap = new Map<number, UserInfo>();
-            data.forEach((u: any) => {
-              usersMap.set(parseInt(u.id), {
-                id: parseInt(u.id),
+            data.forEach((u: UserDataFromDB) => {
+              usersMap.set(parseInt(String(u.id)), {
+                id: parseInt(String(u.id)),
                 nombre: u.nombre || u.username || 'Usuario',
                 avatar: u.profile?.avatar
               });
@@ -72,7 +81,7 @@ export default function PizarraPermissionRequests() {
     if (!usuario?.id) return;
 
     try {
-      await repo.updatePermission(usuario.id, request.id_usuario_editor, {
+      await repo.updatePermission(parseInt(usuario.id), request.id_usuario_editor, {
         granted: true
       });
 

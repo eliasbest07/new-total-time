@@ -117,6 +117,7 @@ export const useDropHandler = (
               nombre: resource.nombre || 'Proyecto',
               description: resource.descripcion || null,
               imagen_url: resource.icono || null,
+              icono: resource.icono || null,
               type: null,
               utility: null,
               palette: null,

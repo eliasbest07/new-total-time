@@ -411,7 +411,7 @@ export default function MainScreen() {
                   username: u.profile.username,
                   avatar: u.getNombreCompleto().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
                   avatarUrl: u.profile.avatar,
-                  color: (u as any).color || 'linear-gradient(135deg, #667eea, #764ba2)',
+                  color: 'linear-gradient(135deg, #667eea, #764ba2)',
                   online: online
                 };
               })}

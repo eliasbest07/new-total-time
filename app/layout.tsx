@@ -12,7 +12,7 @@ import TotalTimeNavbar from "./components/total-time-info";
 import SettingsModal from "./components/SettingsModal";
 import { ChatWindowManager } from "@/components/chat/ChatWindowManager";
 import { IncomingMessagesListener } from "@/components/chat/IncomingMessagesListener";
-import { MemoryMonitor } from "@/components/debug/MemoryMonitor";
+import { MemoryMonitorWrapper } from "./components/MemoryMonitorWrapper";
 import "@/utils/supabaseChannelMonitor"; // Monitor de canales
 
 const geistSans = Geist({
@@ -55,8 +55,8 @@ export default function RootLayout({
                 </main>
                 <ChatWindowManager />
                 <IncomingMessagesListener />
-                {/* Monitor de memoria - solo visible en desarrollo */}
-                {process.env.NODE_ENV === 'development' && <MemoryMonitor />}
+                {/* Monitor de memoria - configurable desde settings */}
+                <MemoryMonitorWrapper />
                   </ChatWindowProvider>
                 </SettingsProvider>
               </RecursosProvider>

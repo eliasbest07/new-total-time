@@ -57,6 +57,26 @@ export class SupabaseUsuarioRepository implements UsuarioRepository {
     }
   }
 
+  async getUsuarioByAuthId(authId: string): Promise<Usuario | null> {
+    try {
+      const { data, error } = await supabase
+        .from('usuario')
+        .select('*')
+        .eq('id_usuario', authId)
+        .single();
+
+      if (error) {
+        console.error('❌ Error obteniendo usuario por authId:', error);
+        return null;
+      }
+
+      return this.mapToUsuario(data);
+    } catch (error) {
+      console.error('❌ Error en getUsuarioByAuthId:', error);
+      return null;
+    }
+  }
+
   async updateUsuario(id: string, usuario: Partial<Usuario>): Promise<Usuario | null> {
     try {
       // console.log('✏️ Actualizando usuario:', id, usuario);

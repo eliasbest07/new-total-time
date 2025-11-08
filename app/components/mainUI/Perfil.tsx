@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -39,29 +39,35 @@ const Perfil = ({
     lightMode = false
 }: PerfilProps = {}) => {
     const [menuAbierto, setMenuAbierto] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const { usuario, clearUsuario } = useAuth();
     const router = useRouter();
     const authRepository = new SupabaseAuthRepository();
 
-    // Usar datos del contexto si no se pasan como props
-    const nombre = nombreProp || usuario?.getNombreCompleto() || 'Usuario';
-    const empresa = empresaProp || usuario?.profile.nombreOrganizacion || 'Sin empresa';
-    const tipoUsuario = tipoUsuarioProp || (usuario?.admin ? 'admin' : 'empleado');
-    const saludPorcentaje = saludPorcentajeProp || usuario?.barraSalud || 100;
-    const fotoUrl = fotoUrlProp || usuario?.profile.avatar || '/total-time_logo.png';
+    // Esperar a que el componente se monte en el cliente
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
-    // Color del marco desde el perfil del usuario (hex) o colores por defecto
-    const colorMarco = usuario?.profile.marco || '#10b981'; // verde por defecto
-    
+    // Usar datos del contexto si no se pasan como props
+    // Durante SSR/hydration, usar valores por defecto estables
+    const nombre = mounted ? (nombreProp || usuario?.getNombreCompleto() || 'Usuario') : 'Usuario';
+    const empresa = mounted ? (empresaProp || usuario?.profile.nombreOrganizacion || 'Sin empresa') : 'Sin empresa';
+    const tipoUsuario = mounted ? (tipoUsuarioProp || (usuario?.admin ? 'admin' : 'empleado')) : 'empleado';
+    const saludPorcentaje = mounted ? (saludPorcentajeProp || usuario?.barraSalud || 100) : 100;
+    const fotoUrl = mounted ? (fotoUrlProp || usuario?.profile.avatar || '/total-time_logo.png') : '/total-time_logo.png';
+
     // Colores de respaldo por tipo de usuario si no hay color personalizado
     const coloresMarcoRespaldo = {
         admin: '#ef4444',
-        manager: '#3b82f6', 
+        manager: '#3b82f6',
         empleado: '#10b981'
     };
 
     // Usar color personalizado o color por tipo de usuario
-    const colorMarcoFinal = usuario?.profile.marco || coloresMarcoRespaldo[tipoUsuario];
+    const colorMarcoFinal = mounted
+        ? (usuario?.profile.marco || coloresMarcoRespaldo[tipoUsuario])
+        : coloresMarcoRespaldo['empleado'];
 
     const handleLogout = async () => {
         try {
@@ -96,7 +102,7 @@ const Perfil = ({
                         <div className="relative w-12 h-12 rounded-full overflow-hidden">
                             <Image
                                 src={fotoUrl}
-                                alt={`Foto de perfil de ${nombre}`}
+                                alt={`Foto de perfil de Usuario`}
                                 fill
                                 className="object-cover"
                             />
@@ -120,7 +126,7 @@ const Perfil = ({
 
             {/* Menú desplegable */}
             {menuAbierto && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200" style={{ zIndex: 30 }}>
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200" style={{ zIndex: 60 }}>
                     <div className="p-4 border-b border-gray-200">
                         <p className="text-sm text-gray-600">Empresa:</p>
                         <p className="font-medium text-gray-900">{empresa}</p>

@@ -10,7 +10,7 @@ import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 
 interface MisionesOrganizacionProps {
-  pizarraRef?: React.RefObject<PizarraRef>;
+  pizarraRef?: React.RefObject<PizarraRef | null>;
 }
 
 export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacionProps) {

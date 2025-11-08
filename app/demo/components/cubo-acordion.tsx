@@ -4,7 +4,25 @@ import { ChevronLeft, File, Link, FileText, StickyNote, User, Wifi, Check, Circl
 
 const sides = ['front', 'right', 'back', 'left', 'top', 'bottom'];
 
-const Cube = () => {
+interface CubeProps {
+  usuarios?: Array<{
+    id: string | number;
+    nombre?: string;
+    username?: string;
+    avatar?: string;
+    avatarUrl?: string;
+    color?: string;
+    online?: boolean;
+  }>;
+  proyectos?: Array<{
+    id: number;
+    nombre: string;
+    icono?: string | null;
+    type?: string | null;
+  }>;
+}
+
+const Cube: React.FC<CubeProps> = ({ usuarios = [], proyectos = [] }) => {
   const [currentClass, setCurrentClass] = useState('front');
   const [newsIndex, setNewsIndex] = useState(0);
   const [iconIndex, setIconIndex] = useState(0);
@@ -85,6 +103,8 @@ const Cube = () => {
       target.closest('.cancel-btn') ||
       target.closest('.add-todo-form') ||
       target.closest('.edit-form') ||
+      target.closest('.proyectos-horizontal-container') || // Permitir scroll en proyectos
+      target.closest('.proyecto-item-horizontal') || // Permitir interacción con proyectos
       target.tagName === 'BUTTON' ||
       target.tagName === 'INPUT') {
       return;
@@ -500,21 +520,54 @@ const Cube = () => {
             </div>
           </div>
 
-          {/* Face 5: Horizontal icon carousel */}
-          <div className="top icon-carousel">
-            <div className="carousel-container">
-              <div
-                className="carousel-track"
-                style={{ transform: `translateX(-${iconIndex * 100}%)` }}
-              >
-                {iconList.map((item, index) => (
-                  <div key={index} className="carousel-item">
-                    <div className="carousel-icon">{item.icon}</div>
-                    <span className="carousel-title">{item.title}</span>
-                  </div>
-                ))}
+          {/* Face 5: Proyectos lista horizontal */}
+          <div className="top proyectos-carousel">
+            {proyectos.length > 0 ? (
+              <div className="proyectos-horizontal-wrapper">
+                <div className="proyectos-horizontal-container">
+                  {proyectos.map((proyecto) => (
+                    <div key={proyecto.id} className="proyecto-item-horizontal">
+                      {/* Logo del proyecto */}
+                      <div className="proyecto-icon-wrapper-large">
+                        {proyecto.icono && proyecto.icono.startsWith('http') ? (
+                          <img
+                            src={proyecto.icono}
+                            alt={proyecto.nombre}
+                            className="proyecto-icon-img"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const parent = e.currentTarget.parentElement;
+                              if (parent) {
+                                parent.innerHTML = '<div class="proyecto-icon-fallback">📁</div>';
+                              }
+                            }}
+                          />
+                        ) : proyecto.icono && !proyecto.icono.startsWith('http') ? (
+                          <span className="proyecto-icon-emoji-large">{proyecto.icono}</span>
+                        ) : (
+                          <span className="proyecto-icon-emoji-large">📁</span>
+                        )}
+                      </div>
+                      {/* Nombre del proyecto */}
+                      <span className="proyecto-nombre" title={proyecto.nombre}>
+                        {proyecto.nombre.length > 8
+                          ? proyecto.nombre.substring(0, 8) + '...'
+                          : proyecto.nombre}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="proyectos-empty">
+                <div className="proyecto-item-horizontal">
+                  <div className="proyecto-icon-wrapper-large">
+                    <span className="proyecto-icon-emoji-large">📂</span>
+                  </div>
+                  <span className="proyecto-nombre">Sin proyectos</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Face 6: Image */}
@@ -1045,41 +1098,128 @@ const Cube = () => {
           display: flex;
           gap: 2px;
         }
-        
-        /* Icon Carousel Styles */
-        .icon-carousel {
-          padding: 10px;
+
+        /* Proyectos Carousel Styles */
+        .proyectos-carousel {
+          padding: 5px;
           overflow: hidden;
         }
-        
-        .carousel-container {
+
+        .proyectos-horizontal-wrapper {
           width: 100%;
           height: 100%;
           overflow: hidden;
-        }
-        
-        .carousel-track {
           display: flex;
-          transition: transform 0.5s ease-in-out;
-          height: 100%;
+          align-items: center;
+          justify-content: flex-start;
         }
-        
-        .carousel-item {
-          min-width: 100%;
+
+        .proyectos-horizontal-container {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          justify-content: flex-start;
+          overflow-x: auto;
+          overflow-y: hidden;
+          width: 100%;
+          height: 100%;
+          padding: 5px 8px;
+          scroll-behavior: smooth;
+        }
+
+        /* Scrollbar horizontal personalizado */
+        .proyectos-horizontal-container::-webkit-scrollbar {
+          height: 3px;
+        }
+
+        .proyectos-horizontal-container::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 2px;
+        }
+
+        .proyectos-horizontal-container::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 2px;
+        }
+
+        .proyectos-horizontal-container::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.5);
+        }
+
+        .proyectos-empty {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .proyecto-item-horizontal {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 10px;
+          gap: 4px;
+          min-width: 55px;
+          flex-shrink: 0;
+          cursor: pointer;
+          transition: transform 0.3s ease;
         }
-        
-        .carousel-icon {
+
+        .proyecto-item-horizontal:hover {
+          transform: scale(1.08);
+        }
+
+        .proyecto-icon-wrapper-large {
+          width: 50px;
+          height: 50px;
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          border: 2px solid rgba(255, 255, 255, 0.25);
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .proyecto-item-horizontal:hover .proyecto-icon-wrapper-large {
+          transform: scale(1.1);
+          background: rgba(255, 255, 255, 0.25);
+          border-color: rgba(255, 255, 255, 0.4);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .proyecto-icon-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .proyecto-icon-emoji-large {
           font-size: 2em;
         }
-        
-        .carousel-title {
-          font-size: 0.8em;
+
+        .proyecto-icon-fallback {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2em;
+        }
+
+        .proyecto-nombre {
+          font-size: 0.55em;
           text-align: center;
+          color: #222;
+          font-weight: 600;
+          max-width: 55px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          line-height: 1.2;
         }
         
         /* Image Face Styles */

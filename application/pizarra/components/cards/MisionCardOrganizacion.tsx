@@ -84,6 +84,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
         });
         updateCard(card.id, {
           misionData: {
+            ...misionData,
             usuario_asignado_nombre: `${usuarioAsignado.profile.nombre} ${usuarioAsignado.profile.apellido}`,
             usuario_asignado_avatar: usuarioAsignado.profile.avatar || null
           }
@@ -113,6 +114,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
     // Cargar el estado inicial de la misión activa (si existe)
     const cargarEstadoInicial = async () => {
+      if (!card.misionData?.id_mision) return;
+
       const misionActivaInicial = await misionActivaRepository.getByTipoAndReferenciaOnly(
         'mision',
         card.misionData.id_mision
@@ -130,6 +133,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
         updateCard(card.id, {
           misionData: {
+            ...misionData,
             misionActivaId: misionActivaInicial.id,
             estado: misionActivaInicial.estado,
             isRunning: misionActivaInicial.is_running || false
@@ -161,6 +165,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
         // CardFactory hará merge profundo automáticamente
         updateCard(card.id, {
           misionData: {
+            ...misionData,
             misionActivaId: updatedMision.id,
             estado: updatedMision.estado,
             isRunning: updatedMision.is_running || false
@@ -178,7 +183,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
     // Cleanup: desuscribirse al desmontar
     return () => {
-      console.log('🔕 [MISION ORG] Desuscribiendo de misiones_activas (id_referencia:', card.misionData.id_mision, ')');
+      console.log('🔕 [MISION ORG] Desuscribiendo de misiones_activas (id_referencia:', card.misionData?.id_mision, ')');
       channel.unsubscribe();
     };
     // Solo re-suscribirse si cambia el id de la misión o el id del card

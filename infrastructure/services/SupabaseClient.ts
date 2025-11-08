@@ -69,13 +69,15 @@ export const initializeSupabaseSession = async () => {
       // console.log('📅 Sesión expira:', new Date(sessionData.session.expires_at * 1000));
 
       // Solo log de expiración, NO renovar automáticamente
-      const expiresAt = sessionData.session.expires_at * 1000;
-      const now = Date.now();
-      const timeUntilExpiry = expiresAt - now;
-      const oneHour = 60 * 60 * 1000;
+      if (sessionData.session.expires_at) {
+        const expiresAt = sessionData.session.expires_at * 1000;
+        const now = Date.now();
+        const timeUntilExpiry = expiresAt - now;
+        const oneHour = 60 * 60 * 1000;
 
-      if (timeUntilExpiry < oneHour) {
-        // console.log('⚠️ Sesión expira pronto. Supabase la renovará automáticamente cuando sea necesario.');
+        if (timeUntilExpiry < oneHour) {
+          // console.log('⚠️ Sesión expira pronto. Supabase la renovará automáticamente cuando sea necesario.');
+        }
       }
     } else {
       // console.log('ℹ️ No hay sesión activa para inicializar');

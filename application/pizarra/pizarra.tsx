@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, f
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useSettings } from '@/app/contexts/SettingsContext';
-import { Card, PizarraRef, TodoItem, ActivityData, MisionData, Connection } from './types';
+import { Card, PizarraRef, PizarraProps, TodoItem, ActivityData, MisionData, Connection } from './types';
 import { usePizarra } from '@/hooks/usePizarra';
 import { useCards } from '@/hooks/useCards';
 import { useCardMision } from '@/hooks/useCardMision';
@@ -10,32 +10,6 @@ import { mapCardDBToCard, mapCardToCardDB } from './utils/cardMapper';
 import { SupabaseCardMisionRepository } from '@/infrastructure/datasource/SupabaseCardMisionRepository';
 import { SupabaseMisionRepository } from '@/infrastructure/datasource/SupabaseMisionRepository';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
-
-interface PizarraProps {
-  onShowScreenshots?: (cardId: string) => void;
-  storagePrefix?: string;
-  lightMode?: boolean;
-  fullMode?: boolean;
-  viewingUserId?: string; // ID del usuario cuya pizarra se está viendo (para vista de solo lectura)
-  onOpenUserChat?: (userData: {
-    userId: string;
-    name: string;
-    avatar?: string;
-    color?: string;
-    online?: boolean;
-  }) => void;
-  usuarios?: Array<{
-    id: number;
-    userAuth?: string;
-    profile: {
-      nombre: string;
-      apellido: string;
-      avatar?: string;
-    };
-  }>;
-  currentUserId?: string;
-  onConnectionCreate?: (connection: Connection, fromCard: Card, toCard: Card) => void;
-}
 import { generateUniqueId, generatePosition } from './utils/idGenerator';
 import { useCardDrag } from './hooks/useCardDrag';
 import { useCanvasPan } from './hooks/useCanvasPan';
@@ -1934,7 +1908,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       for (const cardDB of cardsEnBD) {
         // IMPORTANTE: Generar un nuevo ID para evitar conflictos con cards existentes
         // Esto permite cargar pizarras históricas sin colisiones de IDs
-        const newCardId = generateUniqueId();
+        const existingIds = cards.map(c => c.id);
+        const newCardId = generateUniqueId(cardDB.type, existingIds);
 
         const card: Card = {
           id: newCardId, // Usar nuevo ID generado
@@ -1956,7 +1931,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
               const mision = await misionRepo.getMisionById(cardMision.id_mision);
               if (mision) {
                 card.misionData = {
-                  title: mision.nombre,
+                  title: mision.nombre || 'Sin título',
                   description: mision.descripcion || '',
                   hours: mision.horas || 0,
                   id_mision: mision.id,
