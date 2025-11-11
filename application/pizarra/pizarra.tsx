@@ -432,7 +432,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     setPanOffset,
     handleCanvasMouseDown: baseHandleCanvasMouseDown,
     handleGlobalMouseMove: panGlobalMouseMove,
-    handleMouseUp: panHandleMouseUp
+    handleMouseUp: panHandleMouseUp,
+    setCanvasRef
   } = useCanvasPan();
 
   // Sincronizar panOffset SOLO cuando se carga la pizarra de otro usuario
@@ -455,6 +456,13 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       }
     }
   }, [pizarra, isViewingOtherUser]); // No incluir panOffset ni setPanOffset para evitar loops
+
+  // Connect canvas ref to edge panning hook
+  useEffect(() => {
+    if (canvasRef.current) {
+      setCanvasRef(canvasRef.current);
+    }
+  }, [setCanvasRef]);
 
   // Función para auto-conectar una misión a su proyecto (llamada desde drop)
   const autoConnectMisionToProyecto = useCallback(async (misionCardId: string, misionId: number) => {
