@@ -465,7 +465,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                                 {proyecto.icono && proyecto.icono.startsWith('http') ? (
                                   <img
                                     src={proyecto.icono}
-                                    alt={proyecto.nombre}
+                                    alt={proyecto.nombre || 'Proyecto'}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none';
@@ -486,7 +486,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                               <div className="flex-1 min-w-0">
                                 <h4
                                   className="text-white font-medium text-sm truncate"
-                                  title={proyecto.nombre}
+                                  title={proyecto.nombre || 'Proyecto'}
                                 >
                                   {proyecto.nombre && proyecto.nombre.length > 14
                                     ? proyecto.nombre.substring(0, 14) + '...'
@@ -666,15 +666,15 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
             <div>
               <h3 className="text-lg font-semibold mb-2">Descripción</h3>
               <div className="bg-gray-100 p-3 rounded-lg">
-                <p className="text-gray-700">{selectedProyecto.description || 'Sin descripción'}</p>
+                <p className="text-gray-700">{selectedProyecto.descripcion || 'Sin descripción'}</p>
               </div>
             </div>
 
             {/* Estado */}
             <div>
               <h3 className="text-lg font-semibold mb-2">Estado</h3>
-              <span className={`inline-block px-3 py-2 rounded-lg font-medium ${getEstadoColor(getEstadoFromType(selectedProyecto.type))}`}>
-                {getEstadoFromType(selectedProyecto.type)}
+              <span className={`inline-block px-3 py-2 rounded-lg font-medium ${getEstadoColor(getEstadoFromType(null))}`}>
+                {getEstadoFromType(null)}
               </span>
             </div>
 

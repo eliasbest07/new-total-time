@@ -42,6 +42,7 @@ export interface MisionData {
   lastCaptureUrl?: string | null;
   id_usuario?: string; // ID del usuario que creó/ejecuta la misión
   id_mision?: number; // ID único de la misión en la base de datos
+  id_pizarra?: string; // UUID de la pizarra donde está la misión
   id_usuario_asignado?: number | null; // ID del usuario asignado
   usuario_asignado_nombre?: string | null; // Nombre del usuario asignado
   usuario_asignado_avatar?: string | null; // Avatar del usuario asignado
@@ -49,6 +50,7 @@ export interface MisionData {
   subtareas?: SubtareaMision[];
   entregas?: EntregaMision[];
   misionActivaId?: string; // ID de la misión activa en Supabase
+  card_todos?: string[] | null; // Array de UUIDs de cards tipo "todo" asociados a la misión
 }
 
 export interface ChatMessage {
@@ -112,7 +114,7 @@ export interface Connection {
 
 export interface PizarraRef {
   addNoteCard: (text: string) => void;
-  addTodoCard: (text: string) => void;
+  addTodoCard: (text: string) => string | void;
   addMisionCardOrganizacion?: (misionData: {
     id_mision: number;
     title: string;

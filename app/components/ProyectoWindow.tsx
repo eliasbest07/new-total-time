@@ -77,7 +77,7 @@ export default function ProyectoWindow({ proyecto }: ProyectoWindowProps) {
                   <div className="w-16 h-16 rounded-lg overflow-hidden bg-white shadow-md border-2 border-indigo-200">
                     <img
                       src={cleanIcono}
-                      alt={proyecto.nombre}
+                      alt={proyecto.nombre || 'Proyecto'}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         // Si falla la carga, mostrar emoji por defecto

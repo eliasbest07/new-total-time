@@ -118,7 +118,7 @@ export default function ListadoProyectos({
                   <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white/10 backdrop-blur-sm hover:scale-110 transition-transform shadow-lg">
                     <Image
                       src={proyecto.icono}
-                      alt={proyecto.nombre}
+                      alt={proyecto.nombre || 'Proyecto'}
                       fill
                       className="object-cover"
                     />

@@ -231,7 +231,13 @@ export default function Dashboard() {
                         <h3 className="text-white text-lg sm:text-xl font-medium mb-4">Mis Últimas Tareas</h3>
                         <div className="h-60 overflow-y-auto pr-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {ultimasTareas.map(tarea => (
-                                <TaskCard key={tarea.id} tarea={tarea} />
+                                <TaskCard
+                                    key={tarea.id}
+                                    tarea={tarea}
+                                    onDelete={() => {}}
+                                    onCreateTodo={() => {}}
+                                    onViewTodos={() => {}}
+                                />
                             ))}
                         </div>
                     </div>

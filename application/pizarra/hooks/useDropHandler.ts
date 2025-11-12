@@ -113,17 +113,13 @@ export const useDropHandler = (
             height: 500,
             fontSize: 14,
             proyectoData: {
-              id: resource.id, // Campo extra no en el tipo, se accede con (as any)
+              id: resource.id,
               nombre: resource.nombre || 'Proyecto',
-              description: resource.descripcion || null,
-              imagen_url: resource.icono || null,
+              descripcion: resource.descripcion || null,
               icono: resource.icono || null,
-              type: null,
-              utility: null,
-              palette: null,
-              colors: null,
-              producto: null,
-              publico: false
+              id_organizacion: resource.id_organizacion || null,
+              colors: resource.colors || null,
+              created_at: resource.created_at
             }
           }]);
 

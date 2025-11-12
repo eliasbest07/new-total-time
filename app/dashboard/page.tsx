@@ -187,7 +187,153 @@ function DashboardAdmin() {
       return;
     }
 
-    // 2. Detectar si es una conexión Misión ↔ proyecto-organizacion
+    // 2. Detectar si es una conexión TODO ↔ mision-organizacion
+    const isTodoToMision =
+      (fromCard.type === 'todo' && toCard.type === 'mision-organizacion') ||
+      (fromCard.type === 'mision-organizacion' && toCard.type === 'todo');
+
+    if (isTodoToMision) {
+      const todoCard = fromCard.type === 'todo' ? fromCard : toCard;
+      const misionCard = fromCard.type === 'mision-organizacion' ? fromCard : toCard;
+
+      console.log('✅ Conexión TODO ↔ Misión detectada:', { todoCard, misionCard });
+
+      const misionData = misionCard.misionData;
+      if (!misionData?.id_mision) {
+        console.warn('⚠️ Card de misión sin id_mision, no se puede vincular');
+        return;
+      }
+
+      try {
+        // Importar dependencias
+        const { SupabaseCardRepository } = await import('@/infrastructure/datasource/SupabaseCardRepository');
+        const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+        const cardRepo = new SupabaseCardRepository();
+        const cardTodoRepo = new SupabaseCardTodoRepository();
+
+        // Verificar si el TODO card ya tiene un UUID (ya está guardado)
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(todoCard.id);
+
+        let cardTodoUUID: string;
+
+        if (isUUID) {
+          // El card TODO ya está guardado en BD
+          console.log('✅ Card TODO ya tiene UUID:', todoCard.id);
+          cardTodoUUID = todoCard.id;
+        } else {
+          // El card TODO tiene ID temporal, necesitamos guardarlo en BD
+          console.log('📝 Guardando card TODO en BD...');
+
+          // Obtener el ID de la pizarra desde el usuario
+          const { data: pizarraData } = await supabase
+            .from('pizarras')
+            .select('id')
+            .eq('id_usuario', usuario?.userAuth)
+            .single();
+
+          if (!pizarraData) {
+            console.error('❌ No se encontró la pizarra del usuario');
+            alert('Error: No se encontró la pizarra. Por favor, intenta guardar la pizarra primero (Ctrl+S).');
+            return;
+          }
+
+          // Crear el card en la tabla cards
+          const nuevoCard = await cardRepo.createCard({
+            id_pizarra: pizarraData.id,
+            card_id: todoCard.id, // Mantener el ID temporal como card_id
+            type: 'todo',
+            title: 'Lista de tareas',
+            content: null,
+            x: 0, // Las coordenadas las actualizará cuando se guarde la pizarra completa
+            y: 0,
+            width: 300,
+            height: 400,
+            font_size: 14,
+            z_index: 1
+          });
+
+          if (!nuevoCard) {
+            console.error('❌ No se pudo guardar el card TODO');
+            alert('Error al guardar el card TODO en la base de datos');
+            return;
+          }
+
+          cardTodoUUID = nuevoCard.id;
+          console.log('✅ Card TODO guardado con UUID:', cardTodoUUID);
+
+          // Guardar las tareas del TODO en la tabla card_todos
+          const tareasDelTodo = todoCard.todos || [];
+          if (tareasDelTodo.length > 0) {
+            console.log('📋 Guardando', tareasDelTodo.length, 'tareas en BD...');
+
+            for (let i = 0; i < tareasDelTodo.length; i++) {
+              const tarea = tareasDelTodo[i];
+              await cardTodoRepo.create({
+                id_card: cardTodoUUID,
+                todo_id: tarea.id,
+                text: tarea.text,
+                completed: tarea.completed,
+                position: i
+              });
+            }
+
+            console.log('✅ Tareas guardadas exitosamente');
+          }
+        }
+
+        // Actualizar la misión con el UUID del card TODO
+        console.log('🔄 Actualizando misión con card_todos...');
+        const { data: misionActual } = await supabase
+          .from('misiones')
+          .select('card_todos')
+          .eq('id', misionData.id_mision)
+          .single();
+
+        const cardTodosActuales = misionActual?.card_todos || [];
+
+        // Verificar si el UUID ya está en el array
+        if (!cardTodosActuales.includes(cardTodoUUID)) {
+          const nuevosCardTodos = [...cardTodosActuales, cardTodoUUID];
+
+          const { error: updateError } = await supabase
+            .from('misiones')
+            .update({ card_todos: nuevosCardTodos })
+            .eq('id', misionData.id_mision);
+
+          if (updateError) {
+            console.error('❌ Error actualizando misión:', updateError);
+            alert('Error al vincular el TODO con la misión');
+            return;
+          }
+
+          console.log('✅ Misión actualizada con card_todos:', nuevosCardTodos);
+
+          // Actualizar el card de misión local con el nuevo card_todos
+          if (pizarraRef.current) {
+            // Buscar el card de misión en la pizarra y actualizarlo
+            // Nota: Esto se hace para actualizar la UI inmediatamente sin esperar al realtime
+            console.log('🔄 Actualizando card de misión local...');
+
+            // La actualización del card se hará a través del componente MisionCardOrganizacion
+            // que usa useMisionCardTodos y se actualizará automáticamente via realtime
+          }
+
+          alert('✅ Lista de tareas vinculada exitosamente a la misión');
+        } else {
+          console.log('ℹ️ El card TODO ya está vinculado a esta misión');
+        }
+
+      } catch (error) {
+        console.error('❌ Error al vincular TODO con misión:', error);
+        alert('Error al vincular el TODO con la misión');
+      }
+
+      return;
+    }
+
+    // 3. Detectar si es una conexión Misión ↔ proyecto-organizacion
     const isMisionToProyecto =
       (fromCard.type === 'mision-organizacion' && toCard.type === 'proyecto-organizacion') ||
       (fromCard.type === 'proyecto-organizacion' && toCard.type === 'mision-organizacion');
@@ -378,7 +524,7 @@ function DashboardAdmin() {
         else if (tareasTodo.length > 0 && newMisionCardId && pizarraRef.current?.addTodoCard) {
           console.log('📋 Creando lista TODO asociada a la misión con', tareasTodo.length, 'tareas...');
 
-          const todoCardId = pizarraRef.current.addTodoCard();
+          const todoCardId = pizarraRef.current.addTodoCard('Lista de tareas');
           console.log('📝 Card TODO creado con ID:', todoCardId);
 
           // Actualizar la misión con el ID del card TODO

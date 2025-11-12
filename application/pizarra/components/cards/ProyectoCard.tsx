@@ -179,7 +179,9 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         fecha_end: misionFechaFin || null,
         id_usuario: usuarioId,
         id_proyecto: card.proyectoData?.id || null,
-        id_creador: usuario?.userAuth || null
+        id_creador: usuario?.userAuth || null,
+        card_todos: null,
+        estado: null
       });
 
       if (nuevaMision) {

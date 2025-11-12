@@ -5,6 +5,7 @@ import { useMisionActiva } from '@/hooks/useMisionActiva';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useCardTodos } from '@/hooks/useCardTodos';
 import { misionActivaRepository } from '@/infrastructure/datasource/SupabaseMisionActivaRepository';
+import { supabase } from '@/infrastructure/services/SupabaseClient';
 
 interface MisionCardOrganizacionProps {
   card: Card;
@@ -113,8 +114,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       // Convertir tareas de BD a formato de subtareas
       const subtareasDesdeDB: SubtareaMision[] = tareasBD.map(tarea => ({
         id: tarea.id,
-        text: tarea.texto,
-        completed: tarea.completada
+        text: tarea.text,
+        completed: tarea.completed
       }));
 
       // Actualizar solo si son diferentes
@@ -132,6 +133,94 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       }
     }
   }, [tareasBD, misionData.card_todos]);
+
+  // Cargar card_todos inicial desde Supabase
+  useEffect(() => {
+    const cargarCardTodosInicial = async () => {
+      if (!card.misionData?.id_mision) {
+        return;
+      }
+
+      console.log('📋 [MISION ORG] Cargando card_todos inicial para misión:', card.misionData.id_mision);
+
+      try {
+        const { data: mision, error } = await supabase
+          .from('misiones')
+          .select('card_todos')
+          .eq('id', card.misionData.id_mision)
+          .single();
+
+        if (error) {
+          console.error('❌ Error cargando card_todos:', error);
+          return;
+        }
+
+        if (mision?.card_todos && Array.isArray(mision.card_todos)) {
+          console.log('✅ Card_todos cargados desde BD:', mision.card_todos);
+
+          // Solo actualizar si es diferente al actual
+          const cardTodosActuales = misionData.card_todos || [];
+          const sonDiferentes = JSON.stringify(cardTodosActuales.sort()) !== JSON.stringify(mision.card_todos.sort());
+
+          if (sonDiferentes) {
+            updateCard(card.id, {
+              misionData: {
+                ...misionData,
+                card_todos: mision.card_todos
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error en cargarCardTodosInicial:', error);
+      }
+    };
+
+    cargarCardTodosInicial();
+  }, [card.misionData?.id_mision]); // Solo ejecutar al montar o cuando cambie el id_mision
+
+  // Suscribirse a cambios en la tabla misiones para detectar actualizaciones en card_todos
+  useEffect(() => {
+    if (!card.misionData?.id_mision) {
+      return;
+    }
+
+    console.log('📡 [MISION ORG] Suscribiendo a cambios en tabla misiones para id:', card.misionData.id_mision);
+
+    const channel = supabase
+      .channel(`mision-${card.misionData.id_mision}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'misiones',
+          filter: `id=eq.${card.misionData.id_mision}`
+        },
+        (payload) => {
+          console.log('📡 [MISION ORG] Misión actualizada:', payload);
+
+          const nuevaMision = payload.new as any;
+
+          // Actualizar card_todos si cambió
+          if (nuevaMision.card_todos) {
+            console.log('🔄 Actualizando card_todos en el card:', nuevaMision.card_todos);
+            updateCard(card.id, {
+              misionData: {
+                ...misionData,
+                card_todos: nuevaMision.card_todos
+              }
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔕 [MISION ORG] Desuscribiendo de cambios en misiones');
+      supabase.removeChannel(channel);
+    };
+  }, [card.misionData?.id_mision, card.id]);
 
   // Cargar estado inicial y suscribirse a cambios en tiempo real de misiones_activas
   useEffect(() => {
@@ -339,11 +428,13 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     if (!newSubtareaText.trim()) return;
 
     // Si hay card_todos, crear en la BD
-    if (misionData.card_todos) {
+    if (misionData.card_todos && misionData.card_todos.length > 0) {
+      const cardTodoId = misionData.card_todos[0]; // Obtener el primer UUID del array
       const nuevaTarea = await createTodo({
-        id_card: misionData.card_todos,
-        texto: newSubtareaText.trim(),
-        completada: false,
+        id_card: cardTodoId,
+        todo_id: (tareasBD?.length || 0) + 1,
+        text: newSubtareaText.trim(),
+        completed: false,
         position: (tareasBD?.length || 0) + 1
       });
 
@@ -372,10 +463,10 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   // Toggle subtarea completada
   const handleToggleSubtarea = async (subtareaId: string) => {
     // Si hay card_todos, actualizar en la BD
-    if (misionData.card_todos) {
+    if (misionData.card_todos && misionData.card_todos.length > 0) {
       const tareaActual = tareasBD?.find(t => t.id === subtareaId);
       if (tareaActual) {
-        await toggleCompleted(subtareaId, !tareaActual.completada);
+        await toggleCompleted(subtareaId, !tareaActual.completed);
       }
     } else {
       // Si no hay card_todos, usar el método local
