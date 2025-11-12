@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useMisionesOrganizacion } from '@/hooks/useMisionesOrganizacion';
 import { useUsuariosOrganizacionContext } from '@/app/contexts/UsuariosOrganizacionContext';
-import { Mision } from '@/domain/entities/Mision';
+import { MisionWithTodos } from '@/domain/entities/Mision';
 import Ventana from '@/app/demo/components/Ventana';
 import { PizarraRef } from '@/application/pizarra/types';
 import { useMisiones } from '@/hooks/useMisiones';
@@ -16,7 +16,7 @@ interface MisionesOrganizacionProps {
 export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacionProps) {
   const { usuarios, loading: loadingUsuarios } = useUsuariosOrganizacionContext();
   const { misiones, loading: loadingMisiones, error } = useMisionesOrganizacion(usuarios);
-  const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
+  const [selectedMision, setSelectedMision] = useState<MisionWithTodos | null>(null);
   const [showMisionModal, setShowMisionModal] = useState(false);
 
   const loading = loadingUsuarios || loadingMisiones;
@@ -33,7 +33,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
     return usuarios.find(u => parseInt(u.id) === idUsuario);
   };
 
-  const handleMisionClick = (mision: Mision) => {
+  const handleMisionClick = (mision: MisionWithTodos) => {
     // Intentar encontrar y centrar el card en la pizarra
     if (pizarraRef?.current?.findCardByMisionId && pizarraRef?.current?.centerOnCard) {
       const cardId = pizarraRef.current.findCardByMisionId(mision.id);
@@ -49,7 +49,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
     setShowMisionModal(true);
   };
 
-  const handleDragStart = (e: React.DragEvent, mision: Mision) => {
+  const handleDragStart = (e: React.DragEvent, mision: MisionWithTodos) => {
     e.dataTransfer.setData('application/json', JSON.stringify({
       type: 'mision-organizacion',
       id_mision: mision.id,
@@ -275,6 +275,47 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                     <p className="font-medium text-gray-900 text-xl">
                       {selectedMision.horas} horas
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Tareas (Card Todos) */}
+              {selectedMision.cardTodosData && selectedMision.cardTodosData.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2 text-gray-900">Tareas</h3>
+                  <div className="space-y-3">
+                    {selectedMision.cardTodosData.map((cardData, cardIndex) => (
+                      <div key={cardData.card.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        {/* Título del card si existe */}
+                        {cardData.card.title && (
+                          <h4 className="font-medium text-gray-800 mb-2 flex items-center gap-2">
+                            <span className="text-blue-600">📋</span>
+                            {cardData.card.title}
+                          </h4>
+                        )}
+
+                        {/* Lista de todos */}
+                        {cardData.todos.length > 0 ? (
+                          <ul className="space-y-1.5">
+                            {cardData.todos.map((todo) => (
+                              <li key={todo.id} className="flex items-start gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={todo.completed}
+                                  readOnly
+                                  className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 cursor-default"
+                                />
+                                <span className={`text-sm ${todo.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+                                  {todo.text}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-gray-500 italic">No hay tareas en este card</p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

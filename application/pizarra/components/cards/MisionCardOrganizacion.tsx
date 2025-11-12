@@ -750,34 +750,48 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
         {showSubtareas && (
           <>
-            <div className="flex-1 overflow-y-auto mb-2 space-y-1">
-              {misionData.subtareas && misionData.subtareas.length > 0 ? (
-                misionData.subtareas.map((subtarea) => (
-                  <div
-                    key={subtarea.id}
-                    className="flex items-center gap-2 bg-gray-50 rounded px-2 py-1 group"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={subtarea.completed}
-                      onChange={() => handleToggleSubtarea(subtarea.id)}
-                      className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      data-todo-interactive
-                    />
-                    <span
-                      className={`text-xs flex-1 ${
-                        subtarea.completed ? 'line-through text-gray-400' : 'text-gray-700'
-                      }`}
-                    >
-                      {subtarea.text}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteSubtarea(subtarea.id)}
-                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
-                      data-todo-interactive
-                    >
-                      <X size={12} />
-                    </button>
+            <div className="flex-1 overflow-y-auto mb-2 space-y-2">
+              {loadingCardTodos ? (
+                <div className="text-xs text-gray-400 italic">Cargando tareas...</div>
+              ) : cardTodos.length > 0 ? (
+                cardTodos.map((cardData) => (
+                  <div key={cardData.card.id} className="space-y-1">
+                    {/* Título del card si tiene más de un todo */}
+                    {cardData.todos.length > 1 && cardData.card.title && (
+                      <div className="text-xs font-medium text-gray-600 mt-2">
+                        📋 {cardData.card.title}
+                      </div>
+                    )}
+
+                    {/* Lista de todos del card */}
+                    {cardData.todos.map((todo) => (
+                      <div
+                        key={todo.id}
+                        className="flex items-center gap-2 bg-gray-50 rounded px-2 py-1 group"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={todo.completed}
+                          onChange={() => handleToggleTodo(todo.id, todo.completed)}
+                          className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          data-todo-interactive
+                        />
+                        <span
+                          className={`text-xs flex-1 ${
+                            todo.completed ? 'line-through text-gray-400' : 'text-gray-700'
+                          }`}
+                        >
+                          {todo.text}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteTodo(todo.id)}
+                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
+                          data-todo-interactive
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 ))
               ) : (
@@ -785,7 +799,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
               )}
             </div>
 
-            {/* Input para agregar subtarea */}
+            {/* Input para agregar tarea */}
             <div className="flex gap-1">
               <input
                 type="text"
@@ -799,11 +813,14 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
                 placeholder="Nueva tarea..."
                 className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 data-todo-interactive
+                disabled={!misionData.id_pizarra || !misionData.id_mision}
               />
               <button
                 onClick={handleAddSubtarea}
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded p-1"
+                className="bg-blue-500 hover:bg-blue-600 text-white rounded p-1 disabled:bg-gray-300 disabled:cursor-not-allowed"
                 data-todo-interactive
+                disabled={!misionData.id_pizarra || !misionData.id_mision}
+                title={!misionData.id_pizarra || !misionData.id_mision ? 'Se necesita una pizarra y misión activa' : 'Agregar tarea'}
               >
                 <Plus size={14} />
               </button>

@@ -1,10 +1,12 @@
 import { supabase } from "@/infrastructure/services/SupabaseClient";
 import { MisionRepository } from "@/infrastructure/repositories/MisionRepository";
-import { Mision } from "@/domain/entities/Mision";
+import { Mision, MisionWithTodos } from "@/domain/entities/Mision";
+import { CardDB } from "@/domain/entities/Card";
+import { CardTodo } from "@/domain/entities/CardTodo";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface RealtimeCallbacks {
-  onMisionesUpdated: (misiones: Mision[]) => void;
+  onMisionesUpdated: (misiones: MisionWithTodos[]) => void;
   onError: (error: string) => void;
 }
 
@@ -17,7 +19,7 @@ export class SupabaseMisionRepository implements MisionRepository {
   private maxReconnectDelay = 60000; // 60 segundos máximo
   private silentMode = true; // Modo silencioso para reducir logs
 
-  async getAllMisiones(): Promise<Mision[]> {
+  async getAllMisiones(): Promise<MisionWithTodos[]> {
     try {
       // console.log('🎯 Obteniendo todas las misiones');
 
@@ -33,14 +35,17 @@ export class SupabaseMisionRepository implements MisionRepository {
 
       const misiones = data || [];
       // console.log('✅ Todas las misiones encontradas:', misiones.length);
-      return misiones;
+
+      // Cargar los card_todos
+      const misionesWithTodos = await this.loadCardTodosForMisiones(misiones);
+      return misionesWithTodos;
     } catch (error) {
       console.error('❌ Error en getAllMisiones:', error);
       return [];
     }
   }
 
-  async getMisionesByUsuario(idUsuario: number): Promise<Mision[]> {
+  async getMisionesByUsuario(idUsuario: number): Promise<MisionWithTodos[]> {
     try {
       // console.log('🎯 Obteniendo misiones para usuario:', idUsuario);
       // console.log('🎯 Tipo de idUsuario:', typeof idUsuario);
@@ -62,14 +67,91 @@ export class SupabaseMisionRepository implements MisionRepository {
       const misiones = data || [];
       // console.log('✅ Misiones encontradas:', misiones.length);
       // console.log('✅ Misiones data:', misiones);
-      return misiones;
+
+      // Cargar los card_todos
+      const misionesWithTodos = await this.loadCardTodosForMisiones(misiones);
+      return misionesWithTodos;
     } catch (error) {
       console.error('❌ Error en getMisionesByUsuario:', error);
       return [];
     }
   }
 
-  async getMisionesByUsuarios(idsUsuarios: number[]): Promise<Mision[]> {
+  /**
+   * Método auxiliar para cargar los card_todos de las misiones
+   */
+  private async loadCardTodosForMisiones(misiones: Mision[]): Promise<MisionWithTodos[]> {
+    try {
+      // Extraer todos los UUIDs únicos de card_todos
+      const allCardIds = new Set<string>();
+      misiones.forEach(mision => {
+        if (mision.card_todos && Array.isArray(mision.card_todos)) {
+          mision.card_todos.forEach(id => allCardIds.add(id));
+        }
+      });
+
+      if (allCardIds.size === 0) {
+        // No hay card_todos, retornar misiones tal cual
+        return misiones.map(m => ({ ...m, cardTodosData: [] }));
+      }
+
+      const cardIdsArray = Array.from(allCardIds);
+
+      // Obtener todos los cards con sus todos en una sola consulta
+      const { data: cardsData, error: cardsError } = await supabase
+        .from('cards')
+        .select(`
+          *,
+          card_todos (*)
+        `)
+        .in('id', cardIdsArray);
+
+      if (cardsError) {
+        console.error('❌ Error obteniendo cards:', cardsError);
+        return misiones.map(m => ({ ...m, cardTodosData: [] }));
+      }
+
+      // Crear un mapa de card id -> {card, todos}
+      const cardsMap = new Map<string, { card: CardDB; todos: CardTodo[] }>();
+      (cardsData || []).forEach((card: any) => {
+        cardsMap.set(card.id, {
+          card: card as CardDB,
+          todos: (card.card_todos || []) as CardTodo[]
+        });
+      });
+
+      // Mapear las misiones con sus card_todos
+      const misionesWithTodos: MisionWithTodos[] = misiones.map(mision => {
+        const cardTodosData: Array<{card: CardDB; todos: CardTodo[]}> = [];
+
+        if (mision.card_todos && Array.isArray(mision.card_todos)) {
+          mision.card_todos.forEach(cardId => {
+            const cardData = cardsMap.get(cardId);
+            if (cardData) {
+              // Ordenar los todos por position
+              const sortedTodos = [...cardData.todos].sort((a, b) => a.position - b.position);
+              cardTodosData.push({
+                card: cardData.card,
+                todos: sortedTodos
+              });
+            }
+          });
+        }
+
+        return {
+          ...mision,
+          cardTodosData
+        };
+      });
+
+      return misionesWithTodos;
+    } catch (error) {
+      console.error('❌ Error en loadCardTodosForMisiones:', error);
+      return misiones.map(m => ({ ...m, cardTodosData: [] }));
+    }
+  }
+
+  async getMisionesByUsuarios(idsUsuarios: number[]): Promise<MisionWithTodos[]> {
     try {
       if (idsUsuarios.length === 0) {
         return [];
@@ -90,7 +172,10 @@ export class SupabaseMisionRepository implements MisionRepository {
 
       const misiones = data || [];
       // console.log('✅ Misiones de usuarios encontradas:', misiones.length);
-      return misiones;
+
+      // Cargar los card_todos
+      const misionesWithTodos = await this.loadCardTodosForMisiones(misiones);
+      return misionesWithTodos;
     } catch (error) {
       console.error('❌ Error en getMisionesByUsuarios:', error);
       return [];

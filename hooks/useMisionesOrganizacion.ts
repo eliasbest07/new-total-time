@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseMisionRepository } from '@/infrastructure/datasource/SupabaseMisionRepository';
-import { Mision } from '@/domain/entities/Mision';
+import { MisionWithTodos } from '@/domain/entities/Mision';
 import { Usuario } from '@/domain/entities/Usuario';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface UseMisionesOrganizacionReturn {
-  misiones: Mision[];
+  misiones: MisionWithTodos[];
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
@@ -17,7 +17,7 @@ interface UseMisionesOrganizacionReturn {
  * @returns Objeto con las misiones, estado de carga, error y función para refrescar
  */
 export const useMisionesOrganizacion = (usuarios: Usuario[]): UseMisionesOrganizacionReturn => {
-  const [misiones, setMisiones] = useState<Mision[]>([]);
+  const [misiones, setMisiones] = useState<MisionWithTodos[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,7 +65,7 @@ export const useMisionesOrganizacion = (usuarios: Usuario[]): UseMisionesOrganiz
 
     // Callbacks para el realtime
     const realtimeCallbacks = {
-      onMisionesUpdated: (nuevasMisiones: Mision[]) => {
+      onMisionesUpdated: (nuevasMisiones: MisionWithTodos[]) => {
         console.log('📡 [useMisionesOrganizacion] Misiones actualizadas via realtime:', nuevasMisiones.length);
         setMisiones(nuevasMisiones);
       },
