@@ -149,7 +149,8 @@ export const useCanvasPan = () => {
   // Animation loop for smooth edge panning with progressive acceleration
   useEffect(() => {
     const animate = () => {
-      if (edgePanningRef.current && edgePanningStartTimeRef.current !== null) {
+      const edgePanning = edgePanningRef.current;
+      if (edgePanning && edgePanningStartTimeRef.current !== null) {
         // Calculate elapsed time in milliseconds
         const elapsedTime = Date.now() - edgePanningStartTimeRef.current;
 
@@ -159,8 +160,8 @@ export const useCanvasPan = () => {
         const currentSpeed = Math.min(maxSpeed, (elapsedTime / accelerationDuration) * maxSpeed);
 
         setPanOffset((prev) => ({
-          x: prev.x + (edgePanningRef.current!.x * currentSpeed),
-          y: prev.y + (edgePanningRef.current!.y * currentSpeed),
+          x: prev.x + (edgePanning.x * currentSpeed),
+          y: prev.y + (edgePanning.y * currentSpeed),
         }));
       }
       animationFrameRef.current = requestAnimationFrame(animate);

@@ -261,12 +261,7 @@ export default function DashboardUsuario() {
                                 >
                                     Ver Miembros
                                 </button>
-                                <button
-                                    onClick={handleSalirOrganizacion}
-                                    className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 px-4 rounded-lg transition-colors text-sm sm:text-base"
-                                >
-                                    Salir de Organización
-                                </button>
+                             
                             </div>
                         </div>
                     </div>
