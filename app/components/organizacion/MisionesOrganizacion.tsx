@@ -59,7 +59,8 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
       fecha_start: mision.fecha_start,
       fecha_end: mision.fecha_end,
       id_usuario: mision.id_usuario,
-      id_creador: mision.id_creador
+      id_creador: mision.id_creador,
+      card_todos: mision.card_todos // 📋 Incluir las referencias a los TODOs
     }));
     e.dataTransfer.effectAllowed = 'copy';
   };

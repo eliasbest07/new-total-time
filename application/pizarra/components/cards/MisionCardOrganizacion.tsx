@@ -3,6 +3,7 @@ import { Card, SubtareaMision } from '../../types';
 import { User, Plus, X, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
 import { useMisiones } from '@/hooks/useMisiones';
+import { useCardTodos } from '@/hooks/useCardTodos';
 import { misionActivaRepository } from '@/infrastructure/datasource/SupabaseMisionActivaRepository';
 
 interface MisionCardOrganizacionProps {
@@ -51,8 +52,15 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     description: '',
     estado: 'pendiente',
     subtareas: [],
-    entregas: []
+    entregas: [],
+    card_todos: []
   };
+
+  // Hook para cargar tareas desde card_todos (tomar el primer elemento del array si existe)
+  const cardTodoId = Array.isArray(misionData.card_todos) && misionData.card_todos.length > 0
+    ? misionData.card_todos[0]
+    : null;
+  const { todos: tareasBD, createTodo, toggleCompleted, deleteTodo: deleteTodoFromBD } = useCardTodos(cardTodoId);
 
   // Log del estado actual (solo en desarrollo)
   useEffect(() => {
@@ -98,6 +106,32 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       }
     }
   }, [misionData.id_usuario_asignado, misionData.usuario_asignado_nombre, usuarios, card.id, updateCard]);
+
+  // Sincronizar tareas de la BD con subtareas locales
+  useEffect(() => {
+    if (tareasBD && tareasBD.length > 0 && misionData.card_todos) {
+      // Convertir tareas de BD a formato de subtareas
+      const subtareasDesdeDB: SubtareaMision[] = tareasBD.map(tarea => ({
+        id: tarea.id,
+        text: tarea.texto,
+        completed: tarea.completada
+      }));
+
+      // Actualizar solo si son diferentes
+      const subtareasActuales = misionData.subtareas || [];
+      const sonDiferentes = JSON.stringify(subtareasActuales) !== JSON.stringify(subtareasDesdeDB);
+
+      if (sonDiferentes) {
+        console.log('📋 Sincronizando tareas desde BD:', subtareasDesdeDB.length);
+        updateCard(card.id, {
+          misionData: {
+            ...misionData,
+            subtareas: subtareasDesdeDB
+          }
+        });
+      }
+    }
+  }, [tareasBD, misionData.card_todos]);
 
   // Cargar estado inicial y suscribirse a cambios en tiempo real de misiones_activas
   useEffect(() => {
@@ -301,51 +335,81 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   // No se necesita función handleToggleEstado porque no hay botón de play/pause
 
   // Agregar subtarea
-  const handleAddSubtarea = () => {
+  const handleAddSubtarea = async () => {
     if (!newSubtareaText.trim()) return;
 
-    const nuevaSubtarea: SubtareaMision = {
-      id: `subtarea-${Date.now()}`,
-      text: newSubtareaText.trim(),
-      completed: false
-    };
+    // Si hay card_todos, crear en la BD
+    if (misionData.card_todos) {
+      const nuevaTarea = await createTodo({
+        id_card: misionData.card_todos,
+        texto: newSubtareaText.trim(),
+        completada: false,
+        position: (tareasBD?.length || 0) + 1
+      });
 
-    const subtareasActuales = misionData.subtareas || [];
-    updateCard(card.id, {
-      misionData: {
-        ...misionData,
-        subtareas: [...subtareasActuales, nuevaSubtarea]
+      if (nuevaTarea) {
+        console.log('✅ Tarea creada en BD:', nuevaTarea);
       }
-    });
+    } else {
+      // Si no hay card_todos, usar el método local
+      const nuevaSubtarea: SubtareaMision = {
+        id: `subtarea-${Date.now()}`,
+        text: newSubtareaText.trim(),
+        completed: false
+      };
+
+      const subtareasActuales = misionData.subtareas || [];
+      updateCard(card.id, {
+        misionData: {
+          ...misionData,
+          subtareas: [...subtareasActuales, nuevaSubtarea]
+        }
+      });
+    }
     setNewSubtareaText('');
   };
 
   // Toggle subtarea completada
-  const handleToggleSubtarea = (subtareaId: string) => {
-    const subtareasActuales = misionData.subtareas || [];
-    const subtareasActualizadas = subtareasActuales.map(st =>
-      st.id === subtareaId ? { ...st, completed: !st.completed } : st
-    );
-
-    updateCard(card.id, {
-      misionData: {
-        ...misionData,
-        subtareas: subtareasActualizadas
+  const handleToggleSubtarea = async (subtareaId: string) => {
+    // Si hay card_todos, actualizar en la BD
+    if (misionData.card_todos) {
+      const tareaActual = tareasBD?.find(t => t.id === subtareaId);
+      if (tareaActual) {
+        await toggleCompleted(subtareaId, !tareaActual.completada);
       }
-    });
+    } else {
+      // Si no hay card_todos, usar el método local
+      const subtareasActuales = misionData.subtareas || [];
+      const subtareasActualizadas = subtareasActuales.map(st =>
+        st.id === subtareaId ? { ...st, completed: !st.completed } : st
+      );
+
+      updateCard(card.id, {
+        misionData: {
+          ...misionData,
+          subtareas: subtareasActualizadas
+        }
+      });
+    }
   };
 
   // Eliminar subtarea
-  const handleDeleteSubtarea = (subtareaId: string) => {
-    const subtareasActuales = misionData.subtareas || [];
-    const subtareasActualizadas = subtareasActuales.filter(st => st.id !== subtareaId);
+  const handleDeleteSubtarea = async (subtareaId: string) => {
+    // Si hay card_todos, eliminar de la BD
+    if (misionData.card_todos) {
+      await deleteTodoFromBD(subtareaId);
+    } else {
+      // Si no hay card_todos, usar el método local
+      const subtareasActuales = misionData.subtareas || [];
+      const subtareasActualizadas = subtareasActuales.filter(st => st.id !== subtareaId);
 
-    updateCard(card.id, {
-      misionData: {
-        ...misionData,
-        subtareas: subtareasActualizadas
-      }
-    });
+      updateCard(card.id, {
+        misionData: {
+          ...misionData,
+          subtareas: subtareasActualizadas
+        }
+      });
+    }
   };
 
   // Colores según estado

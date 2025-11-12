@@ -45,6 +45,9 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   const [misionHoras, setMisionHoras] = useState('');
   const [misionFechaInicio, setMisionFechaInicio] = useState('');
   const [misionFechaFin, setMisionFechaFin] = useState('');
+  const [misionEstado, setMisionEstado] = useState('pendiente');
+  const [tareasTodo, setTareasTodo] = useState<{id: string; texto: string; completada: boolean}[]>([]);
+  const [nuevaTareaTexto, setNuevaTareaTexto] = useState('');
   const [creandoMision, setCreandoMision] = useState(false);
 
   // Extraer ID del proyecto (puede venir de diferentes campos según la implementación)
@@ -163,17 +166,30 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         fecha_end: misionFechaFin || null,
         id_usuario: usuarioId,
         id_proyecto: proyectoId || null,
-        id_creador: usuario?.userAuth || null
+        id_creador: usuario?.userAuth || null,
+        card_todos: [],
+        estado: misionEstado
       });
 
       if (nuevaMision) {
+        // Resetear formulario
         setMisionNombre('');
         setMisionDescripcion('');
         setMisionHoras('');
         setMisionFechaInicio('');
         setMisionFechaFin('');
+        setMisionEstado('pendiente');
+        setTareasTodo([]);
+        setNuevaTareaTexto('');
         setShowNuevaMisionModal(false);
         await recargarDatos();
+
+        // TODO: Aquí se debería crear la card TODO con las tareas si hay tareas en tareasTodo
+        // Esto requeriría acceso a la pizarra ref o una función callback
+        if (tareasTodo.length > 0) {
+          console.log('📋 Tareas TODO a crear:', tareasTodo);
+          alert(`✅ Misión creada con ${tareasTodo.length} tarea(s) TODO`);
+        }
       } else {
         alert('Error al crear la misión');
       }
@@ -182,6 +198,29 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       alert('Error al crear la misión');
     } finally {
       setCreandoMision(false);
+    }
+  };
+
+  // Funciones para manejar tareas TODO
+  const agregarTarea = () => {
+    if (nuevaTareaTexto.trim()) {
+      setTareasTodo([...tareasTodo, {
+        id: `tarea-${Date.now()}`,
+        texto: nuevaTareaTexto.trim(),
+        completada: false
+      }]);
+      setNuevaTareaTexto('');
+    }
+  };
+
+  const eliminarTarea = (tareaId: string) => {
+    setTareasTodo(tareasTodo.filter(t => t.id !== tareaId));
+  };
+
+  const handleKeyPressTarea = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      agregarTarea();
     }
   };
 
@@ -589,18 +628,94 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-900">Horas Estimadas</label>
-                <input
-                  type="number"
-                  value={misionHoras}
-                  onChange={(e) => setMisionHoras(e.target.value)}
-                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="0"
-                  min="0"
-                  disabled={creandoMision}
-                  data-todo-interactive
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-900">Horas Estimadas</label>
+                  <input
+                    type="number"
+                    value={misionHoras}
+                    onChange={(e) => setMisionHoras(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0"
+                    min="0"
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-900">Estado</label>
+                  <select
+                    value={misionEstado}
+                    onChange={(e) => setMisionEstado(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  >
+                    <option value="pendiente">Pendiente</option>
+                    <option value="en_progreso">En Progreso</option>
+                    <option value="completada">Completada</option>
+                    <option value="cancelada">Cancelada</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Sección de Tareas TODO */}
+              <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50" data-todo-interactive>
+                <h4 className="text-sm font-bold text-gray-900 mb-3">📋 Tareas de la Misión</h4>
+
+                {/* Input para agregar tarea */}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={nuevaTareaTexto}
+                    onChange={(e) => setNuevaTareaTexto(e.target.value)}
+                    onKeyPress={handleKeyPressTarea}
+                    className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Escribe una tarea y presiona Enter..."
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      agregarTarea();
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors disabled:opacity-50"
+                    disabled={creandoMision || !nuevaTareaTexto.trim()}
+                    data-todo-interactive
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+
+                {/* Lista de tareas */}
+                {tareasTodo.length > 0 ? (
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {tareasTodo.map((tarea) => (
+                      <div
+                        key={tarea.id}
+                        className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 group"
+                      >
+                        <span className="flex-1 text-sm text-gray-900">{tarea.texto}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            eliminarTarea(tarea.id);
+                          }}
+                          className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                          data-todo-interactive
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 text-center py-2">
+                    No hay tareas agregadas. Agrega tareas para crear una lista TODO.
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">

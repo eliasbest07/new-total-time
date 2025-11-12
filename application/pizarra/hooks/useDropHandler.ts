@@ -185,7 +185,8 @@ export const useDropHandler = (
               entregas: [],
               id_usuario_asignado: resource.id_usuario || null,
               idCreador: resource.id_creador,
-              isRunning: false
+              isRunning: false,
+              card_todos: resource.card_todos || [] // 📋 Pasar card_todos
             }
           }]);
           console.log('✅ [PIZARRA DROP] Card de misión organización creada');
@@ -195,6 +196,42 @@ export const useDropHandler = (
           if (resource.id_mision && autoConnectMisionToProyecto && isOrganizacion) {
             console.log('🔗 [AUTO-CONEXIÓN] Iniciando auto-conexión de MisionCardOrganizacion a su proyecto...');
             autoConnectMisionToProyecto(newMisionCardId, resource.id_mision);
+          }
+
+          // 📋 Si la misión tiene card_todos, crear los TODO cards (ocultos fuera de vista)
+          // Esto es necesario para que las tareas puedan guardarse en la BD con la foreign key correcta
+          if (resource.card_todos && Array.isArray(resource.card_todos) && resource.card_todos.length > 0) {
+            console.log('📋 [PIZARRA DROP] Misión tiene', resource.card_todos.length, 'TODOs asociados. Creando cards TODO ocultos...');
+
+            // Crear cards TODO para cada referencia (posicionados muy lejos, fuera de vista)
+            resource.card_todos.forEach((todoCardId: string, index: number) => {
+              // Posicionar muy lejos para que no estorben visualmente
+              const todoX = x + 10000; // 10000px a la derecha (fuera de vista)
+              const todoY = y + (index * 220);
+
+              setCards(prev => {
+                // Verificar que no exista ya un TODO card con ese ID
+                const exists = prev.some(card => card.id === todoCardId);
+                if (exists) {
+                  console.log('ℹ️ [PIZARRA DROP] TODO card ya existe:', todoCardId);
+                  return prev;
+                }
+
+                console.log('📋 [PIZARRA DROP] Creando TODO card oculto:', todoCardId);
+                return [...prev, {
+                  id: todoCardId, // Usar el UUID de la BD directamente
+                  type: 'todo',
+                  title: 'Lista de Tareas (oculto)',
+                  content: '',
+                  x: todoX,
+                  y: todoY,
+                  width: 250,
+                  height: 200,
+                  fontSize: 18,
+                  todos: [] // Las tareas se cargarán desde la BD automáticamente
+                }];
+              });
+            });
           }
 
           return;

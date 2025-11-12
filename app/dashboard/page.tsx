@@ -42,7 +42,7 @@ function DashboardAdmin() {
   const pizarraRef = useRef<PizarraRef>(null);
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
-  const { createMision } = useMisiones(usuarioId);
+  const { createMision, updateMision } = useMisiones(usuarioId);
   const { createProyecto } = useProyectos();
   const { usuarios } = useUsuariosOrganizacionContext();
   const { organizacion } = useOrganizacion(usuario?.userAuth || null);
@@ -77,8 +77,10 @@ function DashboardAdmin() {
   });
   const [misionFechaFin, setMisionFechaFin] = useState("");
   const [misionHoras, setMisionHoras] = useState("");
+  const [misionEstado, setMisionEstado] = useState("pendiente");
+  const [tareasTodo, setTareasTodo] = useState<{id: string; texto: string; completada: boolean}[]>([]);
+  const [nuevaTareaTexto, setNuevaTareaTexto] = useState("");
   const [creandoMision, setCreandoMision] = useState(false);
-  const [crearListaTodo, setCrearListaTodo] = useState(false); // ✅ Nuevo estado
 
   // Estado del formulario de proyecto
   const [showNuevoProyectoModal, setShowNuevoProyectoModal] = useState(false);
@@ -133,8 +135,8 @@ function DashboardAdmin() {
   // Handler para cuando se crea una conexión entre cards
   const handleConnectionCreate = useCallback(async (
     connection: { id: string; from?: string; to: string },
-    fromCard: { id: string; type: string; misionData?: { id_mision?: number }; proyectoData?: { id?: number; nombre?: string } },
-    toCard: { id: string; type: string; misionData?: { id_mision?: number }; proyectoData?: { id?: number; nombre?: string } }
+    fromCard: { id: string; type: string; misionData?: { id_mision?: number }; proyectoData?: { id?: number; nombre?: string }; todos?: {id: number; text: string; completed: boolean}[] },
+    toCard: { id: string; type: string; misionData?: { id_mision?: number }; proyectoData?: { id?: number; nombre?: string }; todos?: {id: number; text: string; completed: boolean}[] }
   ) => {
     console.log('🔗 Conexión creada:', { connection, fromCard, toCard });
 
@@ -154,6 +156,20 @@ function DashboardAdmin() {
       const proyectoData = proyectoCard.proyectoData;
       if (proyectoData && proyectoData.id) {
         console.log('📦 Datos del proyecto:', proyectoData);
+
+        // Extraer tareas del TODO card
+        const tareasDelTodo = todoCard.todos || [];
+        console.log('📋 Tareas del TODO card:', tareasDelTodo);
+
+        // Convertir las tareas del formato del TODO card al formato del modal
+        const tareasConvertidas = tareasDelTodo.map(todo => ({
+          id: `tarea-${Date.now()}-${todo.id}`,
+          texto: todo.text,
+          completada: todo.completed
+        }));
+
+        // Prellenar las tareas en el estado
+        setTareasTodo(tareasConvertidas);
 
         // Guardar contexto de la conexión
         setConnectionContext({
@@ -224,6 +240,29 @@ function DashboardAdmin() {
     }
   }, []);
 
+  // Funciones para manejar tareas TODO
+  const agregarTarea = () => {
+    if (nuevaTareaTexto.trim()) {
+      setTareasTodo([...tareasTodo, {
+        id: `tarea-${Date.now()}`,
+        texto: nuevaTareaTexto.trim(),
+        completada: false
+      }]);
+      setNuevaTareaTexto('');
+    }
+  };
+
+  const eliminarTarea = (tareaId: string) => {
+    setTareasTodo(tareasTodo.filter(t => t.id !== tareaId));
+  };
+
+  const handleKeyPressTarea = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      agregarTarea();
+    }
+  };
+
   // Limpiar formulario de misión
   const limpiarFormularioMision = () => {
     setMisionNombre("");
@@ -233,7 +272,9 @@ function DashboardAdmin() {
     setMisionFechaInicio(today.toISOString().split('T')[0]);
     setMisionFechaFin("");
     setMisionHoras("");
-    setCrearListaTodo(false); // ✅ Limpiar checkbox
+    setMisionEstado("pendiente");
+    setTareasTodo([]);
+    setNuevaTareaTexto("");
     setConnectionContext(null); // Limpiar contexto de conexión
   };
 
@@ -261,7 +302,9 @@ function DashboardAdmin() {
         fecha_end: misionFechaFin || null,
         id_usuario: usuarioId,
         id_proyecto: connectionContext?.proyectoId || null, // Usar proyecto del contexto si existe
-        id_creador: usuario?.userAuth || null
+        id_creador: usuario?.userAuth || null,
+        card_todos: [], // Array vacío, se actualizará después si se crea una lista TODO
+        estado: misionEstado
       });
 
       if (nuevaMision) {
@@ -280,7 +323,7 @@ function DashboardAdmin() {
           console.log('📝 Card de misión creado con ID:', newMisionCardId);
         }
 
-        // Si hay contexto de conexión, manejar las conexiones
+        // Si hay contexto de conexión, manejar las conexiones con el TODO existente
         if (connectionContext && newMisionCardId) {
           console.log('🔄 Procesando conexiones...', {
             todoCardId: connectionContext.todoCardId,
@@ -297,7 +340,26 @@ function DashboardAdmin() {
             );
           }
 
-          // 2. Crear la nueva conexión TODO -> Misión
+          // 2. Verificar si el TODO card tiene un UUID válido o es un ID temporal
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(connectionContext.todoCardId);
+
+          if (isUUID && nuevaMision?.id) {
+            // El TODO ya está guardado en BD, podemos actualizar la misión directamente
+            console.log('✅ TODO card ya tiene UUID, actualizando misión...');
+            try {
+              await updateMision(nuevaMision.id, {
+                card_todos: [connectionContext.todoCardId]
+              });
+              console.log('✅ Misión actualizada con card_todos:', connectionContext.todoCardId);
+            } catch (error) {
+              console.error('❌ Error actualizando misión con card_todos:', error);
+            }
+          } else if (!isUUID) {
+            // El TODO tiene ID temporal, no podemos guardarlo en card_todos hasta que se guarde la pizarra
+            console.log('ℹ️ TODO card tiene ID temporal. La conexión visual se mantendrá, pero el TODO debe guardarse manualmente (Ctrl+S) para persistir en la base de datos.');
+          }
+
+          // 3. Crear la nueva conexión TODO -> Misión
           if (pizarraRef.current?.addConnection) {
             console.log('🔗 Creando conexión TODO -> Misión...');
             // Dar un pequeño delay para asegurar que el estado se actualice
@@ -312,13 +374,20 @@ function DashboardAdmin() {
             }, 150);
           }
         }
-
-        // ✅ Crear lista TODO si el checkbox está activo
-        if (crearListaTodo && newMisionCardId && pizarraRef.current?.addTodoCard) {
-          console.log('📋 Creando lista TODO asociada a la misión...');
+        // ✅ Crear lista TODO si hay tareas Y NO hay contexto de conexión (es decir, no viene de un TODO existente)
+        else if (tareasTodo.length > 0 && newMisionCardId && pizarraRef.current?.addTodoCard) {
+          console.log('📋 Creando lista TODO asociada a la misión con', tareasTodo.length, 'tareas...');
 
           const todoCardId = pizarraRef.current.addTodoCard();
           console.log('📝 Card TODO creado con ID:', todoCardId);
+
+          // Actualizar la misión con el ID del card TODO
+          if (todoCardId && nuevaMision?.id) {
+            await updateMision(nuevaMision.id, {
+              card_todos: [todoCardId]
+            });
+            console.log('✅ Misión actualizada con card_todos:', todoCardId);
+          }
 
           // Crear conexión TODO -> Misión
           if (todoCardId && pizarraRef.current?.addConnection) {
@@ -333,9 +402,16 @@ function DashboardAdmin() {
               }
             }, 200);
           }
+
+          // TODO: Agregar las tareas al TODO card
+          // Esto requeriría una función en la pizarra para agregar tareas a un TODO card específico
+          console.log('📝 Tareas a agregar al TODO:', tareasTodo);
         }
 
-        alert("✅ Misión creada exitosamente" + (crearListaTodo ? " con lista TODO asociada" : ""));
+        const mensajeExito = tareasTodo.length > 0
+          ? `✅ Misión creada exitosamente con ${tareasTodo.length} tarea(s) TODO asociada(s)`
+          : "✅ Misión creada exitosamente";
+        alert(mensajeExito);
         limpiarFormularioMision();
         setShowMisionesModal(false);
         setConnectionContext(null); // Limpiar contexto
@@ -615,7 +691,7 @@ function DashboardAdmin() {
           minHeight={400}
           showOverlay={true}
         >
-          <div className="p-6 space-y-4" style={{ color: '#000000' }}>
+          <div className="p-6 space-y-4" style={{ color: '#000000' }} data-todo-interactive="true">
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
                 Nombre de la Misión <span style={{ color: '#dc2626' }}>*</span>
@@ -628,6 +704,7 @@ function DashboardAdmin() {
                 style={{ color: '#000000' }}
                 placeholder="Ej: Desarrollar nueva funcionalidad"
                 disabled={creandoMision}
+                data-todo-interactive="true"
               />
             </div>
 
@@ -643,6 +720,7 @@ function DashboardAdmin() {
                 rows={4}
                 placeholder="Describe la misión o actividad..."
                 disabled={creandoMision}
+                data-todo-interactive="true"
               />
             </div>
 
@@ -658,6 +736,7 @@ function DashboardAdmin() {
                   className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   style={{ color: '#000000', colorScheme: 'light' }}
                   disabled={creandoMision}
+                  data-todo-interactive="true"
                 />
               </div>
 
@@ -672,39 +751,109 @@ function DashboardAdmin() {
                   className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   style={{ color: '#000000', colorScheme: 'light' }}
                   disabled={creandoMision}
+                  data-todo-interactive="true"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
-                Horas Estimadas
-              </label>
-              <input
-                type="number"
-                value={misionHoras}
-                onChange={(e) => setMisionHoras(e.target.value)}
-                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                style={{ color: '#000000' }}
-                placeholder="Ej: 8"
-                min="0"
-                disabled={creandoMision}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                  Horas Estimadas
+                </label>
+                <input
+                  type="number"
+                  value={misionHoras}
+                  onChange={(e) => setMisionHoras(e.target.value)}
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  style={{ color: '#000000' }}
+                  placeholder="Ej: 8"
+                  min="0"
+                  disabled={creandoMision}
+                  data-todo-interactive="true"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                  Estado
+                </label>
+                <select
+                  value={misionEstado}
+                  onChange={(e) => setMisionEstado(e.target.value)}
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  style={{ color: '#000000' }}
+                  disabled={creandoMision}
+                  data-todo-interactive="true"
+                >
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en_progreso">En Progreso</option>
+                  <option value="completada">Completada</option>
+                  <option value="cancelada">Cancelada</option>
+                </select>
+              </div>
             </div>
 
-            {/* ✅ Checkbox para crear lista TODO */}
-            <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
-              <input
-                type="checkbox"
-                id="crearListaTodo"
-                checked={crearListaTodo}
-                onChange={(e) => setCrearListaTodo(e.target.checked)}
-                className="w-4 h-4 text-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500"
-                disabled={creandoMision}
-              />
-              <label htmlFor="crearListaTodo" className="text-sm font-medium cursor-pointer" style={{ color: '#000000' }}>
-                📋 Crear lista TODO asociada a esta misión
-              </label>
+            {/* Sección de Tareas TODO */}
+            <div className="border-2 border-purple-300 rounded-lg p-4 bg-purple-50" data-todo-interactive="true">
+              <h4 className="text-sm font-bold mb-3" style={{ color: '#000000' }}>
+                📋 Tareas de la Misión
+                {connectionContext && tareasTodo.length > 0 && (
+                  <span className="text-xs font-normal text-purple-600 ml-2">
+                    (importadas de lista TODO)
+                  </span>
+                )}
+              </h4>
+
+              {/* Input para agregar tarea */}
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={nuevaTareaTexto}
+                  onChange={(e) => setNuevaTareaTexto(e.target.value)}
+                  onKeyPress={handleKeyPressTarea}
+                  className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  style={{ color: '#000000' }}
+                  placeholder="Escribe una tarea y presiona Enter..."
+                  disabled={creandoMision}
+                  data-todo-interactive="true"
+                />
+                <button
+                  onClick={agregarTarea}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-sm transition-colors disabled:opacity-50"
+                  disabled={creandoMision || !nuevaTareaTexto.trim()}
+                  data-todo-interactive="true"
+                  type="button"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Lista de tareas */}
+              {tareasTodo.length > 0 ? (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {tareasTodo.map((tarea) => (
+                    <div
+                      key={tarea.id}
+                      className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 group"
+                    >
+                      <span className="flex-1 text-sm" style={{ color: '#000000' }}>{tarea.texto}</span>
+                      <button
+                        onClick={() => eliminarTarea(tarea.id)}
+                        className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                        data-todo-interactive="true"
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600 text-center py-2">
+                  No hay tareas agregadas. Agrega tareas para crear una lista TODO.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3 pt-4">
@@ -715,6 +864,7 @@ function DashboardAdmin() {
                 }}
                 className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-black rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={creandoMision}
+                data-todo-interactive="true"
               >
                 Cancelar
               </button>
@@ -722,6 +872,7 @@ function DashboardAdmin() {
                 onClick={handleCrearMision}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={creandoMision}
+                data-todo-interactive="true"
               >
                 {creandoMision ? "Creando..." : "Crear Misión"}
               </button>
