@@ -16,7 +16,8 @@ export const usePizarraLocalStorage = (
   setCards: React.Dispatch<React.SetStateAction<Card[]>>,
   setConnections: React.Dispatch<React.SetStateAction<Connection[]>>,
   setPanOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>,
-  storagePrefix: string = 'real'
+  storagePrefix: string = 'real',
+  isOrganizacionPizarra: boolean = false // Nueva prop para identificar pizarras de organización
 ) => {
   // Generar claves de almacenamiento con prefijo
   const PIZARRA_STORAGE_KEY = `pizarra-${storagePrefix}-cards-v1`;
@@ -108,7 +109,8 @@ export const usePizarraLocalStorage = (
       // console.log('   - Fecha actual:', todayDate);
 
       // Si hay una fecha guardada y NO es el mismo día, guardar snapshot histórico antes de limpiar
-      if (savedDate && savedDate !== todayDate) {
+      // EXCEPCIÓN: Las pizarras de organización NO se renuevan diariamente (persistencia permanente)
+      if (savedDate && savedDate !== todayDate && !isOrganizacionPizarra) {
         console.log('🗑️ [PIZARRA STORAGE] ¡Nuevo día detectado! Guardando snapshot histórico antes de limpiar...');
 
         // Guardar snapshot del día anterior
@@ -127,6 +129,12 @@ export const usePizarraLocalStorage = (
         localStorage.removeItem(DATE_STORAGE_KEY);
         console.log('✅ [PIZARRA STORAGE] Pizarra limpiada. Comenzando con pizarra nueva del día:', todayDate);
         return; // Salir sin cargar nada
+      }
+
+      // Para pizarras de organización, actualizar la fecha sin limpiar
+      if (isOrganizacionPizarra && savedDate !== todayDate) {
+        console.log('📅 [PIZARRA STORAGE] Pizarra de organización: actualizando fecha sin limpiar datos');
+        localStorage.setItem(DATE_STORAGE_KEY, todayDate);
       }
 
       const savedCards = localStorage.getItem(PIZARRA_STORAGE_KEY);

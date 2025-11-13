@@ -96,6 +96,7 @@ export interface Card {
   y: number;
   width: number;
   height: number;
+  zIndex?: number; // Orden de apilamiento - mayor = más arriba
   todos?: TodoItem[];
   fontSize?: number;
   activityData?: ActivityData;
@@ -151,6 +152,8 @@ export interface PizarraProps {
   lightMode?: boolean;
   fullMode?: boolean;
   viewingUserId?: string;
+  isOrganizacionPizarra?: boolean; // Nueva: indica si es pizarra de organización (persistencia permanente)
+  readOnly?: boolean; // Nueva: indica si la pizarra es de solo lectura
   onOpenUserChat?: (userData: {
     userId: string;
     name: string;

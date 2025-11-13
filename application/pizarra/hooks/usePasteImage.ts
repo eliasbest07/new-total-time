@@ -3,7 +3,10 @@ import { Card } from '../types';
 import { generateUniqueId, generatePosition } from '../utils/idGenerator';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 
-export const usePasteImage = (setCards: React.Dispatch<React.SetStateAction<Card[]>>) => {
+export const usePasteImage = (
+  cards: Card[],
+  setCards: React.Dispatch<React.SetStateAction<Card[]>>
+) => {
   const [pastedImages, setPastedImages] = useState<{ [key: string]: string }>({});
 
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
@@ -29,6 +32,10 @@ export const usePasteImage = (setCards: React.Dispatch<React.SetStateAction<Card
           console.log('✅ [PIZARRA PASTE] Blob obtenido, creando URL temporal');
           const imageUrl = URL.createObjectURL(blob);
 
+          // Calcular el siguiente z-index para que aparezca encima de todos
+          const maxZIndex = cards.length === 0 ? 0 : Math.max(...cards.map(card => card.zIndex || 0));
+          const nextZIndex = maxZIndex + 1;
+
           const newCard: Card = {
             id: generateUniqueId('image'),
             type: 'image',
@@ -38,7 +45,8 @@ export const usePasteImage = (setCards: React.Dispatch<React.SetStateAction<Card
             y: generatePosition(),
             width: 300,
             height: 200,
-            fontSize: 14
+            fontSize: 14,
+            zIndex: nextZIndex
           };
 
           console.log('🖼️ [PIZARRA PASTE] Card creada:', newCard);
@@ -109,7 +117,7 @@ export const usePasteImage = (setCards: React.Dispatch<React.SetStateAction<Card
         }
       }
     }
-  }, [setCards, setPastedImages]); // ✅ FIX MEMORY LEAK: Agregar setPastedImages a las dependencias
+  }, [cards, setCards, setPastedImages]); // ✅ FIX MEMORY LEAK: Agregar setPastedImages a las dependencias
 
   useEffect(() => {
     // ✅ FIX MEMORY LEAK: El event listener se registra solo una vez

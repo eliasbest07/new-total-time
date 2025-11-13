@@ -130,7 +130,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     captureNow,
   } = useScreenshots();
 
-  const { pastedImages, setPastedImages } = usePasteImage(setCards);
+  const { pastedImages, setPastedImages } = usePasteImage(cards, setCards);
 
   // Estado para ventanas de imágenes independientes
   const [imageWindows, setImageWindows] = useState<Array<{
@@ -606,6 +606,68 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     // Also bring the card to front
     bringCardToFront(cardId);
   }, [cards, bringCardToFront, setPanOffset]);
+
+  // Estado para controlar la animación de navegación
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Función para navegar al origen (0,0) con animación suave
+  const navigateToOrigin = useCallback(() => {
+    if (!canvasRef.current) return;
+
+    // Cancelar cualquier animación en curso
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const canvasCenterX = canvasRect.width / 2;
+    const canvasCenterY = canvasRect.height / 2;
+
+    // Posición objetivo: centrar el punto (0,0) en el canvas
+    const targetPanX = canvasCenterX;
+    const targetPanY = canvasCenterY;
+
+    const startPanX = panOffset.x;
+    const startPanY = panOffset.y;
+
+    const duration = 500; // Duración de la animación en ms
+    const startTime = performance.now();
+
+    // Función de easing (ease-in-out)
+    const easeInOutCubic = (t: number): number => {
+      return t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    };
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeInOutCubic(progress);
+
+      const currentPanX = startPanX + (targetPanX - startPanX) * easedProgress;
+      const currentPanY = startPanY + (targetPanY - startPanY) * easedProgress;
+
+      setPanOffset({ x: currentPanX, y: currentPanY });
+
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        animationFrameRef.current = null;
+      }
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+  }, [panOffset, setPanOffset]);
+
+  // Limpiar animación al desmontar
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   const {
     draggedCard,
@@ -1186,6 +1248,20 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [onOpenUserChat]);
 
+  // Helper: Calcular el siguiente z-index para que el nuevo card aparezca encima de todos
+  const getNextZIndex = useCallback(() => {
+    // Combinar el maxZIndex del estado con los zIndex de los cards
+    const cardsMaxZIndex = cards.length === 0 ? 0 : Math.max(...cards.map(card => card.zIndex || 0));
+    const stateMaxZIndex = maxZIndex;
+    const currentMax = Math.max(cardsMaxZIndex, stateMaxZIndex);
+    const nextZIndex = currentMax + 1;
+
+    // Actualizar el maxZIndex del estado
+    setMaxZIndex(nextZIndex);
+
+    return nextZIndex;
+  }, [cards, maxZIndex]);
+
   // Funciones públicas expuestas via ref
   const addNoteCard = useCallback((text: string) => {
     const existingIds = cards.map(card => card.id);
@@ -1199,8 +1275,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     // Agregar un pequeño offset aleatorio para que no se superpongan
     const randomOffset = () => (Math.random() - 0.5) * 100;
 
+    const nextZIndex = getNextZIndex();
+    const cardId = generateUniqueId('note', existingIds);
+
     const newCard = {
-      id: generateUniqueId('note', existingIds),
+      id: cardId,
       type: 'text',
       title: 'Nota',
       content: text, // Guardar todo el texto sin cortar
@@ -1208,10 +1287,15 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       y: centerY + randomOffset() - 60,  // -60 para centrar la card (height/2)
       width: 200,
       height: 120,
-      fontSize: 18
+      fontSize: 18,
+      zIndex: nextZIndex // Nuevo card aparece encima de todos
     };
+
+    // Actualizar cardZIndices para que se renderice correctamente
+    setCardZIndices(prev => ({ ...prev, [cardId]: nextZIndex }));
+
     setCards(prev => [...prev, newCard]);
-  }, [cards, panOffset, canvasRef]);
+  }, [cards, panOffset, canvasRef, getNextZIndex]);
 
   const addTodoCard = useCallback((text?: string) => {
     const existingIds = cards.map(card => card.id);
@@ -1225,7 +1309,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     // Agregar un pequeño offset aleatorio para que no se superpongan
     const randomOffset = () => (Math.random() - 0.5) * 100;
 
+    const nextZIndex = getNextZIndex();
     const newCardId = generateUniqueId('todo', existingIds);
+
     const newCard = {
       id: newCardId,
       type: 'todo',
@@ -1236,11 +1322,16 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       width: 250,
       height: 200,
       fontSize: 18,
+      zIndex: nextZIndex, // Nuevo card aparece encima de todos
       todos: text ? [{ id: 1, text: text, completed: false }] : []
     };
+
+    // Actualizar cardZIndices para que se renderice correctamente
+    setCardZIndices(prev => ({ ...prev, [newCardId]: nextZIndex }));
+
     setCards(prev => [...prev, newCard]);
     return newCardId; // ✅ Retornar el ID del card creado
-  }, [cards, panOffset, canvasRef]);
+  }, [cards, panOffset, canvasRef, getNextZIndex]);
 
   const addUsuarioCard = useCallback((userData: {
     userId: string;
@@ -1260,8 +1351,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     // Agregar un pequeño offset aleatorio para que no se superpongan
     const randomOffset = () => (Math.random() - 0.5) * 100;
 
+    const nextZIndex = getNextZIndex();
+    const cardId = generateUniqueId('usuario', existingIds);
+
     const newCard = {
-      id: generateUniqueId('usuario', existingIds),
+      id: cardId,
       type: 'usuario',
       title: userData.name || 'Usuario',
       content: `Usuario: ${userData.name}`,
@@ -1270,6 +1364,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       width: 280,
       height: 400,
       fontSize: 18,
+      zIndex: nextZIndex, // Nuevo card aparece encima de todos
       usuarioData: {
         userId: userData.userId,
         name: userData.name || 'Usuario',
@@ -1279,8 +1374,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         messages: []
       }
     };
+
+    // Actualizar cardZIndices para que se renderice correctamente
+    setCardZIndices(prev => ({ ...prev, [cardId]: nextZIndex }));
+
     setCards(prev => [...prev, newCard]);
-  }, [cards, panOffset, canvasRef]);
+  }, [cards, panOffset, canvasRef, getNextZIndex]);
 
   const addMisionCardOrganizacion = useCallback((misionData: {
     id_mision: number;
@@ -1302,7 +1401,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     // Agregar un pequeño offset aleatorio para que no se superpongan
     const randomOffset = () => (Math.random() - 0.5) * 100;
 
+    const nextZIndex = getNextZIndex();
     const newCardId = generateUniqueId('mision-org', existingIds);
+
     const newCard = {
       id: newCardId,
       type: 'mision-organizacion',
@@ -1313,6 +1414,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       width: 350,
       height: 500,
       fontSize: 14,
+      zIndex: nextZIndex, // Nuevo card aparece encima de todos
       misionData: {
         title: misionData.title,
         hours: misionData.hours,
@@ -1329,10 +1431,13 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       }
     };
 
+    // Actualizar cardZIndices para que se renderice correctamente
+    setCardZIndices(prev => ({ ...prev, [newCardId]: nextZIndex }));
+
     console.log('✅ Misión card creada en pizarra:', newCardId);
     setCards(prev => [...prev, newCard]);
     return newCardId; // Retornar el ID del card creado
-  }, [cards, panOffset, canvasRef, pizarra]);
+  }, [cards, panOffset, canvasRef, pizarra, getNextZIndex]);
 
   const restoreCard = useCallback((cardData: any) => {
     console.log('🔧 restoreCard ejecutado con:', cardData);
@@ -2373,6 +2478,28 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         onDrop={handleDrop}
         onMouseDown={handleCanvasMouseDown}
       >
+        {/* Botón para navegar al origen (0,0) */}
+        <button
+          onClick={navigateToOrigin}
+          className="absolute top-4 left-4 z-[999] bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-full p-3 shadow-lg border border-gray-300 hover:border-blue-400 transition-all duration-200 hover:scale-110 active:scale-95 group"
+          title="Ir al origen (0,0)"
+          style={{ pointerEvents: 'auto' }}
+        >
+          {/* Icono de ubicación/centro con crosshair */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <circle cx="12" cy="12" r="3" strokeWidth={2} />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v4m0 12v4M2 12h4m12 0h4" />
+          </svg>
+          <span className="absolute -bottom-10 left-0 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+            Ir al origen (0,0)
+          </span>
+        </button>
         <ConnectionLines
           connections={connections}
           cards={cards}

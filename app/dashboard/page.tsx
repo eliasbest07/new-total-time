@@ -582,7 +582,7 @@ function DashboardAdmin() {
         const mensajeExito = tareasTodo.length > 0
           ? `✅ Misión creada exitosamente con ${tareasTodo.length} tarea(s) TODO asociada(s)`
           : "✅ Misión creada exitosamente";
-        alert(mensajeExito);
+        // alert(mensajeExito);
         limpiarFormularioMision();
         setShowMisionesModal(false);
         setConnectionContext(null); // Limpiar contexto
