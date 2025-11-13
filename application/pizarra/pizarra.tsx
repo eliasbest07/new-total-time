@@ -1318,19 +1318,21 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         hours: misionData.hours,
         description: misionData.description,
         id_mision: misionData.id_mision,
+        id_pizarra: pizarra?.id || undefined,
         id_usuario_asignado: misionData.id_usuario_asignado,
         usuario_asignado_nombre: misionData.usuario_asignado_nombre,
         usuario_asignado_avatar: misionData.usuario_asignado_avatar,
         estado: 'pendiente' as const,
         subtareas: [],
-        entregas: []
+        entregas: [],
+        card_todos: []
       }
     };
 
     console.log('✅ Misión card creada en pizarra:', newCardId);
     setCards(prev => [...prev, newCard]);
     return newCardId; // Retornar el ID del card creado
-  }, [cards, panOffset, canvasRef]);
+  }, [cards, panOffset, canvasRef, pizarra]);
 
   const restoreCard = useCallback((cardData: any) => {
     console.log('🔧 restoreCard ejecutado con:', cardData);
@@ -2244,6 +2246,37 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     bringCardToFront(cardId);
   }, [cards, canvasRef, bringCardToFront]);
 
+  // Función para actualizar el ID de un card (de temporal a UUID)
+  const updateCardId = useCallback((oldId: string, newId: string) => {
+    console.log('🔄 [updateCardId] Actualizando ID de card:', { oldId, newId });
+
+    // Actualizar el card
+    setCards((prevCards) => {
+      return prevCards.map((c) => {
+        if (c.id === oldId) {
+          console.log('✅ Card encontrado, actualizando ID');
+          return { ...c, id: newId };
+        }
+        return c;
+      });
+    });
+
+    // Actualizar las conexiones que usan este card
+    setConnections((prevConnections) => {
+      return prevConnections.map((conn) => {
+        if (conn.from === oldId) {
+          return { ...conn, from: newId };
+        }
+        if (conn.to === oldId) {
+          return { ...conn, to: newId };
+        }
+        return conn;
+      });
+    });
+
+    console.log('✅ [updateCardId] Card y conexiones actualizados');
+  }, []);
+
   useImperativeHandle(ref, () => ({
     addNoteCard,
     addTodoCard,
@@ -2259,8 +2292,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     addConnection,
     removeConnectionBetween,
     centerOnCard,
-    findCardByMisionId
-  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, centerOnCard, findCardByMisionId]);
+    findCardByMisionId,
+    updateCardId
+  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, centerOnCard, findCardByMisionId, updateCardId]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {

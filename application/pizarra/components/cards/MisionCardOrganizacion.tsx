@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Card, SubtareaMision } from '../../types';
-import { User, Plus, X, ChevronDown, ChevronUp, Camera } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, SubtareaMision, TodoItem } from '../../types';
+import { User, Plus, X, ChevronDown, ChevronUp, Camera, ExternalLink } from 'lucide-react';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useCardTodos } from '@/hooks/useCardTodos';
@@ -20,13 +20,19 @@ interface MisionCardOrganizacionProps {
     };
   }>;
   currentUserId?: string; // UUID del usuario autenticado
+  addTodoCard?: (text?: string) => string; // Función para crear cards TODO
+  addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void; // Función para crear conexiones
+  allCards?: React.Dispatch<React.SetStateAction<Card[]>>; // Para verificar si el card TODO existe
 }
 
 export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   card,
   updateCard,
   usuarios = [],
-  currentUserId
+  currentUserId,
+  addTodoCard,
+  addConnection,
+  allCards
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -61,7 +67,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   const cardTodoId = Array.isArray(misionData.card_todos) && misionData.card_todos.length > 0
     ? misionData.card_todos[0]
     : null;
-  const { todos: tareasBD, createTodo, toggleCompleted, deleteTodo: deleteTodoFromBD } = useCardTodos(cardTodoId);
+  const { todos: tareasBD, loading: loadingCardTodos, createTodo, toggleCompleted, deleteTodo: deleteTodoFromBD } = useCardTodos(cardTodoId);
 
   // Log del estado actual (solo en desarrollo)
   useEffect(() => {
@@ -423,6 +429,105 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   // El estado se controla desde otro lugar y se actualiza en tiempo real
   // No se necesita función handleToggleEstado porque no hay botón de play/pause
 
+  // Función para mostrar/crear el card TODO en la pizarra
+  const handleShowTodoCard = async () => {
+    if (!addTodoCard || !addConnection || !allCards) {
+      console.warn('⚠️ Funciones necesarias no disponibles');
+      return;
+    }
+
+    // Verificar si hay card_todos asociados
+    if (!misionData.card_todos || misionData.card_todos.length === 0) {
+      console.log('ℹ️ No hay card_todos asociados a esta misión');
+      alert('Esta misión no tiene una lista de tareas asociada. Agrega tareas primero.');
+      return;
+    }
+
+    const cardTodoUUID = misionData.card_todos[0]; // Tomar el primer card_todos
+
+    // Verificar si el card TODO ya existe en la pizarra usando un ref
+    const todoCardExistsRef = { current: false };
+
+    allCards((prevCards) => {
+      const existingTodo = prevCards.find(c => c.id === cardTodoUUID);
+      if (existingTodo) {
+        todoCardExistsRef.current = true;
+        console.log('✅ Card TODO ya existe en la pizarra:', cardTodoUUID);
+      }
+      return prevCards; // No modificar el estado
+    });
+
+    if (todoCardExistsRef.current) {
+      console.log('ℹ️ El card TODO ya está en la pizarra');
+      alert('El card de tareas ya está visible en la pizarra');
+      return;
+    }
+
+    // El card TODO no existe, crearlo
+    console.log('📝 Creando card TODO en la pizarra...');
+
+    try {
+      // Cargar las tareas desde la BD
+      const { data: todos, error } = await supabase
+        .from('card_todos')
+        .select('*')
+        .eq('id_card', cardTodoUUID)
+        .order('position', { ascending: true });
+
+      if (error) {
+        console.error('❌ Error cargando tareas:', error);
+        alert('Error al cargar las tareas desde la base de datos');
+        return;
+      }
+
+      console.log('📋 Tareas cargadas desde BD:', todos);
+
+      // Crear el card TODO (se creará con ID temporal primero)
+      const newTodoCardId = addTodoCard('Lista de tareas');
+
+      if (!newTodoCardId) {
+        console.error('❌ No se pudo crear el card TODO');
+        return;
+      }
+
+      console.log('✅ Card TODO creado con ID temporal:', newTodoCardId);
+
+      // Reemplazar el card TODO temporal con uno que tenga el UUID correcto y las tareas de la BD
+      allCards((prevCards) => {
+        return prevCards.map(c => {
+          if (c.id === newTodoCardId) {
+            return {
+              ...c,
+              id: cardTodoUUID, // Reemplazar con el UUID real
+              x: card.x + card.width + 20, // Posicionar a la derecha del card de misión
+              y: card.y,
+              todos: todos?.map((todo) => ({
+                id: todo.todo_id,
+                text: todo.text,
+                completed: todo.completed
+              })) || []
+            };
+          }
+          return c;
+        });
+      });
+
+      // Crear la conexión entre el card de misión y el card TODO
+      setTimeout(() => {
+        if (addConnection) {
+          addConnection(card.id, cardTodoUUID, true); // skipValidation = true
+          console.log('🔗 Conexión creada entre misión y TODO');
+        }
+      }, 150);
+
+      alert('✅ Card de tareas creado y conectado exitosamente');
+
+    } catch (error) {
+      console.error('❌ Error en handleShowTodoCard:', error);
+      alert('Error al crear el card TODO');
+    }
+  };
+
   // Agregar subtarea
   const handleAddSubtarea = async () => {
     if (!newSubtareaText.trim()) return;
@@ -739,59 +844,63 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
       {/* Sección de subtareas */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        <div
-          className="flex items-center justify-between mb-2 cursor-pointer"
-          onClick={() => setShowSubtareas(!showSubtareas)}
-          data-todo-interactive
-        >
-          <h4 className="text-xs font-semibold text-gray-700">Tareas</h4>
-          {showSubtareas ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        <div className="flex items-center justify-between mb-2">
+          <div
+            className="flex items-center gap-1 flex-1 cursor-pointer"
+            onClick={() => setShowSubtareas(!showSubtareas)}
+            data-todo-interactive
+          >
+            <h4 className="text-xs font-semibold text-gray-700">Tareas</h4>
+            {showSubtareas ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </div>
+          {/* Botón para mostrar/crear card TODO */}
+          {misionData.card_todos && misionData.card_todos.length > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleShowTodoCard();
+              }}
+              className="text-blue-500 hover:text-blue-700 transition-colors"
+              data-todo-interactive
+              title="Mostrar card de tareas"
+            >
+              <ExternalLink size={14} />
+            </button>
+          )}
         </div>
 
         {showSubtareas && (
           <>
-            <div className="flex-1 overflow-y-auto mb-2 space-y-2">
+            <div className="flex-1 overflow-y-auto mb-2 space-y-1">
               {loadingCardTodos ? (
                 <div className="text-xs text-gray-400 italic">Cargando tareas...</div>
-              ) : cardTodos.length > 0 ? (
-                cardTodos.map((cardData) => (
-                  <div key={cardData.card.id} className="space-y-1">
-                    {/* Título del card si tiene más de un todo */}
-                    {cardData.todos.length > 1 && cardData.card.title && (
-                      <div className="text-xs font-medium text-gray-600 mt-2">
-                        📋 {cardData.card.title}
-                      </div>
-                    )}
-
-                    {/* Lista de todos del card */}
-                    {cardData.todos.map((todo) => (
-                      <div
-                        key={todo.id}
-                        className="flex items-center gap-2 bg-gray-50 rounded px-2 py-1 group"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={todo.completed}
-                          onChange={() => handleToggleTodo(todo.id, todo.completed)}
-                          className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          data-todo-interactive
-                        />
-                        <span
-                          className={`text-xs flex-1 ${
-                            todo.completed ? 'line-through text-gray-400' : 'text-gray-700'
-                          }`}
-                        >
-                          {todo.text}
-                        </span>
-                        <button
-                          onClick={() => handleDeleteTodo(todo.id)}
-                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
-                          data-todo-interactive
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
+              ) : misionData.subtareas && misionData.subtareas.length > 0 ? (
+                misionData.subtareas.map((subtarea) => (
+                  <div
+                    key={subtarea.id}
+                    className="flex items-center gap-2 bg-gray-50 rounded px-2 py-1 group"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={subtarea.completed}
+                      onChange={() => handleToggleSubtarea(subtarea.id)}
+                      className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      data-todo-interactive
+                    />
+                    <span
+                      className={`text-xs flex-1 ${
+                        subtarea.completed ? 'line-through text-gray-400' : 'text-gray-700'
+                      }`}
+                    >
+                      {subtarea.text}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteSubtarea(subtarea.id)}
+                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
+                      data-todo-interactive
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
                 ))
               ) : (

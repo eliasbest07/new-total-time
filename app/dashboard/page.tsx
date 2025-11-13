@@ -226,22 +226,40 @@ function DashboardAdmin() {
           // El card TODO tiene ID temporal, necesitamos guardarlo en BD
           console.log('📝 Guardando card TODO en BD...');
 
-          // Obtener el ID de la pizarra desde el usuario
-          const { data: pizarraData } = await supabase
-            .from('pizarras')
-            .select('id')
-            .eq('id_usuario', usuario?.userAuth)
-            .single();
+          // Obtener el ID de la pizarra desde el card de misión
+          let pizarraId = (misionData as any)?.id_pizarra;
 
-          if (!pizarraData) {
-            console.error('❌ No se encontró la pizarra del usuario');
-            alert('Error: No se encontró la pizarra. Por favor, intenta guardar la pizarra primero (Ctrl+S).');
+          // Si el card de misión no tiene id_pizarra, buscar o crear la pizarra del día
+          if (!pizarraId && usuario?.userAuth) {
+            console.log('🔍 Buscando o creando pizarra del usuario...');
+
+            // Importar el repositorio de pizarras
+            const { SupabasePizarraRepository } = await import('@/infrastructure/datasource/SupabasePizarraRepository');
+            const pizarraRepo = new SupabasePizarraRepository();
+
+            try {
+              // Intentar obtener la pizarra del día actual
+              const pizarraDelDia = await pizarraRepo.getPizarraDelDia(usuario.userAuth, new Date());
+              if (pizarraDelDia) {
+                pizarraId = pizarraDelDia.id;
+                console.log('✅ Pizarra del día encontrada:', pizarraId);
+              }
+            } catch (error) {
+              console.error('❌ Error al obtener/crear pizarra:', error);
+              alert('Error: No se pudo obtener la pizarra. Por favor, guarda la pizarra primero (Ctrl+S).');
+              return;
+            }
+          }
+
+          if (!pizarraId) {
+            console.error('❌ No se pudo determinar el ID de la pizarra');
+            alert('Error: No se encontró la pizarra. Por favor, guarda la pizarra primero (Ctrl+S).');
             return;
           }
 
           // Crear el card en la tabla cards
           const nuevoCard = await cardRepo.createCard({
-            id_pizarra: pizarraData.id,
+            id_pizarra: pizarraId,
             card_id: todoCard.id, // Mantener el ID temporal como card_id
             type: 'todo',
             title: 'Lista de tareas',
@@ -280,6 +298,13 @@ function DashboardAdmin() {
             }
 
             console.log('✅ Tareas guardadas exitosamente');
+          }
+
+          // ⭐ IMPORTANTE: Actualizar el card TODO en la pizarra con el UUID real
+          if (pizarraRef.current?.updateCardId) {
+            console.log('🔄 Actualizando card TODO en la pizarra con UUID:', cardTodoUUID);
+            pizarraRef.current.updateCardId(todoCard.id, cardTodoUUID);
+            console.log('✅ Card TODO actualizado en la pizarra');
           }
         }
 

@@ -133,6 +133,9 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           }}
           usuarios={props.usuarios}
           currentUserId={props.currentUserId}
+          addTodoCard={props.addTodoCard}
+          addConnection={props.addConnection}
+          allCards={props.setCards}
         />
       );
 

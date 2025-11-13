@@ -154,15 +154,24 @@ export const useCanvasPan = () => {
         // Calculate elapsed time in milliseconds
         const elapsedTime = Date.now() - edgePanningStartTimeRef.current;
 
-        // Progressive speed: 0 to 4 over 3 seconds (3000ms)
-        const maxSpeed = 6;
-        const accelerationDuration = 3000; // 3 seconds
-        const currentSpeed = Math.min(maxSpeed, (elapsedTime / accelerationDuration) * maxSpeed);
+        // Delay antes de comenzar el panning (420ms)
+        const activationDelay = 420;
 
-        setPanOffset((prev) => ({
-          x: prev.x + (edgePanning.x * currentSpeed),
-          y: prev.y + (edgePanning.y * currentSpeed),
-        }));
+        // Solo comenzar el panning si han pasado al menos 420ms
+        if (elapsedTime >= activationDelay) {
+          // Ajustar el tiempo para la aceleración (restando el delay)
+          const adjustedTime = elapsedTime - activationDelay;
+
+          // Progressive speed: 0 to 6 over 3 seconds (3000ms)
+          const maxSpeed = 6;
+          const accelerationDuration = 3000; // 3 seconds
+          const currentSpeed = Math.min(maxSpeed, (adjustedTime / accelerationDuration) * maxSpeed);
+
+          setPanOffset((prev) => ({
+            x: prev.x + (edgePanning.x * currentSpeed),
+            y: prev.y + (edgePanning.y * currentSpeed),
+          }));
+        }
       }
       animationFrameRef.current = requestAnimationFrame(animate);
     };

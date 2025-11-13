@@ -136,6 +136,7 @@ export interface PizarraRef {
   centerOnCard?: (cardId: string) => void;
   findCardByMisionId?: (misionId: number) => string | null;
   restoreCard?: (cardData: Card) => void;
+  updateCardId?: (oldId: string, newId: string) => void;
   clearStorage?: () => void;
   exportStorage?: () => void;
   importStorage?: (content: string) => void;
