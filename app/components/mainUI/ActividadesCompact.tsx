@@ -3,6 +3,7 @@ import { Play, Pause, Camera, X, Trash2 } from 'lucide-react';
 import { useActividades } from '@/hooks/useActividades';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useScreenshots } from '@/hooks/useScreenshots';
+import { useMisionActiva } from '@/hooks/useMisionActiva';
 import { Actividad } from '@/domain/entities/Actividad';
 
 interface ActividadCompactCardProps {
@@ -14,6 +15,9 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
   const [timeInSeconds, setTimeInSeconds] = useState((22 + index) * 60 + 59);
   const [isRunning, setIsRunning] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [misionActivaId, setMisionActivaId] = useState<string | null>(null);
+
+  const { usuario } = useAuth();
 
   const {
     screenshots,
@@ -24,6 +28,8 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
     clearScreenshotsByBloque,
     error: screenshotError
   } = useScreenshots();
+
+  const { getOrCreateMisionActiva, updateRunningState, addCaptureUrl } = useMisionActiva();
 
   // Filtrar screenshots de esta actividad
   const activityScreenshots = screenshots.filter(s => s.id_bloque === actividad.id.toString());
@@ -58,13 +64,47 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
       // Iniciar captura de pantalla
       console.log('Iniciando captura para actividad:', actividad.id);
       try {
+        // 1. Obtener o crear misión activa
+        if (!usuario?.id) {
+          console.error('No hay usuario logueado');
+          return;
+        }
+
+        const misionActiva = await getOrCreateMisionActiva({
+          tipo: 'actividad',
+          id_referencia: actividad.id,
+          id_usuario_asignado: usuario.id
+        });
+
+        if (!misionActiva) {
+          console.error('No se pudo crear/obtener misión activa');
+          return;
+        }
+
+        setMisionActivaId(misionActiva.id);
+
+        // 2. Iniciar captura con callback para guardar en capturas_urls
         await startCapturing({
-          userId: actividad.id_usuario?.toString() || '1',
+          userId: actividad.id_usuario?.toString() || usuario.id,
           actividadId: actividad.id.toString(),
           misionActividad: actividad.descripcion || 'Actividad sin descripción',
           totalTrabajadoHoy: actividad.tiempo_dedicado?.toString(),
-          tiempoTareaActual: formatTime(timeInSeconds)
+          tiempoTareaActual: formatTime(timeInSeconds),
+          onCaptureUpdate: async (url: string) => {
+            // Guardar captura en misiones_activas
+            console.log('📸 Guardando captura en capturas_urls:', url);
+            await addCaptureUrl(misionActiva.id, url);
+            console.log('✅ Captura guardada en misiones_activas');
+          }
         });
+
+        // 3. Actualizar estado en Supabase
+        await updateRunningState(misionActiva.id, {
+          is_running: true,
+          estado: 'en_progreso',
+          fecha_inicio: new Date().toISOString()
+        });
+
         console.log('Captura iniciada exitosamente');
       } catch (error) {
         console.error('Error al iniciar captura:', error);
@@ -72,6 +112,17 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
     } else if (!newRunningState && isCapturing) {
       // Detener captura de pantalla
       console.log('Deteniendo captura');
+
+      // Actualizar estado en Supabase si tenemos el ID
+      if (misionActivaId) {
+        await updateRunningState(misionActivaId, {
+          is_running: false,
+          estado: 'pausada',
+          fecha_pausa: new Date().toISOString(),
+          tiempo_total_segundos: ((22 + index) * 60 + 59) - timeInSeconds
+        });
+      }
+
       stopCapturing();
     }
   };

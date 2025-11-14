@@ -8,6 +8,8 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { useOrganizacion } from '@/hooks/useOrganizacion';
 import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
 import { Capture } from '@/domain/entities/Capture';
+import { MisionActiva } from '@/domain/entities/MisionActiva';
+import { Target, ChevronRight, ChevronLeft } from 'lucide-react';
 
 /**
  * Dashboard para usuarios NO administradores
@@ -120,6 +122,102 @@ const ScreenshotCard = ({ capture, onImageClick }: { capture: Capture; onImageCl
     );
 };
 
+const MisionActivaCard = ({ mision, onImageClick }: { mision: MisionActiva; onImageClick: (url: string) => void }) => {
+    const [currentCaptureIndex, setCurrentCaptureIndex] = useState(0);
+    const capturas = mision.capturas_urls || [];
+
+    const formatTime = (seconds: number) => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return `${hours}h ${minutes}m`;
+    };
+
+    const getEstadoBadge = (estado: string) => {
+        const badges: Record<string, string> = {
+            'pendiente': 'bg-gray-500',
+            'en_progreso': 'bg-blue-500',
+            'pausada': 'bg-yellow-500',
+            'entregada': 'bg-green-500',
+            'aprobada': 'bg-emerald-600',
+            'rechazada': 'bg-red-500',
+            'cancelada': 'bg-gray-600'
+        };
+        return badges[estado] || 'bg-gray-500';
+    };
+
+    return (
+        <div className="bg-white/10 rounded-lg p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Target className="w-4 h-4 text-white flex-shrink-0" />
+                        <p className="text-white font-medium truncate">
+                            {mision.tipo === 'mision' ? 'Misión' : 'Actividad'} #{mision.id_referencia}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded text-xs text-white ${getEstadoBadge(mision.estado)}`}>
+                            {mision.estado.replace('_', ' ')}
+                        </span>
+                        {mision.tiempo_total_segundos > 0 && (
+                            <span className="text-white/60 text-xs">
+                                ⏱️ {formatTime(mision.tiempo_total_segundos)}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Capturas */}
+            {capturas.length > 0 && (
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-white/70 text-xs">
+                            Capturas ({capturas.length})
+                        </span>
+                        {capturas.length > 1 && (
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setCurrentCaptureIndex(Math.max(0, currentCaptureIndex - 1))}
+                                    disabled={currentCaptureIndex === 0}
+                                    className={`p-1 rounded ${currentCaptureIndex === 0 ? 'text-white/30' : 'text-white/70 hover:bg-white/10'}`}
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <span className="text-white/60 text-xs">
+                                    {currentCaptureIndex + 1}/{capturas.length}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentCaptureIndex(Math.min(capturas.length - 1, currentCaptureIndex + 1))}
+                                    disabled={currentCaptureIndex === capturas.length - 1}
+                                    className={`p-1 rounded ${currentCaptureIndex === capturas.length - 1 ? 'text-white/30' : 'text-white/70 hover:bg-white/10'}`}
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => onImageClick(capturas[currentCaptureIndex])}
+                        className="w-full h-24 bg-white/20 rounded border overflow-hidden hover:opacity-80 transition-opacity cursor-pointer"
+                    >
+                        <img
+                            src={capturas[currentCaptureIndex]}
+                            alt={`Captura ${currentCaptureIndex + 1}`}
+                            className="w-full h-full object-cover"
+                        />
+                    </button>
+                </div>
+            )}
+            {capturas.length === 0 && (
+                <div className="text-white/50 text-xs text-center py-2">
+                    Sin capturas aún
+                </div>
+            )}
+        </div>
+    );
+};
+
 export default function DashboardUsuario() {
     const { usuario } = useAuth();
     const { organizacion } = useOrganizacion(usuario?.userAuth || null);
@@ -128,6 +226,8 @@ export default function DashboardUsuario() {
     const [loadingCaptures, setLoadingCaptures] = useState(true);
     const [currentPage, setCurrentPage] = useState(0);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [misionesActivas, setMisionesActivas] = useState<MisionActiva[]>([]);
+    const [loadingMisiones, setLoadingMisiones] = useState(true);
 
     const CAPTURES_PER_PAGE = 3;
 
@@ -158,6 +258,40 @@ export default function DashboardUsuario() {
         };
 
         loadCaptures();
+    }, [usuario?.userAuth]);
+
+    // Cargar misiones activas del usuario
+    useEffect(() => {
+        const loadMisionesActivas = async () => {
+            if (!usuario?.userAuth) {
+                setLoadingMisiones(false);
+                return;
+            }
+
+            try {
+                setLoadingMisiones(true);
+                const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+                const { data, error } = await supabase
+                    .from('misiones_activas')
+                    .select('*')
+                    .eq('id_usuario_asignado', usuario.userAuth)
+                    .in('estado', ['en_progreso', 'pausada', 'entregada'])
+                    .order('updated_at', { ascending: false });
+
+                if (error) {
+                    console.error('Error al cargar misiones activas:', error);
+                } else {
+                    setMisionesActivas(data || []);
+                }
+            } catch (error) {
+                console.error('Error al cargar misiones activas:', error);
+            } finally {
+                setLoadingMisiones(false);
+            }
+        };
+
+        loadMisionesActivas();
     }, [usuario?.userAuth]);
 
     // Datos de ejemplo (frontend only)
@@ -276,13 +410,30 @@ export default function DashboardUsuario() {
 
                     {/* Grid de tareas y screenshots */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-                        {/* Mis últimas tareas */}
-                        <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-80">
-                            <h3 className="text-white text-lg sm:text-xl font-medium mb-4">Mis Últimas Tareas</h3>
-                            <div className="h-60 overflow-y-auto pr-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {ultimasTareas.map(tarea => (
-                                    <TaskCard key={tarea.id} tarea={tarea} />
-                                ))}
+                        {/* Mis Misiones Activas */}
+                        <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-80 flex flex-col">
+                            <h3 className="text-white text-lg sm:text-xl font-medium mb-4 flex items-center gap-2">
+                                <Target className="w-5 h-5" />
+                                Mis Misiones Activas
+                            </h3>
+                            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                                {loadingMisiones ? (
+                                    <div className="text-white/70 text-center py-8">
+                                        Cargando misiones...
+                                    </div>
+                                ) : misionesActivas.length > 0 ? (
+                                    misionesActivas.map(mision => (
+                                        <MisionActivaCard
+                                            key={mision.id}
+                                            mision={mision}
+                                            onImageClick={setSelectedImage}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="text-white/70 text-center py-8">
+                                        No tienes misiones activas
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -358,6 +509,29 @@ export default function DashboardUsuario() {
                 userOrganization={userOrganization}
                 userAvatar={userAvatar}
             />
+
+            {/* Modal de imagen */}
+            {selectedImage && (
+                <div
+                    className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div className="relative max-w-5xl max-h-[90vh] w-full h-full flex items-center justify-center">
+                        <button
+                            onClick={() => setSelectedImage(null)}
+                            className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white p-2 rounded-lg transition-colors z-10"
+                        >
+                            ✕
+                        </button>
+                        <img
+                            src={selectedImage}
+                            alt="Captura ampliada"
+                            className="max-w-full max-h-full object-contain rounded-lg"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

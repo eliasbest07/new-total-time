@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Card } from '../../types/index';
 import { Actividad } from '@/domain/entities/Actividad';
 import { Mision } from '@/domain/entities/Mision';
+import { Recurso } from '@/domain/entities/Recurso';
 import { Plus, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
+import Ventana from '@/app/demo/components/Ventana';
 
 interface ProyectoCardOrganizacionProps {
   card: Card;
@@ -27,6 +29,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   // Estados principales
   const [actividades, setActividades] = useState<Actividad[]>([]);
   const [misiones, setMisiones] = useState<Mision[]>([]);
+  const [recursos, setRecursos] = useState<Recurso[]>([]);
   const [usuariosAsignados, setUsuariosAsignados] = useState<any[]>([]);
   const [tecnologias, setTecnologias] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +41,13 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
   // Estados de modales
   const [showNuevaMisionModal, setShowNuevaMisionModal] = useState(false);
+  const [recursoModalAbierto, setRecursoModalAbierto] = useState<{
+    isOpen: boolean;
+    recurso: Recurso | null;
+  }>({
+    isOpen: false,
+    recurso: null
+  });
 
   // Form states para misión
   const [misionNombre, setMisionNombre] = useState('');
@@ -75,6 +85,13 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           .eq('id_proyecto', proyectoId)
           .order('created_at', { ascending: false });
 
+        // Cargar recursos
+        const { data: recursosData } = await supabase
+          .from('recursos')
+          .select('*')
+          .eq('proyecto_id', proyectoId)
+          .order('created_at', { ascending: false });
+
         // Cargar usuarios asignados
         const { data: usuarioProyectoData } = await supabase
           .from('usuario_proyecto')
@@ -95,6 +112,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
         setActividades(actividadesData || []);
         setMisiones(misionesData || []);
+        setRecursos(recursosData || []);
 
         // Detectar tecnologías
         const techs: string[] = [];
@@ -119,6 +137,28 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     cargarDatos();
   }, [proyectoId]);
 
+  // Recargar recursos periódicamente cuando la sección está expandida
+  useEffect(() => {
+    if (!expandedRecursos || !proyectoId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+        const { data: recursosData } = await supabase
+          .from('recursos')
+          .select('*')
+          .eq('proyecto_id', proyectoId)
+          .order('created_at', { ascending: false });
+
+        setRecursos(recursosData || []);
+      } catch (error) {
+        console.error('Error recargando recursos:', error);
+      }
+    }, 2000); // Recargar cada 2 segundos
+
+    return () => clearInterval(interval);
+  }, [expandedRecursos, proyectoId]);
+
   const recargarDatos = async () => {
     if (!proyectoId) return;
 
@@ -137,8 +177,15 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         .eq('id_proyecto', proyectoId)
         .order('created_at', { ascending: false });
 
+      const { data: recursosData } = await supabase
+        .from('recursos')
+        .select('*')
+        .eq('proyecto_id', proyectoId)
+        .order('created_at', { ascending: false });
+
       setActividades(actividadesData || []);
       setMisiones(misionesData || []);
+      setRecursos(recursosData || []);
     } catch (error) {
       console.error('Error recargando datos:', error);
     }
@@ -528,15 +575,90 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors"
                 data-todo-interactive
               >
-                <span className="font-semibold text-sm">Recursos</span>
+                <span className="font-semibold text-sm">Recursos ({recursos.length})</span>
                 {expandedRecursos ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </button>
 
               {expandedRecursos && (
-                <div className="px-4 pb-4">
-                  <div className="text-center text-gray-400 text-sm py-8">
-                    No hay recursos disponibles
-                  </div>
+                <div className="px-4 pb-4 space-y-2">
+                  {recursos.length === 0 ? (
+                    <div className="text-center text-gray-400 text-sm py-4">
+                      No hay recursos disponibles
+                    </div>
+                  ) : (
+                    recursos.map((recurso) => {
+                      // Verificar si es un recurso tipo nota (link empieza con "nota://")
+                      const esNota = recurso.link?.startsWith('nota://');
+
+                      return (
+                        <div
+                          key={recurso.id}
+                          className={`w-full bg-gray-600 rounded-lg p-3 transition-all shadow-sm border-2 ${
+                            esNota
+                              ? 'hover:bg-blue-600 hover:border-blue-400 cursor-pointer hover:scale-[1.02] border-transparent'
+                              : 'hover:bg-gray-550 border-transparent'
+                          }`}
+                          style={{ cursor: esNota ? 'pointer' : 'default' }}
+                          onClick={(e) => {
+                            if (esNota) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setRecursoModalAbierto({
+                                isOpen: true,
+                                recurso
+                              });
+                            }
+                          }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                          }}
+                          onMouseUp={(e) => {
+                            e.stopPropagation();
+                          }}
+                          onDragStart={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          draggable={false}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="text-xl flex-shrink-0">
+                              {recurso.icono || '📄'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-white truncate text-sm">
+                                {recurso.nombre || 'Sin nombre'}
+                              </div>
+                              {recurso.link && !esNota && (
+                                <a
+                                  href={recurso.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-300 hover:text-blue-200 underline truncate block"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {recurso.link}
+                                </a>
+                              )}
+                              {esNota && (
+                                <div className="text-xs text-blue-300 mt-1 font-semibold flex items-center gap-1">
+                                  <span>👆</span>
+                                  <span>Click para ver contenido completo</span>
+                                </div>
+                              )}
+                              <div className="text-xs text-gray-400 mt-1">
+                                {new Date(recurso.created_at).toLocaleDateString('es-ES', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>
@@ -745,6 +867,39 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal/Ventana para mostrar contenido de nota */}
+      {recursoModalAbierto.isOpen && recursoModalAbierto.recurso && (
+        <Ventana
+          isOpen={recursoModalAbierto.isOpen}
+          onClose={() => setRecursoModalAbierto({ isOpen: false, recurso: null })}
+          title={`📝 ${recursoModalAbierto.recurso.nombre || 'Nota'}`}
+          initialWidth={600}
+          initialHeight={400}
+          minWidth={400}
+          minHeight={300}
+          showOverlay={true}
+        >
+          <div
+            className="w-full h-full p-6 overflow-y-auto bg-white"
+            onClick={(e) => e.stopPropagation()}
+            data-todo-interactive
+          >
+            <div className="prose max-w-none">
+              <p className="text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
+                {recursoModalAbierto.recurso.link?.replace('nota://', '') || 'Sin contenido'}
+              </p>
+            </div>
+
+            {/* Info adicional */}
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="text-sm text-gray-500">
+                <p><strong>Creado:</strong> {new Date(recursoModalAbierto.recurso.created_at).toLocaleString('es-ES')}</p>
+              </div>
+            </div>
+          </div>
+        </Ventana>
       )}
     </div>
   );

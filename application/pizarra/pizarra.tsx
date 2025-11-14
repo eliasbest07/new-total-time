@@ -21,6 +21,7 @@ import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 import Ventana from '@/app/demo/components/Ventana';
+import { SupabaseRecursoRepository } from '@/infrastructure/datasource/SupabaseRecursoRepository';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate }, ref) => {
   const { usuario } = useAuth();
@@ -368,6 +369,80 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     syncCardsFromDB();
   }, [cardsDB, pizarra, usuario, setPastedImages, isViewingOtherUser]);
 
+  // Callback personalizado para detectar conexión nota-proyecto
+  const handleInternalConnectionCreate = useCallback(async (connection: Connection, fromCard: Card, toCard: Card) => {
+    console.log('🔗 Nueva conexión creada:', {
+      from: fromCard.type,
+      to: toCard.type,
+      fromCard,
+      toCard
+    });
+
+    // Detectar si se conectó una nota (type="text") con un proyecto
+    const isNoteToProject =
+      (fromCard.type === 'text' && (toCard.type === 'proyecto' || toCard.type === 'proyecto-organizacion')) ||
+      ((fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') && toCard.type === 'text');
+
+    if (isNoteToProject) {
+      const notaCard = fromCard.type === 'text' ? fromCard : toCard;
+      const proyectoCard = (fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') ? fromCard : toCard;
+
+      console.log('📝 ✅ Detectada conexión Nota ↔️ Proyecto:', {
+        nota: notaCard.title,
+        notaContent: notaCard.content,
+        proyecto: proyectoCard.proyectoData?.nombre,
+        proyectoId: proyectoCard.proyectoData?.id
+      });
+
+      // Crear recurso automáticamente sin modal
+      if (usuario?.userAuth && proyectoCard.proyectoData?.id) {
+        try {
+          console.log('📝 Creando recurso automáticamente...');
+          const recursoRepo = new SupabaseRecursoRepository();
+
+          // Usar el contenido de la nota como nombre del recurso
+          const nombreRecurso = notaCard.content?.trim()
+            ? notaCard.content.substring(0, 100).trim()
+            : (notaCard.title !== 'Nota' ? notaCard.title : 'Recurso desde nota');
+
+          // Guardar el contenido completo en el campo link con prefijo especial
+          const contenidoCompleto = notaCard.content?.trim() || '';
+          const linkContenido = contenidoCompleto ? `nota://${contenidoCompleto}` : null;
+
+          const nuevoRecurso = await recursoRepo.createRecurso({
+            nombre: nombreRecurso,
+            link: linkContenido,
+            icono: '📝',
+            proyecto_id: proyectoCard.proyectoData.id,
+            id_usuario: usuario.userAuth
+          });
+
+          if (nuevoRecurso) {
+            console.log('✅ Recurso creado exitosamente:', nuevoRecurso);
+            // Mostrar notificación de éxito
+            alert(`✅ Recurso "${nuevoRecurso.nombre}" creado y vinculado al proyecto "${proyectoCard.proyectoData.nombre}"`);
+          } else {
+            console.error('❌ No se pudo crear el recurso');
+            alert('❌ Error: No se pudo crear el recurso');
+          }
+        } catch (error) {
+          console.error('❌ Error al crear recurso:', error);
+          alert('❌ Error al crear el recurso. Ver consola para detalles.');
+        }
+      } else {
+        console.error('❌ Faltan datos para crear recurso:', {
+          usuario: !!usuario?.userAuth,
+          proyectoId: proyectoCard.proyectoData?.id
+        });
+      }
+    }
+
+    // Llamar al callback externo si existe
+    if (onConnectionCreate) {
+      onConnectionCreate(connection, fromCard, toCard);
+    }
+  }, [usuario, onConnectionCreate]);
+
   const {
     connections,
     setConnections,
@@ -378,7 +453,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleCardClick,
     updateMousePosition,
     deleteConnection: baseDeleteConnection
-  } = useConnections({ cards, onConnectionCreate });
+  } = useConnections({ cards, onConnectionCreate: handleInternalConnectionCreate });
 
   // Wrapper para deleteConnection que también limpia el tracking
   const deleteConnection = useCallback((connectionId: string) => {

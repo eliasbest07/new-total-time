@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Ventana from '@/app/demo/components/Ventana';
-import { Calendar, FileText, Palette, FolderOpen } from 'lucide-react';
+import { Calendar, FileText, Palette, FolderOpen, Target } from 'lucide-react';
+import { Mision } from '@/domain/entities/Mision';
 
 interface Proyecto {
   id: number;
@@ -24,6 +25,36 @@ interface DetalleProyectoModalProps {
 }
 
 const DetalleProyectoModal: React.FC<DetalleProyectoModalProps> = ({ isOpen, onClose, proyecto }) => {
+  const [misiones, setMisiones] = useState<Mision[]>([]);
+  const [loadingMisiones, setLoadingMisiones] = useState(false);
+
+  useEffect(() => {
+    const cargarMisiones = async () => {
+      if (!proyecto) return;
+
+      try {
+        setLoadingMisiones(true);
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+        const { data: misionesData } = await supabase
+          .from('misiones')
+          .select('*')
+          .eq('id_proyecto', proyecto.id)
+          .order('created_at', { ascending: false });
+
+        setMisiones(misionesData || []);
+      } catch (error) {
+        console.error('Error cargando misiones del proyecto:', error);
+      } finally {
+        setLoadingMisiones(false);
+      }
+    };
+
+    if (isOpen && proyecto) {
+      cargarMisiones();
+    }
+  }, [isOpen, proyecto]);
+
   if (!proyecto) return null;
 
   const getEstadoColor = (estado: string) => {
@@ -99,7 +130,7 @@ const DetalleProyectoModal: React.FC<DetalleProyectoModalProps> = ({ isOpen, onC
               <Calendar className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-900">Fecha de Creación</h3>
+              <h3 className="text-sm font-medium text-gray-900">Fecha d Creación</h3>
               <p className="text-lg font-semibold text-blue-700">{formatFecha(proyecto.fechaCreacion)}</p>
             </div>
           </div>
@@ -152,6 +183,77 @@ const DetalleProyectoModal: React.FC<DetalleProyectoModalProps> = ({ isOpen, onC
                   <p className="text-xs text-gray-500 font-mono">{proyecto.colores.acento}</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Misiones del proyecto */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
+          <div className="flex items-start space-x-3">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Target className="w-5 h-5 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Misiones del Proyecto</h3>
+              {loadingMisiones ? (
+                <div className="text-sm text-gray-500">Cargando misiones...</div>
+              ) : misiones.length === 0 ? (
+                <div className="text-sm text-gray-500 italic">
+                  No hay misiones asociadas a este proyecto.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {misiones.map((mision) => (
+                    <div
+                      key={mision.id}
+                      className="bg-white rounded-lg p-3 border border-green-200 hover:shadow-sm transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-1">
+                        <h4 className="font-medium text-gray-900 text-sm">
+                          {mision.nombre || 'Sin nombre'}
+                        </h4>
+                        {mision.horas && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">
+                            {mision.horas}h
+                          </span>
+                        )}
+                      </div>
+                      {mision.descripcion && (
+                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                          {mision.descripcion}
+                        </p>
+                      )}
+                      {mision.estado && (
+                        <span className="inline-block text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                          {mision.estado}
+                        </span>
+                      )}
+                      <div className="flex gap-2 text-xs text-gray-500 mt-2">
+                        {mision.fecha_start && (
+                          <span>🚀 {new Date(mision.fecha_start).toLocaleDateString('es-ES')}</span>
+                        )}
+                        {mision.fecha_end && (
+                          <span>🏁 {new Date(mision.fecha_end).toLocaleDateString('es-ES')}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {misiones.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-green-200">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600 font-medium">Total de misiones:</span>
+                    <span className="text-green-700 font-semibold">{misiones.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs mt-1">
+                    <span className="text-gray-600 font-medium">Total de horas:</span>
+                    <span className="text-green-700 font-semibold">
+                      {misiones.reduce((sum, m) => sum + (m.horas || 0), 0)}h
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

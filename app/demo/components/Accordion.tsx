@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   ChevronDown,
   Users,
@@ -9,7 +9,8 @@ import {
   Clock,
   Plus,
   ChevronUp,
-  LucideIcon
+  LucideIcon,
+  Target
 } from 'lucide-react';
 import { Resource } from '../utils/resourceUtils';
 import { Usuario } from '@/domain/entities/Usuario';
@@ -17,6 +18,9 @@ import Ventana from './Ventana';
 import { Proyecto } from '@/domain/entities/Proyecto';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { createPortal } from 'react-dom';
+import { Mision } from '@/domain/entities/Mision';
+import { MisionActiva } from '@/domain/entities/MisionActiva';
+import { Camera, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from 'lucide-react';
 
 
 // Tipos/Interfaces
@@ -78,10 +82,83 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
   const [currentUserPage, setCurrentUserPage] = useState<number>(1);
   const [currentProyectoPage, setCurrentProyectoPage] = useState<number>(1);
   const [hoveredRecurso, setHoveredRecurso] = useState<{ name: string; url?: string; x: number; y: number } | null>(null);
+  const [misiones, setMisiones] = useState<Mision[]>([]);
+  const [loadingMisiones, setLoadingMisiones] = useState(false);
+  const [misionesActivas, setMisionesActivas] = useState<MisionActiva[]>([]);
+  const [loadingCapturas, setLoadingCapturas] = useState(false);
+  const [selectedMisionForCaptures, setSelectedMisionForCaptures] = useState<number | null>(null);
+  const [currentCaptureIndex, setCurrentCaptureIndex] = useState(0);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const dragImageRef = useRef<HTMLDivElement>(null);
 
   // Obtener el estado de presencia desde AuthContext
   const { isUserOnline: checkUserOnline, onlineUsers } = useAuth();
+
+  // Cargar misiones cuando se selecciona un proyecto
+  useEffect(() => {
+    const cargarMisiones = async () => {
+      if (!selectedProyecto || !showProyectoDetails) {
+        setMisiones([]);
+        return;
+      }
+
+      try {
+        setLoadingMisiones(true);
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+        const { data: misionesData } = await supabase
+          .from('misiones')
+          .select('*')
+          .eq('id_proyecto', selectedProyecto.id)
+          .order('created_at', { ascending: false });
+
+        setMisiones(misionesData || []);
+      } catch (error) {
+        console.error('Error cargando misiones del proyecto:', error);
+      } finally {
+        setLoadingMisiones(false);
+      }
+    };
+
+    cargarMisiones();
+  }, [selectedProyecto, showProyectoDetails]);
+
+  // Cargar misiones activas con capturas cuando se cargan las misiones
+  useEffect(() => {
+    const cargarMisionesActivas = async () => {
+      if (misiones.length === 0) {
+        setMisionesActivas([]);
+        return;
+      }
+
+      try {
+        setLoadingCapturas(true);
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+        // Obtener todas las misiones activas de tipo 'mision' para este proyecto
+        const misionIds = misiones.map(m => m.id);
+
+        const { data: misionesActivasData, error } = await supabase
+          .from('misiones_activas')
+          .select('*')
+          .eq('tipo', 'mision')
+          .in('id_referencia', misionIds);
+
+        if (error) {
+          console.error('Error cargando misiones activas:', error);
+        } else {
+          setMisionesActivas(misionesActivasData || []);
+          console.log('📸 Misiones activas cargadas:', misionesActivasData);
+        }
+      } catch (error) {
+        console.error('Error cargando misiones activas:', error);
+      } finally {
+        setLoadingCapturas(false);
+      }
+    };
+
+    cargarMisionesActivas();
+  }, [misiones]);
 
   const USERS_PER_PAGE = 4;
   const PROYECTOS_PER_PAGE = 2;
@@ -710,6 +787,155 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                 </div>
               </div>
             )}
+
+            {/* Misiones del Proyecto */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Target className="w-5 h-5" />
+                Misiones del Proyecto
+              </h3>
+              {loadingMisiones ? (
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <p className="text-gray-500 text-sm">Cargando misiones...</p>
+                </div>
+              ) : misiones.length === 0 ? (
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <p className="text-gray-500 text-sm italic">
+                    No hay misiones asociadas a este proyecto.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {misiones.map((mision) => {
+                    // Buscar la misión activa correspondiente
+                    const misionActiva = misionesActivas.find(ma => ma.id_referencia === mision.id);
+                    const capturas = misionActiva?.capturas_urls || [];
+                    const isExpanded = selectedMisionForCaptures === mision.id;
+                    const currentIndex = isExpanded ? currentCaptureIndex : 0;
+
+                    return (
+                      <div
+                        key={mision.id}
+                        className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-semibold text-gray-900">
+                            {mision.nombre || 'Sin nombre'}
+                          </h4>
+                          {mision.horas && (
+                            <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
+                              {mision.horas}h
+                            </span>
+                          )}
+                        </div>
+                        {mision.descripcion && (
+                          <p className="text-sm text-gray-600 mb-3">
+                            {mision.descripcion}
+                          </p>
+                        )}
+                        {mision.estado && (
+                          <span className="inline-block text-xs bg-white text-gray-700 px-2 py-1 rounded border border-gray-200 mb-2">
+                            {mision.estado}
+                          </span>
+                        )}
+                        <div className="flex gap-3 text-xs text-gray-500 mb-3">
+                          {mision.fecha_start && (
+                            <span>🚀 Inicio: {new Date(mision.fecha_start).toLocaleDateString('es-ES')}</span>
+                          )}
+                          {mision.fecha_end && (
+                            <span>🏁 Fin: {new Date(mision.fecha_end).toLocaleDateString('es-ES')}</span>
+                          )}
+                        </div>
+
+                        {/* Sección de Capturas */}
+                        {capturas.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-green-300">
+                            <div className="flex items-center justify-between mb-2">
+                              <button
+                                onClick={() => {
+                                  if (isExpanded) {
+                                    setSelectedMisionForCaptures(null);
+                                    setCurrentCaptureIndex(0);
+                                  } else {
+                                    setSelectedMisionForCaptures(mision.id);
+                                    setCurrentCaptureIndex(0);
+                                  }
+                                }}
+                                className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 font-medium"
+                              >
+                                <Camera className="w-4 h-4" />
+                                <span>{capturas.length} {capturas.length === 1 ? 'Captura' : 'Capturas'}</span>
+                                <span className="text-xs">{isExpanded ? '▼' : '▶'}</span>
+                              </button>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="space-y-2">
+                                {/* Navegación */}
+                                {capturas.length > 1 && (
+                                  <div className="flex items-center justify-between bg-white/50 p-2 rounded">
+                                    <button
+                                      onClick={() => setCurrentCaptureIndex(Math.max(0, currentIndex - 1))}
+                                      disabled={currentIndex === 0}
+                                      className={`p-1 rounded ${
+                                        currentIndex === 0
+                                          ? 'text-gray-400 cursor-not-allowed'
+                                          : 'text-gray-700 hover:bg-white'
+                                      }`}
+                                    >
+                                      <ChevronLeftIcon className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-xs text-gray-600">
+                                      {currentIndex + 1} / {capturas.length}
+                                    </span>
+                                    <button
+                                      onClick={() => setCurrentCaptureIndex(Math.min(capturas.length - 1, currentIndex + 1))}
+                                      disabled={currentIndex === capturas.length - 1}
+                                      className={`p-1 rounded ${
+                                        currentIndex === capturas.length - 1
+                                          ? 'text-gray-400 cursor-not-allowed'
+                                          : 'text-gray-700 hover:bg-white'
+                                      }`}
+                                    >
+                                      <ChevronRightIcon className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* Imagen */}
+                                <div
+                                  onClick={() => setSelectedImage(capturas[currentIndex])}
+                                  className="cursor-pointer hover:opacity-90 transition-opacity"
+                                >
+                                  <img
+                                    src={capturas[currentIndex]}
+                                    alt={`Captura ${currentIndex + 1}`}
+                                    className="w-full h-auto rounded border border-green-300"
+                                    style={{ maxHeight: '200px', objectFit: 'cover' }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700 font-medium">Total de misiones:</span>
+                      <span className="text-blue-700 font-bold">{misiones.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mt-1">
+                      <span className="text-gray-700 font-medium">Total de horas:</span>
+                      <span className="text-blue-700 font-bold">
+                        {misiones.reduce((sum, m) => sum + (m.horas || 0), 0)}h
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Ventana>
@@ -729,6 +955,29 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
           {hoveredRecurso.url && <div className="text-xs text-white/70 mt-1">Click para abrir</div>}
         </div>,
         document.body
+      )}
+
+      {/* Modal de imagen grande */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black/90 z-[99999] flex items-center justify-center p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-7xl max-h-[95vh] w-full h-full flex items-center justify-center">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg transition-colors z-10 font-medium"
+            >
+              ✕ Cerrar
+            </button>
+            <img
+              src={selectedImage}
+              alt="Captura ampliada"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
       )}
     </>
   );

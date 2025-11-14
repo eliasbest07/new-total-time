@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMisionesOrganizacion } from '@/hooks/useMisionesOrganizacion';
 import { useUsuariosOrganizacionContext } from '@/app/contexts/UsuariosOrganizacionContext';
 import { MisionWithTodos } from '@/domain/entities/Mision';
@@ -8,6 +8,8 @@ import Ventana from '@/app/demo/components/Ventana';
 import { PizarraRef } from '@/application/pizarra/types';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
+import { MisionActiva } from '@/domain/entities/MisionActiva';
+import { ChevronLeft, ChevronRight, Camera } from 'lucide-react';
 
 interface MisionesOrganizacionProps {
   pizarraRef?: React.RefObject<PizarraRef | null>;
@@ -18,6 +20,10 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
   const { misiones, loading: loadingMisiones, error } = useMisionesOrganizacion(usuarios);
   const [selectedMision, setSelectedMision] = useState<MisionWithTodos | null>(null);
   const [showMisionModal, setShowMisionModal] = useState(false);
+  const [misionActiva, setMisionActiva] = useState<MisionActiva | null>(null);
+  const [loadingCapturas, setLoadingCapturas] = useState(false);
+  const [currentCaptureIndex, setCurrentCaptureIndex] = useState(0);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const loading = loadingUsuarios || loadingMisiones;
 
@@ -26,6 +32,42 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
   console.log('🎯 [MisionesOrganizacion] error:', error);
   console.log('🎯 [MisionesOrganizacion] misiones:', misiones);
   console.log('🎯 [MisionesOrganizacion] misiones.length:', misiones?.length);
+
+  // Cargar misión activa cuando se selecciona una misión
+  useEffect(() => {
+    const loadMisionActiva = async () => {
+      if (!selectedMision || !showMisionModal) {
+        setMisionActiva(null);
+        setCurrentCaptureIndex(0);
+        return;
+      }
+
+      try {
+        setLoadingCapturas(true);
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+        const { data, error } = await supabase
+          .from('misiones_activas')
+          .select('*')
+          .eq('tipo', 'mision')
+          .eq('id_referencia', selectedMision.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error cargando misión activa:', error);
+        } else {
+          setMisionActiva(data);
+          console.log('📸 Misión activa cargada:', data);
+        }
+      } catch (error) {
+        console.error('Error cargando misión activa:', error);
+      } finally {
+        setLoadingCapturas(false);
+      }
+    };
+
+    loadMisionActiva();
+  }, [selectedMision, showMisionModal]);
 
   // Función para obtener información del usuario asignado
   const getUsuarioInfo = (idUsuario: number | null) => {
@@ -320,6 +362,94 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                 </div>
               )}
 
+              {/* Capturas de pantalla */}
+              {misionActiva && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2 text-gray-900 flex items-center gap-2">
+                    <Camera className="w-5 h-5" />
+                    Capturas de Pantalla
+                  </h3>
+                  {loadingCapturas ? (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <p className="text-gray-500 text-sm">Cargando capturas...</p>
+                    </div>
+                  ) : misionActiva.capturas_urls && misionActiva.capturas_urls.length > 0 ? (
+                    <div className="space-y-3">
+                      {/* Navegación de capturas */}
+                      <div className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200">
+                        <button
+                          onClick={() => setCurrentCaptureIndex(Math.max(0, currentCaptureIndex - 1))}
+                          disabled={currentCaptureIndex === 0}
+                          className={`p-2 rounded-lg transition-colors ${
+                            currentCaptureIndex === 0
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <span className="text-sm text-gray-600 font-medium">
+                          Captura {currentCaptureIndex + 1} de {misionActiva.capturas_urls.length}
+                        </span>
+
+                        <button
+                          onClick={() => setCurrentCaptureIndex(Math.min(misionActiva.capturas_urls!.length - 1, currentCaptureIndex + 1))}
+                          disabled={currentCaptureIndex === misionActiva.capturas_urls!.length - 1}
+                          className={`p-2 rounded-lg transition-colors ${
+                            currentCaptureIndex === misionActiva.capturas_urls!.length - 1
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Imagen de captura */}
+                      <div
+                        className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setSelectedImage(misionActiva.capturas_urls![currentCaptureIndex])}
+                      >
+                        <img
+                          src={misionActiva.capturas_urls[currentCaptureIndex]}
+                          alt={`Captura ${currentCaptureIndex + 1}`}
+                          className="w-full h-auto object-contain"
+                          style={{ maxHeight: '400px' }}
+                        />
+                      </div>
+
+                      {/* Info adicional */}
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-blue-900 font-medium">Total de capturas:</span>
+                          <span className="text-blue-700 font-semibold">{misionActiva.capturas_urls.length}</span>
+                        </div>
+                        {misionActiva.fecha_ultimo_capture && (
+                          <div className="flex items-center justify-between text-sm mt-1">
+                            <span className="text-blue-900 font-medium">Última captura:</span>
+                            <span className="text-blue-700">
+                              {new Date(misionActiva.fecha_ultimo_capture).toLocaleString('es-ES', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <p className="text-gray-500 text-sm text-center">
+                        No hay capturas disponibles para esta misión
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ID de referencia */}
               <div>
                 <h3 className="text-lg font-semibold mb-2 text-gray-900">Información técnica</h3>
@@ -334,6 +464,29 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
           );
         })()}
       </Ventana>
+
+      {/* Modal para ver imagen en grande */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-7xl max-h-[95vh] w-full h-full flex items-center justify-center">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg transition-colors z-10 font-medium"
+            >
+              ✕ Cerrar
+            </button>
+            <img
+              src={selectedImage}
+              alt="Captura ampliada"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }
