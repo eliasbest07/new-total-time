@@ -8,6 +8,8 @@ export const useCanvasPan = () => {
   const edgePanningRef = useRef<{ x: number; y: number } | null>(null);
   const edgePanningStartTimeRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const isHoveringInputRef = useRef<boolean>(false);
+  const inputHoverTimeoutRef = useRef<number | null>(null);
 
   const handleCanvasMouseDown = useCallback((
     e: React.MouseEvent<HTMLDivElement>,
@@ -104,6 +106,48 @@ export const useCanvasPan = () => {
         return;
       }
 
+      // Check if we're hovering over an input or textarea
+      const target = e.target as HTMLElement;
+      const isOverInput = target.tagName === 'INPUT' ||
+                          target.tagName === 'TEXTAREA' ||
+                          target.isContentEditable ||
+                          target.closest('input') !== null ||
+                          target.closest('textarea') !== null;
+
+      // Si estamos sobre un input, detener el edge panning inmediatamente
+      if (isOverInput) {
+        isHoveringInputRef.current = true;
+        edgePanningRef.current = null;
+        edgePanningStartTimeRef.current = null;
+
+        // Limpiar timeout anterior si existe
+        if (inputHoverTimeoutRef.current !== null) {
+          window.clearTimeout(inputHoverTimeoutRef.current);
+          inputHoverTimeoutRef.current = null;
+        }
+        return;
+      } else if (isHoveringInputRef.current) {
+        // Si dejamos de hacer hover sobre el input, esperar un delay antes de reactivar
+        isHoveringInputRef.current = false;
+
+        // Limpiar timeout anterior si existe
+        if (inputHoverTimeoutRef.current !== null) {
+          window.clearTimeout(inputHoverTimeoutRef.current);
+        }
+
+        // Delay de 300ms antes de reactivar el edge panning
+        inputHoverTimeoutRef.current = window.setTimeout(() => {
+          inputHoverTimeoutRef.current = null;
+          // Aquí se reactivará el edge panning en la próxima iteración
+        }, 300);
+        return;
+      }
+
+      // Si hay un timeout activo (recién salimos del input), no activar edge panning aún
+      if (inputHoverTimeoutRef.current !== null) {
+        return;
+      }
+
       // Calculate pan direction based on edge proximity
       let directionX = 0;
       let directionY = 0;
@@ -143,6 +187,10 @@ export const useCanvasPan = () => {
     document.addEventListener('mousemove', handleEdgePanning);
     return () => {
       document.removeEventListener('mousemove', handleEdgePanning);
+      // Limpiar timeout al desmontar
+      if (inputHoverTimeoutRef.current !== null) {
+        window.clearTimeout(inputHoverTimeoutRef.current);
+      }
     };
   }, []);
 
