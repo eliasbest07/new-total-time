@@ -137,6 +137,31 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     cargarDatos();
   }, [proyectoId]);
 
+  const eliminarRecursoNota = async (recursoId: number) => {
+    try {
+      console.log('Intentando eliminar recurso con ID:', recursoId);
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+      const { error, data } = await supabase
+        .from('recursos')
+        .delete()
+        .eq('id', recursoId)
+        .select();
+
+      if (error) {
+        console.error('Error de Supabase:', error);
+        throw error;
+      }
+
+      console.log('Recurso eliminado exitosamente:', data);
+
+      // Actualizar la lista local
+      setRecursos(recursos.filter(r => r.id !== recursoId));
+    } catch (error) {
+      console.error('Error eliminando recurso nota:', error);
+      alert('Error al eliminar la nota: ' + (error as Error).message);
+    }
+  };
+
   // Recargar recursos periódicamente cuando la sección está expandida
   useEffect(() => {
     if (!expandedRecursos || !proyectoId) return;
@@ -305,6 +330,9 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   };
 
   const cleanIcono = card.proyectoData?.icono ? sanitizeIconUrl(card.proyectoData.icono) : null;
+
+  // Calcular cantidad de recursos tipo "nota"
+  const recursosNota = recursos.filter(r => r.link?.startsWith('nota://'));
 
   return (
     <div className="flex flex-col h-full w-full bg-gray-200 rounded-xl shadow-lg overflow-hidden">
@@ -575,25 +603,25 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors"
                 data-todo-interactive
               >
-                <span className="font-semibold text-sm">Recursos ({recursos.length})</span>
+                <span className="font-semibold text-sm">Notas ({recursosNota.length})</span>
                 {expandedRecursos ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </button>
 
               {expandedRecursos && (
                 <div className="px-4 pb-4 space-y-2">
-                  {recursos.length === 0 ? (
+                  {recursosNota.length === 0 ? (
                     <div className="text-center text-gray-400 text-sm py-4">
-                      No hay recursos disponibles
+                      No hay notas disponibles
                     </div>
                   ) : (
-                    recursos.map((recurso) => {
-                      // Verificar si es un recurso tipo nota (link empieza con "nota://")
-                      const esNota = recurso.link?.startsWith('nota://');
+                    recursosNota.map((recurso) => {
+                      // Son todos recursos tipo nota
+                      const esNota = true;
 
                       return (
                         <div
                           key={recurso.id}
-                          className={`w-full bg-gray-600 rounded-lg p-3 transition-all shadow-sm border-2 ${
+                          className={`w-full bg-gray-600 rounded-lg p-3 transition-all shadow-sm border-2 relative group ${
                             esNota
                               ? 'hover:bg-blue-600 hover:border-blue-400 cursor-pointer hover:scale-[1.02] border-transparent'
                               : 'hover:bg-gray-550 border-transparent'
@@ -621,11 +649,27 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                           }}
                           draggable={false}
                         >
+                          {/* Botón eliminar */}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (confirm('¿Eliminar esta nota?')) {
+                                eliminarRecursoNota(recurso.id);
+                              }
+                            }}
+                            className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            data-todo-interactive
+                            title="Eliminar nota"
+                          >
+                            <X size={12} />
+                          </button>
+
                           <div className="flex items-start gap-2">
                             <div className="text-xl flex-shrink-0">
                               {recurso.icono || '📄'}
                             </div>
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 pr-6">
                               <div className="font-medium text-white truncate text-sm">
                                 {recurso.nombre || 'Sin nombre'}
                               </div>
@@ -869,38 +913,44 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         </div>
       )}
 
-      {/* Modal/Ventana para mostrar contenido de nota */}
-      {recursoModalAbierto.isOpen && recursoModalAbierto.recurso && (
-        <Ventana
-          isOpen={recursoModalAbierto.isOpen}
-          onClose={() => setRecursoModalAbierto({ isOpen: false, recurso: null })}
-          title={`📝 ${recursoModalAbierto.recurso.nombre || 'Nota'}`}
-          initialWidth={600}
-          initialHeight={400}
-          minWidth={400}
-          minHeight={300}
-          showOverlay={true}
-        >
-          <div
-            className="w-full h-full p-6 overflow-y-auto bg-white"
-            onClick={(e) => e.stopPropagation()}
-            data-todo-interactive
-          >
-            <div className="prose max-w-none">
-              <p className="text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
-                {recursoModalAbierto.recurso.link?.replace('nota://', '') || 'Sin contenido'}
-              </p>
+      {/* Ventana para mostrar contenido de nota */}
+      <Ventana
+        isOpen={recursoModalAbierto.isOpen}
+        onClose={() => setRecursoModalAbierto({ isOpen: false, recurso: null })}
+        title={`📝 ${recursoModalAbierto.recurso?.nombre || 'Nota'}`}
+        initialWidth={600}
+        initialHeight={500}
+        minWidth={500}
+        minHeight={400}
+        showOverlay={false}
+      >
+        {recursoModalAbierto.recurso && (
+          <div className="text-black space-y-6 p-4">
+            {/* Contenido de la nota */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Contenido</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
+                  {recursoModalAbierto.recurso.link?.replace('nota://', '') || 'Sin contenido'}
+                </p>
+              </div>
             </div>
 
-            {/* Info adicional */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <div className="text-sm text-gray-500">
-                <p><strong>Creado:</strong> {new Date(recursoModalAbierto.recurso.created_at).toLocaleString('es-ES')}</p>
+            {/* Información técnica */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Información</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="text-gray-600 text-sm">
+                  <strong>Creado:</strong> {new Date(recursoModalAbierto.recurso.created_at).toLocaleString('es-ES')}
+                </p>
+                <p className="text-gray-600 text-sm mt-1">
+                  <strong>ID:</strong> {recursoModalAbierto.recurso.id}
+                </p>
               </div>
             </div>
           </div>
-        </Ventana>
-      )}
+        )}
+      </Ventana>
     </div>
   );
 };

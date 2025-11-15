@@ -7,6 +7,7 @@ import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Image from 'next/image';
+import Ventana from '@/app/demo/components/Ventana';
 
 interface ProyectoCardProps {
   card: Card;
@@ -38,9 +39,17 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   const [expanded, setExpanded] = useState<'misiones' | 'actividades' | 'notas' | 'imagenes' | 'usuarios' | null>(null);
   const [notas, setNotas] = useState<string[]>([]);
   const [imagenes, setImagenes] = useState<string[]>([]);
+  const [recursosNota, setRecursosNota] = useState<any[]>([]); // Recursos tipo "nota" desde BD
   const [nuevaNota, setNuevaNota] = useState('');
   const [showNuevaMisionModal, setShowNuevaMisionModal] = useState(false);
   const [showNuevaActividadModal, setShowNuevaActividadModal] = useState(false);
+  const [recursoModalAbierto, setRecursoModalAbierto] = useState<{
+    isOpen: boolean;
+    recurso: any | null;
+  }>({
+    isOpen: false,
+    recurso: null
+  });
 
   // Form states para misión
   const [misionNombre, setMisionNombre] = useState('');
@@ -79,6 +88,14 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           .eq('id_proyecto', card.proyectoData.id)
           .order('created_at', { ascending: false });
 
+        // Cargar recursos tipo "nota" (aquellos cuyo link empieza con "nota://")
+        const { data: recursosData } = await supabase
+          .from('recursos')
+          .select('*')
+          .eq('proyecto_id', card.proyectoData.id)
+          .like('link', 'nota://%')
+          .order('created_at', { ascending: false });
+
         // Cargar usuarios asignados al proyecto
         // Intentar desde tabla de relación usuario_proyecto
         const { data: usuarioProyectoData } = await supabase
@@ -102,6 +119,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
 
         setActividades(actividadesData || []);
         setMisiones(misionesData || []);
+        setRecursosNota(recursosData || []);
       } catch (error) {
         console.error('Error cargando datos del proyecto:', error);
       } finally {
@@ -113,6 +131,31 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   }, [card.proyectoData?.id]);
 
   // Función para recargar datos
+  const eliminarRecursoNota = async (recursoId: number) => {
+    try {
+      console.log('Intentando eliminar recurso con ID:', recursoId);
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+      const { error, data } = await supabase
+        .from('recursos')
+        .delete()
+        .eq('id', recursoId)
+        .select();
+
+      if (error) {
+        console.error('Error de Supabase:', error);
+        throw error;
+      }
+
+      console.log('Recurso eliminado exitosamente:', data);
+
+      // Actualizar la lista local
+      setRecursosNota(recursosNota.filter(r => r.id !== recursoId));
+    } catch (error) {
+      console.error('Error eliminando recurso nota:', error);
+      alert('Error al eliminar la nota: ' + (error as Error).message);
+    }
+  };
+
   const recargarDatos = async () => {
     if (!card.proyectoData?.id) return;
 
@@ -129,6 +172,14 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         .from('misiones')
         .select('*')
         .eq('id_proyecto', card.proyectoData.id)
+        .order('created_at', { ascending: false });
+
+      // Cargar recursos tipo "nota"
+      const { data: recursosData } = await supabase
+        .from('recursos')
+        .select('*')
+        .eq('proyecto_id', card.proyectoData.id)
+        .like('link', 'nota://%')
         .order('created_at', { ascending: false });
 
       // Cargar usuarios asignados
@@ -151,6 +202,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
 
       setActividades(actividadesData || []);
       setMisiones(misionesData || []);
+      setRecursosNota(recursosData || []);
     } catch (error) {
       console.error('Error recargando datos:', error);
     }
@@ -446,7 +498,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           ⚡ <span className="font-semibold">{actividades.length}</span>
         </div>
         <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded flex items-center gap-1">
-          📝 <span className="font-semibold">{notas.length}</span>
+          📝 <span className="font-semibold">{recursosNota.length}</span>
         </div>
         <div className="bg-purple-100 text-purple-700 px-2 py-1 rounded flex items-center gap-1">
           🖼️ <span className="font-semibold">{imagenes.length}</span>
@@ -591,61 +643,59 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                 className="w-full text-left text-xs font-semibold text-blue-800 mb-1 flex items-center justify-between hover:bg-blue-100 px-1 py-0.5 rounded"
                 data-todo-interactive
               >
-                <span>📝 Notas ({notas.length})</span>
+                <span>📝 Notas ({recursosNota.length})</span>
                 <span>{expanded === 'notas' ? '▼' : '▶'}</span>
               </button>
               {expanded === 'notas' && (
                 <div className="space-y-1 ml-2">
-                  {/* Agregar nueva nota */}
-                  <div className="flex gap-1">
-                    <input
-                      type="text"
-                      value={nuevaNota}
-                      onChange={(e) => setNuevaNota(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && nuevaNota.trim()) {
-                          setNotas([...notas, nuevaNota.trim()]);
-                          setNuevaNota('');
-                        }
-                      }}
-                      placeholder="Nueva nota..."
-                      className="flex-1 px-2 py-1 text-xs border border-blue-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      data-todo-interactive
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (nuevaNota.trim()) {
-                          setNotas([...notas, nuevaNota.trim()]);
-                          setNuevaNota('');
-                        }
-                      }}
-                      className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
-                      data-todo-interactive
-                    >
-                      <Plus size={12} />
-                    </button>
-                  </div>
-                  {/* Lista de notas */}
-                  {notas.map((nota, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white rounded p-2 border border-blue-100 text-xs flex justify-between items-start"
-                    >
-                      <span className="flex-1">{nota}</span>
-                      <button
+                  {recursosNota.length === 0 ? (
+                    <div className="text-xs text-gray-500 italic">No hay notas</div>
+                  ) : (
+                    recursosNota.map((recurso) => (
+                      <div
+                        key={recurso.id}
+                        className="bg-white rounded p-2 border border-blue-100 text-xs cursor-pointer hover:bg-blue-50 transition-colors relative group"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setNotas(notas.filter((_, i) => i !== idx));
+                          setRecursoModalAbierto({
+                            isOpen: true,
+                            recurso
+                          });
                         }}
-                        className="text-red-500 hover:text-red-700 ml-2"
                         data-todo-interactive
                       >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+                        {/* Botón eliminar */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('¿Eliminar esta nota?')) {
+                              eliminarRecursoNota(recurso.id);
+                            }
+                          }}
+                          className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 opacity-0 group-hover:opacity-100 transition-opacity"
+                          data-todo-interactive
+                          title="Eliminar nota"
+                        >
+                          <X size={10} />
+                        </button>
+
+                        <div className="font-medium text-indigo-900 truncate mb-1 pr-5">
+                          {recurso.nombre || 'Sin nombre'}
+                        </div>
+                        <div className="text-gray-600 text-xs flex items-center gap-1">
+                          <span>📝</span>
+                          <span className="text-blue-600 font-semibold">Click para ver contenido</span>
+                        </div>
+                        <div className="text-gray-500 text-xs mt-1">
+                          {new Date(recurso.created_at).toLocaleDateString('es-ES', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -1048,6 +1098,45 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Ventana para mostrar contenido de nota */}
+      <Ventana
+        isOpen={recursoModalAbierto.isOpen}
+        onClose={() => setRecursoModalAbierto({ isOpen: false, recurso: null })}
+        title={`📝 ${recursoModalAbierto.recurso?.nombre || 'Nota'}`}
+        initialWidth={600}
+        initialHeight={500}
+        minWidth={500}
+        minHeight={400}
+        showOverlay={false}
+      >
+        {recursoModalAbierto.recurso && (
+          <div className="text-black space-y-6 p-4">
+            {/* Contenido de la nota */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Contenido</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
+                  {recursoModalAbierto.recurso.link?.replace('nota://', '') || 'Sin contenido'}
+                </p>
+              </div>
+            </div>
+
+            {/* Información técnica */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Información</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="text-gray-600 text-sm">
+                  <strong>Creado:</strong> {new Date(recursoModalAbierto.recurso.created_at).toLocaleString('es-ES')}
+                </p>
+                <p className="text-gray-600 text-sm mt-1">
+                  <strong>ID:</strong> {recursoModalAbierto.recurso.id}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Ventana>
     </div>
   );
 };
