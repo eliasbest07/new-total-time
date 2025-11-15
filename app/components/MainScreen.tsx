@@ -599,52 +599,55 @@ export default function MainScreen() {
             {/* Descripción */}
             <div>
               <h3 className="text-lg font-semibold mb-2">Descripción</h3>
-              <p className="text-gray-700">{selectedActividad.descripcion || 'Sin descripción'}</p>
+              <p className="text-gray-700 text-xl font-medium">{selectedActividad.descripcion || 'Sin descripción'}</p>
             </div>
 
             {/* Fecha y Hora */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Fecha y Hora</h3>
-              <div className="bg-gray-100 p-3 rounded-lg">
-                <p className="font-medium">{formatDate(selectedActividad.fecha)}</p>
-                <p className="text-gray-600">{formatTime(selectedActividad.hora_inicio)}</p>
+            {selectedActividad.fecha && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Fecha y Hora</h3>
+                <div className="bg-blue-100 p-3 rounded-lg space-y-2">
+                  <p className="text-blue-800">
+                    <span className="font-medium">Fecha:</span> {formatDate(selectedActividad.fecha)}
+                  </p>
+                  {selectedActividad.hora_inicio && (
+                    <p className="text-blue-800">
+                      <span className="font-medium">Hora:</span> {formatTime(selectedActividad.hora_inicio)}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Duración */}
-            {selectedActividad.cant_horas && (
+            {selectedActividad.cant_horas && selectedActividad.cant_horas > 0 && (
               <div>
-                <h3 className="text-lg font-semibold mb-2">Duración</h3>
-                <div className="bg-blue-100 p-3 rounded-lg">
-                  <p className="font-medium text-blue-800">{selectedActividad.cant_horas} horas</p>
+                <h3 className="text-lg font-semibold mb-2">Duración Estimada</h3>
+                <div className="bg-green-100 p-3 rounded-lg">
+                  <p className="font-medium text-green-800 text-xl">{selectedActividad.cant_horas} horas</p>
                 </div>
               </div>
             )}
 
             {/* Tiempo dedicado */}
-            {selectedActividad.tiempo_dedicado && (
+            {selectedActividad.tiempo_dedicado && selectedActividad.tiempo_dedicado > 0 && (
               <div>
                 <h3 className="text-lg font-semibold mb-2">Tiempo Dedicado</h3>
-                <div className="bg-green-100 p-3 rounded-lg">
-                  <p className="font-medium text-green-800">{selectedActividad.tiempo_dedicado} minutos</p>
+                <div className="bg-purple-100 p-3 rounded-lg">
+                  <p className="font-medium text-purple-800 text-xl">{selectedActividad.tiempo_dedicado} minutos</p>
                 </div>
               </div>
             )}
 
-            {/* Link */}
-            {selectedActividad.link && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Enlace</h3>
-                <button
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                  onClick={() => window.open(selectedActividad.link!, '_blank')}
-                >
-                  Abrir enlace
-                </button>
+            {/* Estado/Progreso */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Estado</h3>
+              <div className="bg-yellow-100 p-3 rounded-lg">
+                <p className="font-medium text-yellow-800">En progreso</p>
               </div>
-            )}
+            </div>
 
-            {/* Captures */}
+            {/* Notas/Captures */}
             {selectedActividad.captures && (
               <div>
                 <h3 className="text-lg font-semibold mb-2">Notas</h3>
@@ -653,6 +656,34 @@ export default function MainScreen() {
                 </div>
               </div>
             )}
+
+            {/* Link */}
+            {selectedActividad.link && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Enlace</h3>
+                <div className="bg-gray-100 p-3 rounded-lg">
+                  <a
+                    href={selectedActividad.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline break-all"
+                  >
+                    {selectedActividad.link}
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* ID de referencia */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Información técnica</h3>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="text-gray-600 text-sm">ID: {selectedActividad.id}</p>
+                {selectedActividad.id_usuario && (
+                  <p className="text-gray-600 text-sm">Usuario: {selectedActividad.id_usuario}</p>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </Ventana>
