@@ -99,7 +99,7 @@ export const getUnviewedPostsCount = (
 ): number => {
   const viewedPosts = getViewedPosts(salaId);
   const unviewedPosts = allPostIds.filter(id => !viewedPosts.includes(id));
-  console.log(`💾 [viewedPostsService] 🔢 Calculando NO VISTOS para sala ${salaId}:`, {
+  console.log(``, {
     totalPosts: allPostIds.length,
     vistos: viewedPosts.length,
     noVistos: unviewedPosts.length,

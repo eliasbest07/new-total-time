@@ -126,6 +126,7 @@ const ActividadCard: React.FC<ActividadCardProps> = ({ actividad, index, onShowD
         
         await startCapturing({
           userId: usuario.id,
+          userEmail: usuario.email || '',
           actividadId: actividad.id.toString(),
           misionActividad: actividad.descripcion || 'Actividad sin descripción',
           totalTrabajadoHoy: actividad.tiempo_dedicado?.toString(),

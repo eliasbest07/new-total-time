@@ -230,32 +230,18 @@ export class SupabaseMisionActivaRepository {
   }
 
   /**
-   * Agregar URL de captura al array de capturas por ID de misión activa
+   * Actualizar fecha de última captura por ID de misión activa
+   * Nota: Las capturas se guardan en la tabla 'capture', no en misiones_activas
    */
   async addCaptureUrl(idMisionActiva: string, captureUrl: string): Promise<MisionActiva | null> {
     try {
-      // console.log('📸 Agregando captura:', captureUrl);
+      // console.log('📸 Actualizando fecha de última captura');
 
-      // Primero obtenemos el registro actual
-      const { data: current, error: fetchError } = await supabase
-        .from('misiones_activas')
-        .select('capturas_urls')
-        .eq('id', idMisionActiva)
-        .single();
-
-      if (fetchError || !current) {
-        console.error('❌ No se encontró la misión activa');
-        return null;
-      }
-
-      // Agregamos la nueva captura al array
-      const updatedCapturas = [...(current.capturas_urls || []), captureUrl];
       const fechaActual = new Date().toISOString();
 
       const { data, error } = await supabase
         .from('misiones_activas')
         .update({
-          capturas_urls: updatedCapturas,
           fecha_ultimo_capture: fechaActual,
           updated_at: fechaActual
         })
@@ -264,11 +250,11 @@ export class SupabaseMisionActivaRepository {
         .single();
 
       if (error) {
-        console.error('❌ Error agregando captura:', error);
+        console.error('❌ Error actualizando fecha de captura:', error);
         return null;
       }
 
-      // console.log('✅ Captura agregada con fecha:', fechaActual);
+      // console.log('✅ Fecha de captura actualizada:', fechaActual);
       return data;
     } catch (error) {
       console.error('❌ Error en addCaptureUrl:', error);
@@ -278,14 +264,41 @@ export class SupabaseMisionActivaRepository {
 
   /**
    * Enviar entrega por ID de misión activa
+   * Crea/actualiza el entregable y actualiza el estado de la misión activa
+   * Nota: Las capturas se consultan desde la tabla 'capture', no se duplican en entregables
    */
   async submitEntrega(
     idMisionActiva: string,
     dto: SubmitEntregaDTO
   ): Promise<MisionActiva | null> {
     try {
-      // console.log('📦 Enviando entrega para misión activa:', idMisionActiva);
+      console.log('📦 Enviando entrega para misión activa:', idMisionActiva);
 
+      // 1. Crear o actualizar entregable (sin capturas_urls)
+      const { data: entregable, error: entregableError } = await supabase
+        .from('entregables')
+        .upsert({
+          id_mision_activa: idMisionActiva,
+          titulo: dto.titulo || 'Entrega',
+          comentario: dto.entrega_descripcion,
+          tiempo_transcurrido_segundos: dto.tiempo_total_segundos,
+          imagenes_urls: dto.entrega_imagen_url || [],
+          archivos_urls: dto.entrega_archivos_urls || [],
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id_mision_activa'
+        })
+        .select()
+        .single();
+
+      if (entregableError) {
+        console.error('❌ Error creando entregable:', entregableError);
+        return null;
+      }
+
+      console.log('✅ Entregable creado/actualizado:', entregable.id);
+
+      // 2. Actualizar estado de la misión activa
       const { data, error } = await supabase
         .from('misiones_activas')
         .update({
@@ -295,7 +308,7 @@ export class SupabaseMisionActivaRepository {
           entrega_imagen_url: dto.entrega_imagen_url || [],
           entrega_archivos_urls: dto.entrega_archivos_urls || [],
           tiempo_total_segundos: dto.tiempo_total_segundos,
-          capturas_urls: dto.capturas_urls || [],
+          id_entregable: entregable.id,
           fecha_entrega: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -304,11 +317,11 @@ export class SupabaseMisionActivaRepository {
         .single();
 
       if (error) {
-        console.error('❌ Error enviando entrega:', error);
+        console.error('❌ Error actualizando misión activa:', error);
         return null;
       }
 
-      // console.log('✅ Entrega enviada correctamente');
+      console.log('✅ Entrega enviada correctamente');
       return data;
     } catch (error) {
       console.error('❌ Error en submitEntrega:', error);

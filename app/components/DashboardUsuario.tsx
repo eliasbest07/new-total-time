@@ -124,7 +124,8 @@ const ScreenshotCard = ({ capture, onImageClick }: { capture: Capture; onImageCl
 
 const MisionActivaCard = ({ mision, onImageClick }: { mision: MisionActiva; onImageClick: (url: string) => void }) => {
     const [currentCaptureIndex, setCurrentCaptureIndex] = useState(0);
-    const capturas = mision.capturas_urls || [];
+    // TODO: Obtener capturas desde la tabla 'capture' usando id_bloque = mision.id_referencia
+    const capturas: string[] = [];
 
     const formatTime = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);

@@ -9,6 +9,7 @@ interface UseScreenshotsReturn {
   isCapturing: boolean;
   startCapturing: (params: {
     userId: string;
+    userEmail: string;
     actividadId: string;
     misionActividad: string;
     totalTrabajadoHoy?: string;
@@ -38,6 +39,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentContextRef = useRef<{
     userId: string;
+    userEmail: string;
     actividadId: string;
     misionActividad: string;
     totalTrabajadoHoy?: string;
@@ -87,6 +89,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
   // Iniciar captura
   const startCapturing = useCallback(async (params: {
     userId: string;
+    userEmail: string;
     actividadId: string;
     misionActividad: string;
     totalTrabajadoHoy?: string;
@@ -197,7 +200,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
 
           const fileName = `${Date.now()}.jpg`;
 
-          const url = await uploadImage(blob, params.actividadId, fileName);
+          const url = await uploadImage(blob, params.userEmail, fileName);
 
           const newCapture = await captureRepository.create({
             id_usuario: params.userId,
@@ -370,7 +373,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       // Subir a Supabase
       const fileName = `capture-now-${Date.now()}.jpg`;
 
-      const url = await uploadImage(blob, params.actividadId, fileName);
+      const url = await uploadImage(blob, params.userEmail, fileName);
 
       const newCapture = await captureRepository.create({
         id_usuario: params.userId,

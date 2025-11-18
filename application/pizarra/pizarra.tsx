@@ -213,19 +213,31 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
   }, [captureNow]);
 
-  // Sincronizar cardsDB con cards SOLO cuando se visualiza la pizarra de otro usuario
+  // Sincronizar cardsDB con cards
   useEffect(() => {
     const syncCardsFromDB = async () => {
-      // IMPORTANTE: Solo sincronizar cuando estamos viendo la pizarra de OTRO usuario
-      if (!isViewingOtherUser) {
-        return; // Para la pizarra propia, usar LocalStorage normalmente
-      }
-
-      if (!cardsDB || cardsDB.length === 0 || !pizarra) {
+      // Si estamos viendo la pizarra de OTRO usuario, siempre sincronizar
+      // Si es NUESTRA pizarra, sincronizar SOLO si hay datos en Supabase Y localStorage está vacío
+      if (!pizarra) {
         return;
       }
 
-      console.log('🔄 [PIZARRA COMPARTIDA] Sincronizando cards desde Supabase:', cardsDB.length);
+      if (!cardsDB || cardsDB.length === 0) {
+        console.log('📭 [PIZARRA SYNC] No hay cards en Supabase para cargar');
+        return;
+      }
+
+      // Para la pizarra propia: Solo cargar desde Supabase si localStorage está vacío
+      if (!isViewingOtherUser) {
+        if (cards.length > 0) {
+          // Ya hay cards en localStorage, no sobreescribir
+          console.log('📦 [PIZARRA SYNC] Cards ya cargadas desde localStorage, omitiendo sincronización desde Supabase');
+          return;
+        }
+        console.log('🔄 [PIZARRA SYNC] LocalStorage vacío, cargando desde Supabase:', cardsDB.length, 'cards');
+      } else {
+        console.log('🔄 [PIZARRA COMPARTIDA] Sincronizando cards desde Supabase:', cardsDB.length);
+      }
 
       // Mapear cardsDB a cards locales
       const { SupabaseCardMisionRepository } = await import('@/infrastructure/datasource/SupabaseCardMisionRepository');
@@ -362,12 +374,13 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         mappedCards.push(card);
       }
 
-      console.log('✅ [PIZARRA COMPARTIDA] Cards sincronizadas:', mappedCards.length);
+      const logPrefix = isViewingOtherUser ? '[PIZARRA COMPARTIDA]' : '[PIZARRA SYNC]';
+      console.log(`✅ ${logPrefix} Cards sincronizadas desde Supabase:`, mappedCards.length);
       setCards(mappedCards);
     };
 
     syncCardsFromDB();
-  }, [cardsDB, pizarra, usuario, setPastedImages, isViewingOtherUser]);
+  }, [cardsDB, pizarra, usuario, setPastedImages, isViewingOtherUser, cards.length]);
 
   // Callback personalizado para detectar conexión nota-proyecto
   const handleInternalConnectionCreate = useCallback(async (connection: Connection, fromCard: Card, toCard: Card) => {
@@ -854,6 +867,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         // 3. TERCERO: Iniciar captura con el stream ya obtenido
         await startCapturing({
           userId: userId,
+          userEmail: usuario?.email || '',
           actividadId: actividadId,
           misionActividad: misionActividad,
           totalTrabajadoHoy: activityData.duration?.toString(),
@@ -987,6 +1001,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         // 3. TERCERO: Iniciar captura con el stream ya obtenido
         await startCapturing({
           userId: userId,
+          userEmail: usuario?.email || '',
           actividadId: String(misionId),
           misionActividad: misionActividad,
           totalTrabajadoHoy: misionData.hours?.toString(),

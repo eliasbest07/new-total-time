@@ -22,7 +22,7 @@ export interface MisionActiva {
   entrega_imagen_url: string[] | null;
   entrega_archivos_urls: string[] | null;
 
-  capturas_urls: string[] | null;
+  // Nota: Las capturas se guardan en la tabla 'capture' separada
   fecha_ultimo_capture: string | null;
   capture_now: string | null;
 
@@ -57,11 +57,12 @@ export interface UpdateRunningStateDTO {
 
 /**
  * DTO para enviar entrega
+ * Las capturas se obtienen automáticamente de la tabla 'capture' y se guardan en 'entregables'
  */
 export interface SubmitEntregaDTO {
+  titulo?: string;
   entrega_descripcion: string;
   entrega_imagen_url?: string[];
   entrega_archivos_urls?: string[];
   tiempo_total_segundos: number;
-  capturas_urls?: string[];
 }

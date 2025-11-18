@@ -26,17 +26,27 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get("file") as Blob;
+    const userEmail = formData.get("userEmail") as string;
+
+    if (!userEmail) {
+      return NextResponse.json(
+        { success: false, error: "Email del usuario es requerido" },
+        { status: 400 }
+      );
+    }
 
     const filename = `capture-now-${Date.now()}.jpg`;
+    const filePath = `${userEmail}/${filename}`;
+
     const { data, error } = await supabase.storage
       .from("capturas")
-      .upload(filename, file, { contentType: "image/jpeg" });
+      .upload(filePath, file, { contentType: "image/jpeg" });
 
     if (error) throw error;
 
     const { data: publicUrl } = supabase.storage
       .from("capturas")
-      .getPublicUrl(filename);
+      .getPublicUrl(data.path);
 
     return NextResponse.json({
       success: true,

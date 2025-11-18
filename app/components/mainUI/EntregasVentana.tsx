@@ -2,15 +2,30 @@ import React, { useEffect, useState } from 'react';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { MisionActiva } from '@/domain/entities/MisionActiva';
+import { supabase } from '@/infrastructure/services/SupabaseClient';
 
 interface EntregasVentanaProps {
   onClose?: () => void;
+}
+
+interface Entregable {
+  id: string;
+  id_mision_activa: string;
+  titulo: string;
+  comentario: string | null;
+  tiempo_transcurrido_segundos: number;
+  imagenes_urls: string[] | null;
+  archivos_urls: string[] | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function EntregasVentana({ onClose }: EntregasVentanaProps) {
   const { usuario } = useAuth();
   const { getMisionesEntregadas, loading } = useMisionActiva();
   const [entregadas, setEntregadas] = useState<MisionActiva[]>([]);
+  const [entregables, setEntregables] = useState<Record<string, Entregable>>({});
+  const [capturasPorMision, setCapturasPorMision] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     if (usuario?.id) {
@@ -22,6 +37,40 @@ export default function EntregasVentana({ onClose }: EntregasVentanaProps) {
     if (!usuario?.id) return;
     const data = await getMisionesEntregadas(usuario.id);
     setEntregadas(data);
+
+    // Cargar entregables y capturas asociadas
+    if (data.length > 0) {
+      const misionesIds = data.map(m => m.id);
+
+      // Cargar entregables
+      const { data: entregablesData, error } = await supabase
+        .from('entregables')
+        .select('*')
+        .in('id_mision_activa', misionesIds);
+
+      if (!error && entregablesData) {
+        const entregablesMap: Record<string, Entregable> = {};
+        entregablesData.forEach(e => {
+          entregablesMap[e.id_mision_activa] = e;
+        });
+        setEntregables(entregablesMap);
+      }
+
+      // Cargar capturas desde la tabla 'capture' para cada misión
+      const capturasMap: Record<string, string[]> = {};
+      for (const mision of data) {
+        const { data: capturas } = await supabase
+          .from('capture')
+          .select('img_url')
+          .eq('id_bloque', mision.id_referencia.toString())
+          .order('created_at', { ascending: true });
+
+        if (capturas && capturas.length > 0) {
+          capturasMap[mision.id] = capturas.map(c => c.img_url);
+        }
+      }
+      setCapturasPorMision(capturasMap);
+    }
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -141,14 +190,14 @@ export default function EntregasVentana({ onClose }: EntregasVentanaProps) {
               </div>
             )}
 
-            {/* Capturas durante la ejecución */}
-            {entrega.capturas_urls && entrega.capturas_urls.length > 0 && (
+            {/* Capturas durante la ejecución - desde tabla 'capture' */}
+            {capturasPorMision[entrega.id] && capturasPorMision[entrega.id].length > 0 && (
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                  🖼️ Capturas de pantalla ({entrega.capturas_urls.length})
+                  🖼️ Capturas de pantalla ({capturasPorMision[entrega.id].length})
                 </h4>
                 <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-                  {entrega.capturas_urls.slice(0, 6).map((url, index) => (
+                  {capturasPorMision[entrega.id].slice(0, 6).map((url, index) => (
                     <div
                       key={index}
                       className="relative aspect-square rounded overflow-hidden bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
@@ -162,10 +211,10 @@ export default function EntregasVentana({ onClose }: EntregasVentanaProps) {
                       />
                     </div>
                   ))}
-                  {entrega.capturas_urls.length > 6 && (
+                  {capturasPorMision[entrega.id].length > 6 && (
                     <div className="relative aspect-square rounded overflow-hidden bg-gray-200 flex items-center justify-center">
                       <span className="text-gray-600 text-xs font-semibold">
-                        +{entrega.capturas_urls.length - 6}
+                        +{capturasPorMision[entrega.id].length - 6}
                       </span>
                     </div>
                   )}

@@ -83,18 +83,19 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
 
         setMisionActivaId(misionActiva.id);
 
-        // 2. Iniciar captura con callback para guardar en capturas_urls
+        // 2. Iniciar captura con callback para actualizar fecha de última captura
         await startCapturing({
           userId: actividad.id_usuario?.toString() || usuario.id,
+          userEmail: usuario.email || '',
           actividadId: actividad.id.toString(),
           misionActividad: actividad.descripcion || 'Actividad sin descripción',
           totalTrabajadoHoy: actividad.tiempo_dedicado?.toString(),
           tiempoTareaActual: formatTime(timeInSeconds),
           onCaptureUpdate: async (url: string) => {
-            // Guardar captura en misiones_activas
-            console.log('📸 Guardando captura en capturas_urls:', url);
+            // Actualizar fecha de última captura en misiones_activas
+            console.log('📸 Captura guardada en tabla capture, actualizando fecha:', url);
             await addCaptureUrl(misionActiva.id, url);
-            console.log('✅ Captura guardada en misiones_activas');
+            console.log('✅ Fecha de captura actualizada en misiones_activas');
           }
         });
 
