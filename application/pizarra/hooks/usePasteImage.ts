@@ -36,8 +36,11 @@ export const usePasteImage = (
           const maxZIndex = cards.length === 0 ? 0 : Math.max(...cards.map(card => card.zIndex || 0));
           const nextZIndex = maxZIndex + 1;
 
+          // Obtener los IDs existentes para evitar duplicados
+          const existingIds = cards.map(card => card.id);
+
           const newCard: Card = {
-            id: generateUniqueId('image'),
+            id: generateUniqueId('image', existingIds),
             type: 'image',
             title: 'Imagen pegada',
             content: `Pegada: ${new Date().toLocaleTimeString()}`,
