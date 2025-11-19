@@ -15,8 +15,10 @@ interface ProyectoCardProps {
   updateCardTitle: (cardId: string, newTitle: string) => void;
   setEditingTitle: (id: string | null) => void;
   addTodoCard?: (text?: string) => string;
+  addNoteCard?: (text: string, position?: { x: number; y: number }) => string;
   addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void;
   addMisionCardOrganizacion?: (misionData: any) => string | void;
+  cards?: Card[];
 }
 
 export const ProyectoCard: React.FC<ProyectoCardProps> = ({
@@ -25,8 +27,10 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   updateCardTitle,
   setEditingTitle,
   addTodoCard,
+  addNoteCard,
   addConnection,
-  addMisionCardOrganizacion
+  addMisionCardOrganizacion,
+  cards = []
 }) => {
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
@@ -41,6 +45,11 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   const [imagenes, setImagenes] = useState<string[]>([]);
   const [recursosNota, setRecursosNota] = useState<any[]>([]); // Recursos tipo "nota" desde BD
   const [nuevaNota, setNuevaNota] = useState('');
+
+  // 🆕 Obtener los cards de texto completos desde las notas asociadas
+  const notasCards = cards.filter(c =>
+    card.proyectoData?.notas?.includes(c.id) && c.type === 'text'
+  );
   const [showNuevaMisionModal, setShowNuevaMisionModal] = useState(false);
   const [showNuevaActividadModal, setShowNuevaActividadModal] = useState(false);
   const [recursoModalAbierto, setRecursoModalAbierto] = useState<{
@@ -388,6 +397,35 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
     }
   };
 
+  // 🆕 Función para materializar una nota en la pizarra
+  const handleMaterializarNota = (notaCard: Card) => {
+    if (!addNoteCard || !addConnection) {
+      console.warn('⚠️ No hay funciones para crear nota o conexión');
+      return;
+    }
+
+    try {
+      // Calcular posición cerca del card de proyecto (a la derecha)
+      const position = {
+        x: card.x + card.width + 20, // 20px de separación
+        y: card.y
+      };
+
+      // Crear el card de texto en la pizarra con el contenido de la nota
+      const noteCardId = addNoteCard(notaCard.content, position);
+
+      console.log('📝 Nota materializada en pizarra:', notaCard.title, 'ID:', noteCardId);
+
+      // Crear la conexión desde la nota hacia el proyecto
+      setTimeout(() => {
+        addConnection(noteCardId, card.id, true); // skipValidation = true
+        console.log('🔗 Conexión creada: Nota -> Proyecto');
+      }, 100); // Pequeño delay para asegurar que el card existe
+    } catch (error) {
+      console.error('❌ Error materializando nota:', error);
+    }
+  };
+
   // Función para limpiar URL duplicada
   const sanitizeIconUrl = (url: string | null): string | null => {
     if (!url) return null;
@@ -498,7 +536,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           ⚡ <span className="font-semibold">{actividades.length}</span>
         </div>
         <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded flex items-center gap-1">
-          📝 <span className="font-semibold">{recursosNota.length}</span>
+          📝 <span className="font-semibold">{notasCards.length}</span>
         </div>
         <div className="bg-purple-100 text-purple-700 px-2 py-1 rounded flex items-center gap-1">
           🖼️ <span className="font-semibold">{imagenes.length}</span>
@@ -643,55 +681,34 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                 className="w-full text-left text-xs font-semibold text-blue-800 mb-1 flex items-center justify-between hover:bg-blue-100 px-1 py-0.5 rounded"
                 data-todo-interactive
               >
-                <span>📝 Notas ({recursosNota.length})</span>
+                <span>📝 Notas ({notasCards.length})</span>
                 <span>{expanded === 'notas' ? '▼' : '▶'}</span>
               </button>
               {expanded === 'notas' && (
                 <div className="space-y-1 ml-2">
-                  {recursosNota.length === 0 ? (
-                    <div className="text-xs text-gray-500 italic">No hay notas</div>
+                  {notasCards.length === 0 ? (
+                    <div className="text-xs text-gray-500 italic">No hay notas asociadas</div>
                   ) : (
-                    recursosNota.map((recurso) => (
+                    notasCards.map((notaCard) => (
                       <div
-                        key={recurso.id}
+                        key={notaCard.id}
                         className="bg-white rounded p-2 border border-blue-100 text-xs cursor-pointer hover:bg-blue-50 transition-colors relative group"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setRecursoModalAbierto({
-                            isOpen: true,
-                            recurso
-                          });
+                          handleMaterializarNota(notaCard);
                         }}
                         data-todo-interactive
+                        title="Click para mostrar en la pizarra"
                       >
-                        {/* Botón eliminar */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('¿Eliminar esta nota?')) {
-                              eliminarRecursoNota(recurso.id);
-                            }
-                          }}
-                          className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 opacity-0 group-hover:opacity-100 transition-opacity"
-                          data-todo-interactive
-                          title="Eliminar nota"
-                        >
-                          <X size={10} />
-                        </button>
-
-                        <div className="font-medium text-indigo-900 truncate mb-1 pr-5">
-                          {recurso.nombre || 'Sin nombre'}
+                        <div className="font-medium text-indigo-900 truncate mb-1">
+                          {notaCard.title}
                         </div>
-                        <div className="text-gray-600 text-xs flex items-center gap-1">
-                          <span>📝</span>
-                          <span className="text-blue-600 font-semibold">Click para ver contenido</span>
+                        <div className="text-gray-600 text-xs line-clamp-2">
+                          {notaCard.content}
                         </div>
-                        <div className="text-gray-500 text-xs mt-1">
-                          {new Date(recurso.created_at).toLocaleDateString('es-ES', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
+                        <div className="text-gray-500 text-xs mt-1 flex items-center gap-1">
+                          <span>💡</span>
+                          <span className="text-blue-600 font-semibold">Click para materializar</span>
                         </div>
                       </div>
                     ))

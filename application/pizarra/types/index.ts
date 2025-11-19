@@ -75,6 +75,7 @@ export interface ProyectoData {
   id_organizacion?: string | null; // UUID de la organización
   colors: string[] | null;
   created_at?: string;
+  notas?: string[]; // IDs de cards de tipo 'text' asociadas como notas
 }
 
 export interface RecursoData {
@@ -111,7 +112,7 @@ export interface Connection {
 }
 
 export interface PizarraRef {
-  addNoteCard: (text: string) => void;
+  addNoteCard: (text: string, position?: { x: number; y: number }) => string; // ✅ Retorna el ID del card creado
   addTodoCard: (text?: string) => string; // ✅ Retorna el ID del card creado
   addMisionCardOrganizacion?: (misionData: {
     id_mision: number;

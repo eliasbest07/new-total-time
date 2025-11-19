@@ -54,6 +54,11 @@ interface CardWrapperProps {
     online?: boolean;
   }) => void;
   openImageWindow?: (imageUrl: string, title: string) => void;
+  addTodoCard?: (text?: string) => string;
+  addNoteCard?: (text: string, position?: { x: number; y: number }) => string;
+  addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void;
+  addMisionCardOrganizacion?: (misionData: any) => string | void;
+  cards?: Card[];
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -125,6 +130,11 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         currentUserId={props.currentUserId}
         onOpenUserChat={props.onOpenUserChat}
         openImageWindow={props.openImageWindow}
+        addTodoCard={props.addTodoCard}
+        addNoteCard={props.addNoteCard}
+        addConnection={props.addConnection}
+        addMisionCardOrganizacion={props.addMisionCardOrganizacion}
+        cards={props.cards}
       />
 
       {/* Connection point */}
