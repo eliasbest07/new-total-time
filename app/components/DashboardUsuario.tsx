@@ -6,6 +6,7 @@ import MenuDashboardUsuario from './MenuDashboardUsuario';
 import IntervalosTiempo from './IntervalosTiempo';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useOrganizacion } from '@/hooks/useOrganizacion';
+import { useSimpleTracking } from '@/hooks/useSimpleTracking';
 import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
 import { Capture } from '@/domain/entities/Capture';
 import { MisionActiva } from '@/domain/entities/MisionActiva';
@@ -295,12 +296,44 @@ export default function DashboardUsuario() {
         loadMisionesActivas();
     }, [usuario?.userAuth]);
 
-    // Datos de ejemplo (frontend only)
-    const estadisticas = {
-        tiempoHoy: '6:45',
-        ultimaActividad: '2:30',
-        tiempoSemana: '32:15'
-    };
+    console.log('🎨 [DASHBOARD] Componente DashboardUsuario renderizando...');
+
+    // Tracking simple
+    const { calcularEstadisticas } = useSimpleTracking();
+    console.log('🎨 [DASHBOARD] Hook useSimpleTracking obtenido');
+
+    const statsIniciales = calcularEstadisticas();
+    console.log('🎨 [DASHBOARD] Estadísticas iniciales:', statsIniciales);
+
+    const [estadisticas, setEstadisticas] = useState(statsIniciales);
+    console.log('🎨 [DASHBOARD] Estado inicializado con:', estadisticas);
+
+    // Actualizar cada segundo
+    useEffect(() => {
+        console.log('🚀 [DASHBOARD] Iniciando intervalo de actualización cada 1 segundo');
+        let counter = 0;
+
+        const interval = setInterval(() => {
+            counter++;
+            console.log(`⏰ [DASHBOARD] Tick #${counter} - Actualizando estadísticas...`);
+            const nuevasStats = calcularEstadisticas();
+            console.log(`⏰ [DASHBOARD] Nuevas stats:`, nuevasStats);
+            setEstadisticas(nuevasStats);
+        }, 1000);
+
+        // Actualizar cuando cambien los tiempos
+        const handleUpdate = () => {
+            console.log('🔄 [DASHBOARD] Evento tiempos-updated recibido');
+            setEstadisticas(calcularEstadisticas());
+        };
+        window.addEventListener('tiempos-updated', handleUpdate);
+
+        return () => {
+            console.log('🛑 [DASHBOARD] Limpiando intervalo');
+            clearInterval(interval);
+            window.removeEventListener('tiempos-updated', handleUpdate);
+        };
+    }, [calcularEstadisticas]);
 
     const ultimasTareas: Tarea[] = [
         { id: 1, nombre: 'Diseño de interfaz', tiempo: '2:30', estado: 'completada' },

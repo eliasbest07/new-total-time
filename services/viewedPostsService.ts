@@ -25,7 +25,7 @@ export const getViewedPosts = (salaId: number): string[] => {
     }
 
     const data: ViewedPostsData = JSON.parse(stored);
-    console.log(`💾 [viewedPostsService] Posts vistos para sala ${salaId}:`, data.viewedPostIds?.length || 0, 'posts');
+    // console.log(`💾 [viewedPostsService] Posts vistos para sala ${salaId}:`, data.viewedPostIds?.length || 0, 'posts');
     return data.viewedPostIds || [];
   } catch (error) {
     console.error('💾 [viewedPostsService] Error obteniendo posts vistos:', error);
@@ -99,12 +99,6 @@ export const getUnviewedPostsCount = (
 ): number => {
   const viewedPosts = getViewedPosts(salaId);
   const unviewedPosts = allPostIds.filter(id => !viewedPosts.includes(id));
-  console.log(``, {
-    totalPosts: allPostIds.length,
-    vistos: viewedPosts.length,
-    noVistos: unviewedPosts.length,
-    idsNoVistos: unviewedPosts
-  });
   return unviewedPosts.length;
 };
 

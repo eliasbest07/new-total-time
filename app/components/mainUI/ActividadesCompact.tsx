@@ -4,6 +4,7 @@ import { useActividades } from '@/hooks/useActividades';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
+import { useSesionesTracking } from '@/hooks/useSesionesTracking';
 import { Actividad } from '@/domain/entities/Actividad';
 
 interface ActividadCompactCardProps {
@@ -30,6 +31,7 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
   } = useScreenshots();
 
   const { getOrCreateMisionActiva, updateRunningState, addCaptureUrl } = useMisionActiva();
+  const { iniciarSesion, finalizarSesion } = useSesionesTracking();
 
   // Filtrar screenshots de esta actividad
   const activityScreenshots = screenshots.filter(s => s.id_bloque === actividad.id.toString());
@@ -106,6 +108,9 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
           fecha_inicio: new Date().toISOString()
         });
 
+        // 4. Iniciar sesión de tracking local
+        iniciarSesion(misionActiva.id, 'actividad');
+
         console.log('Captura iniciada exitosamente');
       } catch (error) {
         console.error('Error al iniciar captura:', error);
@@ -122,6 +127,9 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
           fecha_pausa: new Date().toISOString(),
           tiempo_total_segundos: ((22 + index) * 60 + 59) - timeInSeconds
         });
+
+        // Finalizar sesión de tracking local
+        finalizarSesion(misionActivaId);
       }
 
       stopCapturing();

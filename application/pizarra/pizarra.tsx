@@ -10,6 +10,7 @@ import { mapCardDBToCard, mapCardToCardDB } from './utils/cardMapper';
 import { SupabaseCardMisionRepository } from '@/infrastructure/datasource/SupabaseCardMisionRepository';
 import { SupabaseMisionRepository } from '@/infrastructure/datasource/SupabaseMisionRepository';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
+import { useSimpleTracking } from '@/hooks/useSimpleTracking';
 import { generateUniqueId, generatePosition } from './utils/idGenerator';
 import { useCardDrag } from './hooks/useCardDrag';
 import { useCanvasPan } from './hooks/useCanvasPan';
@@ -102,6 +103,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Hook para gestionar misiones activas
   const { getOrCreateMisionActiva, updateRunningState, addCaptureUrl } = useMisionActiva();
+  const { iniciar: iniciarTracking, pausar: pausarTracking } = useSimpleTracking();
 
   // Estado de inicialización
   const [isInitialized, setIsInitialized] = useState(false);
@@ -1032,6 +1034,10 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         });
         console.log('✅ [MISION ACTIVA] Estado en_progreso guardado en Supabase');
 
+        // 4.5 Iniciar tracking simple
+        iniciarTracking(misionActiva.id);
+        console.log('⏱️ [TRACKING] Tracking iniciado');
+
         // 5. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
         setCards(prev => {
           console.log('🔄 [MISION PLAY/PAUSE] Actualizando cards, buscando card:', cardId);
@@ -1069,6 +1075,10 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         });
 
         console.log('✅ [MISION ACTIVA] Estado pausada guardado en Supabase');
+
+        // 1.5 Pausar tracking simple
+        pausarTracking(misionActivaId);
+        console.log('⏱️ [TRACKING] Tracking pausado');
       }
 
       // 2. Actualizar estado local
