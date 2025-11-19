@@ -42,9 +42,11 @@ interface CardFactoryProps {
     online?: boolean;
   }) => void;
   addTodoCard?: (text?: string) => string; // ✅ Función para crear TODO cards
+  addNoteCard?: (text: string, position?: { x: number; y: number }) => string; // ✅ Función para crear cards de texto
   addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void; // ✅ Función para crear conexiones
   addMisionCardOrganizacion?: (misionData: any) => string | void; // ✅ Función para crear cards de misión
   openImageWindow?: (imageUrl: string, title: string) => void;
+  cards?: Card[]; // ✅ Todas las cards para buscar notas asociadas
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -159,8 +161,10 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           updateCardTitle={props.updateCardTitle}
           setEditingTitle={props.setEditingTitle}
           addTodoCard={props.addTodoCard}
+          addNoteCard={props.addNoteCard}
           addConnection={props.addConnection}
           addMisionCardOrganizacion={props.addMisionCardOrganizacion}
+          cards={props.cards}
         />
       );
 

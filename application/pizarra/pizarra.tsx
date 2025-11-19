@@ -373,6 +373,23 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           }
         }
 
+        if (cardDB.type === 'proyecto' || cardDB.type === 'proyecto-organizacion') {
+          try {
+            const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
+            const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
+
+            const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
+            if (proyectoNotas && proyectoNotas.length > 0) {
+              // Guardar solo los IDs de las notas
+              if (card.proyectoData) {
+                card.proyectoData.notas = proyectoNotas.map(nota => nota.id_card_nota);
+              }
+            }
+          } catch (error) {
+            console.error('Error cargando notas del proyecto:', error);
+          }
+        }
+
         mappedCards.push(card);
       }
 
@@ -404,51 +421,40 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
       console.log('📝 ✅ Detectada conexión Nota ↔️ Proyecto:', {
         nota: notaCard.title,
-        notaContent: notaCard.content,
+        notaId: notaCard.id,
         proyecto: proyectoCard.proyectoData?.nombre,
-        proyectoId: proyectoCard.proyectoData?.id
+        proyectoCardId: proyectoCard.id
       });
 
-      // Crear recurso automáticamente sin modal
-      if (usuario?.userAuth && proyectoCard.proyectoData?.id) {
-        try {
-          console.log('📝 Creando recurso automáticamente...');
-          const recursoRepo = new SupabaseRecursoRepository();
+      // ✅ Agregar el ID del card de nota a la lista de notas del proyecto
+      try {
+        console.log('📝 Agregando nota a la lista del proyecto...');
 
-          // Usar el contenido de la nota como nombre del recurso
-          const nombreRecurso = notaCard.content?.trim()
-            ? notaCard.content.substring(0, 100).trim()
-            : (notaCard.title !== 'Nota' ? notaCard.title : 'Recurso desde nota');
+        // Actualizar el card de proyecto agregando la nota a su lista (evitar duplicados)
+        setCards(prevCards => prevCards.map(card => {
+          if (card.id === proyectoCard.id) {
+            const notasActuales = card.proyectoData?.notas || [];
 
-          // Guardar el contenido completo en el campo link con prefijo especial
-          const contenidoCompleto = notaCard.content?.trim() || '';
-          const linkContenido = contenidoCompleto ? `nota://${contenidoCompleto}` : null;
+            // Evitar duplicados
+            if (notasActuales.includes(notaCard.id)) {
+              console.log('⚠️ La nota ya está en la lista del proyecto');
+              return card;
+            }
 
-          const nuevoRecurso = await recursoRepo.createRecurso({
-            nombre: nombreRecurso,
-            link: linkContenido,
-            icono: '📝',
-            proyecto_id: proyectoCard.proyectoData.id,
-            id_usuario: usuario.userAuth
-          });
-
-          if (nuevoRecurso) {
-            console.log('✅ Recurso creado exitosamente:', nuevoRecurso);
-            // Mostrar notificación de éxito
-            alert(`✅ Recurso "${nuevoRecurso.nombre}" creado y vinculado al proyecto "${proyectoCard.proyectoData.nombre}"`);
-          } else {
-            console.error('❌ No se pudo crear el recurso');
-            alert('❌ Error: No se pudo crear el recurso');
+            return {
+              ...card,
+              proyectoData: {
+                ...card.proyectoData!,
+                notas: [...notasActuales, notaCard.id]
+              }
+            };
           }
-        } catch (error) {
-          console.error('❌ Error al crear recurso:', error);
-          alert('❌ Error al crear el recurso. Ver consola para detalles.');
-        }
-      } else {
-        console.error('❌ Faltan datos para crear recurso:', {
-          usuario: !!usuario?.userAuth,
-          proyectoId: proyectoCard.proyectoData?.id
-        });
+          return card;
+        }));
+
+        console.log('✅ Nota agregada a la lista del proyecto:', notaCard.id);
+      } catch (error) {
+        console.error('❌ Error agregando nota al proyecto:', error);
       }
     }
 
@@ -470,16 +476,59 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     deleteConnection: baseDeleteConnection
   } = useConnections({ cards, onConnectionCreate: handleInternalConnectionCreate });
 
-  // Wrapper para deleteConnection que también limpia el tracking
+  // Wrapper para deleteConnection que también limpia el tracking y actualiza notas del proyecto
   const deleteConnection = useCallback((connectionId: string) => {
+    // Buscar la conexión que se va a eliminar
+    const connection = connections.find(c => c.id === connectionId);
+
+    if (connection) {
+      // Buscar los cards involucrados
+      const fromCard = cards.find(c => c.id === connection.from);
+      const toCard = cards.find(c => c.id === connection.to);
+
+      if (fromCard && toCard) {
+        // Detectar si es una conexión nota-proyecto
+        const isNoteToProject =
+          (fromCard.type === 'text' && (toCard.type === 'proyecto' || toCard.type === 'proyecto-organizacion')) ||
+          ((fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') && toCard.type === 'text');
+
+        if (isNoteToProject) {
+          const notaCard = fromCard.type === 'text' ? fromCard : toCard;
+          const proyectoCard = (fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') ? fromCard : toCard;
+
+          console.log('🗑️ Eliminando nota de la lista del proyecto:', {
+            notaId: notaCard.id,
+            proyectoId: proyectoCard.id
+          });
+
+          // Remover el ID de la nota de la lista del proyecto
+          setCards(prevCards => prevCards.map(card => {
+            if (card.id === proyectoCard.id && card.proyectoData?.notas) {
+              return {
+                ...card,
+                proyectoData: {
+                  ...card.proyectoData,
+                  notas: card.proyectoData.notas.filter(notaId => notaId !== notaCard.id)
+                }
+              };
+            }
+            return card;
+          }));
+
+          console.log('✅ Nota removida de la lista del proyecto');
+        }
+      }
+    }
+
     // Limpiar del tracking si es auto-creada
     if (connectionId.startsWith('auto-')) {
       autoConnectionsRef.current.delete(connectionId);
       console.log('🗑️ Conexión auto-creada eliminada del tracking:', connectionId);
     }
+
     // Llamar a la función original
     baseDeleteConnection(connectionId);
-  }, [baseDeleteConnection]);
+  }, [baseDeleteConnection, connections, cards]);
 
   // Cargar conexiones desde Supabase SOLO cuando se visualiza la pizarra de otro usuario
   useEffect(() => {
@@ -1363,17 +1412,28 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, [cards, maxZIndex]);
 
   // Funciones públicas expuestas via ref
-  const addNoteCard = useCallback((text: string) => {
+  const addNoteCard = useCallback((text: string, position?: { x: number; y: number }) => {
     const existingIds = cards.map(card => card.id);
 
-    // Calcular el centro visible de la pizarra
-    const canvasWidth = canvasRef.current?.clientWidth || 1000;
-    const canvasHeight = canvasRef.current?.clientHeight || 800;
-    const centerX = -panOffset.x + (canvasWidth / 2);
-    const centerY = -panOffset.y + (canvasHeight / 2);
+    let cardX, cardY;
 
-    // Agregar un pequeño offset aleatorio para que no se superpongan
-    const randomOffset = () => (Math.random() - 0.5) * 100;
+    if (position) {
+      // Usar posición específica si se proporciona
+      cardX = position.x;
+      cardY = position.y;
+    } else {
+      // Calcular el centro visible de la pizarra
+      const canvasWidth = canvasRef.current?.clientWidth || 1000;
+      const canvasHeight = canvasRef.current?.clientHeight || 800;
+      const centerX = -panOffset.x + (canvasWidth / 2);
+      const centerY = -panOffset.y + (canvasHeight / 2);
+
+      // Agregar un pequeño offset aleatorio para que no se superpongan
+      const randomOffset = () => (Math.random() - 0.5) * 100;
+
+      cardX = centerX + randomOffset() - 100; // -100 para centrar la card (width/2)
+      cardY = centerY + randomOffset() - 60;  // -60 para centrar la card (height/2)
+    }
 
     const nextZIndex = getNextZIndex();
     const cardId = generateUniqueId('note', existingIds);
@@ -1383,8 +1443,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       type: 'text',
       title: 'Nota',
       content: text, // Guardar todo el texto sin cortar
-      x: centerX + randomOffset() - 100, // -100 para centrar la card (width/2)
-      y: centerY + randomOffset() - 60,  // -60 para centrar la card (height/2)
+      x: cardX,
+      y: cardY,
       width: 200,
       height: 120,
       fontSize: 18,
@@ -1395,6 +1455,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     setCardZIndices(prev => ({ ...prev, [cardId]: nextZIndex }));
 
     setCards(prev => [...prev, newCard]);
+
+    return cardId; // ✅ Retornar el ID del card creado
   }, [cards, panOffset, canvasRef, getNextZIndex]);
 
   const addTodoCard = useCallback((text?: string) => {
@@ -1711,6 +1773,45 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
               }
             }
           }
+
+          // Card existente - actualizar sus notas (para proyectos)
+          if ((card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData) {
+            const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
+            const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
+
+            // Obtener el UUID de la card en la BD
+            const cardUUID = cardIdToUUID.get(card.id);
+            if (!cardUUID) {
+              console.error('❌ No se encontró UUID para card proyecto:', card.id);
+              continue;
+            }
+
+            // Obtener notas existentes
+            const notasExistentes = await cardProyectoNotaRepo.getByCardProyectoId(cardUUID);
+            const notasExistentesIds = notasExistentes.map(n => n.id_card_nota);
+
+            // Eliminar notas que ya no existen
+            for (const notaExistente of notasExistentes) {
+              if (!card.proyectoData.notas || !card.proyectoData.notas.includes(notaExistente.id_card_nota)) {
+                await cardProyectoNotaRepo.delete(cardUUID, notaExistente.id_card_nota);
+              }
+            }
+
+            // Crear nuevas notas
+            if (card.proyectoData.notas && card.proyectoData.notas.length > 0) {
+              for (let i = 0; i < card.proyectoData.notas.length; i++) {
+                const notaCardId = card.proyectoData.notas[i];
+                if (!notasExistentesIds.includes(notaCardId)) {
+                  // Crear nueva relación
+                  await cardProyectoNotaRepo.create({
+                    id_card_proyecto: cardUUID,
+                    id_card_nota: notaCardId,
+                    position: i
+                  });
+                }
+              }
+            }
+          }
         } else {
           // Crear nueva card
           const cardData = mapCardToCardDB(card, pizarraActual.id);
@@ -1820,6 +1921,21 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                 file_size: null, // Se puede agregar más adelante si se necesita
                 mime_type: mimeType
               });
+            }
+
+            // Si es una card de tipo proyecto, crear las relaciones con las notas
+            if (createdCard && (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.notas && card.proyectoData.notas.length > 0) {
+              const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
+              const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
+
+              for (let i = 0; i < card.proyectoData.notas.length; i++) {
+                const notaCardId = card.proyectoData.notas[i];
+                await cardProyectoNotaRepo.create({
+                  id_card_proyecto: createdCard.id,
+                  id_card_nota: notaCardId,
+                  position: i
+                });
+              }
             }
           }
         }
@@ -2677,6 +2793,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             usuarios={usuarios}
             currentUserId={currentUserId}
             openImageWindow={openImageWindow}
+            addTodoCard={addTodoCard}
+            addNoteCard={addNoteCard}
+            addConnection={addConnection}
+            addMisionCardOrganizacion={addMisionCardOrganizacion}
+            cards={cards}
           />
         ))}
 

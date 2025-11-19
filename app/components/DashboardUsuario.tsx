@@ -39,7 +39,7 @@ const UserProfile = ({ userName, userAvatar }: { userName: string; userAvatar: s
 
 const LifeBar = ({ percentage }: { percentage: number }) => (
     <div className="mb-6">
-        <h3 className="text-white text-base sm:text-lg mb-3">Barra de Vida</h3>
+        <h3 className="text-white text-base sm:text-lg mb-3">Barra de Salud</h3>
         <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex-1 max-w-xs h-4 sm:h-6 bg-gray-300 rounded-full overflow-hidden">
                 <div className="h-full bg-green-500 rounded-full transition-all duration-500"
