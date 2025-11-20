@@ -6,6 +6,7 @@ import { Rol } from "@/domain/enums/Rol";
 import { InfoUsuario } from "@/domain/entities/InfoUsuario";
 import { requestCache } from "@/infrastructure/services/RequestCache";
 import { trackAuthCall } from "@/utils/authCallTracker";
+import { rateLimitHandler } from "@/infrastructure/services/RateLimitHandler";
 
 // Tipo que representa la estructura exacta de la tabla usuario en Supabase
 interface UsuarioSupabase {
@@ -43,7 +44,13 @@ export class SupabaseAuthRepository implements AuthRepository {
             });
             
             if (error) {
-                console.error('❌ Error en login:', error);
+                // Verificar si es un error 429
+                if (rateLimitHandler.isRateLimitError(error)) {
+                    rateLimitHandler.handleRateLimitError();
+                    console.error('❌ Error 429 (Rate Limit) en login. Cooldown activado.');
+                } else {
+                    console.error('❌ Error en login:', error);
+                }
                 return null;
             }
             
@@ -51,6 +58,10 @@ export class SupabaseAuthRepository implements AuthRepository {
                 console.error('❌ No se recibió usuario o sesión');
                 return null;
             }
+
+            // Limpiar cooldown después de login exitoso
+            rateLimitHandler.clearCooldown();
+            console.log('✅ Login exitoso, cooldown limpiado');
 
             // console.log('✅ Login exitoso, sesión creada');
             // console.log('📝 Sesión expira en:', new Date(data.session.expires_at * 1000));
@@ -62,7 +73,13 @@ export class SupabaseAuthRepository implements AuthRepository {
             // console.log('✅ Usuario del dominio creado exitosamente');
             return domainUser;
         } catch (error) {
-            console.error('❌ Error crítico en login:', error);
+            // Verificar si es un error 429
+            if (rateLimitHandler.isRateLimitError(error)) {
+                rateLimitHandler.handleRateLimitError();
+                console.error('❌ Error 429 (Rate Limit) crítico en login. Cooldown activado.');
+            } else {
+                console.error('❌ Error crítico en login:', error);
+            }
             return null;
         }
     }
@@ -139,6 +156,21 @@ export class SupabaseAuthRepository implements AuthRepository {
                 return null;
             }
 
+            // Verificar si estamos en cooldown por rate limiting
+            if (rateLimitHandler.isRateLimited()) {
+                const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+                console.warn(`⚠️ [getCurrentUser] En cooldown por rate limiting. Esperando ${remaining} segundos...`);
+                
+                // Intentar obtener del cache aunque esté expirado
+                const cachedUser = requestCache.get<Usuario>('current-user');
+                if (cachedUser) {
+                    console.log('🎯 Usando usuario desde cache (cooldown activo)');
+                    return cachedUser;
+                }
+                
+                return null;
+            }
+
             // Usar cache para evitar peticiones duplicadas
             return await requestCache.execute(
                 'current-user',
@@ -149,7 +181,20 @@ export class SupabaseAuthRepository implements AuthRepository {
                     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
                     
                     if (sessionError) {
-                        console.error('❌ Error obteniendo sesión:', sessionError);
+                        // Verificar si es un error 429
+                        if (rateLimitHandler.isRateLimitError(sessionError)) {
+                            rateLimitHandler.handleRateLimitError();
+                            console.error('❌ Error 429 (Rate Limit) obteniendo sesión. Cooldown activado.');
+                            
+                            // Intentar obtener del cache aunque esté expirado
+                            const cachedUser = requestCache.get<Usuario>('current-user');
+                            if (cachedUser) {
+                                console.log('🎯 Usando usuario desde cache después de error 429');
+                                return cachedUser;
+                            }
+                        } else {
+                            console.error('❌ Error obteniendo sesión:', sessionError);
+                        }
                         return null;
                     }
 
@@ -174,7 +219,20 @@ export class SupabaseAuthRepository implements AuthRepository {
                 2 * 60 * 1000 // Cache por 2 minutos
             );
         } catch (error) {
-            console.error('❌ Error en getCurrentUser:', error);
+            // Verificar si es un error 429
+            if (rateLimitHandler.isRateLimitError(error)) {
+                rateLimitHandler.handleRateLimitError();
+                console.error('❌ Error 429 (Rate Limit) en getCurrentUser. Cooldown activado.');
+                
+                // Intentar obtener del cache aunque esté expirado
+                const cachedUser = requestCache.get<Usuario>('current-user');
+                if (cachedUser) {
+                    console.log('🎯 Usando usuario desde cache después de error 429 crítico');
+                    return cachedUser;
+                }
+            } else {
+                console.error('❌ Error en getCurrentUser:', error);
+            }
             return null;
         }
     }
@@ -186,8 +244,23 @@ export class SupabaseAuthRepository implements AuthRepository {
                 return false;
             }
 
+            // Verificar si estamos en cooldown por rate limiting
+            if (rateLimitHandler.isRateLimited()) {
+                // Si hay cache de usuario, asumir que está autenticado
+                const cachedUser = requestCache.get<Usuario>('current-user');
+                return !!cachedUser;
+            }
+
             // Solo verificar la sesión, no llamar getUser()
             const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            
+            // Verificar si es un error 429
+            if (sessionError && rateLimitHandler.isRateLimitError(sessionError)) {
+                rateLimitHandler.handleRateLimitError();
+                // Si hay cache de usuario, asumir que está autenticado
+                const cachedUser = requestCache.get<Usuario>('current-user');
+                return !!cachedUser;
+            }
             
             if (sessionError || !sessionData.session) {
                 return false;
@@ -196,7 +269,15 @@ export class SupabaseAuthRepository implements AuthRepository {
             // Verificar que la sesión tiene un usuario válido
             return !!sessionData.session.user;
         } catch (error) {
-            console.error('❌ Error en isAuthenticated:', error);
+            // Verificar si es un error 429
+            if (rateLimitHandler.isRateLimitError(error)) {
+                rateLimitHandler.handleRateLimitError();
+                // Si hay cache de usuario, asumir que está autenticado
+                const cachedUser = requestCache.get<Usuario>('current-user');
+                return !!cachedUser;
+            } else {
+                console.error('❌ Error en isAuthenticated:', error);
+            }
             return false;
         }
     }

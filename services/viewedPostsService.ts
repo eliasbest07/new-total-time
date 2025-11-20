@@ -20,7 +20,8 @@ export const getViewedPosts = (salaId: number): string[] => {
     const stored = localStorage.getItem(key);
 
     if (!stored) {
-      console.log(`💾 [viewedPostsService] No hay posts vistos guardados para sala ${salaId}`);
+      // No loguear cuando no hay datos - es un estado normal
+      // console.log(`💾 [viewedPostsService] No hay posts vistos guardados para sala ${salaId}`);
       return [];
     }
 
