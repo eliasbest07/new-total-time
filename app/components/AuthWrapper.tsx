@@ -7,6 +7,7 @@ import { SupabaseAuthRepository } from '@/infrastructure/datasource/SupabaseAuth
 import { StorageService } from '@/infrastructure/services/StorageService';
 import { initializeSupabaseSession, supabase } from '@/infrastructure/services/SupabaseClient';
 import { Session } from '@supabase/supabase-js';
+import { rateLimitHandler } from '@/infrastructure/services/RateLimitHandler';
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -49,6 +50,22 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
         //   currentPath: window.location.pathname
         // });
 
+        // Si estamos en cooldown por rate limiting, ignorar eventos de refresh y SIGNED_OUT
+        // Esto previene que se cierre la sesión cuando hay un error 429
+        if (rateLimitHandler.isRateLimited()) {
+          if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+            console.warn('⚠️ [AuthWrapper] Ignorando evento de auth durante cooldown:', event);
+            return;
+          }
+          // Prevenir SIGNED_OUT durante cooldown para mantener la sesión activa
+          if (event === 'SIGNED_OUT') {
+            const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+            console.warn(`⚠️ [AuthWrapper] SIGNED_OUT detectado durante cooldown. Ignorando para mantener sesión. Esperando ${remaining} segundos...`);
+            // NO limpiar usuario ni redirigir durante el cooldown
+            return;
+          }
+        }
+
         // Solo establecer el estado para que se maneje en otro useEffect
         // NO hacer llamadas async de Supabase aquí
         if (event === 'SIGNED_OUT') {
@@ -81,15 +98,34 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   useEffect(() => {
     if (!authEvent) return;
 
+    // Si estamos en cooldown por rate limiting, no procesar eventos
+    if (rateLimitHandler.isRateLimited()) {
+      const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+      console.warn(`⚠️ [AuthWrapper] En cooldown por rate limiting. Esperando ${remaining} segundos antes de procesar evento.`);
+      return;
+    }
+
     const handleAuthEvent = async () => {
       if (authEvent.event === 'SIGNED_IN' && authEvent.session) {
         // console.log('🔄 Procesando SIGNED_IN en effect separado...');
-        const currentUser = await authRepository.getCurrentUser();
-        if (currentUser) {
-          // console.log('✅ Usuario obtenido, actualizando contexto');
-          setUsuario(currentUser);
-        } else {
-          console.error('❌ No se pudo obtener usuario después de SIGNED_IN');
+        try {
+          const currentUser = await authRepository.getCurrentUser();
+          if (currentUser) {
+            // console.log('✅ Usuario obtenido, actualizando contexto');
+            setUsuario(currentUser);
+          } else {
+            console.error('❌ No se pudo obtener usuario después de SIGNED_IN');
+          }
+        } catch (error: any) {
+          // Verificar si es un error 429
+          if (rateLimitHandler.isRateLimitError(error)) {
+            rateLimitHandler.handleRateLimitError();
+            console.error('❌ Error 429 (Rate Limit) obteniendo usuario después de SIGNED_IN. Cooldown activado.');
+            // No limpiar el evento para que se reintente después del cooldown
+            return;
+          } else {
+            console.error('❌ Error obteniendo usuario después de SIGNED_IN:', error);
+          }
         }
         setAuthEvent(null); // Limpiar el evento
       }
@@ -136,23 +172,69 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
       // Si no hay datos locales frescos, intentar con Supabase (con throttling)
       console.log('🔄 No hay datos locales válidos, verificando con Supabase...');
-      await new Promise(resolve => setTimeout(resolve, 500)); // Pequeño delay
-      await initializeSupabaseSession();
-
-      console.log('🔍 Obteniendo usuario actual...');
-      const currentUser = await authRepository.getCurrentUser();
       
-      if (currentUser) {
-        console.log('✅ Usuario encontrado en Supabase');
-        setUsuario(currentUser);
-      } else if (storedUser) {
-        // Si hay usuario en localStorage pero no está fresco, usarlo temporalmente
-        console.log('⚠️ Usando usuario de localStorage (no fresco) como fallback');
-        setUsuario(storedUser);
-      } else {
-        console.log('❌ No hay usuario en ningún lado, redirigiendo a login');
+      // Verificar si estamos en cooldown por rate limiting
+      if (rateLimitHandler.isRateLimited()) {
+        const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+        console.warn(`⚠️ [initializeAuth] En cooldown por rate limiting. Esperando ${remaining} segundos...`);
+        
+        // Usar usuario de localStorage si existe
+        if (storedUser) {
+          console.log('⚠️ Usando usuario de localStorage durante cooldown');
+          setUsuario(storedUser);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Si no hay usuario en localStorage, redirigir a login
+        console.log('❌ No hay usuario en localStorage y estamos en cooldown, redirigiendo a login');
         router.replace('/login');
         return;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500)); // Pequeño delay
+      
+      try {
+        await initializeSupabaseSession();
+
+        console.log('🔍 Obteniendo usuario actual...');
+        const currentUser = await authRepository.getCurrentUser();
+        
+        if (currentUser) {
+          console.log('✅ Usuario encontrado en Supabase');
+          setUsuario(currentUser);
+        } else if (storedUser) {
+          // Si hay usuario en localStorage pero no está fresco, usarlo temporalmente
+          console.log('⚠️ Usando usuario de localStorage (no fresco) como fallback');
+          setUsuario(storedUser);
+        } else {
+          console.log('❌ No hay usuario en ningún lado, redirigiendo a login');
+          router.replace('/login');
+          return;
+        }
+      } catch (error: any) {
+        // Verificar si es un error 429
+        if (rateLimitHandler.isRateLimitError(error)) {
+          rateLimitHandler.handleRateLimitError();
+          console.error('❌ Error 429 (Rate Limit) en initializeAuth. Cooldown activado.');
+          
+          // Usar usuario de localStorage si existe
+          if (storedUser) {
+            console.log('⚠️ Usando usuario de localStorage después de error 429');
+            setUsuario(storedUser);
+            setIsLoading(false);
+            return;
+          }
+          
+          // Si no hay usuario en localStorage, redirigir a login
+          console.log('❌ No hay usuario en localStorage después de error 429, redirigiendo a login');
+          clearUsuario();
+          router.replace('/login');
+          return;
+        }
+        
+        // Re-lanzar el error para que se maneje en el catch general
+        throw error;
       }
     } catch (error) {
       console.error('❌ Error crítico en initializeAuth:', error);

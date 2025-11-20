@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
+import { rateLimitHandler } from '@/infrastructure/services/RateLimitHandler';
 import { Loader2 } from 'lucide-react';
 
 export default function ConfirmPage() {
@@ -41,8 +42,16 @@ export default function ConfirmPage() {
           });
 
           if (error) {
-            console.error('❌ Error estableciendo sesión:', error);
-            setErrorMessage(error.message);
+            // Verificar si es un error 429
+            if (rateLimitHandler.isRateLimitError(error)) {
+              rateLimitHandler.handleRateLimitError();
+              const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+              console.error('❌ Error 429 (Rate Limit) estableciendo sesión. Cooldown activado.');
+              setErrorMessage(`Demasiadas solicitudes. Por favor espera ${remaining} segundos antes de intentar nuevamente.`);
+            } else {
+              console.error('❌ Error estableciendo sesión:', error);
+              setErrorMessage(error.message);
+            }
             setStatus('error');
             return;
           }
@@ -69,8 +78,16 @@ export default function ConfirmPage() {
           });
 
           if (error) {
-            console.error('❌ Error verificando OTP:', error);
-            setErrorMessage(error.message);
+            // Verificar si es un error 429
+            if (rateLimitHandler.isRateLimitError(error)) {
+              rateLimitHandler.handleRateLimitError();
+              const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+              console.error('❌ Error 429 (Rate Limit) verificando OTP. Cooldown activado.');
+              setErrorMessage(`Demasiadas solicitudes. Por favor espera ${remaining} segundos antes de intentar nuevamente.`);
+            } else {
+              console.error('❌ Error verificando OTP:', error);
+              setErrorMessage(error.message);
+            }
             setStatus('error');
             return;
           }
@@ -93,8 +110,15 @@ export default function ConfirmPage() {
           router.replace('/login');
         }, 3000);
 
-      } catch (error) {
-        console.error('❌ Error en proceso de confirmación:', error);
+      } catch (error: any) {
+        // Verificar si es un error 429
+        if (rateLimitHandler.isRateLimitError(error)) {
+          rateLimitHandler.handleRateLimitError();
+          const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+          console.error('❌ Error 429 (Rate Limit) en proceso de confirmación. Cooldown activado.');
+          setErrorMessage(`Demasiadas solicitudes. Por favor espera ${remaining} segundos antes de intentar nuevamente.`);
+        } else {
+          console.error('❌ Error en proceso de confirmación:', error);
         setErrorMessage('Error procesando la confirmación');
         setStatus('error');
 

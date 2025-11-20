@@ -7,6 +7,7 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { SupabaseAuthRepository } from '@/infrastructure/datasource/SupabaseAuthRepository';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
+import { rateLimitHandler } from '@/infrastructure/services/RateLimitHandler';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -40,8 +41,16 @@ export default function Login() {
           });
 
           if (error) {
-            console.error('❌ Error estableciendo sesión:', error);
-            setError('Error al confirmar tu email. Intenta nuevamente.');
+            // Verificar si es un error 429
+            if (rateLimitHandler.isRateLimitError(error)) {
+              rateLimitHandler.handleRateLimitError();
+              const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+              console.error('❌ Error 429 (Rate Limit) estableciendo sesión. Cooldown activado.');
+              setError(`Demasiadas solicitudes. Por favor espera ${remaining} segundos antes de intentar nuevamente.`);
+            } else {
+              console.error('❌ Error estableciendo sesión:', error);
+              setError('Error al confirmar tu email. Intenta nuevamente.');
+            }
             setIsLoading(false);
             return;
           }
@@ -63,9 +72,17 @@ export default function Login() {
               router.replace('/');
             }, 1000);
           }
-        } catch (error) {
-          console.error('❌ Error procesando magic link:', error);
-          setError('Error al procesar la confirmación');
+        } catch (error: any) {
+          // Verificar si es un error 429
+          if (rateLimitHandler.isRateLimitError(error)) {
+            rateLimitHandler.handleRateLimitError();
+            const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+            console.error('❌ Error 429 (Rate Limit) procesando magic link. Cooldown activado.');
+            setError(`Demasiadas solicitudes. Por favor espera ${remaining} segundos antes de intentar nuevamente.`);
+          } else {
+            console.error('❌ Error procesando magic link:', error);
+            setError('Error al procesar la confirmación');
+          }
           setIsLoading(false);
         }
       }

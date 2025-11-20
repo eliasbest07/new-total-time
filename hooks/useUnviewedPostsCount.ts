@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 import { getUnviewedPostsCount } from '@/services/viewedPostsService';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { rateLimitHandler } from '@/infrastructure/services/RateLimitHandler';
 
 interface UseUnviewedPostsCountReturn {
   unviewedCount: number;
@@ -67,14 +68,41 @@ export const useUnviewedPostsCount = (
     loadPosts();
   }, [salaId, refreshTrigger]);
 
+  // Guardar el último currentUserId para mantener la suscripción durante cooldown
+  const lastValidUserIdRef = useRef<number | null>(currentUserId);
+  
+  // Actualizar la referencia cuando hay un userId válido
+  useEffect(() => {
+    if (currentUserId) {
+      lastValidUserIdRef.current = currentUserId;
+    }
+  }, [currentUserId]);
+
   // Suscribirse a cambios en tiempo real
   useEffect(() => {
-    if (!salaId || !currentUserId) {
-      console.log('📊 [useUnviewedPostsCount] No hay salaId o userId, no suscribiendo a realtime');
+    if (!salaId) {
+      console.log('📊 [useUnviewedPostsCount] No hay salaId, no suscribiendo a realtime');
       return;
     }
 
-    console.log('📊 [useUnviewedPostsCount] Suscribiendo a realtime para sala:', salaId);
+    // Si estamos en cooldown por rate limiting, usar el último userId válido
+    const effectiveUserId = rateLimitHandler.isRateLimited() 
+      ? lastValidUserIdRef.current 
+      : currentUserId;
+
+    if (!effectiveUserId) {
+      console.log('📊 [useUnviewedPostsCount] No hay userId válido, no suscribiendo a realtime');
+      return;
+    }
+
+    // Si estamos en cooldown, no crear nueva suscripción pero mantener la existente
+    if (rateLimitHandler.isRateLimited() && !currentUserId) {
+      const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+      console.warn(`⚠️ [useUnviewedPostsCount] En cooldown por rate limiting. Manteniendo suscripción existente. Esperando ${remaining} segundos...`);
+      // No retornar, continuar con la suscripción usando el último userId válido
+    }
+
+    console.log('📊 [useUnviewedPostsCount] Suscribiendo a realtime para sala:', salaId, 'con userId:', effectiveUserId);
 
     let channel: RealtimeChannel;
 
@@ -93,8 +121,12 @@ export const useUnviewedPostsCount = (
             console.log('📊 [useUnviewedPostsCount] 🆕 NUEVO POST detectado en sala', salaId, ':', payload.new);
             const newPost = payload.new;
 
-            // Solo incrementar si NO es del usuario actual
-            if (newPost.id_usuario === currentUserId) {
+            // Solo incrementar si NO es del usuario actual (usar effectiveUserId)
+            const effectiveUserId = rateLimitHandler.isRateLimited() 
+              ? lastValidUserIdRef.current 
+              : currentUserId;
+            
+            if (newPost.id_usuario === effectiveUserId) {
               console.log('📊 [useUnviewedPostsCount] Post creado por el usuario actual, ignorando');
               return;
             }
@@ -149,6 +181,13 @@ export const useUnviewedPostsCount = (
     setupSubscription();
 
     return () => {
+      // No limpiar la suscripción si estamos en cooldown por rate limiting
+      if (rateLimitHandler.isRateLimited() && !currentUserId) {
+        const remaining = Math.ceil(rateLimitHandler.getRemainingCooldown() / 1000);
+        console.warn(`⚠️ [useUnviewedPostsCount] En cooldown, NO limpiando suscripción de sala ${salaId}. Esperando ${remaining} segundos...`);
+        return;
+      }
+      
       console.log('📊 [useUnviewedPostsCount] Limpiando suscripción de sala:', salaId);
       if (channel) {
         supabase.removeChannel(channel);
