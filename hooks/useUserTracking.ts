@@ -2,16 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 
 /**
- * Sistema de tracking basado en la tabla 'capture'
- * - Tiempo Hoy: Suma 5 minutos por cada captura creada hoy
- * - Última Actividad: Suma 5 minutos por cada captura del día agrupada por mision_actividad
- * - Tiempo Semana: Suma 5 minutos por cada captura de la semana
+ * Hook para obtener estadísticas de tracking de un usuario específico
+ * Basado en la tabla 'capture'
  */
 
 const MINUTOS_POR_CAPTURA = 5;
 
-export const useSimpleTracking = () => {
-  const [estadisticas, setEstadisticas] = useState({
+interface UserStats {
+  tiempoHoy: string;
+  ultimaActividad: string;
+  tiempoSemana: string;
+}
+
+export const useUserTracking = (userId: string | null) => {
+  const [estadisticas, setEstadisticas] = useState<UserStats>({
     tiempoHoy: '0h 0m',
     ultimaActividad: 'Sin actividad',
     tiempoSemana: '0h 0m'
@@ -25,8 +29,13 @@ export const useSimpleTracking = () => {
     return `${horas}h ${mins}m`;
   };
 
-  // Calcular estadísticas desde Supabase
+  // Calcular estadísticas desde Supabase para un usuario específico
   const calcularEstadisticas = useCallback(async () => {
+    if (!userId) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const ahora = new Date();
@@ -37,54 +46,39 @@ export const useSimpleTracking = () => {
       // Definir inicio de la semana (domingo = 0, ajustamos para que lunes = 0)
       const inicioSemana = new Date(ahora);
       const diaSemana = ahora.getDay();
-      const diasHastaLunes = diaSemana === 0 ? 6 : diaSemana - 1; // Si es domingo, retroceder 6 días
+      const diasHastaLunes = diaSemana === 0 ? 6 : diaSemana - 1;
       inicioSemana.setDate(ahora.getDate() - diasHastaLunes);
       inicioSemana.setHours(0, 0, 0, 0);
 
-      // Obtener el ID del usuario actual desde el auth
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log('⚠️ [SIMPLE TRACKING] No hay usuario autenticado');
-        return {
-          tiempoHoy: '0h 0m',
-          ultimaActividad: 'Sin actividad',
-          tiempoSemana: '0h 0m'
-        };
-      }
-
-      console.log('📊 [SIMPLE TRACKING] Usuario autenticado:', user.id);
-      console.log('📊 [SIMPLE TRACKING] Inicio del día:', inicioHoy.toISOString());
-      console.log('📊 [SIMPLE TRACKING] Inicio de la semana:', inicioSemana.toISOString());
+      console.log(`📊 [USER TRACKING] Calculando stats para usuario: ${userId}`);
 
       // 1. TIEMPO HOY: Contar capturas de hoy
       const { data: capturasHoy, error: errorHoy } = await supabase
         .from('capture')
         .select('id')
-        .eq('id_usuario', user.id)
+        .eq('id_usuario', userId)
         .gte('created_at', inicioHoy.toISOString());
 
       if (errorHoy) {
-        console.error('❌ [SIMPLE TRACKING] Error obteniendo capturas de hoy:', errorHoy);
+        console.error('❌ [USER TRACKING] Error obteniendo capturas de hoy:', errorHoy);
       }
 
       const totalCapturasHoy = capturasHoy?.length || 0;
       const minutosHoy = totalCapturasHoy * MINUTOS_POR_CAPTURA;
       const tiempoHoy = formatear(minutosHoy);
 
-      console.log(`📅 [SIMPLE TRACKING] Capturas HOY: ${totalCapturasHoy}, Tiempo: ${tiempoHoy}`);
-
       // 2. ÚLTIMA ACTIVIDAD: Buscar la última actividad del día (por mision_actividad)
       const { data: capturasActividad, error: errorActividad } = await supabase
         .from('capture')
         .select('mision_actividad, created_at')
-        .eq('id_usuario', user.id)
+        .eq('id_usuario', userId)
         .gte('created_at', inicioHoy.toISOString())
         .not('mision_actividad', 'is', null)
         .order('created_at', { ascending: false })
         .limit(1);
 
       if (errorActividad) {
-        console.error('❌ [SIMPLE TRACKING] Error obteniendo última actividad:', errorActividad);
+        console.error('❌ [USER TRACKING] Error obteniendo última actividad:', errorActividad);
       }
 
       let ultimaActividad = 'Sin actividad';
@@ -96,37 +90,33 @@ export const useSimpleTracking = () => {
         const { data: capturasDeActividad, error: errorConteo } = await supabase
           .from('capture')
           .select('id')
-          .eq('id_usuario', user.id)
+          .eq('id_usuario', userId)
           .eq('mision_actividad', ultimaMisionActividad)
           .gte('created_at', inicioHoy.toISOString());
 
         if (errorConteo) {
-          console.error('❌ [SIMPLE TRACKING] Error contando capturas de actividad:', errorConteo);
+          console.error('❌ [USER TRACKING] Error contando capturas de actividad:', errorConteo);
         }
 
         const totalCapturasActividad = capturasDeActividad?.length || 0;
         const minutosActividad = totalCapturasActividad * MINUTOS_POR_CAPTURA;
         ultimaActividad = formatear(minutosActividad);
-
-        console.log(`🎯 [SIMPLE TRACKING] Última actividad: ${ultimaMisionActividad}, Capturas: ${totalCapturasActividad}, Tiempo: ${ultimaActividad}`);
       }
 
       // 3. TIEMPO SEMANA: Contar capturas de la semana
       const { data: capturasSemana, error: errorSemana } = await supabase
         .from('capture')
         .select('id')
-        .eq('id_usuario', user.id)
+        .eq('id_usuario', userId)
         .gte('created_at', inicioSemana.toISOString());
 
       if (errorSemana) {
-        console.error('❌ [SIMPLE TRACKING] Error obteniendo capturas de la semana:', errorSemana);
+        console.error('❌ [USER TRACKING] Error obteniendo capturas de la semana:', errorSemana);
       }
 
       const totalCapturasSemana = capturasSemana?.length || 0;
       const minutosSemana = totalCapturasSemana * MINUTOS_POR_CAPTURA;
       const tiempoSemana = formatear(minutosSemana);
-
-      console.log(`📅 [SIMPLE TRACKING] Capturas SEMANA: ${totalCapturasSemana}, Tiempo: ${tiempoSemana}`);
 
       const stats = {
         tiempoHoy,
@@ -134,13 +124,13 @@ export const useSimpleTracking = () => {
         tiempoSemana
       };
 
-      console.log('✅ [SIMPLE TRACKING] Estadísticas calculadas:', stats);
+      console.log(`✅ [USER TRACKING] Stats calculadas para ${userId}:`, stats);
       setEstadisticas(stats);
       setIsLoading(false);
       return stats;
 
     } catch (error) {
-      console.error('❌ [SIMPLE TRACKING] Error calculando estadísticas:', error);
+      console.error('❌ [USER TRACKING] Error calculando estadísticas:', error);
       setIsLoading(false);
       return {
         tiempoHoy: '0h 0m',
@@ -148,38 +138,41 @@ export const useSimpleTracking = () => {
         tiempoSemana: '0h 0m'
       };
     }
-  }, []);
+  }, [userId]);
 
-  // Cargar estadísticas al montar el componente
+  // Cargar estadísticas al montar el componente o cuando cambie el userId
   useEffect(() => {
     calcularEstadisticas();
   }, [calcularEstadisticas]);
 
   // Escuchar cambios en la tabla capture mediante Realtime
   useEffect(() => {
-    console.log('🔄 [SIMPLE TRACKING] Configurando suscripción a Realtime...');
+    if (!userId) return;
+
+    console.log(`🔄 [USER TRACKING] Configurando suscripción para usuario: ${userId}`);
 
     const channel = supabase
-      .channel('captures-tracking')
+      .channel(`captures-tracking-${userId}`)
       .on(
         'postgres_changes',
         {
-          event: '*', // INSERT, UPDATE, DELETE
+          event: '*',
           schema: 'public',
-          table: 'capture'
+          table: 'capture',
+          filter: `id_usuario=eq.${userId}`
         },
         (payload) => {
-          console.log('🔔 [SIMPLE TRACKING] Cambio detectado en capture:', payload);
+          console.log(`🔔 [USER TRACKING] Cambio detectado para usuario ${userId}:`, payload);
           calcularEstadisticas();
         }
       )
       .subscribe();
 
     return () => {
-      console.log('🛑 [SIMPLE TRACKING] Cerrando suscripción a Realtime');
+      console.log(`🛑 [USER TRACKING] Cerrando suscripción para usuario: ${userId}`);
       supabase.removeChannel(channel);
     };
-  }, [calcularEstadisticas]);
+  }, [userId, calcularEstadisticas]);
 
   return {
     estadisticas,

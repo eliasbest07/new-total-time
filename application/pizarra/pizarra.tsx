@@ -10,7 +10,6 @@ import { mapCardDBToCard, mapCardToCardDB } from './utils/cardMapper';
 import { SupabaseCardMisionRepository } from '@/infrastructure/datasource/SupabaseCardMisionRepository';
 import { SupabaseMisionRepository } from '@/infrastructure/datasource/SupabaseMisionRepository';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
-import { useSimpleTracking } from '@/hooks/useSimpleTracking';
 import { generateUniqueId, generatePosition } from './utils/idGenerator';
 import { useCardDrag } from './hooks/useCardDrag';
 import { useCanvasPan } from './hooks/useCanvasPan';
@@ -103,7 +102,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Hook para gestionar misiones activas
   const { getOrCreateMisionActiva, updateRunningState, addCaptureUrl } = useMisionActiva();
-  const { iniciar: iniciarTracking, pausar: pausarTracking } = useSimpleTracking();
+  // useSimpleTracking ya no se necesita aquí - ahora funciona automáticamente desde la tabla capture
 
   // Estado de inicialización
   const [isInitialized, setIsInitialized] = useState(false);
@@ -1083,9 +1082,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         });
         console.log('✅ [MISION ACTIVA] Estado en_progreso guardado en Supabase');
 
-        // 4.5 Iniciar tracking simple
-        iniciarTracking(misionActiva.id);
-        console.log('⏱️ [TRACKING] Tracking iniciado');
+        // Nota: El tracking ahora se calcula automáticamente desde la tabla capture
 
         // 5. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
         setCards(prev => {
@@ -1125,9 +1122,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
         console.log('✅ [MISION ACTIVA] Estado pausada guardado en Supabase');
 
-        // 1.5 Pausar tracking simple
-        pausarTracking(misionActivaId);
-        console.log('⏱️ [TRACKING] Tracking pausado');
+        // Nota: El tracking ahora se calcula automáticamente desde la tabla capture
       }
 
       // 2. Actualizar estado local
@@ -1828,11 +1823,30 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             .single();
 
           if (createError) {
-            console.error('❌ Error creando card:', card.id);
-            console.error('   Error completo:', JSON.stringify(createError, null, 2));
-            console.error('   Datos enviados:', JSON.stringify(cardData, null, 2));
-            // No continuar si hay error
-            continue;
+            // Si es un error de duplicado (23505), intentar actualizar en lugar de insertar
+            if (createError.code === '23505') {
+              console.log('⚠️ Card ya existe, actualizando en lugar de crear:', card.id);
+              const { error: updateError } = await supabase
+                .from('cards')
+                .update(cardData)
+                .eq('id_pizarra', pizarraActual.id)
+                .eq('card_id', card.id);
+
+              if (updateError) {
+                console.error('❌ Error actualizando card duplicada:', card.id, updateError);
+                continue;
+              } else {
+                console.log('   ✏️ Card duplicada actualizada exitosamente:', card.id);
+                // Continuar con el flujo normal, pero no crear relaciones adicionales
+                continue;
+              }
+            } else {
+              console.error('❌ Error creando card:', card.id);
+              console.error('   Error completo:', JSON.stringify(createError, null, 2));
+              console.error('   Datos enviados:', JSON.stringify(cardData, null, 2));
+              // No continuar si hay error
+              continue;
+            }
           } else {
             console.log('   ➕ Card creada exitosamente:', card.id);
 

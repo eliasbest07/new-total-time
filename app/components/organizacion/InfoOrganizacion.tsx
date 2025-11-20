@@ -2,15 +2,68 @@
 
 import { useOrganizacion } from "@/hooks/useOrganizacion";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizacionContext";
 import { useState, useEffect } from "react";
-import { Building2, Crown, Users } from "lucide-react";
+import { Building2, Crown, Users, Clock } from "lucide-react";
 import Image from "next/image";
 import { Usuario } from "@/domain/entities/Usuario";
 import { SupabaseUsuarioRepository } from "@/infrastructure/datasource/SupabaseUsuarioRepository";
+import { useUserTracking } from "@/hooks/useUserTracking";
+
+// Componente para mostrar las estadísticas de un usuario
+const UserStatsRow = ({ usuario }: { usuario: Usuario }) => {
+  const { estadisticas, isLoading } = useUserTracking(usuario.userAuth);
+
+  return (
+    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+      {/* Avatar del usuario */}
+      <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+        {usuario.profile.avatar ? (
+          <Image
+            src={usuario.profile.avatar}
+            alt={usuario.getNombreCompleto()}
+            fill
+            className="object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-white font-semibold text-sm">
+            {usuario.profile.nombre.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+
+      {/* Nombre del usuario */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-900 truncate">
+          {usuario.getNombreCompleto()}
+        </p>
+      </div>
+
+      {/* Estadísticas */}
+      <div className="flex gap-3 items-center">
+        {isLoading ? (
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-purple-600 border-t-transparent"></div>
+        ) : (
+          <>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Hoy</p>
+              <p className="text-sm font-semibold text-gray-900">{estadisticas.tiempoHoy}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Semana</p>
+              <p className="text-sm font-semibold text-gray-900">{estadisticas.tiempoSemana}</p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function InfoOrganizacion() {
   const { usuario } = useAuth();
   const { organizacion, loading, error } = useOrganizacion(usuario?.userAuth || null);
+  const { usuarios: usuariosOrganizacion } = useUsuariosOrganizacionContext();
   const [adminUsuario, setAdminUsuario] = useState<Usuario | null>(null);
   const [loadingAdmin, setLoadingAdmin] = useState(false);
 
@@ -191,6 +244,26 @@ export default function InfoOrganizacion() {
             </p>
             <p className="text-xs text-gray-600">Salas</p>
           </div>
+        </div>
+      </div>
+
+      {/* Progreso de usuarios */}
+      <div className="border-t border-gray-200 pt-4 mt-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Clock className="w-5 h-5 text-blue-500" />
+          <h3 className="text-sm font-semibold text-gray-700">Progreso de Usuarios</h3>
+        </div>
+
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {usuariosOrganizacion.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">
+              No hay usuarios en la organización
+            </p>
+          ) : (
+            usuariosOrganizacion.map((usr) => (
+              <UserStatsRow key={usr.id} usuario={usr} />
+            ))
+          )}
         </div>
       </div>
     </div>

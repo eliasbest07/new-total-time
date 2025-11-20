@@ -50,9 +50,15 @@ const LifeBar = ({ percentage }: { percentage: number }) => (
     </div>
 );
 
-const StatsCard = ({ value, label }: { value: string; label: string }) => (
+const StatsCard = ({ value, label, isLoading }: { value: string; label: string; isLoading?: boolean }) => (
     <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 min-w-0 flex-1">
-        <div className="text-white text-lg sm:text-xl font-medium truncate">{value}</div>
+        {isLoading ? (
+            <div className="flex items-center justify-center h-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
+            </div>
+        ) : (
+            <div className="text-white text-lg sm:text-xl font-medium truncate">{value}</div>
+        )}
         <div className="text-white/70 text-xs sm:text-sm">{label}</div>
     </div>
 );
@@ -298,42 +304,10 @@ export default function DashboardUsuario() {
 
     console.log('🎨 [DASHBOARD] Componente DashboardUsuario renderizando...');
 
-    // Tracking simple
-    const { calcularEstadisticas } = useSimpleTracking();
-    console.log('🎨 [DASHBOARD] Hook useSimpleTracking obtenido');
-
-    const statsIniciales = calcularEstadisticas();
-    console.log('🎨 [DASHBOARD] Estadísticas iniciales:', statsIniciales);
-
-    const [estadisticas, setEstadisticas] = useState(statsIniciales);
-    console.log('🎨 [DASHBOARD] Estado inicializado con:', estadisticas);
-
-    // Actualizar cada segundo
-    useEffect(() => {
-        console.log('🚀 [DASHBOARD] Iniciando intervalo de actualización cada 1 segundo');
-        let counter = 0;
-
-        const interval = setInterval(() => {
-            counter++;
-            console.log(`⏰ [DASHBOARD] Tick #${counter} - Actualizando estadísticas...`);
-            const nuevasStats = calcularEstadisticas();
-            console.log(`⏰ [DASHBOARD] Nuevas stats:`, nuevasStats);
-            setEstadisticas(nuevasStats);
-        }, 1000);
-
-        // Actualizar cuando cambien los tiempos
-        const handleUpdate = () => {
-            console.log('🔄 [DASHBOARD] Evento tiempos-updated recibido');
-            setEstadisticas(calcularEstadisticas());
-        };
-        window.addEventListener('tiempos-updated', handleUpdate);
-
-        return () => {
-            console.log('🛑 [DASHBOARD] Limpiando intervalo');
-            clearInterval(interval);
-            window.removeEventListener('tiempos-updated', handleUpdate);
-        };
-    }, [calcularEstadisticas]);
+    // Tracking simple - Ahora usa Supabase en lugar de localStorage
+    const { estadisticas, isLoading: isLoadingStats } = useSimpleTracking();
+    console.log('🎨 [DASHBOARD] Estadísticas obtenidas desde Supabase:', estadisticas);
+    console.log('🎨 [DASHBOARD] Estado de carga:', isLoadingStats);
 
     const ultimasTareas: Tarea[] = [
         { id: 1, nombre: 'Diseño de interfaz', tiempo: '2:30', estado: 'completada' },
@@ -410,9 +384,9 @@ export default function DashboardUsuario() {
 
                         {/* Estadísticas responsivas */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                            <StatsCard value={estadisticas.tiempoHoy} label="Tiempo hoy" />
-                            <StatsCard value={estadisticas.ultimaActividad} label="Última actividad" />
-                            <StatsCard value={estadisticas.tiempoSemana} label="Esta semana" />
+                            <StatsCard value={estadisticas.tiempoHoy} label="Tiempo hoy" isLoading={isLoadingStats} />
+                            <StatsCard value={estadisticas.ultimaActividad} label="Última actividad" isLoading={isLoadingStats} />
+                            <StatsCard value={estadisticas.tiempoSemana} label="Esta semana" isLoading={isLoadingStats} />
                         </div>
                     </div>
 
