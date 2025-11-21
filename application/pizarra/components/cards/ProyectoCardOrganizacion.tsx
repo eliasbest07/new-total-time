@@ -510,7 +510,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors"
                 data-todo-interactive
               >
-                <span className="font-semibold text-sm">Misiones ({misiones.length})</span>
+                <span className="font-semibold text-sm">Tickets ({misiones.length})</span>
                 {expandedMisiones ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </button>
 
@@ -587,7 +587,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                     data-todo-interactive
                   >
                     <Plus size={16} />
-                    Nueva Misión
+                    Nuevo Ticket
                   </button>
                 </div>
               )}

@@ -145,7 +145,7 @@ export default function MisionesGrid() {
           mision={mision}
           onClick={() => {
             // Aquí puedes agregar lógica para mostrar detalles de la misión
-            console.log('Misión seleccionada:', mision);
+            console.log('Ticket seleccionada:', mision);
           }}
         />
       ))}

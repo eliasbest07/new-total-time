@@ -6,7 +6,7 @@ import { SupabasePizarraRepository } from '@/infrastructure/datasource/SupabaseP
 export interface BoardHistoryItem {
   id: string;
   title: string;
-  type: 'Nota' | 'Tarea' | 'Actividad' | 'Mision' | 'Proyecto' | 'Chat' | 'Recurso' | 'Imagen';
+  type: 'Nota' | 'Tarea' | 'Actividad' | 'Mision' | 'Proyecto' | 'Chat' | 'Recurso' | 'Imagen' |'Ticket' ;
   owner: string;
   summary: string;
   lastUpdated: string;

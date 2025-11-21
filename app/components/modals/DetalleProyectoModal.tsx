@@ -243,7 +243,7 @@ const DetalleProyectoModal: React.FC<DetalleProyectoModalProps> = ({ isOpen, onC
               {misiones.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-green-200">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600 font-medium">Total de misiones:</span>
+                    <span className="text-gray-600 font-medium">Total de tickets:</span>
                     <span className="text-green-700 font-semibold">{misiones.length}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs mt-1">

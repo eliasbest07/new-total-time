@@ -775,7 +775,7 @@ export default function Dashboard() {
       {/* Missions positioned at fixed location */}
       <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 20 }}>
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-          Misiones 🎯
+          Tickets 🎟️
         </h2>
         <MisionesCompactMock misiones={mockMisiones} onShowDetails={(mision) => setShowMisionDetails(true)} />
       </div>
@@ -991,7 +991,7 @@ export default function Dashboard() {
       <Ventana
         isOpen={showActividadDetails}
         onClose={() => setShowActividadDetails(false)}
-        title="Detalles de la Actividad"
+        title="Detalles del Ticket"
         initialWidth={600}
         initialHeight={500}
         minWidth={500}
@@ -1057,7 +1057,7 @@ export default function Dashboard() {
       <Ventana
         isOpen={showMisionDetails}
         onClose={() => setShowMisionDetails(false)}
-        title="Detalles de la Misión"
+        title="Detalles del Ticket"
         initialWidth={600}
         initialHeight={450}
         minWidth={500}

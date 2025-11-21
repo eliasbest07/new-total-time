@@ -450,7 +450,7 @@ export default function MainScreen() {
       {/* Missions positioned at fixed location */}
       <div className="pointer-events-auto" style={{ position: 'fixed', bottom: '6rem', left: '1rem', zIndex: 20 }}>
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
-          Misiones 🎯
+          Tickets 🎟️
         </h2>
         <MisionesCompact onShowDetails={handleShowMisionDetails} />
       </div>
@@ -587,7 +587,7 @@ export default function MainScreen() {
       <Ventana
         isOpen={showActividadDetails}
         onClose={() => setShowActividadDetails(false)}
-        title="Detalles de la Actividad"
+        title="Detalles del Ticket"
         initialWidth={600}
         initialHeight={500}
         minWidth={500}
@@ -692,7 +692,7 @@ export default function MainScreen() {
       <Ventana
         isOpen={showMisionDetails}
         onClose={() => setShowMisionDetails(false)}
-        title="Detalles de la Misión"
+        title="Detalles del Ticket"
         initialWidth={600}
         initialHeight={500}
         minWidth={500}
@@ -994,12 +994,17 @@ export default function MainScreen() {
                           text: 'text-blue-900'
                         };
                       case 'Mision':
+                      case 'Ticket':
+                        item.type = 'Ticket';
                         return {
                           bg: 'bg-green-50',
                           border: 'border-green-200',
                           badge: 'bg-green-500 text-white',
                           text: 'text-green-900'
+
+                          
                         };
+                        
                       case 'Proyecto':
                         return {
                           bg: 'bg-indigo-50',

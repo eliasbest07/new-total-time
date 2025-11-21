@@ -139,7 +139,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
   return (
     <>
       <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md p-3" style={{ maxWidth: '250px' }}>
-        <h3 className="text-xs font-semibold text-gray-700 mb-2">🎯 Misiones de la Organización</h3>
+        <h3 className="text-xs font-semibold text-gray-700 mb-2">🎯 Tickets de la Organización</h3>
         {/* Contenedor con altura fija y scroll */}
         <div
           className="overflow-y-auto space-y-1.5"

@@ -1564,7 +1564,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     const newCard = {
       id: newCardId,
       type: 'mision-organizacion',
-      title: misionData.title || 'Nueva Misión',
+      title: misionData.title || 'Nuevo Ticket',
       content: misionData.description || '',
       x: centerX + randomOffset() - 175, // -175 para centrar la card (width/2)
       y: centerY + randomOffset() - 250, // -250 para centrar la card (height/2)

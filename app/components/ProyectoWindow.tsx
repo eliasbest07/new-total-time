@@ -109,7 +109,7 @@ export default function ProyectoWindow({ proyecto }: ProyectoWindowProps) {
             )}
             <div className="mt-3 flex gap-4 text-xs text-gray-500">
               <span>📅 Creado: {new Date(proyecto.created_at).toLocaleDateString('es-ES')}</span>
-              <span>🎯 {misiones.length} Misiones</span>
+              <span>🎯 {misiones.length} Tickets</span>
               <span>⚡ {actividades.length} Actividades</span>
             </div>
           </div>
@@ -125,11 +125,11 @@ export default function ProyectoWindow({ proyecto }: ProyectoWindowProps) {
           {/* Misiones */}
           <div>
             <h3 className="text-lg font-semibold text-indigo-800 mb-3 flex items-center gap-2">
-              🎯 Misiones ({misiones.length})
+              🎯 Tickets ({misiones.length})
             </h3>
             {misiones.length === 0 ? (
               <div className="text-gray-500 text-sm italic bg-white/50 p-4 rounded-lg">
-                No hay misiones asociadas a este proyecto.
+                No hay tickets asociadas a este proyecto.
               </div>
             ) : (
               <div className="space-y-3">

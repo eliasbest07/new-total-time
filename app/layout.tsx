@@ -56,7 +56,7 @@ export default function RootLayout({
                 <ChatWindowManager />
                 <IncomingMessagesListener />
                 {/* Monitor de memoria - configurable desde settings */}
-                <MemoryMonitorWrapper />
+                {/*<MemoryMonitorWrapper />*/}
                   </ChatWindowProvider>
                 </SettingsProvider>
               </RecursosProvider>

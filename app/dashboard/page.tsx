@@ -747,7 +747,7 @@ function DashboardAdmin() {
             title="Crear Misión/Actividad"
           >
             <Target size={20} />
-            <span>Nueva Misión</span>
+            <span>Nuevo Ticket</span>
           </button>
           <style jsx>{`
             .crear-mision-btn {
@@ -855,7 +855,7 @@ function DashboardAdmin() {
             setShowMisionesModal(false);
             limpiarFormularioMision();
           }}
-          title="Crear Nueva Misión"
+          title="Crear Nuevo Ticket"
           initialWidth={600}
           initialHeight={500}
           minWidth={500}
@@ -865,7 +865,7 @@ function DashboardAdmin() {
           <div className="p-6 space-y-4" style={{ color: '#000000' }} data-todo-interactive="true">
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
-                Nombre de la Misión <span style={{ color: '#dc2626' }}>*</span>
+                Nombre del Ticket <span style={{ color: '#dc2626' }}>*</span>
               </label>
               <input
                 type="text"
@@ -968,7 +968,7 @@ function DashboardAdmin() {
             {/* Sección de Tareas TODO */}
             <div className="border-2 border-purple-300 rounded-lg p-4 bg-purple-50" data-todo-interactive="true">
               <h4 className="text-sm font-bold mb-3" style={{ color: '#000000' }}>
-                📋 Tareas de la Misión
+                📋 Tareas del Ticket
                 {connectionContext && tareasTodo.length > 0 && (
                   <span className="text-xs font-normal text-purple-600 ml-2">
                     (importadas de lista TODO)

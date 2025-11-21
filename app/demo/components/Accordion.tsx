@@ -792,7 +792,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
             <div>
               <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                 <Target className="w-5 h-5" />
-                Misiones del Proyecto
+                Tickets del Proyecto
               </h3>
               {loadingMisiones ? (
                 <div className="bg-gray-100 p-4 rounded-lg">
@@ -923,7 +923,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                   })}
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700 font-medium">Total de misiones:</span>
+                      <span className="text-gray-700 font-medium">Total de tickets:</span>
                       <span className="text-blue-700 font-bold">{misiones.length}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm mt-1">

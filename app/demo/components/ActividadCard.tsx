@@ -203,7 +203,7 @@ export default function ActividadCard() {
       <Ventana
         isOpen={showActividadDetails}
         onClose={() => setShowActividadDetails(false)}
-        title="Detalles de la Actividad"
+        title="Detalles del Ticket"
         initialWidth={600}
         initialHeight={500}
         minWidth={500}

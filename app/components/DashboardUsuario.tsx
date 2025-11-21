@@ -160,7 +160,7 @@ const MisionActivaCard = ({ mision, onImageClick }: { mision: MisionActiva; onIm
                     <div className="flex items-center gap-2 mb-1">
                         <Target className="w-4 h-4 text-white flex-shrink-0" />
                         <p className="text-white font-medium truncate">
-                            {mision.tipo === 'mision' ? 'Misión' : 'Actividad'} #{mision.id_referencia}
+                            {mision.tipo === 'mision' ? 'Ticket' : 'Actividad'} #{mision.id_referencia}
                         </p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -422,12 +422,12 @@ export default function DashboardUsuario() {
                         <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-80 flex flex-col">
                             <h3 className="text-white text-lg sm:text-xl font-medium mb-4 flex items-center gap-2">
                                 <Target className="w-5 h-5" />
-                                Mis Misiones Activas
+                                Mis Tickets Activos
                             </h3>
                             <div className="flex-1 overflow-y-auto space-y-3 pr-2">
                                 {loadingMisiones ? (
                                     <div className="text-white/70 text-center py-8">
-                                        Cargando misiones...
+                                        Cargando tickets...
                                     </div>
                                 ) : misionesActivas.length > 0 ? (
                                     misionesActivas.map(mision => (
@@ -439,7 +439,7 @@ export default function DashboardUsuario() {
                                     ))
                                 ) : (
                                     <div className="text-white/70 text-center py-8">
-                                        No tienes misiones activas
+                                        No tienes tickets activos
                                     </div>
                                 )}
                             </div>
