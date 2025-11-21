@@ -2711,7 +2711,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         {/* Botón para navegar al origen (0,0) */}
         <button
           onClick={navigateToOrigin}
-          className="absolute top-4 left-4 z-[999] bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-full p-3 shadow-lg border border-gray-300 hover:border-blue-400 transition-all duration-200 hover:scale-110 active:scale-95 group"
+          className={`absolute z-[999] bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-full p-3 shadow-lg border border-gray-300 hover:border-blue-400 transition-all duration-200 hover:scale-110 active:scale-95 group ${
+            fullMode ? 'bottom-4 left-4' : 'top-4 left-4'
+          }`}
           title="Ir al origen (0,0)"
           style={{ pointerEvents: 'auto' }}
         >
