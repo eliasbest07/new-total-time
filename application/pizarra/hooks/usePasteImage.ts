@@ -1,13 +1,15 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, RefObject } from 'react';
 import { Card } from '../types';
-import { generateUniqueId, generatePosition } from '../utils/idGenerator';
+import { generateUniqueId } from '../utils/idGenerator';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 
 export const usePasteImage = (
   cards: Card[],
-  setCards: React.Dispatch<React.SetStateAction<Card[]>>
+  setCards: React.Dispatch<React.SetStateAction<Card[]>>,
+  panOffset: { x: number; y: number },
+  canvasRef: RefObject<HTMLDivElement | null>,
+  setPastedImages: React.Dispatch<React.SetStateAction<{ [key: string]: string }>>
 ) => {
-  const [pastedImages, setPastedImages] = useState<{ [key: string]: string }>({});
 
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
     console.log('📋 [PIZARRA PASTE] Evento paste detectado');
@@ -39,13 +41,19 @@ export const usePasteImage = (
           // Obtener los IDs existentes para evitar duplicados
           const existingIds = cards.map(card => card.id);
 
+          // Calcular el centro de la vista actual
+          const canvasWidth = canvasRef.current?.clientWidth || window.innerWidth;
+          const canvasHeight = canvasRef.current?.clientHeight || window.innerHeight;
+          const centerX = -panOffset.x + (canvasWidth / 2) - 150; // -150 para centrar el card de 300px de ancho
+          const centerY = -panOffset.y + (canvasHeight / 2) - 100; // -100 para centrar el card de 200px de alto
+
           const newCard: Card = {
             id: generateUniqueId('image', existingIds),
             type: 'image',
             title: 'Imagen pegada',
             content: `Pegada: ${new Date().toLocaleTimeString()}`,
-            x: generatePosition(),
-            y: generatePosition(),
+            x: centerX,
+            y: centerY,
             width: 300,
             height: 200,
             fontSize: 14,
@@ -120,7 +128,7 @@ export const usePasteImage = (
         }
       }
     }
-  }, [cards, setCards, setPastedImages]); // ✅ FIX MEMORY LEAK: Agregar setPastedImages a las dependencias
+  }, [cards, setCards, setPastedImages, panOffset, canvasRef]); // ✅ FIX MEMORY LEAK: Agregar setPastedImages a las dependencias
 
   useEffect(() => {
     // ✅ FIX MEMORY LEAK: El event listener se registra solo una vez
@@ -131,5 +139,5 @@ export const usePasteImage = (
     };
   }, [handlePaste]);
 
-  return { pastedImages, setPastedImages };
+  // No retorna nada, solo maneja el evento de pegar
 };

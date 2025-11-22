@@ -132,7 +132,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     captureNow,
   } = useScreenshots();
 
-  const { pastedImages, setPastedImages } = usePasteImage(cards, setCards);
+  // Estado para imágenes pegadas (debe estar antes del useEffect que lo usa)
+  const [pastedImages, setPastedImages] = useState<{ [key: string]: string }>({});
 
   // Estado para ventanas de imágenes independientes
   const [imageWindows, setImageWindows] = useState<Array<{
@@ -601,6 +602,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       setCanvasRef(canvasRef.current);
     }
   }, [setCanvasRef]);
+
+  // Hook para pegar imágenes - ahora usa panOffset y canvasRef para centrar
+  usePasteImage(cards, setCards, panOffset, canvasRef, setPastedImages);
 
   // Función para auto-conectar una misión a su proyecto (llamada desde drop)
   const autoConnectMisionToProyecto = useCallback(async (misionCardId: string, misionId: number) => {
