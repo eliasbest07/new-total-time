@@ -878,10 +878,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
         const activityData = card.activityData;
         const actividadId = activityData.id_actividad || cardId.split('-')[1] || '1';
-        const userId = usuario?.id || activityData.id_usuario || 'usuario-desconocido';
+        // IMPORTANTE: Usar userAuth (UUID de Supabase Auth) para que coincida con las búsquedas
+        const userId = usuario?.userAuth || 'usuario-desconocido';
         const misionActividad = activityData.subject || card.title || 'Actividad sin nombre';
 
-        console.log('📤 [ACTIVITY PLAY/PAUSE] Iniciando captura con userId:', userId);
+        console.log('📤 [ACTIVITY PLAY/PAUSE] Iniciando captura con userId (userAuth):', userId);
         console.log('📤 [ACTIVITY PLAY/PAUSE] actividadId:', actividadId);
         console.log('🎥 [ACTIVITY PLAY/PAUSE] Solicitando permiso de pantalla PRIMERO...');
 

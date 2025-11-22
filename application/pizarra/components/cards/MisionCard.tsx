@@ -772,7 +772,7 @@ useEffect(() => {
             className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
             data-todo-interactive
           >
-            🧪 Test
+            🔔
           </button>
           <button
             onClick={handleEntregar}

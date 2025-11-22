@@ -27,6 +27,10 @@ import MisionCard from "../demo/components/MisionCard";
 import InputArea from "./mainUI/InputArea";
 import { useChartHistory, BoardHistorySnapshot } from "@/hooks/useChartHistory";
 import ChatWindow from "@/app/components/ChatWindow";
+import { CaptureRepositorySupabase } from "@/infrastructure/datasource/SupabaseCaptureRepository";
+import { Capture } from "@/domain/entities/Capture";
+
+const captureRepository = new CaptureRepositorySupabase();
 
 
 export default function MainScreen() {
@@ -51,6 +55,8 @@ export default function MainScreen() {
   } | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistorySnapshot, setSelectedHistorySnapshot] = useState<BoardHistorySnapshot | null>(null);
+  const [misionCaptures, setMisionCaptures] = useState<Capture[]>([]);
+  const [loadingMisionCaptures, setLoadingMisionCaptures] = useState(false);
 
   const { usuario, isUserOnline } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
@@ -277,9 +283,36 @@ export default function MainScreen() {
   };
 
   // Función para manejar la apertura de detalles de misión
-  const handleShowMisionDetails = (mision: Mision) => {
+  const handleShowMisionDetails = async (mision: Mision) => {
     setSelectedMision(mision);
     setShowMisionDetails(true);
+
+    // Cargar capturas de esta misión
+    setLoadingMisionCaptures(true);
+    try {
+      // Obtener capturas del usuario filtradas por id_bloque
+      // NOTA: Las capturas se guardan con usuario.id (no userAuth), así que usamos id para buscar
+      const userIdForCaptures = usuario?.id;
+      if (!userIdForCaptures) {
+        console.log(`📸 [MainScreen] No hay usuario.id disponible`);
+        setMisionCaptures([]);
+        return;
+      }
+
+      console.log(`📸 [MainScreen] Buscando capturas para usuario.id: ${userIdForCaptures}, id_bloque: ${mision.id}`);
+
+      // Obtener capturas directamente por usuario y bloque (más eficiente)
+      const captures = await captureRepository.getByUsuarioAndBloque(userIdForCaptures, String(mision.id));
+
+      console.log(`📸 [MainScreen] Capturas encontradas: ${captures.length}`);
+
+      setMisionCaptures(captures);
+    } catch (error) {
+      console.error('Error cargando capturas de misión:', error);
+      setMisionCaptures([]);
+    } finally {
+      setLoadingMisionCaptures(false);
+    }
   };
 
   // Función para manejar clicks en las barras del chart
@@ -752,6 +785,40 @@ export default function MainScreen() {
               <div className="bg-yellow-100 p-3 rounded-lg">
                 <p className="font-medium text-yellow-800">En progreso</p>
               </div>
+            </div>
+
+            {/* Capturas de pantalla */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">
+                Capturas ({misionCaptures.length}) - Tiempo: {misionCaptures.length * 5} min
+              </h3>
+              {loadingMisionCaptures ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                </div>
+              ) : misionCaptures.length === 0 ? (
+                <div className="bg-gray-100 p-3 rounded-lg text-center">
+                  <p className="text-gray-500 text-sm">No hay capturas para esta misión</p>
+                  <p className="text-gray-400 text-xs mt-1">ID buscado (id_bloque): "{selectedMision.id}"</p>
+                  <p className="text-gray-400 text-xs">Revisa la consola para ver los id_bloque disponibles</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                  {misionCaptures.map((capture) => (
+                    <div key={capture.id} className="relative group">
+                      <img
+                        src={capture.img_url || '/placeholder-image.png'}
+                        alt={`Captura ${capture.id}`}
+                        className="w-full h-20 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => capture.img_url && window.open(capture.img_url, '_blank')}
+                      />
+                      <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1 truncate">
+                        {new Date(capture.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} | bloque: {capture.id_bloque}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* ID de referencia */}

@@ -71,4 +71,37 @@ export class CaptureRepositorySupabase implements CaptureRepository {
 
     if (error) throw new Error(`Error al eliminar capturas: ${error.message}`);
   }
+
+  async countByBloque(idBloque: string): Promise<number> {
+    const { count, error } = await supabase
+      .from(this.tableName)
+      .select('*', { count: 'exact', head: true })
+      .eq('id_bloque', idBloque);
+
+    if (error) throw new Error(`Error al contar capturas: ${error.message}`);
+    return count || 0;
+  }
+
+  async countByUsuarioAndBloque(idUsuario: string, idBloque: string): Promise<number> {
+    const { count, error } = await supabase
+      .from(this.tableName)
+      .select('*', { count: 'exact', head: true })
+      .eq('id_usuario', idUsuario)
+      .eq('id_bloque', idBloque);
+
+    if (error) throw new Error(`Error al contar capturas: ${error.message}`);
+    return count || 0;
+  }
+
+  async getByUsuarioAndBloque(idUsuario: string, idBloque: string): Promise<Capture[]> {
+    const { data, error } = await supabase
+      .from(this.tableName)
+      .select('*')
+      .eq('id_usuario', idUsuario)
+      .eq('id_bloque', idBloque)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(`Error al obtener capturas: ${error.message}`);
+    return data.map(row => this.mapToEntity(row));
+  }
 }

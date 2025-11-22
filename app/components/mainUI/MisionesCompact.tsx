@@ -5,17 +5,32 @@ import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Mision } from '@/domain/entities/Mision';
+import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
+
+const captureRepository = new CaptureRepositorySupabase();
 
 interface MisionCompactCardProps {
   mision: Mision;
   onClick?: () => void;
+  captureCount?: number;
 }
 
 interface MisionesCompactProps {
   onShowDetails?: (mision: Mision) => void;
 }
 
-const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }) => {
+const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick, captureCount = 0 }) => {
+  // Calcular progreso: cada captura = 5 minutos
+  // Progreso = (capturas * 5 min) / (horas * 60 min) * 100
+  const horasTotales = mision.horas || 1;
+  const minutosTrabajados = captureCount * 5;
+  const minutosTotales = horasTotales * 60;
+  const progreso = Math.min((minutosTrabajados / minutosTotales) * 100, 100);
+
+  // Calcular strokeDasharray para el SVG (circunferencia = 2 * PI * r = 2 * 3.14159 * 14 ≈ 87.96)
+  const circunferencia = 87.96;
+  const strokeDasharray = `${(progreso / 100) * circunferencia} ${circunferencia}`;
+
   const handleDragStart = (e: React.DragEvent) => {
     console.log('Drag started for mission:', mision.nombre);
     console.log('🔍 [MisionCompactCard] id_creador en misión:', mision.id_creador);
@@ -46,7 +61,7 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
   };
 
   return (
-    <div 
+    <div
       className="relative bg-green-600 w-19 h-19 rounded-xl shadow-lg overflow-hidden cursor-grab active:cursor-grabbing hover:bg-green-500 transition-colors"
       onClick={handleClick}
       draggable
@@ -55,7 +70,7 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
     >
       {/* Franja superior */}
       <div className="absolute top-0 left-0 right-0 h-5 bg-green-800 rounded-t-xl"></div>
-      
+
       {/* Ticker text container */}
       <div className="absolute top-6 left-2 right-2 bottom-6 overflow-hidden flex items-center">
         <div className="ticker-wrapper h-full flex items-center">
@@ -65,7 +80,37 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick }
           </div>
         </div>
       </div>
-      
+
+      {/* Progress bar circular pequeño en esquina */}
+      <div className="absolute bottom-1 left-1">
+        <div className="relative w-5 h-5">
+          <svg className="w-5 h-5 -rotate-90" viewBox="0 0 36 36">
+            <circle
+              cx="18"
+              cy="18"
+              r="14"
+              fill="none"
+              stroke="#166534"
+              strokeWidth="4"
+            />
+            <circle
+              cx="18"
+              cy="18"
+              r="14"
+              fill="none"
+              stroke="#f0e68c"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray={strokeDasharray}
+            />
+          </svg>
+          {/* Debug: porcentaje en el centro */}
+          <span className="absolute inset-0 flex items-center justify-center text-[6px] text-white font-bold">
+            {Math.round(progreso)}
+          </span>
+        </div>
+      </div>
+
       {/* Hours indicator in corner */}
       {mision.horas && (
         <div className="absolute bottom-1 right-1 bg-green-800 rounded-full w-6 h-6 flex items-center justify-center">
@@ -118,7 +163,33 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
 
   const [currentPage, setCurrentPage] = useState(0);
   const [idsEntregadas, setIdsEntregadas] = useState<number[]>([]);
+  const [captureCounts, setCaptureCounts] = useState<Record<number, number>>({});
   const itemsPerPage = 2;
+
+  // Cargar conteo de capturas para cada misión (filtrado por usuario)
+  useEffect(() => {
+    const loadCaptureCounts = async () => {
+      if (misiones.length === 0 || !usuario?.userAuth) return;
+
+      const userAuthId = usuario.userAuth;
+      const counts: Record<number, number> = {};
+
+      for (const mision of misiones) {
+        try {
+          // Contar capturas por usuario (userAuth) y id_bloque (id de la misión)
+          const count = await captureRepository.countByUsuarioAndBloque(userAuthId, String(mision.id));
+          counts[mision.id] = count;
+        } catch (error) {
+          console.error(`Error contando capturas para misión ${mision.id}:`, error);
+          counts[mision.id] = 0;
+        }
+      }
+      setCaptureCounts(counts);
+      console.log(`📸 [MisionesCompact] Conteo de capturas:`, counts);
+    };
+
+    loadCaptureCounts();
+  }, [misiones, usuario?.userAuth]);
 
   // Cargar IDs de misiones entregadas
   useEffect(() => {
@@ -212,6 +283,7 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
           <MisionCompactCard
             key={mision.id}
             mision={mision}
+            captureCount={captureCounts[mision.id] || 0}
             onClick={() => {
               console.log('Misión seleccionada:', mision);
               console.log('onShowDetails function:', onShowDetails);
