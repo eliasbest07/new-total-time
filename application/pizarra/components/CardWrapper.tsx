@@ -66,6 +66,18 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
 
   // Determinar si es una misión corriendo para cambiar colores
   const isMisionRunning = card.type === 'mision' && card.misionData?.isRunning;
+  
+  // Determinar el color de la barra superior
+  const getTopBarColor = () => {
+    if (isMisionRunning) {
+      return 'bg-orange-600';
+    }
+    // Si es mision-organizacion y está en progreso, usar verde
+    if (card.type === 'mision-organizacion' && card.misionData?.estado === 'en_progreso') {
+      return 'bg-green-500';
+    }
+    return getCardBorderColor(card.type);
+  };
 
   return (
     <div
@@ -101,9 +113,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
       <ResizeHandles cardId={card.id} onResizeStart={props.handleResizeStart} />
 
       {/* Top border line */}
-      <div className={`absolute top-0 left-0 right-0 h-2 rounded-t-lg ${
-        isMisionRunning ? 'bg-orange-600' : getCardBorderColor(card.type)
-      }`}></div>
+      <div className={`absolute top-0 left-0 right-0 h-2 rounded-t-lg ${getTopBarColor()}`}></div>
 
       {/* Card content using factory */}
       <CardFactory
