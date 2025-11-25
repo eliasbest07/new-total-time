@@ -382,7 +382,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             if (proyectoNotas && proyectoNotas.length > 0) {
               // Guardar solo los IDs de las notas
               if (card.proyectoData) {
-                card.proyectoData.notas = proyectoNotas.map(nota => nota.id_card_nota);
+                // TODO: Verificar si la interfaz ProyectoData necesita el campo 'notas'
+                // card.proyectoData.notas = proyectoNotas.map(nota => nota.id_card_nota);
               }
             }
           } catch (error) {
@@ -431,26 +432,27 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         console.log('📝 Agregando nota a la lista del proyecto...');
 
         // Actualizar el card de proyecto agregando la nota a su lista (evitar duplicados)
-        setCards(prevCards => prevCards.map(card => {
-          if (card.id === proyectoCard.id) {
-            const notasActuales = card.proyectoData?.notas || [];
+        // TODO: Verificar si la interfaz ProyectoData necesita el campo 'notas'
+        // setCards(prevCards => prevCards.map(card => {
+        //   if (card.id === proyectoCard.id) {
+        //     const notasActuales = card.proyectoData?.notas || [];
 
-            // Evitar duplicados
-            if (notasActuales.includes(notaCard.id)) {
-              console.log('⚠️ La nota ya está en la lista del proyecto');
-              return card;
-            }
+        //     // Evitar duplicados
+        //     if (notasActuales.includes(notaCard.id)) {
+        //       console.log('⚠️ La nota ya está en la lista del proyecto');
+        //       return card;
+        //     }
 
-            return {
-              ...card,
-              proyectoData: {
-                ...card.proyectoData!,
-                notas: [...notasActuales, notaCard.id]
-              }
-            };
-          }
-          return card;
-        }));
+        //     return {
+        //       ...card,
+        //       proyectoData: {
+        //         ...card.proyectoData!,
+        //         notas: [...notasActuales, notaCard.id]
+        //       }
+        //     };
+        //   }
+        //   return card;
+        // }));
 
         console.log('✅ Nota agregada a la lista del proyecto:', notaCard.id);
       } catch (error) {
@@ -502,18 +504,19 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           });
 
           // Remover el ID de la nota de la lista del proyecto
-          setCards(prevCards => prevCards.map(card => {
-            if (card.id === proyectoCard.id && card.proyectoData?.notas) {
-              return {
-                ...card,
-                proyectoData: {
-                  ...card.proyectoData,
-                  notas: card.proyectoData.notas.filter(notaId => notaId !== notaCard.id)
-                }
-              };
-            }
-            return card;
-          }));
+          // TODO: Verificar si la interfaz ProyectoData necesita el campo 'notas'
+          // setCards(prevCards => prevCards.map(card => {
+          //   if (card.id === proyectoCard.id && card.proyectoData?.notas) {
+          //     return {
+          //       ...card,
+          //       proyectoData: {
+          //         ...card.proyectoData,
+          //         notas: card.proyectoData.notas.filter(notaId => notaId !== notaCard.id)
+          //       }
+          //     };
+          //   }
+          //   return card;
+          // }));
 
           console.log('✅ Nota removida de la lista del proyecto');
         }
@@ -1943,7 +1946,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             }
 
             // Si es una card de tipo proyecto, crear las relaciones con las notas
-            if (createdCard && (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.notas && card.proyectoData.notas.length > 0) {
+            // TODO: Verificar si la interfaz ProyectoData necesita el campo 'notas'
+            /* if (createdCard && (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.notas && card.proyectoData.notas.length > 0) {
               const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
               const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
 
@@ -1955,7 +1959,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                   position: i
                 });
               }
-            }
+            } */
           }
         }
       }

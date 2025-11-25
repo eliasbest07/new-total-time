@@ -21,6 +21,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
   const [selectedMision, setSelectedMision] = useState<MisionWithTodos | null>(null);
   const [showMisionModal, setShowMisionModal] = useState(false);
   const [misionActiva, setMisionActiva] = useState<MisionActiva | null>(null);
+  const [capturasUrls, setCapturasUrls] = useState<string[]>([]);
   const [loadingCapturas, setLoadingCapturas] = useState(false);
   const [currentCaptureIndex, setCurrentCaptureIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
     const loadMisionActiva = async () => {
       if (!selectedMision || !showMisionModal) {
         setMisionActiva(null);
+        setCapturasUrls([]);
         setCurrentCaptureIndex(0);
         return;
       }
@@ -55,8 +57,11 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
 
         if (error) {
           console.error('Error cargando misión activa:', error);
+          setCapturasUrls([]);
         } else {
           setMisionActiva(data);
+          // TODO: Cargar capturas desde la tabla 'capture' si es necesario
+          setCapturasUrls([]);
           console.log('📸 Misión activa cargada:', data);
         }
       } catch (error) {
@@ -373,7 +378,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                     <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                       <p className="text-gray-500 text-sm">Cargando capturas...</p>
                     </div>
-                  ) : misionActiva.capturas_urls && misionActiva.capturas_urls.length > 0 ? (
+                  ) : capturasUrls && capturasUrls.length > 0 ? (
                     <div className="space-y-3">
                       {/* Navegación de capturas */}
                       <div className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200">
@@ -390,14 +395,14 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                         </button>
 
                         <span className="text-sm text-gray-600 font-medium">
-                          Captura {currentCaptureIndex + 1} de {misionActiva.capturas_urls.length}
+                          Captura {currentCaptureIndex + 1} de {capturasUrls.length}
                         </span>
 
                         <button
-                          onClick={() => setCurrentCaptureIndex(Math.min(misionActiva.capturas_urls!.length - 1, currentCaptureIndex + 1))}
-                          disabled={currentCaptureIndex === misionActiva.capturas_urls!.length - 1}
+                          onClick={() => setCurrentCaptureIndex(Math.min(capturasUrls.length - 1, currentCaptureIndex + 1))}
+                          disabled={currentCaptureIndex === capturasUrls.length - 1}
                           className={`p-2 rounded-lg transition-colors ${
-                            currentCaptureIndex === misionActiva.capturas_urls!.length - 1
+                            currentCaptureIndex === capturasUrls.length - 1
                               ? 'text-gray-400 cursor-not-allowed'
                               : 'text-gray-700 hover:bg-gray-200'
                           }`}
@@ -409,10 +414,10 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                       {/* Imagen de captura */}
                       <div
                         className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setSelectedImage(misionActiva.capturas_urls![currentCaptureIndex])}
+                        onClick={() => setSelectedImage(capturasUrls[currentCaptureIndex])}
                       >
                         <img
-                          src={misionActiva.capturas_urls[currentCaptureIndex]}
+                          src={capturasUrls[currentCaptureIndex]}
                           alt={`Captura ${currentCaptureIndex + 1}`}
                           className="w-full h-auto object-contain"
                           style={{ maxHeight: '400px' }}
@@ -423,7 +428,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                       <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-blue-900 font-medium">Total de capturas:</span>
-                          <span className="text-blue-700 font-semibold">{misionActiva.capturas_urls.length}</span>
+                          <span className="text-blue-700 font-semibold">{capturasUrls.length}</span>
                         </div>
                         {misionActiva.fecha_ultimo_capture && (
                           <div className="flex items-center justify-between text-sm mt-1">

@@ -553,9 +553,8 @@ useEffect(() => {
       const result = await submitEntrega(misionActivaId, {
         entrega_descripcion: entregaTexto,
         entrega_imagen_url: imagenUrl ? [imagenUrl] : [],
-        tiempo_total_segundos: elapsedSeconds,
-        // Aquí podríamos agregar las capturas guardadas durante la ejecución
-        capturas_urls: []
+        tiempo_total_segundos: elapsedSeconds
+        // Las capturas se guardan automáticamente en la tabla 'capture' y se obtienen al enviar
       });
 
       if (result) {

@@ -809,7 +809,8 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                   {misiones.map((mision) => {
                     // Buscar la misión activa correspondiente
                     const misionActiva = misionesActivas.find(ma => ma.id_referencia === mision.id);
-                    const capturas = misionActiva?.capturas_urls || [];
+                    // TODO: Las capturas se deben cargar desde la tabla 'capture' separada
+                    const capturas: string[] = [];
                     const isExpanded = selectedMisionForCaptures === mision.id;
                     const currentIndex = isExpanded ? currentCaptureIndex : 0;
 

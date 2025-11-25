@@ -212,10 +212,7 @@ export default function PizarraOrganizacionPage() {
       {/* Input Area - Solo visible si tiene permisos de edición */}
       {puedeEditar && (
         <div className="border-t border-gray-200 bg-white">
-          <InputArea
-            onMensajeEnviado={handleMensajeEnviado}
-            ubicacion="pizarra"
-          />
+          <InputArea />
         </div>
       )}
 

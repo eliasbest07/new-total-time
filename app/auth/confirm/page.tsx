@@ -119,7 +119,8 @@ export default function ConfirmPage() {
           setErrorMessage(`Demasiadas solicitudes. Por favor espera ${remaining} segundos antes de intentar nuevamente.`);
         } else {
           console.error('❌ Error en proceso de confirmación:', error);
-        setErrorMessage('Error procesando la confirmación');
+          setErrorMessage('Error procesando la confirmación');
+        }
         setStatus('error');
 
         setTimeout(() => {

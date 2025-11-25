@@ -15,6 +15,7 @@ import { useIncomingMessages } from "@/hooks/useIncomingMessages";
 import { useMisiones } from "@/hooks/useMisiones";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
 import { useProyectos } from "@/hooks/useProyectos";
+import { useActividades } from "@/hooks/useActividades";
 import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizacionContext";
 import { useOrganizacion } from "@/hooks/useOrganizacion";
 import { Target, Building2, X } from "lucide-react";
@@ -47,6 +48,9 @@ function DashboardAdmin() {
   const { usuarios } = useUsuariosOrganizacionContext();
   const { organizacion } = useOrganizacion(usuario?.userAuth || null);
 
+  // Hook para crear actividades
+  const { createActividad } = useActividades(usuario?.userAuth || null);
+
   const [showChatWindow, setShowChatWindow] = useState(false);
   const [selectedChatUser, setSelectedChatUser] = useState<{
     userId: string;
@@ -57,6 +61,7 @@ function DashboardAdmin() {
   } | null>(null);
   const [pendingMessage, setPendingMessage] = useState<string>("");
   const [showMisionesModal, setShowMisionesModal] = useState(false);
+  const [showActividadModal, setShowActividadModal] = useState(false);
   const [showInfoOrganizacion, setShowInfoOrganizacion] = useState(false);
 
   // Contexto de conexión TODO ↔ Proyecto para crear misión
@@ -89,6 +94,19 @@ function DashboardAdmin() {
   const [proyectoIcono, setProyectoIcono] = useState("");
   const [usuariosSeleccionados, setUsuariosSeleccionados] = useState<number[]>([]);
   const [creandoProyecto, setCreandoProyecto] = useState(false);
+
+  // Estado del formulario de actividad
+  const [actividadDescripcion, setActividadDescripcion] = useState("");
+  const [actividadFecha, setActividadFecha] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [actividadHoraInicio, setActividadHoraInicio] = useState("");
+  const [actividadCantHoras, setActividadCantHoras] = useState("");
+  const [actividadLink, setActividadLink] = useState("");
+  const [actividadUsuarioId, setActividadUsuarioId] = useState<string>("");
+  const [actividadProyectoId, setActividadProyectoId] = useState<number | null>(null);
+  const [creandoActividad, setCreandoActividad] = useState(false);
 
   // Handler para cuando se hace click en un usuario
   const handleUserClick = (userData: {
@@ -671,6 +689,69 @@ function DashboardAdmin() {
     );
   };
 
+  // Limpiar formulario de actividad
+  const limpiarFormularioActividad = () => {
+    setActividadDescripcion("");
+    const today = new Date();
+    setActividadFecha(today.toISOString().split('T')[0]);
+    setActividadHoraInicio("");
+    setActividadCantHoras("");
+    setActividadLink("");
+    setActividadUsuarioId("");
+    setActividadProyectoId(null);
+  };
+
+  // Crear nueva actividad
+  const handleCrearActividad = async () => {
+    // Validaciones
+    if (!actividadDescripcion.trim()) {
+      alert("Por favor ingresa una descripción para la actividad");
+      return;
+    }
+
+    if (!actividadUsuarioId) {
+      alert("Por favor selecciona un usuario para asignar la actividad");
+      return;
+    }
+
+    setCreandoActividad(true);
+
+    try {
+      // Combinar fecha y hora para crear un timestamp válido
+      let horaInicioTimestamp: string | null = null;
+      if (actividadFecha && actividadHoraInicio) {
+        // Crear timestamp en formato ISO: "YYYY-MM-DDTHH:mm:ss"
+        horaInicioTimestamp = `${actividadFecha}T${actividadHoraInicio}:00`;
+      }
+
+      const nuevaActividad = await createActividad({
+        id_usuario: actividadUsuarioId,
+        descripcion: actividadDescripcion.trim(),
+        fecha: actividadFecha || null,
+        hora_inicio: horaInicioTimestamp,
+        cant_horas: actividadCantHoras ? parseInt(actividadCantHoras) : null,
+        link: actividadLink.trim() || null,
+        captures: null,
+        tiempo_dedicado: null,
+        id_proyecto: actividadProyectoId
+      });
+
+      if (nuevaActividad) {
+        console.log('✅ Actividad creada exitosamente:', nuevaActividad);
+        alert("✅ Actividad creada exitosamente");
+        limpiarFormularioActividad();
+        setShowActividadModal(false);
+      } else {
+        alert("❌ Error al crear la actividad");
+      }
+    } catch (error) {
+      console.error("Error creando actividad:", error);
+      alert("❌ Error al crear la actividad");
+    } finally {
+      setCreandoActividad(false);
+    }
+  };
+
   return (
     <AuthWrapper>
       <div
@@ -739,15 +820,23 @@ function DashboardAdmin() {
           <MisionesOrganizacion pizarraRef={pizarraRef} />
         </div>
 
-        {/* Botón para crear misiones/actividades - Esquina inferior derecha */}
-        <div className="fixed bottom-20 right-4 z-50 pointer-events-auto">
+        {/* Botones para crear misiones/actividades - Esquina inferior derecha */}
+        <div className="fixed bottom-20 right-4 z-50 pointer-events-auto flex flex-col gap-3">
           <button
             onClick={() => setShowMisionesModal(true)}
             className="crear-mision-btn flex items-center gap-2 relative"
-            title="Crear Misión/Actividad"
+            title="Crear Ticket"
           >
             <Target size={20} />
             <span>Nuevo Ticket</span>
+          </button>
+          <button
+            onClick={() => setShowActividadModal(true)}
+            className="crear-actividad-btn flex items-center gap-2 relative"
+            title="Crear Actividad"
+          >
+            <span style={{ fontSize: '20px' }}>📅</span>
+            <span>Crear Actividad</span>
           </button>
           <style jsx>{`
             .crear-mision-btn {
@@ -798,6 +887,46 @@ function DashboardAdmin() {
               100% {
                 transform: rotateY(360deg);
               }
+            }
+
+            .crear-actividad-btn {
+              background: transparent;
+              color: #fff;
+              font-size: 17px;
+              text-transform: uppercase;
+              font-weight: 600;
+              border: none;
+              padding: 20px 30px;
+              cursor: pointer;
+              perspective: 30rem;
+              border-radius: 10px;
+              box-shadow: 0 5px 15px rgba(0, 0, 0, 0.308);
+              position: relative;
+              overflow: hidden;
+              z-index: 2;
+            }
+
+            .crear-actividad-btn::before {
+              content: "";
+              display: block;
+              position: absolute;
+              width: 100%;
+              height: 100%;
+              top: 0;
+              left: 0;
+              border-radius: 10px;
+              background: linear-gradient(
+                320deg,
+                rgba(255, 140, 0, 0.678),
+                rgba(255, 165, 0, 0.308)
+              );
+              z-index: -1;
+              transition: background 3s;
+            }
+
+            .crear-actividad-btn:hover::before {
+              animation: rotate 1s;
+              transition: all 0.5s;
             }
           `}</style>
         </div>
@@ -1220,6 +1349,194 @@ function DashboardAdmin() {
                 disabled={creandoProyecto}
               >
                 {creandoProyecto ? "Creando..." : "Crear Proyecto"}
+              </button>
+            </div>
+          </div>
+        </Ventana>
+      )}
+
+      {/* Modal para crear actividad */}
+      {showActividadModal && (
+        <Ventana
+          isOpen={showActividadModal}
+          onClose={() => {
+            setShowActividadModal(false);
+            limpiarFormularioActividad();
+          }}
+          title="Crear Nueva Actividad"
+          initialWidth={700}
+          initialHeight={600}
+          minWidth={600}
+          minHeight={500}
+          showOverlay={true}
+        >
+          <div className="p-6 space-y-4" style={{ color: '#000000' }} data-todo-interactive="true">
+            {/* Descripción de la actividad */}
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                Descripción de la Actividad <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <textarea
+                value={actividadDescripcion}
+                onChange={(e) => setActividadDescripcion(e.target.value)}
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                style={{ color: '#000000' }}
+                rows={4}
+                placeholder="Describe la actividad a realizar..."
+                disabled={creandoActividad}
+                data-todo-interactive="true"
+              />
+            </div>
+
+            {/* Fecha y Hora de inicio */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                  Fecha
+                </label>
+                <input
+                  type="date"
+                  value={actividadFecha}
+                  onChange={(e) => setActividadFecha(e.target.value)}
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  style={{ color: '#000000', colorScheme: 'light' }}
+                  disabled={creandoActividad}
+                  data-todo-interactive="true"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                  Hora de Inicio
+                </label>
+                <input
+                  type="time"
+                  value={actividadHoraInicio}
+                  onChange={(e) => setActividadHoraInicio(e.target.value)}
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  style={{ color: '#000000', colorScheme: 'light' }}
+                  disabled={creandoActividad}
+                  data-todo-interactive="true"
+                />
+              </div>
+            </div>
+
+            {/* Cantidad de horas y Link */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                  Cantidad de Horas Estimadas
+                </label>
+                <input
+                  type="number"
+                  value={actividadCantHoras}
+                  onChange={(e) => setActividadCantHoras(e.target.value)}
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  style={{ color: '#000000' }}
+                  placeholder="Ej: 2"
+                  min="0"
+                  step="0.5"
+                  disabled={creandoActividad}
+                  data-todo-interactive="true"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                  Link (opcional)
+                </label>
+                <input
+                  type="url"
+                  value={actividadLink}
+                  onChange={(e) => setActividadLink(e.target.value)}
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  style={{ color: '#000000' }}
+                  placeholder="https://..."
+                  disabled={creandoActividad}
+                  data-todo-interactive="true"
+                />
+              </div>
+            </div>
+
+            {/* Asignar a Usuario */}
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                Asignar a Usuario <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <div className="border border-gray-300 rounded-lg p-3 max-h-60 overflow-y-auto bg-white">
+                {usuarios.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">No hay usuarios disponibles</p>
+                ) : (
+                  <div className="space-y-2">
+                    {usuarios.map((usuario) => (
+                      <label
+                        key={usuario.id}
+                        className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="radio"
+                          name="usuarioActividad"
+                          checked={actividadUsuarioId === usuario.userAuth}
+                          onChange={() => setActividadUsuarioId(usuario.userAuth)}
+                          className="w-4 h-4 text-orange-600 border-gray-300 focus:ring-orange-500"
+                          disabled={creandoActividad}
+                          data-todo-interactive="true"
+                        />
+                        <div className="flex items-center gap-2 flex-1">
+                          {usuario.profile.avatar ? (
+                            <img
+                              src={usuario.profile.avatar}
+                              alt={usuario.getNombreCompleto()}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-yellow-400 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                              {usuario.profile.nombre.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {usuario.getNombreCompleto()}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              @{usuario.profile.username}
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Nota informativa */}
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <p className="text-xs text-orange-800">
+                <strong>📌 Nota:</strong> La actividad será asignada al usuario seleccionado y podrá verla en su dashboard personal.
+              </p>
+            </div>
+
+            {/* Botones */}
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => {
+                  setShowActividadModal(false);
+                  limpiarFormularioActividad();
+                }}
+                className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-black rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={creandoActividad}
+                data-todo-interactive="true"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCrearActividad}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={creandoActividad}
+                data-todo-interactive="true"
+              >
+                {creandoActividad ? "Creando..." : "Crear Actividad"}
               </button>
             </div>
           </div>

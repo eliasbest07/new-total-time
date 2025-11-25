@@ -707,14 +707,46 @@ export default function MainScreen() {
               </div>
             )}
 
+            {/* Información del usuario asignado */}
+            {selectedActividad.id_usuario && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Asignado a</h3>
+                <div className="bg-indigo-100 p-3 rounded-lg">
+                  {(() => {
+                    const usuarioAsignado = usuariosOrganizacion.find(
+                      u => u.userAuth === selectedActividad.id_usuario
+                    );
+                    return usuarioAsignado ? (
+                      <div className="flex items-center gap-3">
+                        {usuarioAsignado.profile.avatar ? (
+                          <img
+                            src={usuarioAsignado.profile.avatar}
+                            alt={usuarioAsignado.getNombreCompleto()}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                            {usuarioAsignado.profile.nombre.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-indigo-900">{usuarioAsignado.getNombreCompleto()}</p>
+                          <p className="text-sm text-indigo-700">@{usuarioAsignado.profile.username}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-600 text-sm">Usuario: {selectedActividad.id_usuario}</p>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
             {/* ID de referencia */}
             <div>
               <h3 className="text-lg font-semibold mb-2">Información técnica</h3>
               <div className="bg-gray-100 p-3 rounded-lg">
                 <p className="text-gray-600 text-sm">ID: {selectedActividad.id}</p>
-                {selectedActividad.id_usuario && (
-                  <p className="text-gray-600 text-sm">Usuario: {selectedActividad.id_usuario}</p>
-                )}
               </div>
             </div>
           </div>
