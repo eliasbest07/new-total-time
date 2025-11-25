@@ -9,7 +9,9 @@ export const useDropHandler = (
   cards: Card[],
   isOrganizacion: boolean = false,
   autoConnectMisionToProyecto?: (misionCardId: string, misionId: number) => void,
-  autoConnectProyectoToMisiones?: (proyectoCardId: string, proyectoId: number) => void
+  autoConnectProyectoToMisiones?: (proyectoCardId: string, proyectoId: number) => void,
+  centerOnCard?: (cardId: string) => void,
+  findCardByMisionId?: (misionId: number) => string | null
 ) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isReceivingDrag, setIsReceivingDrag] = useState(false);
@@ -243,10 +245,15 @@ export const useDropHandler = (
             hours: resource.hours
           });
 
-          // Verificar si ya existe una card de misión
-          const hasMision = cards.some(card => card.type === 'mision');
-          if (hasMision) {
-            console.log('⚠️ [PIZARRA DROP] Ya existe una card de misión, no se puede agregar otra');
+          // Verificar si ya existe una card de esta misión específica
+          const misionId = typeof resource.id === 'string' ? parseInt(resource.id) : resource.id;
+          const existingCardId = findCardByMisionId ? findCardByMisionId(misionId) : null;
+
+          if (existingCardId) {
+            console.log('🎯 [PIZARRA DROP] La misión ya existe en la pizarra, navegando a ella...');
+            if (centerOnCard) {
+              centerOnCard(existingCardId);
+            }
             return;
           }
 
@@ -341,7 +348,7 @@ export const useDropHandler = (
         height: 100
       }]);
     }
-  }, [panOffset, canvasRef, setCards, cards, isOrganizacion, autoConnectMisionToProyecto, autoConnectProyectoToMisiones]);
+  }, [panOffset, canvasRef, setCards, cards, isOrganizacion, autoConnectMisionToProyecto, autoConnectProyectoToMisiones, centerOnCard, findCardByMisionId]);
 
   return {
     isDragOver,

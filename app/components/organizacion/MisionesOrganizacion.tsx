@@ -24,6 +24,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
   const [loadingCapturas, setLoadingCapturas] = useState(false);
   const [currentCaptureIndex, setCurrentCaptureIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [misionesActivas, setMisionesActivas] = useState<Record<number, { estado: string; isRunning: boolean }>>({});
 
   const loading = loadingUsuarios || loadingMisiones;
 
@@ -32,6 +33,80 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
   console.log('🎯 [MisionesOrganizacion] error:', error);
   console.log('🎯 [MisionesOrganizacion] misiones:', misiones);
   console.log('🎯 [MisionesOrganizacion] misiones.length:', misiones?.length);
+
+  // Cargar y escuchar estado de todas las misiones activas
+  useEffect(() => {
+    const loadMisionesActivas = async () => {
+      if (misiones.length === 0) return;
+
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+      // Cargar estado inicial de todas las misiones
+      const { data: misionesActivasData, error: loadError } = await supabase
+        .from('misiones_activas')
+        .select('id_referencia, estado, is_running')
+        .eq('tipo', 'mision')
+        .in('id_referencia', misiones.map(m => m.id));
+
+      if (loadError) {
+        console.error('❌ Error cargando misiones activas:', loadError);
+        return;
+      }
+
+      // Construir objeto con el estado de cada misión
+      const estadoMisiones: Record<number, { estado: string; isRunning: boolean }> = {};
+      misionesActivasData?.forEach(ma => {
+        estadoMisiones[ma.id_referencia] = {
+          estado: ma.estado || 'pendiente',
+          isRunning: ma.is_running || false
+        };
+      });
+
+      setMisionesActivas(estadoMisiones);
+      console.log('✅ [MisionesOrganizacion] Estados iniciales cargados:', estadoMisiones);
+
+      // Suscribirse a cambios en tiempo real
+      const channel = supabase
+        .channel('misiones-organizacion-activas')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'misiones_activas',
+            filter: 'tipo=eq.mision'
+          },
+          (payload) => {
+            console.log('📡 [MisionesOrganizacion] Cambio en misiones_activas:', payload);
+
+            const updatedMision = payload.new as any;
+            if (!updatedMision) return;
+
+            const idReferencia = updatedMision.id_referencia;
+
+            // Verificar si es una de nuestras misiones
+            if (misiones.some(m => m.id === idReferencia)) {
+              setMisionesActivas(prev => ({
+                ...prev,
+                [idReferencia]: {
+                  estado: updatedMision.estado || 'pendiente',
+                  isRunning: updatedMision.is_running || false
+                }
+              }));
+              console.log('🔄 [MisionesOrganizacion] Estado actualizado para misión:', idReferencia);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        console.log('🔕 [MisionesOrganizacion] Desuscribiendo de misiones_activas');
+        supabase.removeChannel(channel);
+      };
+    };
+
+    loadMisionesActivas();
+  }, [misiones]);
 
   // Cargar misión activa cuando se selecciona una misión
   useEffect(() => {
@@ -167,21 +242,37 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
           `}</style>
           {misiones.map((mision) => {
             const usuarioAsignado = getUsuarioInfo(mision.id_usuario);
+            const estadoMision = misionesActivas[mision.id];
+            const isEnProgreso = estadoMision?.estado === 'en_progreso' || estadoMision?.isRunning;
+
             return (
               <div
                 key={mision.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, mision)}
                 onClick={() => handleMisionClick(mision)}
-                className="w-full text-left p-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors cursor-move"
+                className={`w-full text-left p-2 border rounded-lg transition-colors cursor-move ${
+                  isEnProgreso
+                    ? 'bg-green-50 hover:bg-green-100 border-green-300'
+                    : 'bg-gray-50 hover:bg-gray-100 border-gray-200'
+                }`}
               >
                 <div className="flex flex-col gap-1">
-                  <p className="text-xs font-medium text-gray-900 truncate">
-                    {mision.nombre || 'Sin título'}
-                  </p>
+                  <div className="flex items-center gap-1">
+                    {isEnProgreso && (
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="En progreso"></span>
+                    )}
+                    <p className="text-xs font-medium text-gray-900 truncate flex-1">
+                      {mision.nombre || 'Sin título'}
+                    </p>
+                  </div>
                   <div className="flex items-center justify-between gap-1">
                     {mision.horas && mision.horas > 0 && (
-                      <span className="text-xs bg-blue-200 text-blue-700 px-1.5 py-0.5 rounded-full w-fit">
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full w-fit ${
+                        isEnProgreso
+                          ? 'bg-green-200 text-green-700'
+                          : 'bg-blue-200 text-blue-700'
+                      }`}>
                         {mision.horas}h
                       </span>
                     )}

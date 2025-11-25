@@ -13,13 +13,17 @@ interface MisionCompactCardProps {
   mision: Mision;
   onClick?: () => void;
   captureCount?: number;
+  isInPizarra?: boolean;
+  onNavigateToCard?: () => void;
 }
 
 interface MisionesCompactProps {
   onShowDetails?: (mision: Mision) => void;
+  findCardByMisionId?: (misionId: number) => string | null;
+  centerOnCard?: (cardId: string) => void;
 }
 
-const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick, captureCount = 0 }) => {
+const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick, captureCount = 0, isInPizarra = false, onNavigateToCard }) => {
   // Calcular progreso: cada captura = 5 minutos
   // Progreso = (capturas * 5 min) / (horas * 60 min) * 100
   const horasTotales = mision.horas || 1;
@@ -55,6 +59,13 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick, 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     console.log('MisionCompactCard clicked:', mision.nombre);
+
+    // Si está en la pizarra, navegar al card
+    if (isInPizarra && onNavigateToCard) {
+      onNavigateToCard();
+    }
+
+    // Siempre mostrar detalles
     if (onClick) {
       onClick();
     }
@@ -81,35 +92,35 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick, 
         </div>
       </div>
 
-      {/* Progress bar circular pequeño en esquina */}
-      <div className="absolute bottom-1 left-1">
-        <div className="relative w-5 h-5">
-          <svg className="w-5 h-5 -rotate-90" viewBox="0 0 36 36">
-            <circle
-              cx="18"
-              cy="18"
-              r="14"
-              fill="none"
-              stroke="#166534"
-              strokeWidth="4"
-            />
-            <circle
-              cx="18"
-              cy="18"
-              r="14"
-              fill="none"
-              stroke="#f0e68c"
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray={strokeDasharray}
-            />
-          </svg>
-          {/* Debug: porcentaje en el centro */}
-          <span className="absolute inset-0 flex items-center justify-center text-[6px] text-white font-bold">
-            {Math.round(progreso)}
-          </span>
+      {/* Progress bar circular pequeño en esquina - solo si está en la pizarra */}
+      {isInPizarra && (
+        <div className="absolute bottom-1 left-1">
+          <div className="relative w-5 h-5">
+            <svg className="w-5 h-5 -rotate-90" viewBox="0 0 38 36">
+              <circle
+                cx="16"
+                cy="16"
+                r="10"
+                fill="none"
+                stroke="#166534"
+                strokeWidth="4"
+              />
+              <circle
+                cx="16"
+                cy="16"
+                r="12"
+                fill="none"
+                stroke="#f0e68c"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={strokeDasharray}
+              />
+            </svg>
+            {/* Debug: porcentaje en el centro */}
+
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Hours indicator in corner */}
       {mision.horas && (
@@ -155,7 +166,7 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick, 
   );
 };
 
-export default function MisionesCompact({ onShowDetails }: MisionesCompactProps) {
+export default function MisionesCompact({ onShowDetails, findCardByMisionId, centerOnCard }: MisionesCompactProps) {
   const { usuarioId, loading: loadingUsuario, error: errorUsuario } = useUsuarioId();
   const { usuario } = useAuth();
   const { misiones, loading: loadingMisiones, error: errorMisiones } = useMisiones(usuarioId);
@@ -279,20 +290,32 @@ export default function MisionesCompact({ onShowDetails }: MisionesCompactProps)
 
       {/* Cards de misiones */}
       <div className="flex gap-2">
-        {currentMisiones.map((mision) => (
-          <MisionCompactCard
-            key={mision.id}
-            mision={mision}
-            captureCount={captureCounts[mision.id] || 0}
-            onClick={() => {
-              console.log('Misión seleccionada:', mision);
-              console.log('onShowDetails function:', onShowDetails);
-              if (onShowDetails) {
-                onShowDetails(mision);
+        {currentMisiones.map((mision) => {
+          // Verificar si la misión está en la pizarra
+          const cardId = findCardByMisionId ? findCardByMisionId(mision.id) : null;
+          const isInPizarra = cardId !== null;
+
+          return (
+            <MisionCompactCard
+              key={mision.id}
+              mision={mision}
+              captureCount={captureCounts[mision.id] || 0}
+              isInPizarra={isInPizarra}
+              onNavigateToCard={
+                isInPizarra && cardId && centerOnCard
+                  ? () => centerOnCard(cardId)
+                  : undefined
               }
-            }}
-          />
-        ))}
+              onClick={() => {
+                console.log('Misión seleccionada:', mision);
+                console.log('onShowDetails function:', onShowDetails);
+                if (onShowDetails) {
+                  onShowDetails(mision);
+                }
+              }}
+            />
+          );
+        })}
       </div>
 
       {/* Botón siguiente */}

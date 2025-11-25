@@ -25,6 +25,7 @@ export const usePizarraLocalStorage = (
   const PAN_OFFSET_STORAGE_KEY = `pizarra-${storagePrefix}-pan-offset-v1`;
   const DATE_STORAGE_KEY = `pizarra-${storagePrefix}-date-v1`;
   const HISTORY_STORAGE_KEY = `pizarra-${storagePrefix}-history`;
+  const LAST_SUPABASE_LOAD_KEY = `pizarra-${storagePrefix}-last-supabase-load`;
 
   // Función helper para obtener la fecha del día en formato YYYY-MM-DD
   const getTodayDate = (): string => {
@@ -96,6 +97,36 @@ export const usePizarraLocalStorage = (
       console.error('❌ [HISTORY] Error guardando snapshot:', error);
     }
   }, [HISTORY_STORAGE_KEY]);
+
+  // Función para verificar si necesita cargar desde Supabase (solo para pizarras de organización)
+  const shouldLoadFromSupabase = useCallback((): boolean => {
+    if (!isOrganizacionPizarra) return false;
+
+    const todayDate = getTodayDate();
+    const lastSupabaseLoad = localStorage.getItem(LAST_SUPABASE_LOAD_KEY);
+
+    // Si nunca ha cargado desde Supabase, debe cargar
+    if (!lastSupabaseLoad) {
+      console.log('📥 [PIZARRA ORG] Primera carga del día - debe cargar desde Supabase');
+      return true;
+    }
+
+    // Si la última carga fue en otro día, debe cargar
+    if (lastSupabaseLoad !== todayDate) {
+      console.log('📥 [PIZARRA ORG] Nuevo día detectado - debe cargar desde Supabase');
+      return true;
+    }
+
+    console.log('💾 [PIZARRA ORG] Ya cargó desde Supabase hoy - usar localStorage');
+    return false;
+  }, [isOrganizacionPizarra, LAST_SUPABASE_LOAD_KEY]);
+
+  // Función para marcar que se cargó desde Supabase
+  const markSupabaseLoaded = useCallback(() => {
+    const todayDate = getTodayDate();
+    localStorage.setItem(LAST_SUPABASE_LOAD_KEY, todayDate);
+    console.log('✅ [PIZARRA ORG] Marcado como cargado desde Supabase hoy:', todayDate);
+  }, [LAST_SUPABASE_LOAD_KEY]);
 
   // Cargar datos desde localStorage al montar
   const loadFromLocalStorage = useCallback(() => {
@@ -418,6 +449,8 @@ export const usePizarraLocalStorage = (
     exportToJSON,
     importFromJSON,
     forceCleanStorage,
-    saveHistorySnapshot
+    saveHistorySnapshot,
+    shouldLoadFromSupabase,
+    markSupabaseLoaded
   };
 };

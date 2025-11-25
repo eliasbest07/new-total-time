@@ -23,7 +23,7 @@ import { CardWrapperComponent } from './components/CardWrapper';
 import Ventana from '@/app/demo/components/Ventana';
 import { SupabaseRecursoRepository } from '@/infrastructure/datasource/SupabaseRecursoRepository';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate }, ref) => {
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
 
@@ -749,6 +749,15 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     bringCardToFront(cardId);
   }, [cards, bringCardToFront, setPanOffset]);
 
+  // Función para buscar un card por id_mision
+  const findCardByMisionId = useCallback((misionId: number): string | null => {
+    const card = cards.find(c =>
+      (c.type === 'mision-organizacion' || c.type === 'mision') &&
+      c.misionData?.id_mision === misionId
+    );
+    return card ? card.id : null;
+  }, [cards]);
+
   // Estado para controlar la animación de navegación
   const animationFrameRef = useRef<number | null>(null);
 
@@ -839,7 +848,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     cards,
     storagePrefix === 'organizacion',
     autoConnectMisionToProyecto,
-    autoConnectProyectoToMisiones
+    autoConnectProyectoToMisiones,
+    navigateToCard,
+    findCardByMisionId
   );
 
   // LocalStorage para persistencia - SOLO para pizarra propia, NO para pizarras compartidas
@@ -850,7 +861,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     isViewingOtherUser ? () => {} : setCards, // No setear cards si es otro usuario
     isViewingOtherUser ? () => {} : setConnections, // No setear conexiones si es otro usuario
     isViewingOtherUser ? () => {} : setPanOffset, // No setear panOffset si es otro usuario
-    storagePrefix
+    storagePrefix,
+    isOrganizacionPizarra // Pasar la prop para pizarras de organización
   );
 
   // Solo usar funciones de LocalStorage si NO es otro usuario
@@ -858,7 +870,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     clearLocalStorage,
     exportToJSON,
     importFromJSON,
-    saveHistorySnapshot
+    saveHistorySnapshot,
+    shouldLoadFromSupabase,
+    markSupabaseLoaded
   } = localStorageHookResult;
 
   // Funciones para actividades
@@ -2022,6 +2036,207 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [pizarra, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections, saveHistorySnapshot]);
 
+  // Función para guardar pizarra de organización en Supabase
+  const saveToSupabaseOrganizacion = useCallback(async (pizarraOrg: any) => {
+    if (!usuario) {
+      console.error('❌ No hay usuario para guardar');
+      return false;
+    }
+
+    if (!pizarraOrg) {
+      console.error('❌ No hay pizarra de organización');
+      return false;
+    }
+
+    try {
+      console.log('💾 [PIZARRA ORG] Guardando pizarra de organización en Supabase...');
+      console.log('   - ID Pizarra Org:', pizarraOrg.id);
+      console.log('   - Cards a guardar:', cards.length);
+
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+      const { SupabasePizarraOrganizacionRepository } = await import('@/infrastructure/datasource/SupabasePizarraOrganizacionRepository');
+      const pizarraOrgRepo = new SupabasePizarraOrganizacionRepository();
+
+      // 1. Actualizar panOffset de la pizarra de organización
+      console.log('   - Actualizando panOffset:', panOffset);
+      await pizarraOrgRepo.updatePanOffset(pizarraOrg.id, panOffset.x, panOffset.y);
+
+      // 2. Obtener las cards actuales de Supabase para esta pizarra
+      const { data: cardsEnBD, error: cardsError } = await supabase
+        .from('cards')
+        .select('id, card_id')
+        .eq('id_pizarra', pizarraOrg.id);
+
+      if (cardsError) {
+        console.error('❌ Error obteniendo cards de la BD:', cardsError);
+        return false;
+      }
+
+      const currentCardsInDB = (cardsEnBD || []).map((c: any) => c.card_id);
+
+      // Crear un mapa de card_id (frontend) → id (UUID de BD)
+      const cardIdToUUID = new Map<string, string>();
+      (cardsEnBD || []).forEach((c: any) => {
+        cardIdToUUID.set(c.card_id, c.id);
+      });
+
+      // 3. Eliminar cards que ya no existen localmente
+      console.log('   - Eliminando cards obsoletas...');
+      const cardsToDelete = currentCardsInDB.filter(dbCardId =>
+        !cards.some(localCard => localCard.id === dbCardId)
+      );
+
+      for (const cardId of cardsToDelete) {
+        const { error: deleteError } = await supabase
+          .from('cards')
+          .delete()
+          .eq('id_pizarra', pizarraOrg.id)
+          .eq('card_id', cardId);
+
+        if (deleteError) {
+          console.error('❌ Error eliminando card:', cardId, deleteError);
+        } else {
+          console.log('🗑️ Card eliminada de Supabase:', cardId);
+        }
+      }
+
+      // 4. Crear o actualizar las cards actuales
+      console.log('   - Guardando', cards.length, 'cards...');
+      for (const card of cards) {
+        const cardExists = currentCardsInDB.includes(card.id);
+
+        if (cardExists) {
+          // Actualizar card existente
+          const cardData = mapCardToCardDB(card, pizarraOrg.id);
+          const { error: updateError } = await supabase
+            .from('cards')
+            .update(cardData)
+            .eq('id_pizarra', pizarraOrg.id)
+            .eq('card_id', card.id);
+
+          if (updateError) {
+            console.error('❌ Error actualizando card:', card.id, updateError);
+          } else {
+            console.log('   ✏️ Card actualizada:', card.id);
+          }
+
+          // Actualizar todos si es card tipo todo
+          if (card.type === 'todo' && card.todos) {
+            const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
+            const cardTodoRepo = new SupabaseCardTodoRepository();
+
+            const cardUUID = cardIdToUUID.get(card.id);
+            if (!cardUUID) {
+              console.error('❌ No se encontró UUID para card:', card.id);
+              continue;
+            }
+
+            const todosExistentes = await cardTodoRepo.getByCardId(cardUUID);
+            const todosExistentesIds = todosExistentes.map(t => t.todo_id);
+
+            // Eliminar todos que ya no existen
+            for (const todoExistente of todosExistentes) {
+              if (!card.todos.some(t => t.id === todoExistente.todo_id)) {
+                await supabase
+                  .from('card_todos')
+                  .delete()
+                  .eq('id_card', cardUUID)
+                  .eq('todo_id', todoExistente.todo_id);
+              }
+            }
+
+            // Crear o actualizar todos actuales
+            for (const todo of card.todos) {
+              if (todosExistentesIds.includes(todo.id)) {
+                await supabase
+                  .from('card_todos')
+                  .update({
+                    text: todo.text,
+                    completed: todo.completed,
+                    position: todo.id - 1,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id_card', cardUUID)
+                  .eq('todo_id', todo.id);
+              } else {
+                await cardTodoRepo.create({
+                  id_card: cardUUID,
+                  todo_id: todo.id,
+                  text: todo.text,
+                  completed: todo.completed,
+                  position: todo.id - 1
+                });
+              }
+            }
+          }
+        } else {
+          // Crear nueva card
+          const cardData = mapCardToCardDB(card, pizarraOrg.id);
+          const { data: insertedCard, error: insertError } = await supabase
+            .from('cards')
+            .insert(cardData)
+            .select('id')
+            .single();
+
+          if (insertError) {
+            console.error('❌ Error insertando card:', card.id, insertError);
+          } else {
+            console.log('   ➕ Card creada:', card.id);
+
+            // Crear todos si es card tipo todo
+            if (card.type === 'todo' && card.todos && insertedCard) {
+              const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
+              const cardTodoRepo = new SupabaseCardTodoRepository();
+
+              for (const todo of card.todos) {
+                await cardTodoRepo.create({
+                  id_card: insertedCard.id,
+                  todo_id: todo.id,
+                  text: todo.text,
+                  completed: todo.completed,
+                  position: todo.id - 1
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // 5. Guardar conexiones
+      console.log('   - Guardando conexiones...');
+      const { error: deleteConnectionsError } = await supabase
+        .from('pizarra_connections')
+        .delete()
+        .eq('id_pizarra', pizarraOrg.id);
+
+      if (deleteConnectionsError) {
+        console.error('❌ Error eliminando conexiones antiguas:', deleteConnectionsError);
+      }
+
+      for (const connection of connections) {
+        const { error: insertError } = await supabase
+          .from('pizarra_connections')
+          .insert({
+            id_pizarra: pizarraOrg.id,
+            from_card: connection.from,
+            to_card: connection.to
+          });
+
+        if (insertError) {
+          console.error('❌ Error insertando conexión:', insertError);
+        }
+      }
+
+      console.log('✅ [PIZARRA ORG] Pizarra guardada exitosamente');
+      console.log('   - Cards guardadas:', cards.length);
+      console.log('   - Conexiones guardadas:', connections.length);
+      return true;
+    } catch (error) {
+      console.error('❌ [PIZARRA ORG] Error guardando en Supabase:', error);
+      return false;
+    }
+  }, [usuario, cards, panOffset, connections]);
+
   // Función manual para cargar desde Supabase
   const loadFromSupabase = useCallback(async () => {
     if (!usuario) {
@@ -2480,6 +2695,69 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [usuario, setConnections]);
 
+  // Para pizarras de organización: cargar desde Supabase la primera vez en el día
+  useEffect(() => {
+    if (!isOrganizacionPizarra || !pizarraOrganizacion) return;
+
+    const loadOrganizacionPizarraFromSupabase = async () => {
+      if (shouldLoadFromSupabase()) {
+        console.log('🏢 [PIZARRA ORG] Cargando desde Supabase (primera vez del día)...');
+
+        try {
+          // Cargar desde Supabase
+          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+          // Cargar cards de la pizarra de organización
+          const { data: cardsEnBD, error: cardsError } = await supabase
+            .from('cards')
+            .select('*')
+            .eq('id_pizarra', pizarraOrganizacion.id);
+
+          if (cardsError) {
+            console.error('❌ Error cargando cards:', cardsError);
+            return;
+          }
+
+          console.log('📦 [PIZARRA ORG] Cards cargadas:', cardsEnBD?.length || 0);
+
+          // Mapear cards (similar a loadFromSupabase pero sin crear pizarra)
+          if (cardsEnBD && cardsEnBD.length > 0) {
+            const mappedCards: Card[] = [];
+
+            for (const cardDB of cardsEnBD) {
+              const card = mapCardDBToCard(cardDB);
+              mappedCards.push(card);
+            }
+
+            setCards(mappedCards);
+          }
+
+          // Cargar conexiones
+          const { data: connectionsData, error: connectionsError } = await supabase
+            .from('pizarra_connections')
+            .select('*')
+            .eq('id_pizarra', pizarraOrganizacion.id);
+
+          if (!connectionsError && connectionsData) {
+            const loadedConnections = connectionsData.map((c: any) => ({
+              from: c.from_card,
+              to: c.to_card
+            }));
+            setConnections(loadedConnections);
+          }
+
+          // Marcar que ya se cargó desde Supabase hoy
+          markSupabaseLoaded();
+          console.log('✅ [PIZARRA ORG] Carga desde Supabase completada');
+        } catch (error) {
+          console.error('❌ [PIZARRA ORG] Error cargando desde Supabase:', error);
+        }
+      }
+    };
+
+    loadOrganizacionPizarraFromSupabase();
+  }, [isOrganizacionPizarra, pizarraOrganizacion, shouldLoadFromSupabase, markSupabaseLoaded, setCards, setConnections]);
+
   // Auto-guardado en Supabase cuando está activado
   useEffect(() => {
     if (!autoSave || !usuario || !isInitialized || cards.length === 0) {
@@ -2489,15 +2767,22 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     // Debounce para evitar guardados excesivos
     const timeoutId = setTimeout(async () => {
       try {
-        console.log('🔄 Auto-guardado en Supabase...');
-        await saveToSupabase();
+        if (isOrganizacionPizarra && pizarraOrganizacion) {
+          // Guardar en pizarra de organización
+          console.log('🔄 [PIZARRA ORG] Auto-guardado en Supabase...');
+          await saveToSupabaseOrganizacion(pizarraOrganizacion);
+        } else {
+          // Guardar en pizarra personal
+          console.log('🔄 Auto-guardado en Supabase...');
+          await saveToSupabase();
+        }
       } catch (error) {
         console.error('❌ Error en auto-guardado:', error);
       }
     }, 3000); // Esperar 3 segundos después del último cambio
 
     return () => clearTimeout(timeoutId);
-  }, [cards, connections, panOffset, autoSave, usuario, isInitialized, saveToSupabase]);
+  }, [cards, connections, panOffset, autoSave, usuario, isInitialized, isOrganizacionPizarra, pizarraOrganizacion, saveToSupabase, saveToSupabaseOrganizacion]);
 
   // Función para agregar una conexión programáticamente
   const addConnection = useCallback((fromCardId: string, toCardId: string, skipValidation = false) => {
@@ -2552,40 +2837,6 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     });
   }, [setConnections]);
 
-  // Función para buscar un card por id_mision
-  const findCardByMisionId = useCallback((misionId: number): string | null => {
-    const card = cards.find(c =>
-      (c.type === 'mision-organizacion' || c.type === 'mision') &&
-      c.misionData?.id_mision === misionId
-    );
-    return card ? card.id : null;
-  }, [cards]);
-
-  // Función para centrar la vista en un card específico
-  const centerOnCard = useCallback((cardId: string) => {
-    const card = cards.find(c => c.id === cardId);
-    if (!card || !canvasRef.current) {
-      console.warn('⚠️ No se puede centrar: card o canvas no encontrado');
-      return;
-    }
-
-    console.log('🎯 Centrando vista en card:', cardId);
-
-    // Obtener dimensiones del canvas visible
-    const canvasWidth = canvasRef.current.clientWidth;
-    const canvasHeight = canvasRef.current.clientHeight;
-
-    // Calcular el offset necesario para centrar el card
-    // La posición del card es relativa al canvas, necesitamos ajustar el panOffset
-    const targetPanX = -(card.x + card.width / 2 - canvasWidth / 2);
-    const targetPanY = -(card.y + card.height / 2 - canvasHeight / 2);
-
-    setPanOffset({ x: targetPanX, y: targetPanY });
-
-    // Resaltar el card temporalmente
-    bringCardToFront(cardId);
-  }, [cards, canvasRef, bringCardToFront]);
-
   // Función para actualizar el ID de un card (de temporal a UUID)
   const updateCardId = useCallback((oldId: string, newId: string) => {
     console.log('🔄 [updateCardId] Actualizando ID de card:', { oldId, newId });
@@ -2631,10 +2882,10 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     loadPizarraById,
     addConnection,
     removeConnectionBetween,
-    centerOnCard,
+    centerOnCard: navigateToCard, // navigateToCard funciona como centerOnCard
     findCardByMisionId,
     updateCardId
-  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, centerOnCard, findCardByMisionId, updateCardId]);
+  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCard, findCardByMisionId, updateCardId]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
