@@ -206,6 +206,7 @@ export default function PizarraOrganizacionPage() {
           lightMode={false}
           isOrganizacionPizarra={true} // Nueva prop para indicar que es pizarra de org
           readOnly={!puedeEditar} // Solo lectura si no tiene permisos
+          pizarraOrganizacion={pizarra} // Pasar objeto de pizarra para guardado
         />
       </div>
 

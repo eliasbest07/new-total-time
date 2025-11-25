@@ -154,6 +154,7 @@ export interface PizarraProps {
   viewingUserId?: string;
   isOrganizacionPizarra?: boolean; // Nueva: indica si es pizarra de organización (persistencia permanente)
   readOnly?: boolean; // Nueva: indica si la pizarra es de solo lectura
+  pizarraOrganizacion?: any; // Objeto de pizarra de organización (para guardar)
   onOpenUserChat?: (userData: {
     userId: string;
     name: string;

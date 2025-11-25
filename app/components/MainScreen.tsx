@@ -485,7 +485,11 @@ export default function MainScreen() {
         <h2 className="text-gray-900 bg-white/80 backdrop-blur-sm px-2 py-2 rounded-lg text-xl mb-3 inline-block">
           Tickets 🎟️
         </h2>
-        <MisionesCompact onShowDetails={handleShowMisionDetails} />
+        <MisionesCompact
+          onShowDetails={handleShowMisionDetails}
+          findCardByMisionId={(misionId) => pizarraRef.current?.findCardByMisionId?.(misionId) || null}
+          centerOnCard={(cardId) => pizarraRef.current?.centerOnCard?.(cardId)}
+        />
       </div>
 
       {/* Modal para agregar recurso */}
