@@ -3,6 +3,7 @@ import { Card } from '../../types/index';
 import { Actividad } from '@/domain/entities/Actividad';
 import { Mision } from '@/domain/entities/Mision';
 import { Recurso } from '@/domain/entities/Recurso';
+import { Capture } from '@/domain/entities/Capture';
 import { Plus, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
@@ -48,6 +49,10 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     isOpen: false,
     recurso: null
   });
+
+  // Estados para capturas
+  const [capturas, setCapturas] = useState<Capture[]>([]);
+  const [loadingCapturas, setLoadingCapturas] = useState(false);
 
   // Form states para misión
   const [misionNombre, setMisionNombre] = useState('');
@@ -136,6 +141,47 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
     cargarDatos();
   }, [proyectoId]);
+
+  // Función para cargar capturas del proyecto
+  const cargarCapturas = async () => {
+    if (!proyectoId || capturas.length > 0) return; // Solo cargar si aún no se han cargado
+
+    setLoadingCapturas(true);
+
+    try {
+      // Obtener todas las capturas relacionadas con las misiones del proyecto
+      const misionIds = misiones.map(m => String(m.id));
+
+      console.log('📸 [ProyectoCard] Buscando capturas para misiones:', misionIds);
+
+      if (misionIds.length === 0) {
+        console.log('📸 [ProyectoCard] No hay misiones en el proyecto');
+        setCapturas([]);
+        return;
+      }
+
+      // Cargar capturas de todas las misiones del proyecto
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+      const { data: capturasData, error } = await supabase
+        .from('capture')
+        .select('*')
+        .in('id_bloque', misionIds)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('📸 [ProyectoCard] Error cargando capturas:', error);
+        setCapturas([]);
+      } else {
+        console.log('📸 [ProyectoCard] Capturas encontradas:', capturasData?.length || 0);
+        setCapturas(capturasData || []);
+      }
+    } catch (error) {
+      console.error('📸 [ProyectoCard] Excepción cargando capturas:', error);
+      setCapturas([]);
+    } finally {
+      setLoadingCapturas(false);
+    }
+  };
 
   const eliminarRecursoNota = async (recursoId: number) => {
     try {
@@ -483,19 +529,65 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                 onClick={(e) => {
                   e.stopPropagation();
                   setExpandedCapturas(!expandedCapturas);
+                  if (!expandedCapturas && capturas.length === 0) {
+                    cargarCapturas();
+                  }
                 }}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors"
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors cursor-pointer"
                 data-todo-interactive
               >
-                <span className="font-semibold text-sm">Capturas</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm">📸 Capturas</span>
+                  {capturas.length > 0 && (
+                    <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
+                      {capturas.length}
+                    </span>
+                  )}
+                </div>
                 {expandedCapturas ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </button>
 
               {expandedCapturas && (
-                <div className="px-4 pb-4">
-                  <div className="text-center text-gray-400 text-sm py-8">
-                    No hay capturas disponibles
-                  </div>
+                <div className="px-4 pb-4 bg-gray-800">
+                  {loadingCapturas ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    </div>
+                  ) : capturas.length === 0 ? (
+                    <div className="text-center text-gray-400 text-sm py-6">
+                      <p>No hay capturas disponibles</p>
+                      <p className="text-xs mt-1">Las capturas se generan cuando los usuarios trabajan en las misiones</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-400 mb-2">
+                        {capturas.length} capturas - Tiempo estimado: {capturas.length * 5} min
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                        {capturas.map((capture) => (
+                          <div key={capture.id} className="relative group">
+                            <img
+                              src={capture.img_url || '/placeholder-image.png'}
+                              alt={`Captura ${capture.id}`}
+                              className="w-full h-24 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                capture.img_url && window.open(capture.img_url, '_blank');
+                              }}
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-white text-[10px] px-1 py-0.5 rounded-b">
+                              <p className="truncate">
+                                {new Date(capture.created_at).toLocaleTimeString('es-ES', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })} | M:{capture.id_bloque}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

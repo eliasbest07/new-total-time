@@ -236,7 +236,21 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           console.log('📦 [PIZARRA SYNC] Cards ya cargadas desde localStorage, omitiendo sincronización desde Supabase');
           return;
         }
-        console.log('🔄 [PIZARRA SYNC] LocalStorage vacío, cargando desde Supabase:', cardsDB.length, 'cards');
+
+        // Verificar si ya se cargó hoy desde Supabase
+        const lastSyncKey = `pizarra_last_sync_${effectiveUserId}`;
+        const lastSyncDate = localStorage.getItem(lastSyncKey);
+        const today = new Date().toDateString(); // Formato: "Mon Jan 01 2024"
+
+        if (lastSyncDate === today) {
+          console.log('✅ [PIZARRA SYNC] Ya se sincronizó hoy, omitiendo recarga desde Supabase');
+          return;
+        }
+
+        console.log('🔄 [PIZARRA SYNC] LocalStorage vacío o primer sync del día, cargando desde Supabase:', cardsDB.length, 'cards');
+
+        // Guardar la fecha de sincronización
+        localStorage.setItem(lastSyncKey, today);
       } else {
         console.log('🔄 [PIZARRA COMPARTIDA] Sincronizando cards desde Supabase:', cardsDB.length);
       }

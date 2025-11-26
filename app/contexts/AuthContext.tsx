@@ -66,10 +66,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearUsuario = () => {
+    // Obtener el ID del usuario antes de limpiarlo
+    const userId = usuario?.userAuth;
+
     setUsuarioState(null);
     StorageService.clearUser();
     // ✅ Limpiar el caché de usuarios al hacer logout
     userCacheService.clearAll();
+
+    // ✅ Limpiar la pizarra del localStorage sin guardar en Supabase
+    if (userId) {
+      // Limpiar las cards de la pizarra
+      const pizarraKeys = [
+        `pizarra_cards_real_${userId}`,
+        `pizarra_cards_organizacion_${userId}`,
+        `pizarra_last_sync_${userId}`
+      ];
+
+      pizarraKeys.forEach(key => {
+        localStorage.removeItem(key);
+        console.log(`🗑️ [AuthContext] Limpiado: ${key}`);
+      });
+
+      console.log('✅ [AuthContext] Pizarra limpiada del localStorage');
+    }
   };
 
   const value = {
