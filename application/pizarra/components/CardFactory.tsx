@@ -47,6 +47,7 @@ interface CardFactoryProps {
   addMisionCardOrganizacion?: (misionData: any) => string | void; // ✅ Función para crear cards de misión
   openImageWindow?: (imageUrl: string, title: string) => void;
   cards?: Card[]; // ✅ Todas las cards para buscar notas asociadas
+  onCrearMisionProyecto?: (proyectoId: number) => void; // ✅ Función para abrir el modal de crear misión desde un proyecto
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -175,6 +176,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           editingTitle={props.editingTitle}
           updateCardTitle={props.updateCardTitle}
           setEditingTitle={props.setEditingTitle}
+          onCrearMision={props.onCrearMisionProyecto}
         />
       );
 

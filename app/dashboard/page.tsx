@@ -126,6 +126,19 @@ function DashboardAdmin() {
     setShowChatWindow(true);
   };
 
+  // Handler para abrir modal de crear misión desde un proyecto
+  const handleCrearMisionProyecto = useCallback((proyectoId: number) => {
+    console.log('📝 Abriendo modal de crear misión para proyecto:', proyectoId);
+    // Establecer el contexto con solo el ID del proyecto
+    setConnectionContext({
+      proyectoId,
+      proyectoNombre: '', // Se llenará con datos reales si es necesario
+      todoCardId: '',
+      proyectoCardId: ''
+    });
+    setShowMisionesModal(true);
+  }, []);
+
   // Handler para mensajes entrantes
   const handleIncomingMessage = useCallback((userData: {
     userId: string;
@@ -771,6 +784,7 @@ function DashboardAdmin() {
             usuarios={usuarios}
             currentUserId={usuario?.userAuth}
             onConnectionCreate={handleConnectionCreate}
+            onCrearMisionProyecto={handleCrearMisionProyecto}
           />
         </div>
 

@@ -23,7 +23,7 @@ import { CardWrapperComponent } from './components/CardWrapper';
 import Ventana from '@/app/demo/components/Ventana';
 import { SupabaseRecursoRepository } from '@/infrastructure/datasource/SupabaseRecursoRepository';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onCrearMisionProyecto, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
 
@@ -3088,6 +3088,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             addConnection={addConnection}
             addMisionCardOrganizacion={addMisionCardOrganizacion}
             cards={cards}
+            onCrearMisionProyecto={onCrearMisionProyecto}
           />
         ))}
 
