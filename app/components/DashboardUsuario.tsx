@@ -10,7 +10,8 @@ import { useSimpleTracking } from '@/hooks/useSimpleTracking';
 import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
 import { Capture } from '@/domain/entities/Capture';
 import { MisionActiva } from '@/domain/entities/MisionActiva';
-import { Target, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Target, ChevronRight, ChevronLeft, ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 /**
  * Dashboard para usuarios NO administradores
@@ -229,6 +230,7 @@ const MisionActivaCard = ({ mision, onImageClick }: { mision: MisionActiva; onIm
 export default function DashboardUsuario() {
     const { usuario } = useAuth();
     const { organizacion } = useOrganizacion(usuario?.userAuth || null);
+    const router = useRouter();
     const [menuLateralAbierto, setMenuLateralAbierto] = useState(false);
     const [captures, setCaptures] = useState<Capture[]>([]);
     const [loadingCaptures, setLoadingCaptures] = useState(true);
@@ -356,24 +358,36 @@ export default function DashboardUsuario() {
             {/* Container principal con max-width */}
             <div className="max-w-7xl mx-auto relative">
 
-                {/* Botón de perfil en esquina superior izquierda de la vista */}
-                <button
-                    onClick={() => setMenuLateralAbierto(true)}
-                    className="absolute top-0 left-0 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white rounded-xl transition-all duration-200 flex items-center gap-4 px-5 py-3 shadow-lg hover:shadow-xl group hover:scale-105 z-10"
-                >
-                    <div className="w-10 h-10 rounded-full border-2 border-blue-500 flex items-center justify-center">
-                        <div className="relative w-8 h-8 rounded-full overflow-hidden">
-                            <Image
-                                src={userAvatar}
-                                alt="Foto de perfil"
-                                width={32}
-                                height={32}
-                                className="w-full h-full object-cover"
-                            />
+                {/* Botón de flecha de regreso y perfil en esquina superior izquierda */}
+                <div className="absolute top-0 left-0 flex items-center gap-3 z-10">
+                    {/* Botón de flecha de regreso */}
+                    <button
+                        onClick={() => router.push('/')}
+                        className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white rounded-xl transition-all duration-200 p-3 shadow-lg hover:shadow-xl hover:scale-105"
+                        title="Regresar a la pizarra principal"
+                    >
+                        <ArrowLeft className="w-6 h-6" />
+                    </button>
+
+                    {/* Botón de perfil */}
+                    <button
+                        onClick={() => setMenuLateralAbierto(true)}
+                        className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white rounded-xl transition-all duration-200 flex items-center gap-4 px-5 py-3 shadow-lg hover:shadow-xl group hover:scale-105"
+                    >
+                        <div className="w-10 h-10 rounded-full border-2 border-blue-500 flex items-center justify-center">
+                            <div className="relative w-8 h-8 rounded-full overflow-hidden">
+                                <Image
+                                    src={userAvatar}
+                                    alt="Foto de perfil"
+                                    width={32}
+                                    height={32}
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
                         </div>
-                    </div>
-                    <span className="text-white font-medium text-base">{userName}</span>
-                </button>
+                        <span className="text-white font-medium text-base">{userName}</span>
+                    </button>
+                </div>
 
                 {/* Header responsivo */}
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8 pt-16">

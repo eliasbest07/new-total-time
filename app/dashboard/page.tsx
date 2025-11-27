@@ -18,8 +18,9 @@ import { useProyectos } from "@/hooks/useProyectos";
 import { useActividades } from "@/hooks/useActividades";
 import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizacionContext";
 import { useOrganizacion } from "@/hooks/useOrganizacion";
-import { Target, Building2, X } from "lucide-react";
+import { Target, Building2, X, ArrowLeft } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const pizarraRef = useRef<PizarraRef>(null);
@@ -42,6 +43,7 @@ export default function DashboardPage() {
 function DashboardAdmin() {
   const pizarraRef = useRef<PizarraRef>(null);
   const { usuario } = useAuth();
+  const router = useRouter();
   const { usuarioId } = useUsuarioId();
   const { createMision, updateMision } = useMisiones(usuarioId);
   const { createProyecto } = useProyectos();
@@ -777,6 +779,17 @@ function DashboardAdmin() {
           className="fixed top-20 left-4 overflow-y-auto bg-transparent pointer-events-auto"
           style={{ width: '120px', maxHeight: 'calc(100vh - 10rem)', zIndex: 50 }}
         >
+          {/* Botón de flecha de regreso */}
+          <div className="mb-3">
+            <button
+              onClick={() => router.push('/')}
+              className="w-full bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white rounded-lg p-3 shadow-lg transition-all hover:scale-105 flex items-center justify-center mb-3"
+              title="Regresar a la pizarra principal"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+          </div>
+
           <div className="mb-3">
             <button
               onClick={() => setShowInfoOrganizacion(true)}

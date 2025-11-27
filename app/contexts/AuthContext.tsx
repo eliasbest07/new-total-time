@@ -74,21 +74,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // ✅ Limpiar el caché de usuarios al hacer logout
     userCacheService.clearAll();
 
-    // ✅ Limpiar la pizarra del localStorage sin guardar en Supabase
+    // ✅ Limpiar TODA la pizarra del localStorage sin guardar en Supabase
     if (userId) {
-      // Limpiar las cards de la pizarra
-      const pizarraKeys = [
-        `pizarra_cards_real_${userId}`,
-        `pizarra_cards_organizacion_${userId}`,
-        `pizarra_last_sync_${userId}`
+      // Claves de pizarra personal (prefix: 'real')
+      const pizarraPersonalKeys = [
+        `pizarra-real-cards-v1`,
+        `pizarra-real-connections-v1`,
+        `pizarra-real-pan-offset-v1`,
+        `pizarra-real-date-v1`,
+        `pizarra-real-history`,
+        `pizarra-real-last-supabase-load`,
+        `pizarra_last_sync_${userId}`,
+        `pizarra_cards_real_${userId}`
       ];
 
-      pizarraKeys.forEach(key => {
+      // Claves de pizarra de organización (prefix: 'organizacion')
+      const pizarraOrgKeys = [
+        `pizarra-organizacion-cards-v1`,
+        `pizarra-organizacion-connections-v1`,
+        `pizarra-organizacion-pan-offset-v1`,
+        `pizarra-organizacion-date-v1`,
+        `pizarra-organizacion-history`,
+        `pizarra-organizacion-last-supabase-load`,
+        `pizarra_cards_organizacion_${userId}`
+      ];
+
+      // Combinar todas las claves
+      const allPizarraKeys = [...pizarraPersonalKeys, ...pizarraOrgKeys];
+
+      allPizarraKeys.forEach(key => {
         localStorage.removeItem(key);
         console.log(`🗑️ [AuthContext] Limpiado: ${key}`);
       });
 
-      console.log('✅ [AuthContext] Pizarra limpiada del localStorage');
+      console.log('✅ [AuthContext] Pizarra completamente limpiada del localStorage');
+      console.log('🔄 [AuthContext] Estado de primera apertura reiniciado');
     }
   };
 
