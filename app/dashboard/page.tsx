@@ -8,6 +8,7 @@ import { useAuth } from "@/app/contexts/AuthContext";
 import ChatWindow from "@/app/components/ChatWindow";
 import InputAreaLight from "@/app/components/mainUI/InputAreaLight";
 import MisionesOrganizacion from "@/app/components/organizacion/MisionesOrganizacion";
+import ActividadesOrganizacion from "@/app/components/organizacion/ActividadesOrganizacion";
 import ListadoProyectos from "@/app/components/organizacion/ListadoProyectos";
 import InfoOrganizacion from "@/app/components/organizacion/InfoOrganizacion";
 import DashboardUsuario from "@/app/components/DashboardUsuario";
@@ -842,9 +843,10 @@ function DashboardAdmin() {
           />
         </div>
 
-        {/* Misiones - Esquina superior derecha */}
-        <div className="fixed top-20 right-4 z-50 pointer-events-auto">
+        {/* Misiones y Actividades - Esquina superior derecha */}
+        <div className="fixed top-20 right-4 z-50 pointer-events-auto flex flex-col gap-3">
           <MisionesOrganizacion pizarraRef={pizarraRef} />
+          <ActividadesOrganizacion />
         </div>
 
         {/* Botones para crear misiones/actividades - Esquina inferior derecha */}
