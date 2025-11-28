@@ -150,9 +150,18 @@ export const useScreenshots = (): UseScreenshotsReturn => {
       await new Promise(resolve => setTimeout(resolve, 500));
       // console.log('✅ [START CAPTURE] Video completamente inicializado');
 
+      // 📸 TOMAR CAPTURA INICIAL INMEDIATA
+      console.log('📸 [CAPTURA INICIAL] Tomando captura de inicio...');
+      await capturarPantalla();
+      console.log('✅ [CAPTURA INICIAL] Captura de inicio completada');
+
       intervalRef.current = setInterval(async () => {
         // console.log('🎬 [SCREENSHOT] Iniciando captura de pantalla...');
+        await capturarPantalla();
+      }, 300000); // cada 5 minutos
 
+      // Función auxiliar para capturar pantalla (evitar duplicación de código)
+      async function capturarPantalla() {
         if (!videoRef.current || !currentContextRef.current) {
           console.error('❌ [SCREENSHOT] No hay videoRef o contextRef disponible');
           return;
@@ -239,7 +248,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
         } catch (error) {
           console.error('❌ Error durante el proceso de captura:', error);
         }
-      }, 300000); // cada 5 minutos
+      }
 
       // console.log('⏰ [START CAPTURE] Intervalo de captura configurado (cada 5 minutos)');
       // console.log('✅ [START CAPTURE] Proceso de captura iniciado exitosamente');

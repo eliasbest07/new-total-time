@@ -2873,6 +2873,34 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     console.log('✅ [updateCardId] Card y conexiones actualizados');
   }, []);
 
+  // Función para actualizar un card (parcial) - para uso desde refs externos
+  const updateCardFromRef = useCallback((cardId: string, updates: Partial<Card>) => {
+    console.log('🔄 [updateCardFromRef] Actualizando card:', { cardId, updates });
+
+    setCards((prevCards: Card[]) => {
+      return prevCards.map((c: Card) => {
+        if (c.id === cardId) {
+          console.log('✅ Card encontrado, aplicando actualizaciones');
+          // Hacer merge profundo de misionData si existe
+          if (updates.misionData && c.misionData) {
+            return {
+              ...c,
+              ...updates,
+              misionData: {
+                ...c.misionData,
+                ...updates.misionData
+              }
+            } as Card;
+          }
+          return { ...c, ...updates } as Card;
+        }
+        return c;
+      });
+    });
+
+    console.log('✅ [updateCardFromRef] Card actualizado');
+  }, [setCards]);
+
   useImperativeHandle(ref, () => ({
     addNoteCard,
     addTodoCard,
@@ -2889,8 +2917,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     removeConnectionBetween,
     centerOnCard: navigateToCard, // navigateToCard funciona como centerOnCard
     findCardByMisionId,
-    updateCardId
-  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCard, findCardByMisionId, updateCardId]);
+    updateCardId,
+    updateCard: updateCardFromRef
+  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCard, findCardByMisionId, updateCardId, updateCardFromRef]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {

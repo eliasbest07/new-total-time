@@ -127,6 +127,7 @@ export interface PizarraRef {
   removeConnectionBetween?: (cardId1: string, cardId2: string) => void;
   centerOnCard?: (cardId: string) => void;
   findCardByMisionId?: (misionId: number) => string | null;
+  updateCard?: (cardId: string, updates: Partial<Card>) => void;
   restoreCard?: (cardData: any) => void;
   clearStorage?: () => void;
   exportStorage?: () => void;
