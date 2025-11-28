@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
 import { Capture } from '@/domain/entities/Capture';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
+import { misionActivaRepository } from '@/infrastructure/datasource/SupabaseMisionActivaRepository';
 
 interface UseScreenshotsReturn {
   screenshots: Capture[];
@@ -16,6 +17,7 @@ interface UseScreenshotsReturn {
     tiempoTareaActual?: string;
     mediaStream?: MediaStream;
     onCaptureUpdate?: (url: string) => void;
+    misionActivaId?: string; // ID de la misión activa para actualizar fecha_ultimo_capture
   }) => Promise<void>;
   stopCapturing: () => void;
   captureNow: () => Promise<string | null>;
@@ -46,6 +48,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     tiempoTareaActual?: string;
     mediaStream?: MediaStream;
     onCaptureUpdate?: (url: string) => void;
+    misionActivaId?: string;
   } | null>(null);
 
   // Subir imagen a Supabase Storage
@@ -96,6 +99,7 @@ export const useScreenshots = (): UseScreenshotsReturn => {
     tiempoTareaActual?: string;
     mediaStream?: MediaStream;
     onCaptureUpdate?: (url: string) => void;
+    misionActivaId?: string;
   }) => {
     // console.log('🚀 [START CAPTURE] Iniciando proceso de captura con parámetros:', params);
 
@@ -212,6 +216,16 @@ export const useScreenshots = (): UseScreenshotsReturn => {
           });
 
           setScreenshots(prev => [newCapture, ...prev]);
+
+          // Actualizar fecha_ultimo_capture en misiones_activas
+          if (currentContextRef.current?.misionActivaId) {
+            try {
+              await misionActivaRepository.addCaptureUrl(currentContextRef.current.misionActivaId, url);
+              // console.log('✅ [SCREENSHOT] Fecha de último capture actualizada en misiones_activas');
+            } catch (error) {
+              console.error('❌ [SCREENSHOT] Error actualizando fecha de último capture:', error);
+            }
+          }
 
           // Notificar la nueva captura
           if (params.onCaptureUpdate) {

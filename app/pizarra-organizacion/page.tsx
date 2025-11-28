@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { usePizarraOrganizacion } from '@/hooks/usePizarraOrganizacion';
 import { usePizarraOrganizacionPermisos } from '@/hooks/usePizarraOrganizacionPermisos';
+import { useMisionActiva } from '@/hooks/useMisionActiva';
 import Pizarra, { PizarraRef } from '@/application/pizarra/pizarra';
 import InputArea from '@/app/components/mainUI/InputArea';
 import { ArrowLeft, Lock, Users, Edit3, Eye } from 'lucide-react';
@@ -38,6 +39,7 @@ export default function PizarraOrganizacionPage() {
     idOrganizacion,
     idUsuario
   );
+  const { verificarMisionesInactivas } = useMisionActiva();
 
   // Debug logs
   useEffect(() => {
@@ -70,6 +72,27 @@ export default function PizarraOrganizacionPage() {
     console.log('✅ [PizarraOrg] Usuario autenticado y en organización:', idOrganizacion);
     setIsReady(true);
   }, [usuario, idOrganizacion]);
+
+  // Verificar periódicamente misiones inactivas (cada 2 minutos)
+  useEffect(() => {
+    if (!isReady || !pizarra) return;
+
+    console.log('🔄 [PizarraOrg] Iniciando verificación periódica de misiones inactivas');
+
+    // Ejecutar inmediatamente al montar
+    verificarMisionesInactivas();
+
+    // Luego cada 2 minutos
+    const intervalo = setInterval(() => {
+      console.log('🔄 [PizarraOrg] Verificando misiones inactivas...');
+      verificarMisionesInactivas();
+    }, 2 * 60 * 1000); // 2 minutos
+
+    return () => {
+      console.log('🔕 [PizarraOrg] Deteniendo verificación periódica de misiones inactivas');
+      clearInterval(intervalo);
+    };
+  }, [isReady, pizarra, verificarMisionesInactivas]);
 
   // Handlers
   const handleVolver = () => {
