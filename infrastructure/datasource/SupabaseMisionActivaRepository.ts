@@ -497,10 +497,15 @@ export class SupabaseMisionActivaRepository {
 
   /**
    * Verificar y actualizar el estado de misiones que aparentan estar activas
-   * pero no han tenido capturas en más de 6 minutos
-   * Retorna el número de misiones que fueron actualizadas
+   * pero no han tenido capturas en más de 5 minutos 30 segundos
+   * (5 minutos de intervalo + 30 segundos de margen de tolerancia)
+   * Retorna un objeto con información sobre las misiones verificadas
    */
-  async verificarYActualizarMisionesInactivas(): Promise<number> {
+  async verificarYActualizarMisionesInactivas(): Promise<{
+    total: number;
+    desactivadas: number;
+    activas: number;
+  }> {
     try {
       console.log('🔍 [VERIFICAR] Buscando misiones con is_running = true');
 
@@ -512,19 +517,22 @@ export class SupabaseMisionActivaRepository {
 
       if (queryError) {
         console.error('❌ Error consultando misiones activas:', queryError);
-        return 0;
+        return { total: 0, desactivadas: 0, activas: 0 };
       }
+
+      const totalMisiones = misionesActivas?.length || 0;
 
       if (!misionesActivas || misionesActivas.length === 0) {
         console.log('ℹ️ [VERIFICAR] No hay misiones con is_running = true');
-        return 0;
+        return { total: 0, desactivadas: 0, activas: 0 };
       }
 
-      console.log(`📊 [VERIFICAR] Encontradas ${misionesActivas.length} misiones con is_running = true`);
+      console.log(`📊 [VERIFICAR] Encontradas ${totalMisiones} misiones con is_running = true`);
 
       const ahora = new Date();
-      const SEIS_MINUTOS_MS = 6 * 60 * 1000; // 6 minutos en milisegundos
-      let misionesActualizadas = 0;
+      // 5 minutos (intervalo de capturas) + 30 segundos (margen de tolerancia)
+      const CINCO_MIN_30_SEG_MS = (5 * 60 * 1000) + (30 * 1000); // 330,000 ms
+      let misionesDesactivadas = 0;
 
       // 2. Verificar cada misión
       for (const mision of misionesActivas) {
@@ -539,10 +547,10 @@ export class SupabaseMisionActivaRepository {
 
           const tiempoTranscurrido = ahora.getTime() - new Date(fechaReferencia).getTime();
 
-          if (tiempoTranscurrido > SEIS_MINUTOS_MS) {
-            console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) sin capturas y más de 6 min desde inicio`);
+          if (tiempoTranscurrido > CINCO_MIN_30_SEG_MS) {
+            console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) sin capturas y más de 5:30 min desde inicio`);
             await this.desactivarMision(mision.id);
-            misionesActualizadas++;
+            misionesDesactivadas++;
           }
           continue;
         }
@@ -551,28 +559,35 @@ export class SupabaseMisionActivaRepository {
         const fechaUltimoCapture = new Date(mision.fecha_ultimo_capture);
         const tiempoDesdeUltimoCapture = ahora.getTime() - fechaUltimoCapture.getTime();
 
-        // 4. Si pasaron más de 6 minutos, actualizar a inactiva
-        if (tiempoDesdeUltimoCapture > SEIS_MINUTOS_MS) {
+        // 4. Si pasaron más de 5 minutos 30 segundos, actualizar a inactiva
+        if (tiempoDesdeUltimoCapture > CINCO_MIN_30_SEG_MS) {
           console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) inactiva detectada:`, {
             ultimo_capture: mision.fecha_ultimo_capture,
-            tiempo_transcurrido_min: Math.round(tiempoDesdeUltimoCapture / 60000)
+            tiempo_transcurrido_seg: Math.round(tiempoDesdeUltimoCapture / 1000),
+            limite_seg: Math.round(CINCO_MIN_30_SEG_MS / 1000)
           });
 
           await this.desactivarMision(mision.id);
-          misionesActualizadas++;
+          misionesDesactivadas++;
         }
       }
 
-      if (misionesActualizadas > 0) {
-        console.log(`✅ [VERIFICAR] ${misionesActualizadas} misiones actualizadas a is_running = false`);
+      const misionesQuePermanenActivas = totalMisiones - misionesDesactivadas;
+
+      if (misionesDesactivadas > 0) {
+        console.log(`✅ [VERIFICAR] ${misionesDesactivadas} misiones desactivadas, ${misionesQuePermanenActivas} siguen activas`);
       } else {
         console.log('✅ [VERIFICAR] Todas las misiones activas están capturando correctamente');
       }
 
-      return misionesActualizadas;
+      return {
+        total: totalMisiones,
+        desactivadas: misionesDesactivadas,
+        activas: misionesQuePermanenActivas
+      };
     } catch (error) {
       console.error('❌ Error en verificarYActualizarMisionesInactivas:', error);
-      return 0;
+      return { total: 0, desactivadas: 0, activas: 0 };
     }
   }
 

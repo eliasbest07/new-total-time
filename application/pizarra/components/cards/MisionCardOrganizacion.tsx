@@ -269,7 +269,6 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
         updateCard(card.id, {
           misionData: {
-            ...misionData,
             misionActivaId: misionActivaInicial.id,
             estado: misionActivaInicial.estado,
             isRunning: misionActivaInicial.is_running || false
@@ -297,16 +296,24 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           return;
         }
 
+        console.log('📡 [MISION ORG CARD] Actualización recibida:', {
+          id_referencia: updatedMision.id_referencia,
+          estado: updatedMision.estado,
+          is_running: updatedMision.is_running
+        });
+
         // Actualizar el card con los datos de misiones_activas
         // CardFactory hará merge profundo automáticamente
+        // Usar solo los campos que vienen de misiones_activas, sin spread de misionData antiguo
         updateCard(card.id, {
           misionData: {
-            ...misionData,
             misionActivaId: updatedMision.id,
             estado: updatedMision.estado,
             isRunning: updatedMision.is_running || false
           }
         });
+
+        console.log('✅ [MISION ORG CARD] Card actualizado con nuevo estado');
 
         // Actualizar capture_now
         if (updatedMision.capture_now !== null) {
@@ -787,8 +794,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           )}
         </div>
 
-        {/* Botón de captura */}
-        {(misionData.misionActivaId || (misionData.id_mision && currentUserId)) && (
+        {/* Botón de captura - Solo visible si la misión está corriendo */}
+        {misionData.isRunning && (misionData.misionActivaId || (misionData.id_mision && currentUserId)) && (
           <button
             onClick={handleRequestCapture}
             className={`${

@@ -25,7 +25,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
   const [loadingCapturas, setLoadingCapturas] = useState(false);
   const [currentCaptureIndex, setCurrentCaptureIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [misionesActivas, setMisionesActivas] = useState<Record<number, { estado: string; isRunning: boolean }>>({});
+  const [misionesActivas, setMisionesActivas] = useState<Record<number, { estado: string; isRunning: boolean; fechaUltimoCapture?: string | null }>>({});
 
   const loading = loadingUsuarios || loadingMisiones;
 
@@ -45,7 +45,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
       // Cargar estado inicial de todas las misiones
       const { data: misionesActivasData, error: loadError } = await supabase
         .from('misiones_activas')
-        .select('id_referencia, estado, is_running')
+        .select('id_referencia, estado, is_running, fecha_ultimo_capture')
         .eq('tipo', 'mision')
         .in('id_referencia', misiones.map(m => m.id));
 
@@ -55,11 +55,12 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
       }
 
       // Construir objeto con el estado de cada misión
-      const estadoMisiones: Record<number, { estado: string; isRunning: boolean }> = {};
+      const estadoMisiones: Record<number, { estado: string; isRunning: boolean; fechaUltimoCapture?: string | null }> = {};
       misionesActivasData?.forEach(ma => {
         estadoMisiones[ma.id_referencia] = {
           estado: ma.estado || 'pendiente',
-          isRunning: ma.is_running || false
+          isRunning: ma.is_running || false,
+          fechaUltimoCapture: ma.fecha_ultimo_capture || null
         };
       });
 
@@ -91,10 +92,26 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                 ...prev,
                 [idReferencia]: {
                   estado: updatedMision.estado || 'pendiente',
-                  isRunning: updatedMision.is_running || false
+                  isRunning: updatedMision.is_running || false,
+                  fechaUltimoCapture: updatedMision.fecha_ultimo_capture || null
                 }
               }));
               console.log('🔄 [MisionesOrganizacion] Estado actualizado para misión:', idReferencia);
+
+              // 📌 ACTUALIZAR CARD EN LA PIZARRA
+              if (pizarraRef?.current?.findCardByMisionId && pizarraRef?.current?.updateCard) {
+                const cardId = pizarraRef.current.findCardByMisionId(idReferencia);
+                if (cardId) {
+                  console.log('🔄 [MisionesOrganizacion] Actualizando card en pizarra:', cardId);
+                  pizarraRef.current.updateCard(cardId, {
+                    misionData: {
+                      estado: updatedMision.estado || 'pendiente',
+                      isRunning: updatedMision.is_running || false
+                    }
+                  });
+                  console.log('✅ [MisionesOrganizacion] Card actualizado en pizarra');
+                }
+              }
             }
           }
         )
@@ -250,6 +267,39 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
             const estadoMision = misionesActivas[mision.id];
             const isEnProgreso = estadoMision?.estado === 'en_progreso' || estadoMision?.isRunning;
 
+            // Formatear fecha de último capture
+            const formatFechaCapture = (fecha: string | null | undefined) => {
+              if (!fecha) return null;
+              const date = new Date(fecha);
+              const now = new Date();
+              const diffMs = now.getTime() - date.getTime();
+              const diffMins = Math.floor(diffMs / 60000);
+
+              // Si fue hace menos de 1 hora, mostrar "hace X min"
+              if (diffMins < 60) {
+                return `Hace ${diffMins} min`;
+              }
+
+              // Si fue hoy, mostrar solo la hora
+              const isToday = date.toDateString() === now.toDateString();
+              if (isToday) {
+                return date.toLocaleTimeString('es-ES', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+              }
+
+              // Si fue otro día, mostrar fecha y hora
+              return date.toLocaleString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+            };
+
+            const fechaCaptureTexto = formatFechaCapture(estadoMision?.fechaUltimoCapture);
+
             return (
               <div
                 key={mision.id}
@@ -299,6 +349,14 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                       </div>
                     )}
                   </div>
+                  {/* Fecha de último capture */}
+                  {fechaCaptureTexto && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-[10px] text-gray-500" title={`Última captura: ${new Date(estadoMision?.fechaUltimoCapture || '').toLocaleString('es-ES')}`}>
+                        📸 {fechaCaptureTexto}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             );

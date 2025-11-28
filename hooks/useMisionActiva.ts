@@ -228,15 +228,15 @@ export const useMisionActiva = () => {
   }, []);
 
   /**
-   * Verificar y actualizar misiones inactivas (sin capturas en más de 6 minutos)
+   * Verificar y actualizar misiones inactivas (sin capturas en más de 5:30 minutos)
    */
   const verificarMisionesInactivas = useCallback(async () => {
     try {
-      const actualizadas = await misionActivaRepository.verificarYActualizarMisionesInactivas();
-      return actualizadas;
+      const resultado = await misionActivaRepository.verificarYActualizarMisionesInactivas();
+      return resultado;
     } catch (err) {
       setError((err as Error).message);
-      return 0;
+      return { total: 0, desactivadas: 0, activas: 0 };
     }
   }, []);
 

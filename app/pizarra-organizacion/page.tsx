@@ -73,24 +73,41 @@ export default function PizarraOrganizacionPage() {
     setIsReady(true);
   }, [usuario, idOrganizacion]);
 
-  // Verificar periódicamente misiones inactivas (cada 2 minutos)
+  // Verificar periódicamente misiones inactivas (cada 6 minutos, alineado con intervalo de capturas)
   useEffect(() => {
     if (!isReady || !pizarra) return;
 
     console.log('🔄 [PizarraOrg] Iniciando verificación periódica de misiones inactivas');
 
-    // Ejecutar inmediatamente al montar
-    verificarMisionesInactivas();
+    let intervalo: NodeJS.Timeout | null = null;
 
-    // Luego cada 2 minutos
-    const intervalo = setInterval(() => {
-      console.log('🔄 [PizarraOrg] Verificando misiones inactivas...');
-      verificarMisionesInactivas();
-    }, 2 * 60 * 1000); // 2 minutos
+    const ejecutarVerificacion = async () => {
+      console.log('🔍 [PizarraOrg] Verificando misiones inactivas...');
+      const resultado = await verificarMisionesInactivas();
+
+      console.log(`📊 [PizarraOrg] Resultado: ${resultado.activas} activas, ${resultado.desactivadas} desactivadas`);
+
+      // Si no hay misiones activas (is_running = false en todas), detener el intervalo
+      if (resultado.activas === 0) {
+        console.log('✅ [PizarraOrg] No hay misiones activas, deteniendo verificación periódica');
+        if (intervalo) {
+          clearInterval(intervalo);
+          intervalo = null;
+        }
+      }
+    };
+
+    // Ejecutar inmediatamente al montar
+    ejecutarVerificacion();
+
+    // Luego cada 6 minutos (alineado con el intervalo de capturas de 5 min + margen)
+    intervalo = setInterval(ejecutarVerificacion, 6 * 60 * 1000); // 6 minutos
 
     return () => {
       console.log('🔕 [PizarraOrg] Deteniendo verificación periódica de misiones inactivas');
-      clearInterval(intervalo);
+      if (intervalo) {
+        clearInterval(intervalo);
+      }
     };
   }, [isReady, pizarra, verificarMisionesInactivas]);
 
