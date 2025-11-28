@@ -20,14 +20,79 @@ export default function ActividadesOrganizacion() {
   const [loadingCapturas, setLoadingCapturas] = useState(false);
   const [currentCaptureIndex, setCurrentCaptureIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [actividadesTiempos, setActividadesTiempos] = useState<Map<number, number>>(new Map());
 
   const loading = loadingUsuarios || loadingActividades;
+
+  // Función para calcular tiempo restante hasta el inicio de la actividad
+  const calculateTimeUntilStart = (horaInicio: string | null) => {
+    if (!horaInicio) return 0;
+
+    try {
+      const targetDateTime = new Date(horaInicio);
+
+      if (isNaN(targetDateTime.getTime())) {
+        return 0;
+      }
+
+      const now = new Date();
+      const diffInMs = targetDateTime.getTime() - now.getTime();
+      const diffInSeconds = Math.floor(diffInMs / 1000);
+
+      return diffInSeconds > 0 ? diffInSeconds : 0;
+    } catch (error) {
+      console.error('Error parsing hora_inicio:', horaInicio, error);
+      return 0;
+    }
+  };
+
+  // Función para formatear tiempo en HH:MM o MM
+  const formatTime = (seconds: number) => {
+    if (seconds < 0) {
+      return '--:--';
+    }
+
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}`;
+    }
+    return `${mins.toString().padStart(2, '0')}`;
+  };
 
   console.log('📅 [ActividadesOrganizacion] usuarios:', usuarios.length);
   console.log('📅 [ActividadesOrganizacion] loading:', loading);
   console.log('📅 [ActividadesOrganizacion] error:', error);
   console.log('📅 [ActividadesOrganizacion] actividades:', actividades);
   console.log('📅 [ActividadesOrganizacion] actividades.length:', actividades?.length);
+
+  // Actualizar tiempos cada segundo
+  useEffect(() => {
+    if (!actividades || actividades.length === 0) return;
+
+    // Inicializar tiempos
+    const nuevosTimpos = new Map<number, number>();
+    actividades.forEach(act => {
+      if (act.hora_inicio) {
+        nuevosTimpos.set(act.id, calculateTimeUntilStart(act.hora_inicio));
+      }
+    });
+    setActividadesTiempos(nuevosTimpos);
+
+    // Actualizar cada segundo
+    const interval = setInterval(() => {
+      const tiemposActualizados = new Map<number, number>();
+      actividades.forEach(act => {
+        if (act.hora_inicio) {
+          tiemposActualizados.set(act.id, calculateTimeUntilStart(act.hora_inicio));
+        }
+      });
+      setActividadesTiempos(tiemposActualizados);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [actividades]);
 
   // Cargar capturas cuando se selecciona una actividad
   useEffect(() => {
@@ -165,6 +230,7 @@ export default function ActividadesOrganizacion() {
           `}</style>
           {actividades.map((actividad) => {
             const usuarioAsignado = getUsuarioInfo(actividad.id_usuario);
+            const tiempoRestante = actividadesTiempos.get(actividad.id) || 0;
 
             return (
               <div
@@ -178,12 +244,19 @@ export default function ActividadesOrganizacion() {
                   <p className="text-xs font-medium text-gray-900 truncate">
                     {actividad.descripcion || 'Sin descripción'}
                   </p>
-                  <div className="flex items-center justify-between gap-1">
-                    {actividad.cant_horas && actividad.cant_horas > 0 && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full w-fit bg-orange-200 text-orange-700">
-                        {actividad.cant_horas}h
-                      </span>
-                    )}
+                  <div className="flex items-center justify-between gap-1 flex-wrap">
+                    <div className="flex items-center gap-1">
+                      {actividad.cant_horas && actividad.cant_horas > 0 && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full w-fit bg-orange-200 text-orange-700">
+                          {actividad.cant_horas}h
+                        </span>
+                      )}
+                      {actividad.hora_inicio && tiempoRestante > 0 && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full w-fit bg-blue-200 text-blue-700 font-mono">
+                          ⏱️ {formatTime(tiempoRestante)}
+                        </span>
+                      )}
+                    </div>
                     {actividad.fecha && (
                       <span className="text-[10px] text-gray-500">
                         {new Date(actividad.fecha).toLocaleDateString('es-ES', {
