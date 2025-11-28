@@ -89,6 +89,22 @@ export default function ActividadesOrganizacion() {
     setShowActividadModal(true);
   };
 
+  const handleDragStart = (e: React.DragEvent, actividad: Actividad) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'actividad-organizacion',
+      id_actividad: actividad.id,
+      descripcion: actividad.descripcion,
+      fecha: actividad.fecha,
+      hora_inicio: actividad.hora_inicio,
+      cant_horas: actividad.cant_horas,
+      link: actividad.link,
+      id_usuario: actividad.id_usuario,
+      id_proyecto: actividad.id_proyecto,
+      tiempo_dedicado: actividad.tiempo_dedicado
+    }));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
   if (loading) {
     console.log('📅 [ActividadesOrganizacion] Mostrando loading...');
     return (
@@ -153,8 +169,10 @@ export default function ActividadesOrganizacion() {
             return (
               <div
                 key={actividad.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, actividad)}
                 onClick={() => handleActividadClick(actividad)}
-                className="w-full text-left p-2 border rounded-lg transition-colors cursor-pointer bg-gray-50 hover:bg-gray-100 border-gray-200"
+                className="w-full text-left p-2 border rounded-lg transition-colors cursor-move bg-gray-50 hover:bg-gray-100 border-gray-200"
               >
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-medium text-gray-900 truncate">

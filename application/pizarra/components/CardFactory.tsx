@@ -4,6 +4,7 @@ import { ActivityCard } from './cards/ActivityCard';
 import { TodoCard } from './cards/TodoCard';
 import { MisionCard } from './cards/MisionCard';
 import { MisionCardOrganizacion } from './cards/MisionCardOrganizacion';
+import { ActividadCardOrganizacion } from './cards/ActividadCardOrganizacion';
 import { UsuarioCard } from './cards/UsuarioCard';
 import { ProyectoCard } from './cards/ProyectoCard';
 import { ProyectoCardOrganizacion } from './cards/ProyectoCardOrganizacion';
@@ -165,6 +166,20 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           addConnection={props.addConnection}
           addMisionCardOrganizacion={props.addMisionCardOrganizacion}
           cards={props.cards}
+        />
+      );
+
+    case 'actividad-organizacion':
+      return (
+        <ActividadCardOrganizacion
+          card={card}
+          updateCard={(cardId, updates) => {
+            props.setCards((prevCards) =>
+              prevCards.map((c) => (c.id === cardId ? { ...c, ...updates } : c))
+            );
+          }}
+          usuarios={props.usuarios}
+          currentUserId={props.currentUserId}
         />
       );
 

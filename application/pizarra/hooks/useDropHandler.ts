@@ -234,6 +234,38 @@ export const useDropHandler = (
 
           return;
         }
+        // ACTIVIDAD ORGANIZACIÓN
+        else if (resource.type === 'actividad-organizacion') {
+          console.log('📅 [PIZARRA DROP] Detectado ACTIVIDAD ORGANIZACIÓN');
+          console.log('📅 [PIZARRA DROP] Datos de actividad recibidos:', resource);
+
+          const newActividadCardId = generateUniqueId('actividad-org', existingIds);
+
+          setCards(prev => [...prev, {
+            id: newActividadCardId,
+            type: 'actividad-organizacion',
+            title: resource.descripcion || 'Nueva Actividad',
+            content: `📅 ${resource.fecha ? new Date(resource.fecha).toLocaleDateString('es-ES') : 'Sin fecha'}\n⏰ ${resource.hora_inicio ? new Date(resource.hora_inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Sin hora'}\n⌛ ${resource.cant_horas || 0}h estimadas${resource.link ? `\n🔗 ${resource.link}` : ''}`,
+            x, y,
+            width: 350,
+            height: 300,
+            fontSize: 14,
+            actividadData: {
+              id_actividad: resource.id_actividad,
+              descripcion: resource.descripcion || 'Nueva Actividad',
+              fecha: resource.fecha,
+              hora_inicio: resource.hora_inicio,
+              cant_horas: resource.cant_horas,
+              link: resource.link,
+              id_usuario: resource.id_usuario,
+              id_proyecto: resource.id_proyecto,
+              tiempo_dedicado: resource.tiempo_dedicado
+            }
+          }]);
+          console.log('✅ [PIZARRA DROP] Card de actividad organización creada');
+
+          return;
+        }
         // MISIÓN (legacy)
         else if (resource.title && resource.hours !== undefined) {
           console.log('🎯 [PIZARRA DROP] Detectado MISIÓN (legacy)');

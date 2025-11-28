@@ -88,6 +88,18 @@ export interface RecursoData {
   color: string;
 }
 
+export interface ActividadOrganizacionData {
+  id_actividad: string;
+  descripcion: string;
+  fecha: string | null;
+  hora_inicio: string | null;
+  cant_horas: number | null;
+  link: string | null;
+  id_usuario: string;
+  id_proyecto: number | null;
+  tiempo_dedicado: number | null;
+}
+
 export interface Card {
   id: string;
   type: string;
@@ -105,6 +117,7 @@ export interface Card {
   usuarioData?: UsuarioData;
   proyectoData?: ProyectoData;
   recursoData?: RecursoData;
+  actividadData?: ActividadOrganizacionData;
   imageUrl?: string; // URL de la imagen guardada en Supabase Storage
 }
 
