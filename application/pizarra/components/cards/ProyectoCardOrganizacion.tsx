@@ -337,33 +337,39 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   return (
     <div className="flex flex-col h-full w-full bg-gray-200 rounded-xl shadow-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-white px-4 py-4 border-b border-gray-200">
-        {/* Título e Icono */}
-        <div className="flex items-center gap-3 mb-3">
-          {cleanIcono && (
-            <div className="flex-shrink-0">
-              {cleanIcono.startsWith('http') ? (
-                <div className="w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-md border-2 border-yellow-400">
-                  <img
-                    src={cleanIcono}
-                    alt={card.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      const parent = e.currentTarget.parentElement;
-                      if (parent) {
-                        parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-2xl">📁</div>';
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-300 to-yellow-500 flex items-center justify-center text-2xl shadow-md border-2 border-yellow-400">
-                  {cleanIcono}
-                </div>
-              )}
+      <div className="bg-white px-4 py-4 border-b border-gray-200 relative">
+        {/* Icono en esquina superior derecha */}
+        <div className="absolute top-4 right-4 flex-shrink-0">
+          {cleanIcono ? (
+            cleanIcono.startsWith('http') ? (
+              <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-700 shadow-md border-2 border-gray-600">
+                <img
+                  src={cleanIcono}
+                  alt={card.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-2xl">📁</div>';
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="w-14 h-14 rounded-xl bg-gray-700 flex items-center justify-center text-2xl shadow-md border-2 border-gray-600">
+                {cleanIcono}
+              </div>
+            )
+          ) : (
+            <div className="w-14 h-14 rounded-xl bg-gray-700 flex items-center justify-center text-2xl shadow-md border-2 border-gray-600">
+              📁
             </div>
           )}
+        </div>
+
+        {/* Título */}
+        <div className="flex items-center gap-3 mb-3 pr-20">
           <div className="flex-1 min-w-0">
             {editingTitle === card.id ? (
               <input
