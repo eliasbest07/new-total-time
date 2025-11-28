@@ -227,6 +227,19 @@ export const useMisionActiva = () => {
     return misionActivaRepository.subscribeToMisionActivaByReferencia(tipo, idReferencia, onUpdate);
   }, []);
 
+  /**
+   * Verificar y actualizar misiones inactivas (sin capturas en más de 6 minutos)
+   */
+  const verificarMisionesInactivas = useCallback(async () => {
+    try {
+      const actualizadas = await misionActivaRepository.verificarYActualizarMisionesInactivas();
+      return actualizadas;
+    } catch (err) {
+      setError((err as Error).message);
+      return 0;
+    }
+  }, []);
+
   return {
     misionActiva,
     loading,
@@ -240,6 +253,7 @@ export const useMisionActiva = () => {
     getMisionesEntregadas,
     updateCaptureNow,
     subscribeToMisionActiva,
-    subscribeToMisionActivaByReferencia
+    subscribeToMisionActivaByReferencia,
+    verificarMisionesInactivas
   };
 };

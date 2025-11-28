@@ -1,17 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, SubtareaMision, TodoItem } from '../../types';
-import { User, Plus, X, ChevronDown, ChevronUp, Camera, ExternalLink, Eye } from 'lucide-react';
+import { User, Plus, X, ChevronDown, ChevronUp, Camera, ExternalLink } from 'lucide-react';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useCardTodos } from '@/hooks/useCardTodos';
 import { misionActivaRepository } from '@/infrastructure/datasource/SupabaseMisionActivaRepository';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
-import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
-import { Capture } from '@/domain/entities/Capture';
-import Ventana from '@/app/demo/components/Ventana';
-import { useAuth } from '@/app/contexts/AuthContext';
-
-const captureRepository = new CaptureRepositorySupabase();
 
 interface MisionCardOrganizacionProps {
   card: Card;
@@ -49,18 +43,12 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   const [captureNow, setCaptureNow] = useState<string | null>(null);
   const [showCaptureNotification, setShowCaptureNotification] = useState(false);
 
-  // Estados para ventana de detalles
-  const [showMisionDetails, setShowMisionDetails] = useState(false);
-  const [misionCaptures, setMisionCaptures] = useState<Capture[]>([]);
-  const [loadingMisionCaptures, setLoadingMisionCaptures] = useState(false);
-
-  const { usuario } = useAuth();
-
   const {
     updateCaptureNow,
     subscribeToMisionActiva,
     subscribeToMisionActivaByReferencia,
-    getOrCreateMisionActiva
+    getOrCreateMisionActiva,
+    verificarMisionesInactivas
   } = useMisionActiva();
 
   const { updateMision } = useMisiones(null);
@@ -258,6 +246,11 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     const cargarEstadoInicial = async () => {
       if (!card.misionData?.id_mision) return;
 
+      // 1. Primero verificar y actualizar misiones inactivas
+      console.log('🔍 [MISION ORG] Verificando misiones inactivas antes de cargar estado...');
+      await verificarMisionesInactivas();
+
+      // 2. Luego cargar el estado actualizado
       const misionActivaInicial = await misionActivaRepository.getByTipoAndReferenciaOnly(
         'mision',
         card.misionData.id_mision
@@ -270,7 +263,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           estado: misionActivaInicial.estado,
           is_running: misionActivaInicial.is_running,
           id_usuario_asignado: misionActivaInicial.id_usuario_asignado,
-          capture_now: misionActivaInicial.capture_now
+          capture_now: misionActivaInicial.capture_now,
+          fecha_ultimo_capture: misionActivaInicial.fecha_ultimo_capture
         });
 
         updateCard(card.id, {
@@ -621,83 +615,6 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     }
   };
 
-  // Función para manejar la apertura de detalles y cargar capturas
-  const handleShowDetails = async () => {
-    setShowMisionDetails(true);
-
-    // Cargar capturas de esta misión (igual que en MainScreen)
-    setLoadingMisionCaptures(true);
-    try {
-      console.log('📸 [MisionCardOrg] ====== INICIO DEBUG CAPTURAS ======');
-      console.log('📸 [MisionCardOrg] Usuario completo:', usuario);
-      console.log('📸 [MisionCardOrg] usuario.id:', usuario?.id);
-      console.log('📸 [MisionCardOrg] usuario.userAuth:', usuario?.userAuth);
-      console.log('📸 [MisionCardOrg] MisionData completo:', misionData);
-      console.log('📸 [MisionCardOrg] misionData.id_mision:', misionData.id_mision);
-      console.log('📸 [MisionCardOrg] misionData.id_usuario_asignado:', misionData.id_usuario_asignado);
-
-      // IMPORTANTE: Las capturas podrían estar asociadas al usuario asignado, no al usuario actual
-      // Vamos a buscar con ambos IDs
-      const userIdForCaptures = usuario?.id;
-      const assignedUserId = misionData.id_usuario_asignado;
-
-      if (!userIdForCaptures && !assignedUserId) {
-        console.log(`📸 [MisionCardOrg] No hay usuario.id ni id_usuario_asignado disponible`);
-        setMisionCaptures([]);
-        return;
-      }
-
-      const misionId = misionData.id_mision;
-      if (!misionId) {
-        console.log(`📸 [MisionCardOrg] No hay id_mision disponible`);
-        setMisionCaptures([]);
-        return;
-      }
-
-      console.log(`📸 [MisionCardOrg] Intentando buscar capturas...`);
-      console.log(`📸 [MisionCardOrg] - Con usuario actual: ${userIdForCaptures}`);
-      console.log(`📸 [MisionCardOrg] - Con usuario asignado: ${assignedUserId}`);
-      console.log(`📸 [MisionCardOrg] - id_bloque (id_mision): ${misionId}`);
-
-      // Primero intentar con el usuario actual
-      let captures: Capture[] = [];
-
-      if (userIdForCaptures) {
-        console.log(`📸 [MisionCardOrg] Buscando con usuario actual: ${userIdForCaptures}`);
-        captures = await captureRepository.getByUsuarioAndBloque(String(userIdForCaptures), String(misionId));
-        console.log(`📸 [MisionCardOrg] Capturas encontradas con usuario actual: ${captures.length}`);
-      }
-
-      // Si no encontró capturas y hay un usuario asignado diferente, intentar con ese
-      if (captures.length === 0 && assignedUserId && assignedUserId !== userIdForCaptures) {
-        console.log(`📸 [MisionCardOrg] Buscando con usuario asignado: ${assignedUserId}`);
-        captures = await captureRepository.getByUsuarioAndBloque(String(assignedUserId), String(misionId));
-        console.log(`📸 [MisionCardOrg] Capturas encontradas con usuario asignado: ${captures.length}`);
-      }
-
-      // Si aún no hay capturas, intentar buscar solo por bloque (todas las capturas de esta misión)
-      if (captures.length === 0) {
-        console.log(`📸 [MisionCardOrg] Buscando TODAS las capturas del bloque: ${misionId}`);
-        captures = await captureRepository.getByBloque(String(misionId));
-        console.log(`📸 [MisionCardOrg] Capturas totales encontradas en el bloque: ${captures.length}`);
-
-        if (captures.length > 0) {
-          console.log('📸 [MisionCardOrg] IDs de usuario en las capturas encontradas:',
-            captures.map(c => c.id_usuario).filter((v, i, a) => a.indexOf(v) === i));
-        }
-      }
-
-      console.log(`📸 [MisionCardOrg] ====== RESULTADO FINAL: ${captures.length} capturas ======`);
-
-      setMisionCaptures(captures);
-    } catch (error) {
-      console.error('📸 [MisionCardOrg] Error cargando capturas de misión:', error);
-      setMisionCaptures([]);
-    } finally {
-      setLoadingMisionCaptures(false);
-    }
-  };
-
   // Colores según estado
   const getEstadoColor = () => {
     switch (misionData.estado) {
@@ -870,41 +787,28 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           )}
         </div>
 
-        {/* Botones de acción */}
-        <div className="flex gap-1">
-          {/* Botón ver detalles */}
+        {/* Botón de captura */}
+        {(misionData.misionActivaId || (misionData.id_mision && currentUserId)) && (
           <button
-            onClick={handleShowDetails}
-            className="bg-purple-500 hover:bg-purple-600 text-white rounded-full p-2 transition-all"
+            onClick={handleRequestCapture}
+            className={`${
+              misionData.misionActivaId
+                ? 'bg-blue-500 hover:bg-blue-600'
+                : 'bg-gray-400 hover:bg-gray-500'
+            } text-white rounded-full p-2 transition-all relative`}
             data-todo-interactive
-            title="Ver detalles y capturas"
+            title={
+              misionData.misionActivaId
+                ? "Solicitar captura de pantalla"
+                : "Asignar usuario para habilitar capturas"
+            }
           >
-            <Eye size={14} />
+            <Camera size={14} />
+            {showCaptureNotification && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-ping" />
+            )}
           </button>
-
-          {/* Botón de captura */}
-          {(misionData.misionActivaId || (misionData.id_mision && currentUserId)) && (
-            <button
-              onClick={handleRequestCapture}
-              className={`${
-                misionData.misionActivaId
-                  ? 'bg-blue-500 hover:bg-blue-600'
-                  : 'bg-gray-400 hover:bg-gray-500'
-              } text-white rounded-full p-2 transition-all relative`}
-              data-todo-interactive
-              title={
-                misionData.misionActivaId
-                  ? "Solicitar captura de pantalla"
-                  : "Asignar usuario para habilitar capturas"
-              }
-            >
-              <Camera size={14} />
-              {showCaptureNotification && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-ping" />
-              )}
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Notificación de captura */}
@@ -1088,132 +992,6 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           </div>
         )}
       </div>
-
-      {/* Ventana de detalles de misión */}
-      <Ventana
-        isOpen={showMisionDetails}
-        onClose={() => setShowMisionDetails(false)}
-        title={`Detalles del Ticket: ${misionData.title || 'Sin nombre'}`}
-        initialWidth={600}
-        initialHeight={500}
-        minWidth={500}
-        minHeight={400}
-        showOverlay={false}
-      >
-        <div className="text-black space-y-6 p-4">
-          {/* Nombre */}
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Nombre</h3>
-            <p className="text-gray-700 text-xl font-medium">{misionData.title || 'Sin nombre'}</p>
-          </div>
-
-          {/* Descripción */}
-          {misionData.description && (
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Descripción</h3>
-              <div className="bg-gray-100 p-3 rounded-lg">
-                <p className="text-gray-700 whitespace-pre-wrap">{misionData.description}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Horas */}
-          {misionData.hours && misionData.hours > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Duración Estimada</h3>
-              <div className="bg-green-100 p-3 rounded-lg">
-                <p className="font-medium text-green-800 text-xl">{misionData.hours} horas</p>
-              </div>
-            </div>
-          )}
-
-          {/* Estado */}
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Estado</h3>
-            <div className="bg-yellow-100 p-3 rounded-lg">
-              <p className="font-medium text-yellow-800">{getEstadoText()}</p>
-            </div>
-          </div>
-
-          {/* Usuario asignado */}
-          {misionData.usuario_asignado_nombre && (
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Asignado a</h3>
-              <div className="bg-indigo-100 p-3 rounded-lg">
-                <div className="flex items-center gap-3">
-                  {misionData.usuario_asignado_avatar ? (
-                    <img
-                      src={misionData.usuario_asignado_avatar}
-                      alt={misionData.usuario_asignado_nombre}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                      {misionData.usuario_asignado_nombre.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div>
-                    <p className="font-medium text-indigo-900">{misionData.usuario_asignado_nombre}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Capturas de pantalla */}
-          <div>
-            <h3 className="text-lg font-semibold mb-2">
-              Capturas ({misionCaptures.length}) - Tiempo: {misionCaptures.length * 5} min
-            </h3>
-            {loadingMisionCaptures ? (
-              <div className="flex items-center justify-center py-4">
-                <div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-              </div>
-            ) : misionCaptures.length === 0 ? (
-              <div className="bg-gray-100 p-3 rounded-lg text-center">
-                <p className="text-gray-500 text-sm">No hay capturas para esta misión</p>
-                <p className="text-gray-400 text-xs mt-1">ID buscado (id_bloque): "{misionData.id_mision}"</p>
-                <p className="text-gray-400 text-xs">Las capturas aparecerán cuando se soliciten durante la misión</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                {misionCaptures.map((capture) => (
-                  <div key={capture.id} className="relative group">
-                    <img
-                      src={capture.img_url || '/placeholder-image.png'}
-                      alt={`Captura ${capture.id}`}
-                      className="w-full h-20 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        capture.img_url && window.open(capture.img_url, '_blank');
-                      }}
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-white text-[10px] px-1 py-0.5 rounded-b">
-                      <p className="truncate">
-                        {new Date(capture.created_at).toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })} | M:{capture.id_bloque}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ID de referencia */}
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Información técnica</h3>
-            <div className="bg-gray-100 p-3 rounded-lg">
-              <p className="text-gray-600 text-sm">ID Misión: {misionData.id_mision}</p>
-              {misionData.id_usuario_asignado && (
-                <p className="text-gray-600 text-sm">ID Usuario: {misionData.id_usuario_asignado}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </Ventana>
     </div>
   );
 };

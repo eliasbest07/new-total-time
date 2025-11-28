@@ -495,6 +495,112 @@ export class SupabaseMisionActivaRepository {
     return channel;
   }
 
+  /**
+   * Verificar y actualizar el estado de misiones que aparentan estar activas
+   * pero no han tenido capturas en más de 6 minutos
+   * Retorna el número de misiones que fueron actualizadas
+   */
+  async verificarYActualizarMisionesInactivas(): Promise<number> {
+    try {
+      console.log('🔍 [VERIFICAR] Buscando misiones con is_running = true');
+
+      // 1. Obtener todas las misiones que aparentan estar activas
+      const { data: misionesActivas, error: queryError } = await supabase
+        .from('misiones_activas')
+        .select('*')
+        .eq('is_running', true);
+
+      if (queryError) {
+        console.error('❌ Error consultando misiones activas:', queryError);
+        return 0;
+      }
+
+      if (!misionesActivas || misionesActivas.length === 0) {
+        console.log('ℹ️ [VERIFICAR] No hay misiones con is_running = true');
+        return 0;
+      }
+
+      console.log(`📊 [VERIFICAR] Encontradas ${misionesActivas.length} misiones con is_running = true`);
+
+      const ahora = new Date();
+      const SEIS_MINUTOS_MS = 6 * 60 * 1000; // 6 minutos en milisegundos
+      let misionesActualizadas = 0;
+
+      // 2. Verificar cada misión
+      for (const mision of misionesActivas) {
+        // Si no tiene fecha_ultimo_capture, verificar cuánto tiempo lleva en estado is_running
+        if (!mision.fecha_ultimo_capture) {
+          // Usar fecha_inicio o updated_at como referencia
+          const fechaReferencia = mision.fecha_inicio || mision.updated_at;
+          if (!fechaReferencia) {
+            console.warn('⚠️ [VERIFICAR] Misión sin fechas de referencia, saltando:', mision.id);
+            continue;
+          }
+
+          const tiempoTranscurrido = ahora.getTime() - new Date(fechaReferencia).getTime();
+
+          if (tiempoTranscurrido > SEIS_MINUTOS_MS) {
+            console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) sin capturas y más de 6 min desde inicio`);
+            await this.desactivarMision(mision.id);
+            misionesActualizadas++;
+          }
+          continue;
+        }
+
+        // 3. Calcular tiempo desde último capture
+        const fechaUltimoCapture = new Date(mision.fecha_ultimo_capture);
+        const tiempoDesdeUltimoCapture = ahora.getTime() - fechaUltimoCapture.getTime();
+
+        // 4. Si pasaron más de 6 minutos, actualizar a inactiva
+        if (tiempoDesdeUltimoCapture > SEIS_MINUTOS_MS) {
+          console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) inactiva detectada:`, {
+            ultimo_capture: mision.fecha_ultimo_capture,
+            tiempo_transcurrido_min: Math.round(tiempoDesdeUltimoCapture / 60000)
+          });
+
+          await this.desactivarMision(mision.id);
+          misionesActualizadas++;
+        }
+      }
+
+      if (misionesActualizadas > 0) {
+        console.log(`✅ [VERIFICAR] ${misionesActualizadas} misiones actualizadas a is_running = false`);
+      } else {
+        console.log('✅ [VERIFICAR] Todas las misiones activas están capturando correctamente');
+      }
+
+      return misionesActualizadas;
+    } catch (error) {
+      console.error('❌ Error en verificarYActualizarMisionesInactivas:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Desactivar una misión (poner is_running = false)
+   */
+  private async desactivarMision(idMisionActiva: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('misiones_activas')
+        .update({
+          is_running: false,
+          estado: 'pausada',
+          fecha_pausa: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', idMisionActiva);
+
+      if (error) {
+        console.error('❌ Error desactivando misión:', error);
+      } else {
+        console.log('✅ Misión desactivada:', idMisionActiva);
+      }
+    } catch (error) {
+      console.error('❌ Error en desactivarMision:', error);
+    }
+  }
+
 }
 
 // Exportar instancia singleton

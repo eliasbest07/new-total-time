@@ -59,7 +59,6 @@ interface CardWrapperProps {
   addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void;
   addMisionCardOrganizacion?: (misionData: any) => string | void;
   cards?: Card[];
-  onCrearMisionProyecto?: (proyectoId: number) => void;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -146,7 +145,6 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         addConnection={props.addConnection}
         addMisionCardOrganizacion={props.addMisionCardOrganizacion}
         cards={props.cards}
-        onCrearMisionProyecto={props.onCrearMisionProyecto}
       />
 
       {/* Connection point */}

@@ -10,11 +10,6 @@ import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { MisionActiva } from '@/domain/entities/MisionActiva';
 import { ChevronLeft, ChevronRight, Camera } from 'lucide-react';
-import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
-import { Capture } from '@/domain/entities/Capture';
-import { useAuth } from '@/app/contexts/AuthContext';
-
-const captureRepository = new CaptureRepositorySupabase();
 
 interface MisionesOrganizacionProps {
   pizarraRef?: React.RefObject<PizarraRef | null>;
@@ -23,11 +18,10 @@ interface MisionesOrganizacionProps {
 export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacionProps) {
   const { usuarios, loading: loadingUsuarios } = useUsuariosOrganizacionContext();
   const { misiones, loading: loadingMisiones, error } = useMisionesOrganizacion(usuarios);
-  const { usuario } = useAuth();
   const [selectedMision, setSelectedMision] = useState<MisionWithTodos | null>(null);
   const [showMisionModal, setShowMisionModal] = useState(false);
   const [misionActiva, setMisionActiva] = useState<MisionActiva | null>(null);
-  const [misionCaptures, setMisionCaptures] = useState<Capture[]>([]);
+  const [capturasUrls, setCapturasUrls] = useState<string[]>([]);
   const [loadingCapturas, setLoadingCapturas] = useState(false);
   const [currentCaptureIndex, setCurrentCaptureIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -115,89 +109,45 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
     loadMisionesActivas();
   }, [misiones]);
 
-  // Cargar capturas cuando se selecciona una misión (IGUAL QUE MisionCardOrganizacion)
+  // Cargar misión activa cuando se selecciona una misión
   useEffect(() => {
-    const loadCapturas = async () => {
+    const loadMisionActiva = async () => {
       if (!selectedMision || !showMisionModal) {
-        setMisionCaptures([]);
+        setMisionActiva(null);
+        setCapturasUrls([]);
         setCurrentCaptureIndex(0);
         return;
       }
 
-      setLoadingCapturas(true);
       try {
-        console.log('📸 [MisionesOrganizacion] ====== INICIO DEBUG CAPTURAS ======');
-        console.log('📸 [MisionesOrganizacion] Usuario completo:', usuario);
-        console.log('📸 [MisionesOrganizacion] usuario.id:', usuario?.id);
-        console.log('📸 [MisionesOrganizacion] usuario.userAuth:', usuario?.userAuth);
-        console.log('📸 [MisionesOrganizacion] SelectedMision:', selectedMision);
-        console.log('📸 [MisionesOrganizacion] selectedMision.id:', selectedMision.id);
-        console.log('📸 [MisionesOrganizacion] selectedMision.id_usuario:', selectedMision.id_usuario);
+        setLoadingCapturas(true);
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
 
-        // IMPORTANTE: Las capturas podrían estar asociadas al usuario asignado, no al usuario actual
-        const userIdForCaptures = usuario?.id;
-        const assignedUserId = selectedMision.id_usuario;
+        const { data, error } = await supabase
+          .from('misiones_activas')
+          .select('*')
+          .eq('tipo', 'mision')
+          .eq('id_referencia', selectedMision.id)
+          .maybeSingle();
 
-        if (!userIdForCaptures && !assignedUserId) {
-          console.log(`📸 [MisionesOrganizacion] No hay usuario.id ni id_usuario disponible`);
-          setMisionCaptures([]);
-          return;
+        if (error) {
+          console.error('Error cargando misión activa:', error);
+          setCapturasUrls([]);
+        } else {
+          setMisionActiva(data);
+          // TODO: Cargar capturas desde la tabla 'capture' si es necesario
+          setCapturasUrls([]);
+          console.log('📸 Misión activa cargada:', data);
         }
-
-        const misionId = selectedMision.id;
-        if (!misionId) {
-          console.log(`📸 [MisionesOrganizacion] No hay id de misión disponible`);
-          setMisionCaptures([]);
-          return;
-        }
-
-        console.log(`📸 [MisionesOrganizacion] Intentando buscar capturas...`);
-        console.log(`📸 [MisionesOrganizacion] - Con usuario actual: ${userIdForCaptures}`);
-        console.log(`📸 [MisionesOrganizacion] - Con usuario asignado: ${assignedUserId}`);
-        console.log(`📸 [MisionesOrganizacion] - id_bloque (misionId): ${misionId}`);
-
-        // Primero intentar con el usuario actual
-        let captures: Capture[] = [];
-
-        if (userIdForCaptures) {
-          console.log(`📸 [MisionesOrganizacion] Buscando con usuario actual: ${userIdForCaptures}`);
-          captures = await captureRepository.getByUsuarioAndBloque(String(userIdForCaptures), String(misionId));
-          console.log(`📸 [MisionesOrganizacion] Capturas encontradas con usuario actual: ${captures.length}`);
-        }
-
-        // Si no encontró capturas y hay un usuario asignado diferente, intentar con ese
-        if (captures.length === 0 && assignedUserId && assignedUserId !== userIdForCaptures) {
-          console.log(`📸 [MisionesOrganizacion] Buscando con usuario asignado: ${assignedUserId}`);
-          captures = await captureRepository.getByUsuarioAndBloque(String(assignedUserId), String(misionId));
-          console.log(`📸 [MisionesOrganizacion] Capturas encontradas con usuario asignado: ${captures.length}`);
-        }
-
-        // Si aún no hay capturas, intentar buscar solo por bloque (todas las capturas de esta misión)
-        if (captures.length === 0) {
-          console.log(`📸 [MisionesOrganizacion] Buscando TODAS las capturas del bloque: ${misionId}`);
-          captures = await captureRepository.getByBloque(String(misionId));
-          console.log(`📸 [MisionesOrganizacion] Capturas totales encontradas en el bloque: ${captures.length}`);
-
-          if (captures.length > 0) {
-            console.log('📸 [MisionesOrganizacion] IDs de usuario en las capturas encontradas:',
-              captures.map(c => c.id_usuario).filter((v, i, a) => a.indexOf(v) === i));
-          }
-        }
-
-        console.log(`📸 [MisionesOrganizacion] ====== RESULTADO FINAL: ${captures.length} capturas ======`);
-
-        setMisionCaptures(captures);
-        setCurrentCaptureIndex(0); // Reset al inicio cuando cambia la misión
       } catch (error) {
-        console.error('📸 [MisionesOrganizacion] Error cargando capturas de misión:', error);
-        setMisionCaptures([]);
+        console.error('Error cargando misión activa:', error);
       } finally {
         setLoadingCapturas(false);
       }
     };
 
-    loadCapturas();
-  }, [selectedMision, showMisionModal, usuario]);
+    loadMisionActiva();
+  }, [selectedMision, showMisionModal]);
 
   // Función para obtener información del usuario asignado
   const getUsuarioInfo = (idUsuario: number | null) => {
@@ -509,117 +459,92 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
               )}
 
               {/* Capturas de pantalla */}
-              <div>
-                <h3 className="text-lg font-semibold mb-2 text-gray-900 flex items-center gap-2">
-                  <Camera className="w-5 h-5" />
-                  Capturas de Pantalla ({misionCaptures.length}) - Tiempo: {misionCaptures.length * 5} min
-                </h3>
-                {loadingCapturas ? (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                  </div>
-                ) : misionCaptures.length === 0 ? (
-                  <div className="bg-gray-100 p-3 rounded-lg text-center">
-                    <p className="text-gray-500 text-sm">No hay capturas para esta misión</p>
-                    <p className="text-gray-400 text-xs mt-1">ID buscado (id_bloque): "{selectedMision.id}"</p>
-                    <p className="text-gray-400 text-xs">Las capturas aparecerán cuando se soliciten durante la misión</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* Navegación de capturas */}
-                    <div className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200">
-                      <button
-                        onClick={() => setCurrentCaptureIndex(Math.max(0, currentCaptureIndex - 1))}
-                        disabled={currentCaptureIndex === 0}
-                        className={`p-2 rounded-lg transition-colors ${
-                          currentCaptureIndex === 0
-                            ? 'text-gray-400 cursor-not-allowed'
-                            : 'text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        <ChevronLeft className="w-5 h-5" />
-                      </button>
-
-                      <span className="text-sm text-gray-600 font-medium">
-                        Captura {currentCaptureIndex + 1} de {misionCaptures.length}
-                      </span>
-
-                      <button
-                        onClick={() => setCurrentCaptureIndex(Math.min(misionCaptures.length - 1, currentCaptureIndex + 1))}
-                        disabled={currentCaptureIndex === misionCaptures.length - 1}
-                        className={`p-2 rounded-lg transition-colors ${
-                          currentCaptureIndex === misionCaptures.length - 1
-                            ? 'text-gray-400 cursor-not-allowed'
-                            : 'text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
+              {misionActiva && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2 text-gray-900 flex items-center gap-2">
+                    <Camera className="w-5 h-5" />
+                    Capturas de Pantalla
+                  </h3>
+                  {loadingCapturas ? (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <p className="text-gray-500 text-sm">Cargando capturas...</p>
                     </div>
-
-                    {/* Grid de capturas (3 columnas igual que MisionCardOrganizacion) */}
-                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                      {misionCaptures.map((capture, index) => (
-                        <div
-                          key={capture.id}
-                          className={`relative group cursor-pointer ${
-                            index === currentCaptureIndex ? 'ring-2 ring-blue-500' : ''
+                  ) : capturasUrls && capturasUrls.length > 0 ? (
+                    <div className="space-y-3">
+                      {/* Navegación de capturas */}
+                      <div className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200">
+                        <button
+                          onClick={() => setCurrentCaptureIndex(Math.max(0, currentCaptureIndex - 1))}
+                          disabled={currentCaptureIndex === 0}
+                          className={`p-2 rounded-lg transition-colors ${
+                            currentCaptureIndex === 0
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-gray-700 hover:bg-gray-200'
                           }`}
-                          onClick={() => setCurrentCaptureIndex(index)}
                         >
-                          <img
-                            src={capture.img_url || '/placeholder-image.png'}
-                            alt={`Captura ${index + 1}`}
-                            className="w-full h-20 object-cover rounded hover:opacity-80 transition-opacity"
-                          />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-white text-[10px] px-1 py-0.5 rounded-b">
-                            <p className="truncate">
-                              {new Date(capture.created_at).toLocaleTimeString('es-ES', {
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <span className="text-sm text-gray-600 font-medium">
+                          Captura {currentCaptureIndex + 1} de {capturasUrls.length}
+                        </span>
+
+                        <button
+                          onClick={() => setCurrentCaptureIndex(Math.min(capturasUrls.length - 1, currentCaptureIndex + 1))}
+                          disabled={currentCaptureIndex === capturasUrls.length - 1}
+                          className={`p-2 rounded-lg transition-colors ${
+                            currentCaptureIndex === capturasUrls.length - 1
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Imagen de captura */}
+                      <div
+                        className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setSelectedImage(capturasUrls[currentCaptureIndex])}
+                      >
+                        <img
+                          src={capturasUrls[currentCaptureIndex]}
+                          alt={`Captura ${currentCaptureIndex + 1}`}
+                          className="w-full h-auto object-contain"
+                          style={{ maxHeight: '400px' }}
+                        />
+                      </div>
+
+                      {/* Info adicional */}
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-blue-900 font-medium">Total de capturas:</span>
+                          <span className="text-blue-700 font-semibold">{capturasUrls.length}</span>
+                        </div>
+                        {misionActiva.fecha_ultimo_capture && (
+                          <div className="flex items-center justify-between text-sm mt-1">
+                            <span className="text-blue-900 font-medium">Última captura:</span>
+                            <span className="text-blue-700">
+                              {new Date(misionActiva.fecha_ultimo_capture).toLocaleString('es-ES', {
+                                day: '2-digit',
+                                month: 'short',
                                 hour: '2-digit',
                                 minute: '2-digit'
-                              })} | M:{capture.id_bloque}
-                            </p>
+                              })}
+                            </span>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Imagen ampliada de la captura seleccionada */}
-                    <div
-                      className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => misionCaptures[currentCaptureIndex]?.img_url && setSelectedImage(misionCaptures[currentCaptureIndex].img_url)}
-                    >
-                      <img
-                        src={misionCaptures[currentCaptureIndex]?.img_url || '/placeholder-image.png'}
-                        alt={`Captura ${currentCaptureIndex + 1}`}
-                        className="w-full h-auto object-contain"
-                        style={{ maxHeight: '400px' }}
-                      />
-                    </div>
-
-                    {/* Info adicional */}
-                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-blue-900 font-medium">Total de capturas:</span>
-                        <span className="text-blue-700 font-semibold">{misionCaptures.length}</span>
+                        )}
                       </div>
-                      {misionCaptures[currentCaptureIndex] && (
-                        <div className="flex items-center justify-between text-sm mt-1">
-                          <span className="text-blue-900 font-medium">Fecha captura actual:</span>
-                          <span className="text-blue-700">
-                            {new Date(misionCaptures[currentCaptureIndex].created_at).toLocaleString('es-ES', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <p className="text-gray-500 text-sm text-center">
+                        No hay capturas disponibles para esta misión
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ID de referencia */}
               <div>

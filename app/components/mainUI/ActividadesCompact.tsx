@@ -93,6 +93,7 @@ const ActividadCompactCard: React.FC<ActividadCompactCardProps> = ({ actividad, 
           misionActividad: actividad.descripcion || 'Actividad sin descripción',
           totalTrabajadoHoy: actividad.tiempo_dedicado?.toString(),
           tiempoTareaActual: formatTime(timeInSeconds),
+          misionActivaId: misionActiva.id, // Pasar ID para actualizar fecha en capturas automáticas
           onCaptureUpdate: async (url: string) => {
             // Actualizar fecha de última captura en misiones_activas
             console.log('📸 Captura guardada en tabla capture, actualizando fecha:', url);

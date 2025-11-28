@@ -158,5 +158,4 @@ export interface PizarraProps {
   }>;
   currentUserId?: string;
   onConnectionCreate?: (connection: Connection, fromCard: Card, toCard: Card) => void;
-  onCrearMisionProyecto?: (proyectoId: number) => void;
 }

@@ -6,7 +6,6 @@ import { Plus, Image as ImageIcon, FileText, X, Users } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { useUsuariosOrganizacionContext } from '@/app/contexts/UsuariosOrganizacionContext';
 import Image from 'next/image';
 import Ventana from '@/app/demo/components/Ventana';
 
@@ -36,11 +35,10 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
   const { createMision, deleteMision } = useMisiones(usuarioId);
-  const { usuarios } = useUsuariosOrganizacionContext();
 
   const [actividades, setActividades] = useState<Actividad[]>([]);
   const [misiones, setMisiones] = useState<Mision[]>([]);
-  const [usuariosAsignados, setUsuariosAsignados] = useState<Array<{ id: number; nombre: string; avatar: string | null; userAuth: string }>>([]);
+  const [usuariosAsignados, setUsuariosAsignados] = useState<Array<{ id: number; nombre: string; avatar: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<'misiones' | 'actividades' | 'notas' | 'imagenes' | 'usuarios' | null>(null);
   const [notas, setNotas] = useState<string[]>([]);
@@ -68,18 +66,13 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   const [misionHoras, setMisionHoras] = useState('');
   const [misionFechaInicio, setMisionFechaInicio] = useState('');
   const [misionFechaFin, setMisionFechaFin] = useState('');
-  const [misionUsuarioAsignado, setMisionUsuarioAsignado] = useState<number>(usuarioId || 0);
   const [creandoMision, setCreandoMision] = useState(false);
-
-  // Estados para tareas TODO de la misión
-  const [tareasTodo, setTareasTodo] = useState<{id: string; texto: string; completada: boolean}[]>([]);
-  const [nuevaTareaTexto, setNuevaTareaTexto] = useState('');
+  const [crearListaTodo, setCrearListaTodo] = useState(false); // ✅ Estado para checkbox TODO
 
   // Form states para actividad
   const [actividadDescripcion, setActividadDescripcion] = useState('');
   const [actividadHoras, setActividadHoras] = useState('');
   const [actividadFecha, setActividadFecha] = useState('');
-  const [actividadUsuarioAsignado, setActividadUsuarioAsignado] = useState<string | null>(null);
   const [creandoActividad, setCreandoActividad] = useState(false);
 
   useEffect(() => {
@@ -122,10 +115,10 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         if (usuarioProyectoData && usuarioProyectoData.length > 0) {
           const usuarioIds = usuarioProyectoData.map(up => up.id_usuario);
 
-          // Obtener datos de los usuarios con userAuth
+          // Obtener datos de los usuarios
           const { data: usuariosData } = await supabase
             .from('usuario')
-            .select('id, nombre, avatar, userAuth')
+            .select('id, nombre, avatar')
             .in('id', usuarioIds);
 
           setUsuariosAsignados(usuariosData || []);
@@ -208,7 +201,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         const usuarioIds = usuarioProyectoData.map(up => up.id_usuario);
         const { data: usuariosData } = await supabase
           .from('usuario')
-          .select('id, nombre, avatar, userAuth')
+          .select('id, nombre, avatar')
           .in('id', usuarioIds);
 
         setUsuariosAsignados(usuariosData || []);
@@ -224,29 +217,6 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
     }
   };
 
-  // Funciones para manejar tareas TODO
-  const agregarTarea = () => {
-    if (nuevaTareaTexto.trim()) {
-      setTareasTodo([...tareasTodo, {
-        id: `tarea-${Date.now()}`,
-        texto: nuevaTareaTexto.trim(),
-        completada: false
-      }]);
-      setNuevaTareaTexto('');
-    }
-  };
-
-  const eliminarTarea = (tareaId: string) => {
-    setTareasTodo(tareasTodo.filter(t => t.id !== tareaId));
-  };
-
-  const handleKeyPressTarea = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      agregarTarea();
-    }
-  };
-
   // Función para crear misión
   const handleCrearMision = async () => {
     if (!misionNombre.trim()) {
@@ -254,7 +224,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       return;
     }
 
-    if (!usuario?.userAuth) {
+    if (!usuarioId) {
       alert('Error: No se pudo identificar el usuario');
       return;
     }
@@ -268,15 +238,47 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         horas: misionHoras ? parseInt(misionHoras) : null,
         fecha_start: misionFechaInicio || null,
         fecha_end: misionFechaFin || null,
-        id_usuario: misionUsuarioAsignado || usuarioId,
+        id_usuario: usuarioId,
         id_proyecto: card.proyectoData?.id || null,
-        id_creador: usuario.userAuth,
-        card_todos: [],
+        id_creador: usuario?.userAuth || null,
+        card_todos: null,
         estado: null
       });
 
       if (nuevaMision) {
-        console.log('✅ Misión creada en BD:', nuevaMision);
+        // ✅ Crear lista TODO si el checkbox está activo y las funciones están disponibles
+        if (crearListaTodo && addTodoCard && addMisionCardOrganizacion && addConnection) {
+          console.log('📋 Creando lista TODO asociada a la misión...');
+
+          // Crear card de misión en la pizarra
+          const newMisionCardId = addMisionCardOrganizacion({
+            id_mision: nuevaMision.id,
+            title: nuevaMision.nombre || '',
+            description: nuevaMision.descripcion || '',
+            hours: nuevaMision.horas || 0,
+            id_usuario_asignado: nuevaMision.id_usuario,
+          });
+
+          if (newMisionCardId) {
+            // Crear card TODO
+            const todoCardId = addTodoCard();
+            console.log('📝 Card TODO creado con ID:', todoCardId);
+
+            // Crear conexión TODO -> Misión
+            if (todoCardId) {
+              setTimeout(() => {
+                if (addConnection) {
+                  addConnection(
+                    todoCardId,
+                    newMisionCardId as string,
+                    true // skipValidation
+                  );
+                  console.log('🔗 Conexión TODO -> Misión creada');
+                }
+              }, 200);
+            }
+          }
+        }
 
         // Limpiar formulario
         setMisionNombre('');
@@ -284,15 +286,13 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         setMisionHoras('');
         setMisionFechaInicio('');
         setMisionFechaFin('');
-        setMisionUsuarioAsignado(usuarioId || 0);
-        setTareasTodo([]);
-        setNuevaTareaTexto('');
+        setCrearListaTodo(false); // ✅ Limpiar checkbox
         setShowNuevaMisionModal(false);
 
         // Recargar datos
         await recargarDatos();
 
-        alert('✅ Misión creada exitosamente');
+        alert('✅ Misión creada exitosamente' + (crearListaTodo ? ' con lista TODO asociada' : ''));
       } else {
         alert('Error al crear la misión');
       }
@@ -329,12 +329,12 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   // Función para crear actividad
   const handleCrearActividad = async () => {
     if (!actividadDescripcion.trim()) {
-      alert('Por favor ingresa una descripción para la actividad');
+      console.warn('⚠️ Por favor ingresa una descripción para la actividad');
       return;
     }
 
-    if (!actividadUsuarioAsignado) {
-      alert('Por favor selecciona un usuario para asignar la actividad');
+    if (!usuario?.userAuth) {
+      console.error('❌ Error: No se pudo identificar el usuario (UUID)');
       return;
     }
 
@@ -347,7 +347,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         descripcion: actividadDescripcion.trim(),
         cant_horas: actividadHoras ? parseFloat(actividadHoras) : null,
         fecha: actividadFecha || new Date().toISOString(),
-        id_usuario: actividadUsuarioAsignado,
+        id_usuario: usuario.userAuth,
         id_proyecto: card.proyectoData?.id || null,
         tiempo_dedicado: 0
       });
@@ -358,7 +358,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           descripcion: actividadDescripcion.trim(),
           cant_horas: actividadHoras ? parseFloat(actividadHoras) : null,
           fecha: actividadFecha || new Date().toISOString(),
-          id_usuario: actividadUsuarioAsignado,
+          id_usuario: usuario.userAuth,
           id_proyecto: card.proyectoData?.id || null,
           tiempo_dedicado: 0
         })
@@ -374,7 +374,6 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         console.error('   - Hint:', error.hint);
         console.error('   - Code:', error.code);
         console.error('   - Error completo:', error);
-        alert('Error al crear la actividad');
         return;
       }
 
@@ -384,20 +383,15 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         setActividadDescripcion('');
         setActividadHoras('');
         setActividadFecha('');
-        setActividadUsuarioAsignado(null);
         setShowNuevaActividadModal(false);
 
         // Recargar datos
         await recargarDatos();
-
-        alert('✅ Actividad creada exitosamente');
       } else {
         console.error('❌ Error: No se recibió respuesta del servidor');
-        alert('Error al crear la actividad');
       }
     } catch (error) {
       console.error('❌ EXCEPCIÓN AL CREAR ACTIVIDAD:', error);
-      alert('Error al crear la actividad');
     } finally {
       setCreandoActividad(false);
     }
@@ -518,7 +512,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           data-todo-interactive
         >
           <Plus size={12} />
-          Ticket
+          Misión
         </button>
         <button
           onClick={(e) => {
@@ -974,113 +968,21 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                 />
               </div>
 
-              {/* Asignar a Usuario */}
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900">
-                  Asignar a Usuario
-                </label>
-                <div className="border border-gray-300 rounded-lg p-3 max-h-60 overflow-y-auto bg-white">
-                  {usuarios.length === 0 ? (
-                    <p className="text-sm text-gray-500 italic">No hay usuarios disponibles</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {usuarios.map((usuarioItem) => (
-                        <label
-                          key={usuarioItem.id}
-                          className="flex items-center gap-3 p-2 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="radio"
-                            name="usuarioMision"
-                            checked={misionUsuarioAsignado === parseInt(usuarioItem.id)}
-                            onChange={() => setMisionUsuarioAsignado(parseInt(usuarioItem.id))}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                            disabled={creandoMision}
-                            data-todo-interactive
-                          />
-                          <div className="flex items-center gap-2 flex-1">
-                            {usuarioItem.profile.avatar ? (
-                              <img
-                                src={usuarioItem.profile.avatar}
-                                alt={usuarioItem.getNombreCompleto()}
-                                className="w-8 h-8 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                                {usuarioItem.profile.nombre.charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {usuarioItem.getNombreCompleto()}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">
-                                @{usuarioItem.profile.username}
-                              </p>
-                            </div>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Sección de Tareas TODO */}
+              {/* ✅ Checkbox para crear lista TODO */}
               {addTodoCard && addConnection && addMisionCardOrganizacion && (
-                <div className="border-2 border-purple-300 rounded-lg p-4 bg-purple-50" data-todo-interactive>
-                  <h4 className="text-sm font-bold mb-3 text-gray-900">
-                    📋 Tareas del Ticket
-                  </h4>
-
-                  {/* Input para agregar tarea */}
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="text"
-                      value={nuevaTareaTexto}
-                      onChange={(e) => setNuevaTareaTexto(e.target.value)}
-                      onKeyPress={handleKeyPressTarea}
-                      className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
-                      placeholder="Escribe una tarea y presiona Enter..."
-                      disabled={creandoMision}
-                      data-todo-interactive
-                    />
-                    <button
-                      onClick={agregarTarea}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-sm transition-colors disabled:opacity-50"
-                      disabled={creandoMision || !nuevaTareaTexto.trim()}
-                      data-todo-interactive
-                      type="button"
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  {/* Lista de tareas */}
-                  {tareasTodo.length > 0 ? (
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {tareasTodo.map((tarea) => (
-                        <div
-                          key={tarea.id}
-                          className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 group"
-                        >
-                          <span className="flex-1 text-sm text-gray-900">{tarea.texto}</span>
-                          <button
-                            onClick={() => eliminarTarea(tarea.id)}
-                            className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
-                            data-todo-interactive
-                            type="button"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-600 text-center py-2">
-                      No hay tareas agregadas. Agrega tareas para crear una lista TODO.
-                    </p>
-                  )}
+                <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <input
+                    type="checkbox"
+                    id="crearListaTodo"
+                    checked={crearListaTodo}
+                    onChange={(e) => setCrearListaTodo(e.target.checked)}
+                    className="w-4 h-4 text-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500"
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  />
+                  <label htmlFor="crearListaTodo" className="text-sm font-medium cursor-pointer text-gray-900">
+                    📋 Crear lista TODO asociada a esta misión
+                  </label>
                 </div>
               )}
 
@@ -1183,58 +1085,6 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                   disabled={creandoActividad}
                   data-todo-interactive
                 />
-              </div>
-
-              {/* Asignar a Usuario */}
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900">
-                  Asignar a Usuario <span className="text-red-600">*</span>
-                </label>
-                <div className="border border-gray-300 rounded-lg p-3 max-h-60 overflow-y-auto bg-white">
-                  {usuarios.length === 0 ? (
-                    <p className="text-sm text-gray-500 italic">No hay usuarios disponibles</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {usuarios.map((usuarioItem) => (
-                        <label
-                          key={usuarioItem.id}
-                          className="flex items-center gap-3 p-2 hover:bg-green-50 rounded-lg cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="radio"
-                            name="usuarioActividad"
-                            checked={actividadUsuarioAsignado === usuarioItem.userAuth}
-                            onChange={() => setActividadUsuarioAsignado(usuarioItem.userAuth)}
-                            className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                            disabled={creandoActividad}
-                            data-todo-interactive
-                          />
-                          <div className="flex items-center gap-2 flex-1">
-                            {usuarioItem.profile.avatar ? (
-                              <img
-                                src={usuarioItem.profile.avatar}
-                                alt={usuarioItem.getNombreCompleto()}
-                                className="w-8 h-8 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-400 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                                {usuarioItem.profile.nombre.charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {usuarioItem.getNombreCompleto()}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">
-                                @{usuarioItem.profile.username}
-                              </p>
-                            </div>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
 
               <div className="flex gap-2 pt-3">

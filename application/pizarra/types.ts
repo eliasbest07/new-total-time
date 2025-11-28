@@ -77,6 +77,7 @@ export interface ProyectoData {
   id_organizacion?: string | null; // UUID de la organización
   colors: string[] | null;
   created_at?: string;
+  notas?: string[]; // IDs de cards de tipo 'text' asociadas como notas
 }
 
 export interface RecursoData {

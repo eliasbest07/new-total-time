@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 
-export const useCanvasPan = (isConnecting: boolean = false) => {
+export const useCanvasPan = () => {
   const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -86,12 +86,7 @@ export const useCanvasPan = (isConnecting: boolean = false) => {
   // Edge panning - auto-scroll when mouse is near canvas edges
   useEffect(() => {
     const handleEdgePanning = (e: MouseEvent) => {
-      // Solo activar edge panning cuando se está conectando un pin
-      if (!canvasContainerRef.current || !isConnecting) {
-        edgePanningRef.current = null;
-        edgePanningStartTimeRef.current = null;
-        return;
-      }
+      if (!canvasContainerRef.current) return;
 
       const container = canvasContainerRef.current;
       const rect = container.getBoundingClientRect();
@@ -197,7 +192,7 @@ export const useCanvasPan = (isConnecting: boolean = false) => {
         window.clearTimeout(inputHoverTimeoutRef.current);
       }
     };
-  }, [isConnecting]);
+  }, []);
 
   // Animation loop for smooth edge panning with progressive acceleration
   useEffect(() => {

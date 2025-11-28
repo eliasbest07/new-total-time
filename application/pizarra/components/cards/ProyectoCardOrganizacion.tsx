@@ -3,9 +3,10 @@ import { Card } from '../../types/index';
 import { Actividad } from '@/domain/entities/Actividad';
 import { Mision } from '@/domain/entities/Mision';
 import { Recurso } from '@/domain/entities/Recurso';
-import { Capture } from '@/domain/entities/Capture';
-import { ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
+import { useUsuarioId } from '@/hooks/useUsuarioId';
+import { useAuth } from '@/app/contexts/AuthContext';
 import Ventana from '@/app/demo/components/Ventana';
 
 interface ProyectoCardOrganizacionProps {
@@ -13,17 +14,17 @@ interface ProyectoCardOrganizacionProps {
   editingTitle: string | null;
   updateCardTitle: (cardId: string, newTitle: string) => void;
   setEditingTitle: (id: string | null) => void;
-  onCrearMision?: (proyectoId: number) => void;
 }
 
 export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> = ({
   card,
   editingTitle,
   updateCardTitle,
-  setEditingTitle,
-  onCrearMision
+  setEditingTitle
 }) => {
-  const { deleteMision } = useMisiones(null);
+  const { usuario } = useAuth();
+  const { usuarioId } = useUsuarioId();
+  const { createMision, deleteMision } = useMisiones(usuarioId);
 
   // Estados principales
   const [actividades, setActividades] = useState<Actividad[]>([]);
@@ -39,6 +40,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   const [expandedRecursos, setExpandedRecursos] = useState(false);
 
   // Estados de modales
+  const [showNuevaMisionModal, setShowNuevaMisionModal] = useState(false);
   const [recursoModalAbierto, setRecursoModalAbierto] = useState<{
     isOpen: boolean;
     recurso: Recurso | null;
@@ -47,9 +49,16 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     recurso: null
   });
 
-  // Estados para capturas
-  const [capturas, setCapturas] = useState<Capture[]>([]);
-  const [loadingCapturas, setLoadingCapturas] = useState(false);
+  // Form states para misión
+  const [misionNombre, setMisionNombre] = useState('');
+  const [misionDescripcion, setMisionDescripcion] = useState('');
+  const [misionHoras, setMisionHoras] = useState('');
+  const [misionFechaInicio, setMisionFechaInicio] = useState('');
+  const [misionFechaFin, setMisionFechaFin] = useState('');
+  const [misionEstado, setMisionEstado] = useState('pendiente');
+  const [tareasTodo, setTareasTodo] = useState<{id: string; texto: string; completada: boolean}[]>([]);
+  const [nuevaTareaTexto, setNuevaTareaTexto] = useState('');
+  const [creandoMision, setCreandoMision] = useState(false);
 
   // Extraer ID del proyecto (puede venir de diferentes campos según la implementación)
   const proyectoId = (card.proyectoData as any)?.id;
@@ -127,47 +136,6 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
     cargarDatos();
   }, [proyectoId]);
-
-  // Función para cargar capturas del proyecto
-  const cargarCapturas = async () => {
-    if (!proyectoId || capturas.length > 0) return; // Solo cargar si aún no se han cargado
-
-    setLoadingCapturas(true);
-
-    try {
-      // Obtener todas las capturas relacionadas con las misiones del proyecto
-      const misionIds = misiones.map(m => String(m.id));
-
-      console.log('📸 [ProyectoCard] Buscando capturas para misiones:', misionIds);
-
-      if (misionIds.length === 0) {
-        console.log('📸 [ProyectoCard] No hay misiones en el proyecto');
-        setCapturas([]);
-        return;
-      }
-
-      // Cargar capturas de todas las misiones del proyecto
-      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-      const { data: capturasData, error } = await supabase
-        .from('capture')
-        .select('*')
-        .in('id_bloque', misionIds)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('📸 [ProyectoCard] Error cargando capturas:', error);
-        setCapturas([]);
-      } else {
-        console.log('📸 [ProyectoCard] Capturas encontradas:', capturasData?.length || 0);
-        setCapturas(capturasData || []);
-      }
-    } catch (error) {
-      console.error('📸 [ProyectoCard] Excepción cargando capturas:', error);
-      setCapturas([]);
-    } finally {
-      setLoadingCapturas(false);
-    }
-  };
 
   const eliminarRecursoNota = async (recursoId: number) => {
     try {
@@ -248,6 +216,85 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     }
   };
 
+  const handleCrearMision = async () => {
+    if (!misionNombre.trim()) {
+      alert('Por favor ingresa un nombre para la misión');
+      return;
+    }
+
+    if (!usuarioId) {
+      alert('Error: No se pudo identificar el usuario');
+      return;
+    }
+
+    setCreandoMision(true);
+
+    try {
+      const nuevaMision = await createMision({
+        nombre: misionNombre.trim(),
+        descripcion: misionDescripcion.trim() || null,
+        horas: misionHoras ? parseInt(misionHoras) : null,
+        fecha_start: misionFechaInicio || null,
+        fecha_end: misionFechaFin || null,
+        id_usuario: usuarioId,
+        id_proyecto: proyectoId || null,
+        id_creador: usuario?.userAuth || null,
+        card_todos: [],
+        estado: misionEstado
+      });
+
+      if (nuevaMision) {
+        // Resetear formulario
+        setMisionNombre('');
+        setMisionDescripcion('');
+        setMisionHoras('');
+        setMisionFechaInicio('');
+        setMisionFechaFin('');
+        setMisionEstado('pendiente');
+        setTareasTodo([]);
+        setNuevaTareaTexto('');
+        setShowNuevaMisionModal(false);
+        await recargarDatos();
+
+        // TODO: Aquí se debería crear la card TODO con las tareas si hay tareas en tareasTodo
+        // Esto requeriría acceso a la pizarra ref o una función callback
+        if (tareasTodo.length > 0) {
+          console.log('📋 Tareas TODO a crear:', tareasTodo);
+          alert(`✅ Misión creada con ${tareasTodo.length} tarea(s) TODO`);
+        }
+      } else {
+        alert('Error al crear la misión');
+      }
+    } catch (error) {
+      console.error('Error creando misión:', error);
+      alert('Error al crear la misión');
+    } finally {
+      setCreandoMision(false);
+    }
+  };
+
+  // Funciones para manejar tareas TODO
+  const agregarTarea = () => {
+    if (nuevaTareaTexto.trim()) {
+      setTareasTodo([...tareasTodo, {
+        id: `tarea-${Date.now()}`,
+        texto: nuevaTareaTexto.trim(),
+        completada: false
+      }]);
+      setNuevaTareaTexto('');
+    }
+  };
+
+  const eliminarTarea = (tareaId: string) => {
+    setTareasTodo(tareasTodo.filter(t => t.id !== tareaId));
+  };
+
+  const handleKeyPressTarea = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      agregarTarea();
+    }
+  };
 
   // ✅ Función para eliminar misión
   const handleDeleteMision = async (misionId: number, misionNombre: string) => {
@@ -436,65 +483,19 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                 onClick={(e) => {
                   e.stopPropagation();
                   setExpandedCapturas(!expandedCapturas);
-                  if (!expandedCapturas && capturas.length === 0) {
-                    cargarCapturas();
-                  }
                 }}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors cursor-pointer"
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors"
                 data-todo-interactive
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm">📸 Capturas</span>
-                  {capturas.length > 0 && (
-                    <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
-                      {capturas.length}
-                    </span>
-                  )}
-                </div>
+                <span className="font-semibold text-sm">Capturas</span>
                 {expandedCapturas ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </button>
 
               {expandedCapturas && (
-                <div className="px-4 pb-4 bg-gray-800">
-                  {loadingCapturas ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                    </div>
-                  ) : capturas.length === 0 ? (
-                    <div className="text-center text-gray-400 text-sm py-6">
-                      <p>No hay capturas disponibles</p>
-                      <p className="text-xs mt-1">Las capturas se generan cuando los usuarios trabajan en las misiones</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-xs text-gray-400 mb-2">
-                        {capturas.length} capturas - Tiempo estimado: {capturas.length * 5} min
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                        {capturas.map((capture) => (
-                          <div key={capture.id} className="relative group">
-                            <img
-                              src={capture.img_url || '/placeholder-image.png'}
-                              alt={`Captura ${capture.id}`}
-                              className="w-full h-24 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                capture.img_url && window.open(capture.img_url, '_blank');
-                              }}
-                            />
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-white text-[10px] px-1 py-0.5 rounded-b">
-                              <p className="truncate">
-                                {new Date(capture.created_at).toLocaleTimeString('es-ES', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })} | M:{capture.id_bloque}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div className="px-4 pb-4">
+                  <div className="text-center text-gray-400 text-sm py-8">
+                    No hay capturas disponibles
+                  </div>
                 </div>
               )}
             </div>
@@ -577,20 +578,17 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                     ))
                   )}
 
-                  {/* Botón para crear nueva misión */}
-                  {onCrearMision && proyectoId && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCrearMision(proyectoId);
-                      }}
-                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg mt-3"
-                      data-todo-interactive
-                    >
-                      <Plus size={16} />
-                      Nuevo Ticket
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowNuevaMisionModal(true);
+                    }}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg mt-3"
+                    data-todo-interactive
+                  >
+                    <Plus size={16} />
+                    Nuevo Ticket
+                  </button>
                 </div>
               )}
             </div>
@@ -711,6 +709,209 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           </>
         )}
       </div>
+
+      {/* Modal para crear misión */}
+      {showNuevaMisionModal && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowNuevaMisionModal(false);
+          }}
+          data-todo-interactive
+        >
+          <div
+            className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            data-todo-interactive
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Nueva Misión</h3>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowNuevaMisionModal(false);
+                }}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+                data-todo-interactive
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-gray-900">
+                  Nombre <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={misionNombre}
+                  onChange={(e) => setMisionNombre(e.target.value)}
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Nombre de la misión"
+                  disabled={creandoMision}
+                  data-todo-interactive
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-gray-900">Descripción</label>
+                <textarea
+                  value={misionDescripcion}
+                  onChange={(e) => setMisionDescripcion(e.target.value)}
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={3}
+                  placeholder="Descripción de la misión"
+                  disabled={creandoMision}
+                  data-todo-interactive
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-900">Fecha Inicio</label>
+                  <input
+                    type="date"
+                    value={misionFechaInicio}
+                    onChange={(e) => setMisionFechaInicio(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-900">Fecha Fin</label>
+                  <input
+                    type="date"
+                    value={misionFechaFin}
+                    onChange={(e) => setMisionFechaFin(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-900">Horas Estimadas</label>
+                  <input
+                    type="number"
+                    value={misionHoras}
+                    onChange={(e) => setMisionHoras(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0"
+                    min="0"
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-900">Estado</label>
+                  <select
+                    value={misionEstado}
+                    onChange={(e) => setMisionEstado(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  >
+                    <option value="pendiente">Pendiente</option>
+                    <option value="en_progreso">En Progreso</option>
+                    <option value="completada">Completada</option>
+                    <option value="cancelada">Cancelada</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Sección de Tareas TODO */}
+              <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50" data-todo-interactive>
+                <h4 className="text-sm font-bold text-gray-900 mb-3">📋 Tareas de la Misión</h4>
+
+                {/* Input para agregar tarea */}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={nuevaTareaTexto}
+                    onChange={(e) => setNuevaTareaTexto(e.target.value)}
+                    onKeyPress={handleKeyPressTarea}
+                    className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Escribe una tarea y presiona Enter..."
+                    disabled={creandoMision}
+                    data-todo-interactive
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      agregarTarea();
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors disabled:opacity-50"
+                    disabled={creandoMision || !nuevaTareaTexto.trim()}
+                    data-todo-interactive
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+
+                {/* Lista de tareas */}
+                {tareasTodo.length > 0 ? (
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {tareasTodo.map((tarea) => (
+                      <div
+                        key={tarea.id}
+                        className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 group"
+                      >
+                        <span className="flex-1 text-sm text-gray-900">{tarea.texto}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            eliminarTarea(tarea.id);
+                          }}
+                          className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                          data-todo-interactive
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 text-center py-2">
+                    No hay tareas agregadas. Agrega tareas para crear una lista TODO.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowNuevaMisionModal(false);
+                  }}
+                  className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-lg font-semibold transition-colors disabled:opacity-50"
+                  disabled={creandoMision}
+                  data-todo-interactive
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCrearMision();
+                  }}
+                  className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 shadow-md hover:shadow-lg"
+                  disabled={creandoMision}
+                  data-todo-interactive
+                >
+                  {creandoMision ? 'Creando...' : 'Crear Misión'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ventana para mostrar contenido de nota */}
       <Ventana
