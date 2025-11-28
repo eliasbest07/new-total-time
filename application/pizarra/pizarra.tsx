@@ -590,7 +590,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleGlobalMouseMove: panGlobalMouseMove,
     handleMouseUp: panHandleMouseUp,
     setCanvasRef
-  } = useCanvasPan();
+  } = useCanvasPan(isConnecting);
 
   // Sincronizar panOffset SOLO cuando se carga la pizarra de otro usuario
   useEffect(() => {
