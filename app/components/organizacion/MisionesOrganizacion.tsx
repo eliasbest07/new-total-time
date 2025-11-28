@@ -274,7 +274,7 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
         <div
           className="overflow-y-auto space-y-1.5"
           style={{
-            maxHeight: '400px',
+            maxHeight: '150px',
             scrollbarWidth: 'thin',
             scrollbarColor: '#9CA3AF #E5E7EB'
           }}
