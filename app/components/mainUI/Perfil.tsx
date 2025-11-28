@@ -197,9 +197,9 @@ const Perfil = ({
                                                     try {
                                                         const content = e.target?.result as string;
                                                         onImportJSON?.(content);
-                                                        alert('✅ Pizarra importada exitosamente');
+                                                        // alert('✅ Pizarra importada exitosamente');
                                                     } catch (error) {
-                                                        alert('❌ Error al importar: ' + error);
+                                                        // alert('❌ Error al importar: ' + error);
                                                     }
                                                 };
                                                 reader.readAsText(file);

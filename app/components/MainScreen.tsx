@@ -397,14 +397,14 @@ export default function MainScreen() {
           onSaveToSupabase={async () => {
             const success = await pizarraRef.current?.saveToSupabase?.();
             if (success) {
-              alert('✅ Pizarra guardada exitosamente en Supabase');
+              // alert('✅ Pizarra guardada exitosamente en Supabase');
             } else {
-              alert('❌ Error al guardar la pizarra en Supabase');
+              // alert('❌ Error al guardar la pizarra en Supabase');
             }
           }}
           onLoadFromSupabase={async () => {
             await pizarraRef.current?.loadFromSupabase?.();
-            alert('✅ Pizarra cargada desde Supabase');
+            // alert('✅ Pizarra cargada desde Supabase');
           }}
         />
       </div>
@@ -1170,7 +1170,7 @@ export default function MainScreen() {
                             if (item.cardData && pizarraRef.current) {
                               // Usar el método de la pizarra para agregar el card
                               pizarraRef.current.restoreCard?.(item.cardData);
-                              alert(`✅ ${item.type} "${item.title}" agregado a la pizarra`);
+                              // alert(`✅ ${item.type} "${item.title}" agregado a la pizarra`);
                             }
                           }}
                           className={`w-full ${colors.badge} px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity`}

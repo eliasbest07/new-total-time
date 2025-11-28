@@ -351,7 +351,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
 
   const handleCreatePost = async () => {
     if (!usuario?.id || !newPostContent.trim()) {
-      alert('Debes escribir algo para publicar');
+   alert('Debes escribir algo para publicar');
       return;
     }
 

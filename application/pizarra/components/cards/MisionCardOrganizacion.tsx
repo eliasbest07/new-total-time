@@ -42,6 +42,9 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   const [newSubtareaText, setNewSubtareaText] = useState('');
   const [captureNow, setCaptureNow] = useState<string | null>(null);
   const [showCaptureNotification, setShowCaptureNotification] = useState(false);
+  const [pendingCaptureRequest, setPendingCaptureRequest] = useState<number | null>(null);
+  const [tiempoEsperaSegundos, setTiempoEsperaSegundos] = useState<number>(0);
+  const captureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     updateCaptureNow,
@@ -80,6 +83,19 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       });
     }
   }, [misionData.estado, misionData.isRunning, misionData.id_mision]);
+
+  // Cleanup: Limpiar timeout al desmontar el componente
+  useEffect(() => {
+    return () => {
+      if (captureTimeoutRef.current) {
+        console.log('🧹 [CLEANUP] Limpiando timeout de verificación de captura');
+        clearTimeout(captureTimeoutRef.current);
+        captureTimeoutRef.current = null;
+        setPendingCaptureRequest(null);
+        setTiempoEsperaSegundos(0);
+      }
+    };
+  }, []);
 
   // Buscar y actualizar información del usuario asignado al montar el componente
   useEffect(() => {
@@ -271,7 +287,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           misionData: {
             misionActivaId: misionActivaInicial.id,
             estado: misionActivaInicial.estado,
-            isRunning: misionActivaInicial.is_running || false
+            isRunning: misionActivaInicial.is_running || false,
+            fecha_ultimo_capture: misionActivaInicial.fecha_ultimo_capture
           }
         });
 
@@ -309,7 +326,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           misionData: {
             misionActivaId: updatedMision.id,
             estado: updatedMision.estado,
-            isRunning: updatedMision.is_running || false
+            isRunning: updatedMision.is_running || false,
+            fecha_ultimo_capture: updatedMision.fecha_ultimo_capture
           }
         });
 
@@ -317,9 +335,21 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
         // Actualizar capture_now
         if (updatedMision.capture_now !== null) {
+          const previousCaptureNow = captureNow;
           setCaptureNow(updatedMision.capture_now);
           setShowCaptureNotification(true);
           setTimeout(() => setShowCaptureNotification(false), 3000);
+
+          // ✅ Si se recibió una nueva captura (no es "0"), cancelar el timeout de inactividad
+          if (updatedMision.capture_now !== '0' && updatedMision.capture_now.startsWith('http')) {
+            console.log('✅ [VERIFICACIÓN ACTIVIDAD] Nueva captura recibida, misión confirmada como activa');
+            setPendingCaptureRequest(null);
+            setTiempoEsperaSegundos(0);
+            if (captureTimeoutRef.current) {
+              clearTimeout(captureTimeoutRef.current);
+              captureTimeoutRef.current = null;
+            }
+          }
         }
       }
     );
@@ -359,6 +389,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           const result = await updateCaptureNow(nuevaMisionActiva.id, '0');
           if (result) {
             console.log('✅ Solicitud de captura enviada');
+            startCaptureVerification();
           }
         } else {
           console.error('❌ No se pudo crear la misión activa');
@@ -374,8 +405,113 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
     if (result) {
       console.log('✅ Solicitud de captura enviada');
+      startCaptureVerification();
     } else {
       console.error('❌ Error al solicitar captura');
+    }
+  };
+
+  // Función para iniciar la verificación de actividad mediante captura
+  const startCaptureVerification = () => {
+    // Limpiar timeout anterior si existe
+    if (captureTimeoutRef.current) {
+      clearTimeout(captureTimeoutRef.current);
+    }
+
+    // Guardar timestamp de la solicitud
+    const requestTime = Date.now();
+    setPendingCaptureRequest(requestTime);
+
+    // 📊 Calcular tiempo dinámicamente basado en fecha_ultimo_capture
+    const INTERVALO_CAPTURAS_MS = 5 * 60 * 1000; // 5 minutos
+    const MARGEN_SEGURIDAD_MS = 30 * 1000; // 30 segundos
+    const TIEMPO_TOTAL_ESPERADO_MS = INTERVALO_CAPTURAS_MS + MARGEN_SEGURIDAD_MS; // 5:30
+
+    let tiempoEsperaMs = TIEMPO_TOTAL_ESPERADO_MS;
+
+    if (misionData.fecha_ultimo_capture) {
+      const fechaUltimaCaptura = new Date(misionData.fecha_ultimo_capture);
+      const ahora = new Date();
+      const tiempoTranscurridoMs = ahora.getTime() - fechaUltimaCaptura.getTime();
+      const tiempoRestanteMs = TIEMPO_TOTAL_ESPERADO_MS - tiempoTranscurridoMs;
+
+      console.log('📊 [VERIFICACIÓN ACTIVIDAD] Análisis de tiempo:', {
+        fecha_ultimo_capture: misionData.fecha_ultimo_capture,
+        tiempo_transcurrido_ms: tiempoTranscurridoMs,
+        tiempo_transcurrido_min: Math.floor(tiempoTranscurridoMs / 60000),
+        tiempo_restante_ms: tiempoRestanteMs,
+        tiempo_restante_seg: Math.floor(tiempoRestanteMs / 1000),
+        tiempo_total_esperado_seg: TIEMPO_TOTAL_ESPERADO_MS / 1000
+      });
+
+      // Si ya pasó el tiempo esperado, marcar como inactiva inmediatamente
+      if (tiempoRestanteMs <= 0) {
+        console.log('❌ [VERIFICACIÓN ACTIVIDAD] Ya pasaron más de 5:30 min sin captura, marcando como inactiva INMEDIATAMENTE');
+        marcarMisionComoInactiva();
+        setPendingCaptureRequest(null);
+        setTiempoEsperaSegundos(0);
+        return;
+      }
+
+      tiempoEsperaMs = tiempoRestanteMs;
+    } else {
+      console.log('⚠️ [VERIFICACIÓN ACTIVIDAD] No hay fecha_ultimo_capture, usando tiempo predeterminado de 5:30 min');
+    }
+
+    const tiempoEsperaSeg = Math.floor(tiempoEsperaMs / 1000);
+    setTiempoEsperaSegundos(tiempoEsperaSeg);
+    console.log(`⏰ [VERIFICACIÓN ACTIVIDAD] Iniciando timeout de ${tiempoEsperaSeg} segundos para verificar respuesta de captura`);
+
+    // Establecer timeout dinámico
+    captureTimeoutRef.current = setTimeout(async () => {
+      console.log('⏱️ [VERIFICACIÓN ACTIVIDAD] Timeout alcanzado, verificando si se recibió captura...');
+
+      // Verificar si aún está pendiente (no se recibió respuesta)
+      if (pendingCaptureRequest === requestTime) {
+        console.log('❌ [VERIFICACIÓN ACTIVIDAD] No se recibió captura nueva, marcando misión como inactiva');
+        await marcarMisionComoInactiva();
+        setPendingCaptureRequest(null);
+        setTiempoEsperaSegundos(0);
+      } else {
+        console.log('✅ [VERIFICACIÓN ACTIVIDAD] La solicitud fue respondida, no se marca como inactiva');
+      }
+
+      captureTimeoutRef.current = null;
+    }, tiempoEsperaMs);
+  };
+
+  // Función auxiliar para marcar misión como inactiva
+  const marcarMisionComoInactiva = async () => {
+    if (misionData.misionActivaId) {
+      try {
+        const { error } = await supabase
+          .from('misiones_activas')
+          .update({
+            estado: 'pausada',
+            is_running: false
+          })
+          .eq('id', misionData.misionActivaId);
+
+        if (error) {
+          console.error('❌ Error actualizando estado de misión:', error);
+        } else {
+          console.log('✅ Misión marcada como inactiva en la BD');
+
+          // Actualizar estado local
+          updateCard(card.id, {
+            misionData: {
+              ...misionData,
+              estado: 'pausada',
+              isRunning: false
+            }
+          });
+
+          // Mostrar notificación
+          alert(`⚠️ La misión "${misionData.title}" no ha generado capturas en más de 5:30 minutos y ha sido marcada como inactiva.`);
+        }
+      } catch (error) {
+        console.error('❌ Error en verificación de actividad:', error);
+      }
     }
   };
 
@@ -822,6 +958,22 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       {showCaptureNotification && captureNow !== null && (
         <div className="mb-2 bg-blue-100 border border-blue-400 text-blue-700 px-3 py-2 rounded text-xs">
           📸 Captura solicitada: {captureNow === '0' ? 'Procesando...' : 'Captura recibida'}
+        </div>
+      )}
+
+      {/* Indicador de verificación pendiente */}
+      {pendingCaptureRequest !== null && (
+        <div className="mb-2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-2 rounded text-xs flex items-center gap-2">
+          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+          <span>
+            Esperando respuesta de captura... La misión se marcará como inactiva si no hay respuesta en{' '}
+            <strong>{Math.floor(tiempoEsperaSegundos / 60)}:{String(tiempoEsperaSegundos % 60).padStart(2, '0')}</strong>
+            {misionData.fecha_ultimo_capture && (
+              <span className="block mt-1 text-[10px] opacity-75">
+                Última captura: hace {Math.floor((Date.now() - new Date(misionData.fecha_ultimo_capture).getTime()) / 60000)} min
+              </span>
+            )}
+          </span>
         </div>
       )}
 
