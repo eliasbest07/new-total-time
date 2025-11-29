@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card } from '../../types/index';
 import { Actividad } from '@/domain/entities/Actividad';
 import { Mision } from '@/domain/entities/Mision';
 import { Recurso } from '@/domain/entities/Recurso';
-import { Plus, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, X, MoreVertical, Upload, Trash2 } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
@@ -60,8 +60,32 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   const [nuevaTareaTexto, setNuevaTareaTexto] = useState('');
   const [creandoMision, setCreandoMision] = useState(false);
 
+  // Estados para el menú de imagen
+  const [showImageMenu, setShowImageMenu] = useState(false);
+  const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null);
+  const [actualizandoImagen, setActualizandoImagen] = useState(false);
+  const imageMenuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Extraer ID del proyecto (puede venir de diferentes campos según la implementación)
   const proyectoId = (card.proyectoData as any)?.id;
+
+  // Cerrar menú al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (imageMenuRef.current && !imageMenuRef.current.contains(event.target as Node)) {
+        setShowImageMenu(false);
+      }
+    };
+
+    if (showImageMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showImageMenu]);
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -319,6 +343,153 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     }
   };
 
+  // Función para subir imagen a Supabase Storage
+  const handleCambiarImagen = async () => {
+    if (!archivoSeleccionado) {
+      alert('Por favor selecciona una imagen');
+      return;
+    }
+
+    if (!proyectoId) {
+      alert('Error: No se pudo identificar el proyecto');
+      return;
+    }
+
+    // Validar que sea una imagen
+    if (!archivoSeleccionado.type.startsWith('image/')) {
+      alert('Por favor selecciona un archivo de imagen válido');
+      return;
+    }
+
+    setActualizandoImagen(true);
+
+    try {
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+      // Generar nombre único para el archivo (igual que en useScreenshots)
+      const fileExt = archivoSeleccionado.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const folder = `proyecto-${proyectoId}`;
+      const filePath = `${folder}/${fileName}`;
+
+      // Eliminar imagen anterior si existe
+      if (cleanIcono && cleanIcono.startsWith('http')) {
+        try {
+          const oldPath = cleanIcono.split('/').slice(-2).join('/');
+          await supabase.storage.from('imagenes').remove([oldPath]);
+        } catch (error) {
+          console.log('No se pudo eliminar imagen anterior:', error);
+        }
+      }
+
+      // Subir nueva imagen al bucket (igual que uploadImage en useScreenshots)
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('imagenes')
+        .upload(filePath, archivoSeleccionado, {
+          contentType: archivoSeleccionado.type,
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Error subiendo imagen:', uploadError);
+        alert('Error al subir la imagen: ' + uploadError.message);
+        return;
+      }
+
+      // Obtener URL pública de la imagen (igual que en useScreenshots)
+      const { data: urlData } = supabase.storage
+        .from('imagenes')
+        .getPublicUrl(uploadData.path);
+
+      const publicUrl = urlData.publicUrl;
+
+      // Actualizar la tabla proyecto con la nueva URL
+      const { data, error } = await supabase
+        .from('proyecto')
+        .update({ icono: publicUrl })
+        .eq('id', proyectoId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error actualizando proyecto:', error);
+        alert('Error al actualizar el proyecto');
+        return;
+      }
+
+      console.log('✅ Imagen actualizada:', data);
+
+      setArchivoSeleccionado(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setShowImageMenu(false);
+      alert('✅ Imagen actualizada exitosamente');
+
+      window.location.reload();
+    } catch (error) {
+      console.error('Error cambiando imagen:', error);
+      alert('Error al cambiar la imagen');
+    } finally {
+      setActualizandoImagen(false);
+    }
+  };
+
+  // Función para eliminar imagen del proyecto
+  const handleEliminarImagen = async () => {
+    if (!proyectoId) {
+      alert('Error: No se pudo identificar el proyecto');
+      return;
+    }
+
+    const confirmacion = confirm('¿Estás seguro de que deseas eliminar la imagen del proyecto?');
+    if (!confirmacion) return;
+
+    setActualizandoImagen(true);
+
+    try {
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+      // Eliminar imagen del bucket si existe
+      if (cleanIcono && cleanIcono.startsWith('http')) {
+        try {
+          const oldPath = cleanIcono.split('/').slice(-2).join('/');
+          await supabase.storage.from('imagenes').remove([oldPath]);
+          console.log('✅ Imagen eliminada del storage');
+        } catch (error) {
+          console.log('No se pudo eliminar imagen del storage:', error);
+        }
+      }
+
+      // Actualizar la tabla proyecto
+      const { data, error } = await supabase
+        .from('proyecto')
+        .update({ icono: null })
+        .eq('id', proyectoId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error eliminando imagen:', error);
+        alert('Error al eliminar la imagen');
+        return;
+      }
+
+      console.log('✅ Registro de proyecto actualizado:', data);
+
+      setShowImageMenu(false);
+      alert('✅ Imagen eliminada exitosamente');
+
+      window.location.reload();
+    } catch (error) {
+      console.error('Error eliminando imagen:', error);
+      alert('Error al eliminar la imagen');
+    } finally {
+      setActualizandoImagen(false);
+    }
+  };
+
   const sanitizeIconUrl = (url: string | null): string | null => {
     if (!url) return null;
     const httpCount = (url.match(/https?:\/\//g) || []).length;
@@ -339,10 +510,10 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       {/* Header */}
       <div className="bg-white px-4 py-4 border-b border-gray-200 relative">
         {/* Icono en esquina superior derecha */}
-        <div className="absolute top-4 right-4 flex-shrink-0">
+        <div className="absolute top-4 right-4 flex-shrink-0 group" data-todo-interactive>
           {cleanIcono ? (
             cleanIcono.startsWith('http') ? (
-              <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-700 shadow-md border-2 border-gray-600">
+              <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-700 shadow-md border-2 border-gray-600 relative">
                 <img
                   src={cleanIcono}
                   alt={card.title}
@@ -355,15 +526,114 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                     }
                   }}
                 />
+                {/* Botón de opciones */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowImageMenu(!showImageMenu);
+                  }}
+                  className="absolute top-0 right-0 w-6 h-6 bg-black/70 hover:bg-black/90 text-white rounded-bl-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  data-todo-interactive
+                  title="Opciones de imagen"
+                >
+                  <MoreVertical size={14} />
+                </button>
               </div>
             ) : (
-              <div className="w-14 h-14 rounded-xl bg-gray-700 flex items-center justify-center text-2xl shadow-md border-2 border-gray-600">
+              <div className="w-14 h-14 rounded-xl bg-gray-700 flex items-center justify-center text-2xl shadow-md border-2 border-gray-600 relative">
                 {cleanIcono}
+                {/* Botón de opciones para emoji */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowImageMenu(!showImageMenu);
+                  }}
+                  className="absolute top-0 right-0 w-5 h-5 bg-black/70 hover:bg-black/90 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  data-todo-interactive
+                  title="Opciones de icono"
+                >
+                  <MoreVertical size={12} />
+                </button>
               </div>
             )
           ) : (
-            <div className="w-14 h-14 rounded-xl bg-gray-700 flex items-center justify-center text-2xl shadow-md border-2 border-gray-600">
+            <div className="w-14 h-14 rounded-xl bg-gray-700 flex items-center justify-center text-2xl shadow-md border-2 border-gray-600 relative">
               📁
+              {/* Botón de opciones para icono por defecto */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowImageMenu(!showImageMenu);
+                }}
+                className="absolute top-0 right-0 w-5 h-5 bg-black/70 hover:bg-black/90 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                data-todo-interactive
+                title="Opciones de icono"
+              >
+                <MoreVertical size={12} />
+              </button>
+            </div>
+          )}
+
+          {/* Menú desplegable */}
+          {showImageMenu && (
+            <div
+              ref={imageMenuRef}
+              className="absolute top-16 right-0 z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-2 w-64"
+              onClick={(e) => e.stopPropagation()}
+              data-todo-interactive
+            >
+              {/* Opción: Cambiar imagen */}
+              <div className="px-3 py-2 border-b border-gray-100">
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Seleccionar imagen
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setArchivoSeleccionado(file);
+                    }
+                  }}
+                  className="w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer"
+                  disabled={actualizandoImagen}
+                  data-todo-interactive
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {archivoSeleccionado && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    Archivo: {archivoSeleccionado.name}
+                  </p>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCambiarImagen();
+                  }}
+                  disabled={actualizandoImagen || !archivoSeleccionado}
+                  className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  data-todo-interactive
+                >
+                  <Upload size={14} />
+                  {actualizandoImagen ? 'Subiendo...' : 'Subir imagen'}
+                </button>
+              </div>
+
+              {/* Opción: Eliminar imagen */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEliminarImagen();
+                }}
+                disabled={actualizandoImagen}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                data-todo-interactive
+              >
+                <Trash2 size={14} />
+                Eliminar imagen
+              </button>
             </div>
           )}
         </div>

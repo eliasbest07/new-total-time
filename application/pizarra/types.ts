@@ -47,6 +47,7 @@ export interface MisionData {
   usuario_asignado_nombre?: string | null; // Nombre del usuario asignado
   usuario_asignado_avatar?: string | null; // Avatar del usuario asignado
   estado?: 'pendiente' | 'en_progreso' | 'pausada' | 'entregada' | 'aprobada' | 'rechazada' | 'cancelada';
+  fecha_ultimo_capture?: string | null; // Fecha de la última captura
   subtareas?: SubtareaMision[];
   entregas?: EntregaMision[];
   misionActivaId?: string; // ID de la misión activa en Supabase
@@ -151,6 +152,12 @@ export interface PizarraRef {
   centerOnCard?: (cardId: string) => void;
   findCardByMisionId?: (misionId: number) => string | null;
   restoreCard?: (cardData: Card) => void;
+  updateCard?: (cardId: string, updates: Partial<Omit<Card, 'misionData' | 'proyectoData' | 'usuarioData' | 'activityData'>> & {
+    misionData?: Partial<MisionData>;
+    proyectoData?: Partial<ProyectoData>;
+    usuarioData?: Partial<UsuarioData>;
+    activityData?: Partial<ActivityData>;
+  }) => void;
   updateCardId?: (oldId: string, newId: string) => void;
   clearStorage?: () => void;
   exportStorage?: () => void;

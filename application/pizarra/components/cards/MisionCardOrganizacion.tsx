@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, SubtareaMision, TodoItem } from '../../types';
+import { Card, SubtareaMision, TodoItem, MisionData } from '../../types';
 import { User, Plus, X, ChevronDown, ChevronUp, Camera, ExternalLink } from 'lucide-react';
 import { useMisionActiva } from '@/hooks/useMisionActiva';
 import { useMisiones } from '@/hooks/useMisiones';
@@ -9,7 +9,7 @@ import { supabase } from '@/infrastructure/services/SupabaseClient';
 
 interface MisionCardOrganizacionProps {
   card: Card;
-  updateCard: (cardId: string, updates: Partial<Card>) => void;
+  updateCard: (cardId: string, updates: Partial<Omit<Card, 'misionData'>> & { misionData?: Partial<MisionData> }) => void;
   usuarios?: Array<{
     id: number;
     userAuth?: string;

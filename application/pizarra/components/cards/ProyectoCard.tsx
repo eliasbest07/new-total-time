@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card } from '../../types/index';
 import { Actividad } from '@/domain/entities/Actividad';
 import { Mision } from '@/domain/entities/Mision';
-import { Plus, Image as ImageIcon, FileText, X, Users } from 'lucide-react';
+import { Plus, Image as ImageIcon, FileText, X, Users, MoreVertical, Upload, Trash2 } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
@@ -60,6 +60,12 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
     recurso: null
   });
 
+  // Estados para el menú de imagen
+  const [showImageMenu, setShowImageMenu] = useState(false);
+  const [nuevaImagenUrl, setNuevaImagenUrl] = useState('');
+  const [actualizandoImagen, setActualizandoImagen] = useState(false);
+  const imageMenuRef = useRef<HTMLDivElement>(null);
+
   // Form states para misión
   const [misionNombre, setMisionNombre] = useState('');
   const [misionDescripcion, setMisionDescripcion] = useState('');
@@ -74,6 +80,23 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   const [actividadHoras, setActividadHoras] = useState('');
   const [actividadFecha, setActividadFecha] = useState('');
   const [creandoActividad, setCreandoActividad] = useState(false);
+
+  // Cerrar menú al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (imageMenuRef.current && !imageMenuRef.current.contains(event.target as Node)) {
+        setShowImageMenu(false);
+      }
+    };
+
+    if (showImageMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showImageMenu]);
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -426,6 +449,105 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
     }
   };
 
+  // Función para cambiar imagen del proyecto
+  const handleCambiarImagen = async () => {
+    if (!nuevaImagenUrl.trim()) {
+      alert('Por favor ingresa una URL de imagen');
+      return;
+    }
+
+    if (!card.proyectoData?.id) {
+      alert('Error: No se pudo identificar el proyecto');
+      return;
+    }
+
+    setActualizandoImagen(true);
+
+    try {
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+      const { data, error } = await supabase
+        .from('proyecto')
+        .update({ icono: nuevaImagenUrl.trim() })
+        .eq('id', card.proyectoData.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error actualizando imagen:', error);
+        alert('Error al actualizar la imagen');
+        return;
+      }
+
+      console.log('✅ Imagen actualizada:', data);
+
+      // Actualizar el card localmente
+      if (card.proyectoData) {
+        card.proyectoData.icono = nuevaImagenUrl.trim();
+      }
+
+      setNuevaImagenUrl('');
+      setShowImageMenu(false);
+      alert('✅ Imagen actualizada exitosamente');
+
+      // Recargar la página para reflejar los cambios
+      window.location.reload();
+    } catch (error) {
+      console.error('Error cambiando imagen:', error);
+      alert('Error al cambiar la imagen');
+    } finally {
+      setActualizandoImagen(false);
+    }
+  };
+
+  // Función para eliminar imagen del proyecto
+  const handleEliminarImagen = async () => {
+    if (!card.proyectoData?.id) {
+      alert('Error: No se pudo identificar el proyecto');
+      return;
+    }
+
+    const confirmacion = confirm('¿Estás seguro de que deseas eliminar la imagen del proyecto?');
+    if (!confirmacion) return;
+
+    setActualizandoImagen(true);
+
+    try {
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+      const { data, error } = await supabase
+        .from('proyecto')
+        .update({ icono: null })
+        .eq('id', card.proyectoData.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error eliminando imagen:', error);
+        alert('Error al eliminar la imagen');
+        return;
+      }
+
+      console.log('✅ Imagen eliminada:', data);
+
+      // Actualizar el card localmente
+      if (card.proyectoData) {
+        card.proyectoData.icono = null;
+      }
+
+      setShowImageMenu(false);
+      alert('✅ Imagen eliminada exitosamente');
+
+      // Recargar la página para reflejar los cambios
+      window.location.reload();
+    } catch (error) {
+      console.error('Error eliminando imagen:', error);
+      alert('Error al eliminar la imagen');
+    } finally {
+      setActualizandoImagen(false);
+    }
+  };
+
   // Función para limpiar URL duplicada
   const sanitizeIconUrl = (url: string | null): string | null => {
     if (!url) return null;
@@ -444,9 +566,9 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       {/* Header */}
       <div className="flex items-center gap-2 mb-2 border-b border-indigo-300 pb-2">
         {cleanIcono && (
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 relative group"  data-todo-interactive>
             {cleanIcono.startsWith('http') ? (
-              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white shadow-sm border border-indigo-200">
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white shadow-sm border border-indigo-200 relative">
                 <img
                   src={cleanIcono}
                   alt={card.title}
@@ -459,9 +581,88 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                     }
                   }}
                 />
+                {/* Botón de opciones de imagen */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowImageMenu(!showImageMenu);
+                  }}
+                  className="absolute top-0 right-0 w-5 h-5 bg-black/60 hover:bg-black/80 text-white rounded-bl-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  data-todo-interactive
+                  title="Opciones de imagen"
+                >
+                  <MoreVertical size={12} />
+                </button>
               </div>
             ) : (
-              <div className="text-2xl">{cleanIcono}</div>
+              <div className="text-2xl relative">
+                {cleanIcono}
+                {/* Botón de opciones para emoji/icono */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowImageMenu(!showImageMenu);
+                  }}
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  data-todo-interactive
+                  title="Opciones de icono"
+                >
+                  <MoreVertical size={10} />
+                </button>
+              </div>
+            )}
+
+            {/* Menú desplegable */}
+            {showImageMenu && (
+              <div
+                ref={imageMenuRef}
+                className="absolute top-12 left-0 z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-2 w-64"
+                onClick={(e) => e.stopPropagation()}
+                data-todo-interactive
+              >
+                {/* Opción: Cambiar imagen */}
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Nueva URL de imagen
+                  </label>
+                  <input
+                    type="text"
+                    value={nuevaImagenUrl}
+                    onChange={(e) => setNuevaImagenUrl(e.target.value)}
+                    placeholder="https://ejemplo.com/imagen.png"
+                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    disabled={actualizandoImagen}
+                    data-todo-interactive
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCambiarImagen();
+                    }}
+                    disabled={actualizandoImagen || !nuevaImagenUrl.trim()}
+                    className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-todo-interactive
+                  >
+                    <Upload size={14} />
+                    {actualizandoImagen ? 'Actualizando...' : 'Cambiar imagen'}
+                  </button>
+                </div>
+
+                {/* Opción: Eliminar imagen */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEliminarImagen();
+                  }}
+                  disabled={actualizandoImagen}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  data-todo-interactive
+                >
+                  <Trash2 size={14} />
+                  Eliminar imagen
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -869,6 +1070,11 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Debug info */}
+      <div className="absolute bottom-1 left-1 text-[8px] bg-yellow-100 px-1 rounded border border-yellow-300 opacity-70">
+        Menu: {showImageMenu ? 'ABIERTO' : 'CERRADO'} | Icono: {cleanIcono ? (cleanIcono.startsWith('http') ? 'URL' : 'EMOJI') : 'NINGUNO'}
+      </div>
 
       {/* Modal para crear misión */}
       {showNuevaMisionModal && (
