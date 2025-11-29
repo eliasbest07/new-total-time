@@ -326,19 +326,29 @@ export const usePizarraLocalStorage = (
   // Limpiar localStorage
   const clearLocalStorage = useCallback(() => {
     try {
+      console.log('🚨 [CLEAR] ========== INICIANDO LIMPIEZA ==========');
+      console.log('🚨 [CLEAR] Removiendo items de localStorage...');
+
       localStorage.removeItem(PIZARRA_STORAGE_KEY);
       localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
       localStorage.removeItem(PAN_OFFSET_STORAGE_KEY);
       localStorage.removeItem(DATE_STORAGE_KEY);
-      console.log('🗑️ [PIZARRA STORAGE] localStorage limpiado');
+      localStorage.removeItem(LAST_SUPABASE_LOAD_KEY);
+
+      console.log('🚨 [CLEAR] localStorage limpiado completamente');
+      console.log('🚨 [CLEAR] Estableciendo arrays vacíos...');
 
       setCards([]);
       setConnections([]);
       setPanOffset({ x: 0, y: 0 });
+
+      console.log('🚨 [CLEAR] ========== LIMPIEZA COMPLETADA ==========');
+      console.log('🚨 [CLEAR] Cards establecidas a: []');
+      console.log('🚨 [CLEAR] Connections establecidas a: []');
     } catch (error) {
       console.error('❌ [PIZARRA STORAGE] Error limpiando localStorage:', error);
     }
-  }, [setCards, setConnections, setPanOffset]);
+  }, [setCards, setConnections, setPanOffset, LAST_SUPABASE_LOAD_KEY]);
 
   // Exportar datos como JSON
   const exportToJSON = useCallback(() => {
@@ -433,9 +443,23 @@ export const usePizarraLocalStorage = (
 
   // Guardar automáticamente cuando cambien los datos (con debounce)
   useEffect(() => {
+    // No guardar si el localStorage fue limpiado recientemente
+    const wasCleared = !localStorage.getItem(PIZARRA_STORAGE_KEY) &&
+                       !localStorage.getItem(CONNECTIONS_STORAGE_KEY) &&
+                       cards.length === 0 &&
+                       connections.length === 0;
+
+    if (wasCleared) {
+      console.log('🚫 [AUTO-SAVE] localStorage fue limpiado, NO auto-guardar');
+      return;
+    }
+
     const timeoutId = setTimeout(() => {
       if (cards.length > 0 || connections.length > 0) {
+        console.log('💾 [AUTO-SAVE] Guardando automáticamente...', cards.length, 'cards');
         saveToLocalStorage();
+      } else {
+        console.log('⏭️ [AUTO-SAVE] No hay cards, skip auto-save');
       }
     }, 1000); // Esperar 1 segundo después del último cambio
 

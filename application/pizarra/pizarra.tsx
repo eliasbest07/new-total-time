@@ -825,6 +825,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   const {
     draggedCard,
+    draggedMisionId,
     handleCardMouseDown,
     handleGlobalMouseMove: dragGlobalMouseMove,
     handleMouseUp: dragHandleMouseUp
@@ -3201,6 +3202,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           background: #718096;
         }
       `}</style>
+
+      {/* Debug Panel */}
+
     </div>
   );
 });
