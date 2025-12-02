@@ -140,6 +140,15 @@ export interface PizarraRef {
     usuario_asignado_nombre?: string;
     usuario_asignado_avatar?: string;
   }) => string | void;
+  addMisionCard?: (misionData: {
+    id_mision: number;
+    title: string;
+    description: string;
+    hours: number;
+    id_usuario?: number;
+    id_creador?: string;
+    position?: { x: number; y: number };
+  }) => string | void;
   addUsuarioCard?: (userData: {
     userId: string;
     name: string;

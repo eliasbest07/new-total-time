@@ -1619,6 +1619,82 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     return newCardId; // Retornar el ID del card creado
   }, [cards, panOffset, canvasRef, pizarra, getNextZIndex]);
 
+  const addMisionCard = useCallback((misionData: {
+    id_mision: number;
+    title: string;
+    description: string;
+    hours: number;
+    id_usuario?: number;
+    id_creador?: string;
+    position?: { x: number; y: number };
+  }): string => {
+    console.log('🎯 [addMisionCard] FUNCIÓN LLAMADA con datos:', misionData);
+
+    const existingIds = cards.map(card => card.id);
+    console.log('🎯 [addMisionCard] IDs existentes:', existingIds);
+
+    let cardX: number, cardY: number;
+
+    if (misionData.position) {
+      // Si se proporciona una posición específica, usarla
+      cardX = misionData.position.x;
+      cardY = misionData.position.y;
+      console.log('🎯 [addMisionCard] Usando posición proporcionada:', { x: cardX, y: cardY });
+    } else {
+      // Calcular el centro visible de la pizarra
+      const canvasWidth = canvasRef.current?.clientWidth || 1000;
+      const canvasHeight = canvasRef.current?.clientHeight || 800;
+      const centerX = -panOffset.x + (canvasWidth / 2);
+      const centerY = -panOffset.y + (canvasHeight / 2);
+
+      // Agregar un pequeño offset aleatorio para que no se superpongan
+      const randomOffset = () => (Math.random() - 0.5) * 100;
+
+      cardX = centerX + randomOffset() - 140; // -140 para centrar la card (width/2)
+      cardY = centerY + randomOffset() - 200; // -200 para centrar la card (height/2)
+      console.log('🎯 [addMisionCard] Usando posición calculada:', { x: cardX, y: cardY });
+    }
+
+    const nextZIndex = getNextZIndex();
+    const newCardId = generateUniqueId('mision', existingIds);
+    console.log('🎯 [addMisionCard] Nuevo ID generado:', newCardId, 'zIndex:', nextZIndex);
+
+    const newCard = {
+      id: newCardId,
+      type: 'mision' as const,
+      title: misionData.title || 'Nuevo Ticket',
+      content: `${misionData.hours}h - ${misionData.description || misionData.title}`,
+      x: cardX,
+      y: cardY,
+      width: 280,
+      height: 400,
+      fontSize: 18,
+      zIndex: nextZIndex, // Nuevo card aparece encima de todos
+      misionData: {
+        title: misionData.title,
+        hours: misionData.hours,
+        description: misionData.description || misionData.title,
+        id_mision: misionData.id_mision.toString(),
+        idCreador: misionData.id_creador,
+        id_usuario: misionData.id_usuario?.toString()
+      }
+    };
+
+    console.log('🎯 [addMisionCard] Card completa creada:', newCard);
+
+    // Actualizar cardZIndices para que se renderice correctamente
+    setCardZIndices(prev => ({ ...prev, [newCardId]: nextZIndex }));
+
+    console.log('✅ [addMisionCard] Ticket card (tipo mision) creada en pizarra en posición:', { x: cardX, y: cardY });
+    console.log('✅ [addMisionCard] Agregando card al estado...');
+    setCards(prev => {
+      const newCards = [...prev, newCard];
+      console.log('✅ [addMisionCard] Cards después de agregar:', newCards.length, 'cards totales');
+      return newCards;
+    });
+    return newCardId; // Retornar el ID del card creado
+  }, [cards, panOffset, canvasRef, getNextZIndex]);
+
   const restoreCard = useCallback((cardData: any) => {
     console.log('🔧 restoreCard ejecutado con:', cardData);
     // Restaurar un card desde el historial
@@ -2907,6 +2983,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     addTodoCard,
     addUsuarioCard,
     addMisionCardOrganizacion,
+    addMisionCard,
     restoreCard,
     clearStorage: clearLocalStorage,
     exportStorage: exportToJSON,
@@ -2920,7 +2997,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     findCardByMisionId,
     updateCardId,
     updateCard: updateCardFromRef
-  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCard, findCardByMisionId, updateCardId, updateCardFromRef]);
+  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, addMisionCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCard, findCardByMisionId, updateCardId, updateCardFromRef]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
@@ -3104,6 +3181,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             addNoteCard={addNoteCard}
             addConnection={addConnection}
             addMisionCardOrganizacion={addMisionCardOrganizacion}
+            addMisionCard={addMisionCard}
             cards={cards}
           />
         ))}

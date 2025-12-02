@@ -58,6 +58,7 @@ interface CardWrapperProps {
   addNoteCard?: (text: string, position?: { x: number; y: number }) => string;
   addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void;
   addMisionCardOrganizacion?: (misionData: any) => string | void;
+  addMisionCard?: (misionData: any) => string | void;
   cards?: Card[];
 }
 
@@ -144,6 +145,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         addNoteCard={props.addNoteCard}
         addConnection={props.addConnection}
         addMisionCardOrganizacion={props.addMisionCardOrganizacion}
+        addMisionCard={props.addMisionCard}
         cards={props.cards}
       />
 

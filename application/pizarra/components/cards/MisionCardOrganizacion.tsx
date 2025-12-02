@@ -649,7 +649,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
             return {
               ...c,
               id: cardTodoUUID, // Reemplazar con el UUID real
-              x: card.x + card.width + 20, // Posicionar a la derecha del card de misión
+              x: card.x + card.width + 40, // Posicionar a la derecha del card de misión
               y: card.y,
               todos: todos?.map((todo) => ({
                 id: todo.todo_id,

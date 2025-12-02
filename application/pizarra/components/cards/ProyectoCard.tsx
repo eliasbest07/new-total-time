@@ -18,6 +18,7 @@ interface ProyectoCardProps {
   addNoteCard?: (text: string, position?: { x: number; y: number }) => string;
   addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void;
   addMisionCardOrganizacion?: (misionData: any) => string | void;
+  addMisionCard?: (misionData: any) => string | void;
   cards?: Card[];
 }
 
@@ -30,6 +31,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   addNoteCard,
   addConnection,
   addMisionCardOrganizacion,
+  addMisionCard,
   cards = []
 }) => {
   const { usuario } = useAuth();
@@ -73,12 +75,13 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   const [misionFechaInicio, setMisionFechaInicio] = useState('');
   const [misionFechaFin, setMisionFechaFin] = useState('');
   const [creandoMision, setCreandoMision] = useState(false);
-  const [crearListaTodo, setCrearListaTodo] = useState(false); // ✅ Estado para checkbox TODO
 
   // Form states para actividad
   const [actividadDescripcion, setActividadDescripcion] = useState('');
   const [actividadHoras, setActividadHoras] = useState('');
   const [actividadFecha, setActividadFecha] = useState('');
+  const [actividadHoraInicio, setActividadHoraInicio] = useState('');
+  const [actividadLink, setActividadLink] = useState('');
   const [creandoActividad, setCreandoActividad] = useState(false);
 
   // Cerrar menú al hacer clic fuera
@@ -243,7 +246,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   // Función para crear misión
   const handleCrearMision = async () => {
     if (!misionNombre.trim()) {
-      alert('Por favor ingresa un nombre para la misión');
+      alert('Por favor ingresa un nombre para el ticket');
       return;
     }
 
@@ -269,38 +272,43 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       });
 
       if (nuevaMision) {
-        // ✅ Crear lista TODO si el checkbox está activo y las funciones están disponibles
-        if (crearListaTodo && addTodoCard && addMisionCardOrganizacion && addConnection) {
-          console.log('📋 Creando lista TODO asociada a la misión...');
+        // Crear card en la pizarra si la función está disponible
+        console.log('🔍 addMisionCard disponible?', !!addMisionCard);
+        console.log('🔍 addConnection disponible?', !!addConnection);
+        console.log('🔍 Card position:', { x: card.x, y: card.y, width: card.width, height: card.height });
 
-          // Crear card de misión en la pizarra
-          const newMisionCardId = addMisionCardOrganizacion({
+        if (addMisionCard) {
+          console.log('📋 Creando card de ticket en la pizarra...');
+
+          // Posicionar el card a la derecha del card de proyecto
+          const position = {
+            x: card.x + card.width + 100, // 100px a la derecha del card de proyecto
+            y: card.y
+          };
+
+          console.log('📍 Posición calculada para nuevo card:', position);
+
+          const newMisionCardId = addMisionCard({
             id_mision: nuevaMision.id,
             title: nuevaMision.nombre || '',
             description: nuevaMision.descripcion || '',
             hours: nuevaMision.horas || 0,
-            id_usuario_asignado: nuevaMision.id_usuario,
+            id_usuario: nuevaMision.id_usuario,
+            id_creador: nuevaMision.id_creador,
+            position: position
           });
+          console.log('✅ Card de ticket creada con ID:', newMisionCardId);
 
-          if (newMisionCardId) {
-            // Crear card TODO
-            const todoCardId = addTodoCard();
-            console.log('📝 Card TODO creado con ID:', todoCardId);
-
-            // Crear conexión TODO -> Misión
-            if (todoCardId) {
-              setTimeout(() => {
-                if (addConnection) {
-                  addConnection(
-                    todoCardId,
-                    newMisionCardId as string,
-                    true // skipValidation
-                  );
-                  console.log('🔗 Conexión TODO -> Misión creada');
-                }
-              }, 200);
-            }
+          // Crear conexión entre proyecto y misión
+          if (newMisionCardId && addConnection) {
+            setTimeout(() => {
+              console.log('🔗 Creando conexión Proyecto -> Ticket...');
+              addConnection(card.id, newMisionCardId as string, true);
+              console.log('✅ Conexión creada entre', card.id, '->', newMisionCardId);
+            }, 100);
           }
+        } else {
+          console.error('❌ addMisionCard no está disponible');
         }
 
         // Limpiar formulario
@@ -309,27 +317,32 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         setMisionHoras('');
         setMisionFechaInicio('');
         setMisionFechaFin('');
-        setCrearListaTodo(false); // ✅ Limpiar checkbox
         setShowNuevaMisionModal(false);
 
         // Recargar datos
         await recargarDatos();
 
-        alert('✅ Misión creada exitosamente' + (crearListaTodo ? ' con lista TODO asociada' : ''));
+        // Expandir automáticamente la sección de misiones
+        setExpanded('misiones');
+
+        // Disparar evento personalizado para que se refresque la lista de tickets
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('mision-created', { detail: { misionId: nuevaMision.id } }));
+        }
       } else {
-        alert('Error al crear la misión');
+        alert('Error al crear el ticket');
       }
     } catch (error) {
-      console.error('Error creando misión:', error);
-      alert('Error al crear la misión');
+      console.error('Error creando ticket:', error);
+      alert('Error al crear el ticket');
     } finally {
       setCreandoMision(false);
     }
   };
 
-  // ✅ Función para eliminar misión
+  // ✅ Función para eliminar ticket
   const handleDeleteMision = async (misionId: number, misionNombre: string) => {
-    const confirmacion = confirm(`¿Estás seguro de que deseas eliminar la misión "${misionNombre}"?`);
+    const confirmacion = confirm(`¿Estás seguro de que deseas eliminar el ticket "${misionNombre}"?`);
 
     if (!confirmacion) return;
 
@@ -337,15 +350,15 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       const success = await deleteMision(misionId);
 
       if (success) {
-        console.log('✅ Misión eliminada:', misionId);
+        console.log('✅ Ticket eliminado:', misionId);
         setMisiones(prev => prev.filter(m => m.id !== misionId));
-        alert('✅ Misión eliminada exitosamente');
+        alert('✅ Ticket eliminado exitosamente');
       } else {
-        alert('❌ Error al eliminar la misión');
+        alert('❌ Error al eliminar el ticket');
       }
     } catch (error) {
-      console.error('Error eliminando misión:', error);
-      alert('❌ Error al eliminar la misión');
+      console.error('Error eliminando ticket:', error);
+      alert('❌ Error al eliminar el ticket');
     }
   };
 
@@ -366,10 +379,18 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
     try {
       const { supabase } = await import('@/infrastructure/services/SupabaseClient');
 
+      // Construir hora_inicio si hay fecha y hora
+      let horaInicioTimestamp = null;
+      if (actividadFecha && actividadHoraInicio) {
+        horaInicioTimestamp = `${actividadFecha}T${actividadHoraInicio}:00`;
+      }
+
       console.log('📝 Creando actividad con datos:', {
         descripcion: actividadDescripcion.trim(),
         cant_horas: actividadHoras ? parseFloat(actividadHoras) : null,
-        fecha: actividadFecha || new Date().toISOString(),
+        fecha: actividadFecha || new Date().toISOString().split('T')[0],
+        hora_inicio: horaInicioTimestamp,
+        link: actividadLink.trim() || null,
         id_usuario: usuario.userAuth,
         id_proyecto: card.proyectoData?.id || null,
         tiempo_dedicado: 0
@@ -380,7 +401,9 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         .insert({
           descripcion: actividadDescripcion.trim(),
           cant_horas: actividadHoras ? parseFloat(actividadHoras) : null,
-          fecha: actividadFecha || new Date().toISOString(),
+          fecha: actividadFecha || new Date().toISOString().split('T')[0],
+          hora_inicio: horaInicioTimestamp,
+          link: actividadLink.trim() || null,
           id_usuario: usuario.userAuth,
           id_proyecto: card.proyectoData?.id || null,
           tiempo_dedicado: 0
@@ -406,6 +429,8 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
         setActividadDescripcion('');
         setActividadHoras('');
         setActividadFecha('');
+        setActividadHoraInicio('');
+        setActividadLink('');
         setShowNuevaActividadModal(false);
 
         // Recargar datos
@@ -713,7 +738,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           data-todo-interactive
         >
           <Plus size={12} />
-          Misión
+          Ticket
         </button>
         <button
           onClick={(e) => {
@@ -758,7 +783,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
           <div className="text-center text-indigo-400 text-xs py-2">Cargando...</div>
         ) : (
           <>
-            {/* Misiones */}
+            {/* Tickets */}
             <div>
               <button
                 onClick={(e) => {
@@ -768,13 +793,13 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                 className="w-full text-left text-xs font-semibold text-indigo-800 mb-1 flex items-center justify-between hover:bg-indigo-100 px-1 py-0.5 rounded"
                 data-todo-interactive
               >
-                <span>🎯 Misiones ({misiones.length})</span>
+                <span>🎟️ Tickets ({misiones.length})</span>
                 <span>{expanded === 'misiones' ? '▼' : '▶'}</span>
               </button>
               {expanded === 'misiones' && (
                 <div className="space-y-1 ml-2">
                   {misiones.length === 0 ? (
-                    <div className="text-xs text-gray-500 italic">No hay misiones</div>
+                    <div className="text-xs text-gray-500 italic">No hay tickets</div>
                   ) : (
                     misiones.slice(0, 5).map((mision) => (
                       <div
@@ -804,7 +829,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                             handleDeleteMision(mision.id, mision.nombre || 'Sin nombre');
                           }}
                           className="absolute top-2 right-2 w-5 h-5 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs z-10"
-                          title="Eliminar misión"
+                          title="Eliminar ticket"
                           data-todo-interactive
                         >
                           ×
@@ -1057,7 +1082,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       {!loading && (
         <div className="mt-2 pt-2 border-t border-indigo-200 text-xs flex justify-around">
           <div className="text-center">
-            <div className="text-gray-500">Total Misiones</div>
+            <div className="text-gray-500">Total Tickets</div>
             <div className="font-bold text-indigo-700">
               {misiones.reduce((sum, m) => sum + (m.horas || 0), 0)}h
             </div>
@@ -1092,7 +1117,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
             data-todo-interactive
           >
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Nueva Misión</h3>
+              <h3 className="text-lg font-bold text-gray-900">Nuevo Ticket</h3>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1115,7 +1140,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                   value={misionNombre}
                   onChange={(e) => setMisionNombre(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Nombre de la misión"
+                  placeholder="Nombre del ticket"
                   disabled={creandoMision}
                   data-todo-interactive
                 />
@@ -1128,7 +1153,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                   onChange={(e) => setMisionDescripcion(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                   rows={3}
-                  placeholder="Descripción de la misión"
+                  placeholder="Descripción del ticket"
                   disabled={creandoMision}
                   data-todo-interactive
                 />
@@ -1173,24 +1198,6 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                   data-todo-interactive
                 />
               </div>
-
-              {/* ✅ Checkbox para crear lista TODO */}
-              {addTodoCard && addConnection && addMisionCardOrganizacion && (
-                <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                  <input
-                    type="checkbox"
-                    id="crearListaTodo"
-                    checked={crearListaTodo}
-                    onChange={(e) => setCrearListaTodo(e.target.checked)}
-                    className="w-4 h-4 text-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500"
-                    disabled={creandoMision}
-                    data-todo-interactive
-                  />
-                  <label htmlFor="crearListaTodo" className="text-sm font-medium cursor-pointer text-gray-900">
-                    📋 Crear lista TODO asociada a esta misión
-                  </label>
-                </div>
-              )}
 
               <div className="flex gap-2 pt-3">
                 <button
@@ -1266,16 +1273,30 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900">Fecha</label>
-                <input
-                  type="date"
-                  value={actividadFecha}
-                  onChange={(e) => setActividadFecha(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  disabled={creandoActividad}
-                  data-todo-interactive
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-900">Fecha</label>
+                  <input
+                    type="date"
+                    value={actividadFecha}
+                    onChange={(e) => setActividadFecha(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    disabled={creandoActividad}
+                    data-todo-interactive
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-900">Hora Inicio</label>
+                  <input
+                    type="time"
+                    value={actividadHoraInicio}
+                    onChange={(e) => setActividadHoraInicio(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    disabled={creandoActividad}
+                    data-todo-interactive
+                  />
+                </div>
               </div>
 
               <div>
@@ -1288,6 +1309,19 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
                   placeholder="0"
                   min="0"
                   step="0.5"
+                  disabled={creandoActividad}
+                  data-todo-interactive
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-900">Link (opcional)</label>
+                <input
+                  type="url"
+                  value={actividadLink}
+                  onChange={(e) => setActividadLink(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="https://..."
                   disabled={creandoActividad}
                   data-todo-interactive
                 />

@@ -45,7 +45,8 @@ interface CardFactoryProps {
   addTodoCard?: (text?: string) => string; // ✅ Función para crear TODO cards
   addNoteCard?: (text: string, position?: { x: number; y: number }) => string; // ✅ Función para crear cards de texto
   addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void; // ✅ Función para crear conexiones
-  addMisionCardOrganizacion?: (misionData: any) => string | void; // ✅ Función para crear cards de misión
+  addMisionCardOrganizacion?: (misionData: any) => string | void; // ✅ Función para crear cards de misión organizacion
+  addMisionCard?: (misionData: any) => string | void; // ✅ Función para crear cards de misión normal
   openImageWindow?: (imageUrl: string, title: string) => void;
   cards?: Card[]; // ✅ Todas las cards para buscar notas asociadas
 }
@@ -165,6 +166,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           addNoteCard={props.addNoteCard}
           addConnection={props.addConnection}
           addMisionCardOrganizacion={props.addMisionCardOrganizacion}
+          addMisionCard={props.addMisionCard}
           cards={props.cards}
         />
       );

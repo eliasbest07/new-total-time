@@ -169,13 +169,24 @@ const MisionCompactCard: React.FC<MisionCompactCardProps> = ({ mision, onClick, 
 export default function MisionesCompact({ onShowDetails, findCardByMisionId, centerOnCard }: MisionesCompactProps) {
   const { usuarioId, loading: loadingUsuario, error: errorUsuario } = useUsuarioId();
   const { usuario } = useAuth();
-  const { misiones, loading: loadingMisiones, error: errorMisiones } = useMisiones(usuarioId);
+  const { misiones, loading: loadingMisiones, error: errorMisiones, refetch } = useMisiones(usuarioId);
   const { getMisionesEntregadas } = useMisionActiva();
 
   const [currentPage, setCurrentPage] = useState(0);
   const [idsEntregadas, setIdsEntregadas] = useState<number[]>([]);
   const [captureCounts, setCaptureCounts] = useState<Record<number, number>>({});
   const itemsPerPage = 2;
+
+  // Escuchar evento personalizado de creación de misión
+  useEffect(() => {
+    const handleMisionCreated = () => {
+      console.log('🎟️ [MisionesCompact] Evento de misión creada detectado, recargando...');
+      refetch();
+    };
+
+    window.addEventListener('mision-created', handleMisionCreated);
+    return () => window.removeEventListener('mision-created', handleMisionCreated);
+  }, [refetch]);
 
   // Cargar conteo de capturas para cada misión (filtrado por usuario)
   useEffect(() => {
