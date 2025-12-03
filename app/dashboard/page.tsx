@@ -841,9 +841,30 @@ function DashboardAdmin() {
           style={{ width: '120px', maxHeight: 'calc(100vh - 10rem)', zIndex: 50 }}
         >
           <div className="mb-3">
+            {/* Botón Back - Discreto */}
+            <button
+              onClick={() => window.location.href = '/'}
+              className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-lg p-2 mb-2 transition-all flex items-center justify-center gap-2"
+              title="Volver a la pizarra general"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span className="text-xs">
+                Volver
+              </span>
+            </button>
+
+            {/* Botón Organización */}
             <button
               onClick={() => setShowInfoOrganizacion(true)}
-              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg p-3 shadow-lg transition-all hover:scale-105 flex flex-col items-center justify-center gap-2 mb-3"
+              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg p-3 shadow-lg transition-all hover:scale-105 flex flex-col items-center justify-center gap-2"
               title="Información de la Organización"
             >
               {organizacion?.img_profile ? (
