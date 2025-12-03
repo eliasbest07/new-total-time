@@ -1176,7 +1176,7 @@ function DashboardAdmin() {
                 disabled={creandoMision}
                 data-todo-interactive="true"
               >
-                {creandoMision ? "Creando..." : "Crear Misión"}
+                {creandoMision ? "Creando..." : "Crear Ticket"}
               </button>
             </div>
           </div>

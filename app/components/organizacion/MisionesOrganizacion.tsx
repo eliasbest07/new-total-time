@@ -334,13 +334,28 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                     {usuarioAsignado && (
                       <div className="flex items-center gap-1" title={usuarioAsignado.getNombreCompleto()}>
                         {usuarioAsignado.profile.avatar ? (
-                          <img
-                            src={usuarioAsignado.profile.avatar}
-                            alt={usuarioAsignado.getNombreCompleto()}
-                            className="w-5 h-5 rounded-full object-cover border border-gray-300"
-                          />
+                          <>
+                            <img
+                              src={usuarioAsignado.profile.avatar}
+                              alt={usuarioAsignado.getNombreCompleto()}
+                              className="w-5 h-5 rounded-full object-cover border border-gray-300"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                            <div
+                              className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center"
+                              style={{ display: 'none' }}
+                            >
+                              <span className="text-[8px] text-white font-semibold">
+                                {usuarioAsignado.profile.nombre.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          </>
                         ) : (
-                          <div className="w-5 h-5 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
+                          <div className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center">
                             <span className="text-[8px] text-white font-semibold">
                               {usuarioAsignado.profile.nombre.charAt(0).toUpperCase()}
                             </span>
@@ -397,13 +412,28 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
                   <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-3">
                       {usuarioAsignado.profile.avatar ? (
-                        <img
-                          src={usuarioAsignado.profile.avatar}
-                          alt={usuarioAsignado.getNombreCompleto()}
-                          className="w-12 h-12 rounded-full object-cover border border-gray-300"
-                        />
+                        <>
+                          <img
+                            src={usuarioAsignado.profile.avatar}
+                            alt={usuarioAsignado.getNombreCompleto()}
+                            className="w-12 h-12 rounded-full object-cover border border-gray-300"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                          <div
+                            className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center"
+                            style={{ display: 'none' }}
+                          >
+                            <span className="text-lg text-white font-semibold">
+                              {usuarioAsignado.profile.nombre.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        </>
                       ) : (
-                        <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
+                        <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center">
                           <span className="text-lg text-white font-semibold">
                             {usuarioAsignado.profile.nombre.charAt(0).toUpperCase()}
                           </span>
