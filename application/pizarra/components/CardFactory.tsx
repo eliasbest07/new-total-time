@@ -49,6 +49,7 @@ interface CardFactoryProps {
   addMisionCard?: (misionData: any) => string | void; // ✅ Función para crear cards de misión normal
   openImageWindow?: (imageUrl: string, title: string) => void;
   cards?: Card[]; // ✅ Todas las cards para buscar notas asociadas
+  onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void; // ✅ Callback para abrir modal de capturas
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -140,6 +141,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           addTodoCard={props.addTodoCard}
           addConnection={props.addConnection}
           allCards={props.setCards}
+          onOpenCapturasModal={props.onOpenCapturasModal}
         />
       );
 

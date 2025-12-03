@@ -624,7 +624,7 @@ export default function MainScreen() {
       <Ventana
         isOpen={showActividadDetails}
         onClose={() => setShowActividadDetails(false)}
-        title="Detalles del Ticket"
+        title="Detalles de la Actividad"
         initialWidth={600}
         initialHeight={500}
         minWidth={500}

@@ -6,7 +6,6 @@ import { useMisiones } from '@/hooks/useMisiones';
 import { useCardTodos } from '@/hooks/useCardTodos';
 import { misionActivaRepository } from '@/infrastructure/datasource/SupabaseMisionActivaRepository';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
-import Ventana from '@/app/demo/components/Ventana';
 
 interface MisionCardOrganizacionProps {
   card: Card;
@@ -24,6 +23,7 @@ interface MisionCardOrganizacionProps {
   addTodoCard?: (text?: string) => string; // Función para crear cards TODO
   addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void; // Función para crear conexiones
   allCards?: React.Dispatch<React.SetStateAction<Card[]>>; // Para verificar si el card TODO existe
+  onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void; // Callback para abrir modal de capturas a nivel de página
 }
 
 export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
@@ -33,7 +33,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   currentUserId,
   addTodoCard,
   addConnection,
-  allCards
+  allCards,
+  onOpenCapturasModal
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -46,10 +47,6 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   const [pendingCaptureRequest, setPendingCaptureRequest] = useState<number | null>(null);
   const [tiempoEsperaSegundos, setTiempoEsperaSegundos] = useState<number>(0);
   const captureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [showCapturasModal, setShowCapturasModal] = useState(false);
-  const [capturasHistorial, setCapturasHistorial] = useState<Array<{ url: string; fecha: string }>>([]);
-  const [loadingCapturas, setLoadingCapturas] = useState(false);
-  const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
   const {
     updateCaptureNow,
@@ -520,35 +517,19 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     }
   };
 
-  // Función para cargar historial de capturas
-  const handleVerTodasCapturas = async () => {
+  // Función para abrir modal de capturas
+  const handleVerTodasCapturas = () => {
     if (!misionData.misionActivaId) {
       alert('No hay misión activa para mostrar capturas');
       return;
     }
 
-    setShowCapturasModal(true);
-    setLoadingCapturas(true);
-
-    try {
-      const { data: capturas, error } = await supabase
-        .from('capture')
-        .select('url, fecha')
-        .eq('id_mision_activa', misionData.misionActivaId)
-        .order('fecha', { ascending: false });
-
-      if (error) {
-        console.error('❌ Error cargando capturas:', error);
-        setCapturasHistorial([]);
-      } else {
-        console.log('✅ Capturas cargadas:', capturas?.length || 0);
-        setCapturasHistorial(capturas || []);
-      }
-    } catch (error) {
-      console.error('❌ Error en handleVerTodasCapturas:', error);
-      setCapturasHistorial([]);
-    } finally {
-      setLoadingCapturas(false);
+    // Llamar al callback para abrir el modal a nivel de página
+    if (onOpenCapturasModal) {
+      onOpenCapturasModal(misionData.misionActivaId, misionData.title);
+    } else {
+      console.warn('⚠️ No se proporcionó el callback onOpenCapturasModal');
+      alert('No se puede abrir el modal de capturas. Funcionalidad no disponible.');
     }
   };
 
@@ -1220,107 +1201,6 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
         )}
       </div>
 
-      {/* Modal de capturas */}
-      <Ventana
-        isOpen={showCapturasModal}
-        onClose={() => {
-          setShowCapturasModal(false);
-          setCapturasHistorial([]);
-        }}
-        title={`📸 Capturas - ${misionData.title}`}
-        initialWidth={800}
-        initialHeight={600}
-        minWidth={600}
-        minHeight={400}
-        showOverlay={true}
-      >
-        <div className="p-4 h-full overflow-y-auto">
-          {loadingCapturas ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500">Cargando capturas...</p>
-            </div>
-          ) : capturasHistorial.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4">
-              <Camera size={64} className="text-gray-300" />
-              <p className="text-gray-500 text-center">No hay capturas disponibles para esta misión</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mb-4">
-                <p className="text-sm text-blue-900 font-medium">
-                  Total de capturas: <span className="font-bold">{capturasHistorial.length}</span>
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {capturasHistorial.map((captura, index) => (
-                  <div
-                    key={index}
-                    className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
-                  >
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => setSelectedImageModal(captura.url)}
-                    >
-                      <img
-                        src={captura.url}
-                        alt={`Captura ${index + 1}`}
-                        className="w-full h-48 object-cover hover:opacity-90 transition-opacity"
-                      />
-                    </div>
-                    <div className="p-3 bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-600">
-                          {new Date(captura.fecha).toLocaleString('es-ES', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                        <a
-                          href={captura.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink size={12} />
-                          Abrir
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </Ventana>
-
-      {/* Modal para ver imagen en grande */}
-      {selectedImageModal && (
-        <div
-          className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
-          onClick={() => setSelectedImageModal(null)}
-        >
-          <div className="relative max-w-7xl max-h-[95vh] w-full h-full flex items-center justify-center">
-            <button
-              onClick={() => setSelectedImageModal(null)}
-              className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg transition-colors z-10 font-medium"
-            >
-              ✕ Cerrar
-            </button>
-            <img
-              src={selectedImageModal}
-              alt="Captura ampliada"
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

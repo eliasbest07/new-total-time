@@ -159,4 +159,5 @@ export interface PizarraProps {
   }>;
   currentUserId?: string;
   onConnectionCreate?: (connection: Connection, fromCard: Card, toCard: Card) => void;
+  onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void;
 }

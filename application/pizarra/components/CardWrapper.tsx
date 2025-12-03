@@ -60,6 +60,7 @@ interface CardWrapperProps {
   addMisionCardOrganizacion?: (misionData: any) => string | void;
   addMisionCard?: (misionData: any) => string | void;
   cards?: Card[];
+  onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -147,6 +148,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         addMisionCardOrganizacion={props.addMisionCardOrganizacion}
         addMisionCard={props.addMisionCard}
         cards={props.cards}
+        onOpenCapturasModal={props.onOpenCapturasModal}
       />
 
       {/* Connection point */}

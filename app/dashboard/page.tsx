@@ -64,6 +64,11 @@ function DashboardAdmin() {
   const [showMisionesModal, setShowMisionesModal] = useState(false);
   const [showActividadModal, setShowActividadModal] = useState(false);
   const [showInfoOrganizacion, setShowInfoOrganizacion] = useState(false);
+  const [showCapturasModal, setShowCapturasModal] = useState(false);
+  const [capturasMisionActiva, setCapturasMisionActiva] = useState<{ id: number; title: string } | null>(null);
+  const [capturasHistorial, setCapturasHistorial] = useState<Array<{ url: string; fecha: string }>>([]);
+  const [loadingCapturas, setLoadingCapturas] = useState(false);
+  const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
   // Contexto de conexión TODO ↔ Proyecto para crear misión
   const [connectionContext, setConnectionContext] = useState<{
@@ -123,6 +128,62 @@ function DashboardAdmin() {
       setPendingMessage(message);
     }
     setShowChatWindow(true);
+  };
+
+  // Handler para abrir modal de capturas
+  const handleOpenCapturasModal = async (misionActivaId: number, misionTitle: string) => {
+    console.log('📸 Abriendo modal de capturas para misión activa ID:', misionActivaId, 'Título:', misionTitle);
+    setCapturasMisionActiva({ id: misionActivaId, title: misionTitle });
+    setShowCapturasModal(true);
+    setLoadingCapturas(true);
+
+    try {
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+      // Primero obtener la misión activa para saber su id_referencia (que es el id de la misión)
+      const { data: misionActiva, error: errorMisionActiva } = await supabase
+        .from('misiones_activas')
+        .select('id_referencia, tipo')
+        .eq('id', misionActivaId)
+        .single();
+
+      if (errorMisionActiva) {
+        console.error('❌ Error obteniendo misión activa:', errorMisionActiva);
+        setCapturasHistorial([]);
+        setLoadingCapturas(false);
+        return;
+      }
+
+      console.log('📋 Misión activa encontrada:', misionActiva);
+
+      // Las capturas se guardan en la tabla 'capture' con id_bloque = String(id_referencia)
+      // donde id_referencia es el ID de la misión original
+      const idBloque = String(misionActiva.id_referencia);
+      console.log('🔍 Buscando capturas con id_bloque:', idBloque);
+
+      const { data: capturas, error } = await supabase
+        .from('capture')
+        .select('img_url, created_at')
+        .eq('id_bloque', idBloque)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error cargando capturas:', error);
+        setCapturasHistorial([]);
+      } else {
+        console.log('✅ Capturas cargadas:', capturas?.length || 0);
+        // Mapear los campos correctos
+        setCapturasHistorial(capturas?.map(c => ({
+          url: c.img_url,
+          fecha: c.created_at
+        })) || []);
+      }
+    } catch (error) {
+      console.error('❌ Error en handleOpenCapturasModal:', error);
+      setCapturasHistorial([]);
+    } finally {
+      setLoadingCapturas(false);
+    }
   };
 
   // Handler para mensajes entrantes
@@ -770,6 +831,7 @@ function DashboardAdmin() {
             usuarios={usuarios}
             currentUserId={usuario?.userAuth}
             onConnectionCreate={handleConnectionCreate}
+            onOpenCapturasModal={handleOpenCapturasModal}
           />
         </div>
 
@@ -1355,6 +1417,111 @@ function DashboardAdmin() {
             </div>
           </div>
         </Ventana>
+      )}
+
+      {/* Modal de capturas */}
+      {showCapturasModal && capturasMisionActiva && (
+        <Ventana
+          isOpen={showCapturasModal}
+          onClose={() => {
+            setShowCapturasModal(false);
+            setCapturasMisionActiva(null);
+            setCapturasHistorial([]);
+          }}
+          title={`📸 Capturas - ${capturasMisionActiva.title}`}
+          initialWidth={800}
+          initialHeight={600}
+          minWidth={600}
+          minHeight={400}
+          showOverlay={true}
+        >
+          <div className="p-4 h-full overflow-y-auto">
+            {loadingCapturas ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-500">Cargando capturas...</p>
+              </div>
+            ) : capturasHistorial.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4">
+                <span style={{ fontSize: '64px' }}>📸</span>
+                <p className="text-gray-500 text-center">No hay capturas disponibles para esta misión</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mb-4">
+                  <p className="text-sm text-blue-900 font-medium">
+                    Total de capturas: <span className="font-bold">{capturasHistorial.length}</span>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {capturasHistorial.map((captura, index) => (
+                    <div
+                      key={index}
+                      className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+                    >
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => setSelectedImageModal(captura.url)}
+                      >
+                        <img
+                          src={captura.url}
+                          alt={`Captura ${index + 1}`}
+                          className="w-full h-48 object-cover hover:opacity-90 transition-opacity"
+                        />
+                      </div>
+                      <div className="p-3 bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-600">
+                            {new Date(captura.fecha).toLocaleString('es-ES', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                          <a
+                            href={captura.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span>🔗</span>
+                            Abrir
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Ventana>
+      )}
+
+      {/* Modal para ver imagen en grande */}
+      {selectedImageModal && (
+        <div
+          className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setSelectedImageModal(null)}
+        >
+          <div className="relative max-w-7xl max-h-[95vh] w-full h-full flex items-center justify-center">
+            <button
+              onClick={() => setSelectedImageModal(null)}
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg transition-colors z-10 font-medium"
+            >
+              ✕ Cerrar
+            </button>
+            <img
+              src={selectedImageModal}
+              alt="Captura ampliada"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
       )}
 
       {/* Modal para crear actividad */}
