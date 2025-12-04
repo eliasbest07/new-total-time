@@ -837,7 +837,7 @@ function DashboardAdmin() {
 
         {/* Panel izquierdo flotante - Listado de Proyectos */}
         <div
-          className="fixed top-20 left-4 overflow-y-auto bg-transparent pointer-events-auto"
+          className="fixed top-20 left-4 overflow-y-auto overflow-x-hidden bg-transparent pointer-events-auto custom-scrollbar"
           style={{ width: '120px', maxHeight: 'calc(100vh - 10rem)', zIndex: 50 }}
         >
           <div className="mb-3">
@@ -1012,6 +1012,30 @@ function DashboardAdmin() {
             .crear-actividad-btn:hover::before {
               animation: rotate 1s;
               transition: all 0.5s;
+            }
+
+            /* Estilos personalizados para el scrollbar */
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 6px;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: transparent;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: #000000;
+              border-radius: 10px;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: #333333;
+            }
+
+            /* Para Firefox */
+            .custom-scrollbar {
+              scrollbar-width: thin;
+              scrollbar-color: #000000 transparent;
             }
           `}</style>
         </div>
