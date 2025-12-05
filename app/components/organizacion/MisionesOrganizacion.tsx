@@ -152,9 +152,31 @@ export default function MisionesOrganizacion({ pizarraRef }: MisionesOrganizacio
           setCapturasUrls([]);
         } else {
           setMisionActiva(data);
-          // TODO: Cargar capturas desde la tabla 'capture' si es necesario
-          setCapturasUrls([]);
           console.log('📸 Misión activa cargada:', data);
+
+          // Cargar capturas desde la tabla 'capture' usando id_referencia
+          if (data && data.id_referencia) {
+            const idBloque = String(data.id_referencia);
+            console.log('🔍 Buscando capturas con id_bloque:', idBloque);
+
+            const { data: capturas, error: errorCapturas } = await supabase
+              .from('capture')
+              .select('img_url, created_at')
+              .eq('id_bloque', idBloque)
+              .order('created_at', { ascending: false });
+
+            if (errorCapturas) {
+              console.error('❌ Error cargando capturas:', errorCapturas);
+              setCapturasUrls([]);
+            } else {
+              console.log('✅ Capturas cargadas:', capturas?.length || 0);
+              // Extraer solo las URLs de las capturas
+              const urls = capturas?.map(c => c.img_url).filter(url => url !== null) || [];
+              setCapturasUrls(urls);
+            }
+          } else {
+            setCapturasUrls([]);
+          }
         }
       } catch (error) {
         console.error('Error cargando misión activa:', error);

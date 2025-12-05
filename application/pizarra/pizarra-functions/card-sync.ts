@@ -55,14 +55,14 @@ export interface ShouldSyncParams {
  */
 async function loadMisionData(cardDB: CardDB, card: Card): Promise<void> {
   try {
-    console.log('🔍 [CARD-SYNC] Cargando misionData para card:', cardDB.card_id);
+    console.log('🔍 [CARD-SYNC] Cargando misionData para card:', cardDB.card_id, '(UUID:', cardDB.id, ')');
     const { SupabaseCardMisionRepository } = await import('@/infrastructure/datasource/SupabaseCardMisionRepository');
     const { SupabaseMisionRepository } = await import('@/infrastructure/datasource/SupabaseMisionRepository');
 
     const cardMisionRepo = new SupabaseCardMisionRepository();
     const misionRepo = new SupabaseMisionRepository();
 
-    const cardMision = await cardMisionRepo.getByCardId(cardDB.card_id);
+    const cardMision = await cardMisionRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID en lugar de card_id
     console.log('🔍 [CARD-SYNC] cardMision obtenido:', cardMision);
 
     if (cardMision) {
@@ -111,7 +111,7 @@ async function loadActividadData(cardDB: CardDB, card: Card, usuario: Usuario | 
     const { SupabaseCardActividadRepository } = await import('@/infrastructure/datasource/SupabaseCardActividadRepository');
     const cardActividadRepo = new SupabaseCardActividadRepository();
 
-    const cardActividad = await cardActividadRepo.getByCardId(cardDB.card_id);
+    const cardActividad = await cardActividadRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
     if (cardActividad) {
       const currentUserParticipant = {
         name: usuario.getNombreCompleto ? usuario.getNombreCompleto() : '',
@@ -152,7 +152,7 @@ async function loadUsuarioData(cardDB: CardDB, card: Card): Promise<void> {
     const { SupabaseCardUsuarioRepository } = await import('@/infrastructure/datasource/SupabaseCardUsuarioRepository');
     const cardUsuarioRepo = new SupabaseCardUsuarioRepository();
 
-    const cardUsuario = await cardUsuarioRepo.getByCardId(cardDB.card_id);
+    const cardUsuario = await cardUsuarioRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
     if (cardUsuario) {
       card.usuarioData = {
         userId: cardUsuario.user_id,
@@ -199,7 +199,7 @@ async function loadTodoData(cardDB: CardDB, card: Card): Promise<void> {
     const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
     const cardTodoRepo = new SupabaseCardTodoRepository();
 
-    const cardTodos = await cardTodoRepo.getByCardId(cardDB.card_id);
+    const cardTodos = await cardTodoRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
     if (cardTodos && cardTodos.length > 0) {
       card.todos = cardTodos.map(todo => ({
         id: todo.todo_id,
@@ -233,7 +233,7 @@ async function loadImageData(
     const { SupabaseCardImageRepository } = await import('@/infrastructure/datasource/SupabaseCardImageRepository');
     const cardImageRepo = new SupabaseCardImageRepository();
 
-    const cardImage = await cardImageRepo.getByCardId(cardDB.card_id);
+    const cardImage = await cardImageRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
     if (cardImage) {
       card.imageUrl = cardImage.image_url;
       if (onUpdatePastedImages) {
@@ -246,33 +246,70 @@ async function loadImageData(
 }
 
 /**
- * Carga notas asociadas a una tarjeta tipo "proyecto" o "proyecto-organizacion"
+ * Carga datos de proyecto y notas asociadas a una tarjeta tipo "proyecto" o "proyecto-organizacion"
  *
  * @param cardDB - Tarjeta desde la base de datos
  * @param card - Tarjeta local a actualizar
  *
  * Proceso:
- * 1. Obtiene notas asociadas desde card_proyecto_nota
- * 2. (Actualmente comentado) Guardaría los IDs en card.proyectoData.notas
- *
- * Nota: La lógica está parcialmente implementada, esperando definición de interfaz
+ * 1. Obtiene la relación card-proyecto desde card_proyectos
+ * 2. Obtiene los datos completos del proyecto desde la tabla proyectos
+ * 3. Obtiene notas asociadas desde card_proyecto_nota
+ * 4. Actualiza el objeto card.proyectoData con toda la información
  */
 async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
   try {
+    console.log('🔍 [CARD-SYNC] Cargando proyectoData para card:', cardDB.card_id, '(UUID:', cardDB.id, ')');
+
+    const { SupabaseCardProyectoRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoRepository');
+    const { SupabaseProyectoRepository } = await import('@/infrastructure/datasource/SupabaseProyectoRepository');
     const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
+
+    const cardProyectoRepo = new SupabaseCardProyectoRepository();
+    const proyectoRepo = new SupabaseProyectoRepository();
     const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
 
-    const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.card_id);
-    if (proyectoNotas && proyectoNotas.length > 0) {
-      // Guardar solo los IDs de las notas
-      if (card.proyectoData) {
-        // TODO: Verificar si la interfaz ProyectoData necesita el campo 'notas'
-        // card.proyectoData.notas = proyectoNotas.map(nota => nota.id_card_nota);
+    // 1. Obtener la relación card-proyecto
+    const cardProyecto = await cardProyectoRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
+    console.log('🔍 [CARD-SYNC] cardProyecto obtenido:', cardProyecto);
+
+    if (cardProyecto) {
+      // 2. Obtener los datos completos del proyecto
+      const proyecto = await proyectoRepo.getProyectoById(cardProyecto.id_proyecto);
+      console.log('🔍 [CARD-SYNC] proyecto obtenido:', proyecto);
+
+      if (proyecto) {
+        // 3. Obtener notas asociadas
+        const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
+        const notasIds = proyectoNotas ? proyectoNotas.map(nota => nota.id_card_nota) : [];
+
+        // 4. Actualizar proyectoData
+        card.proyectoData = {
+          id: proyecto.id,
+          nombre: proyecto.nombre || card.title,
+          descripcion: proyecto.descripcion || null,
+          icono: proyecto.icono || null,
+          id_organizacion: proyecto.id_organizacion || null,
+          colors: proyecto.colors ? JSON.parse(proyecto.colors as any) : null,
+          created_at: proyecto.created_at,
+          notas: notasIds
+        };
+        console.log('✅ [CARD-SYNC] proyectoData cargado exitosamente:', card.proyectoData);
+      } else {
+        console.warn('⚠️ [CARD-SYNC] No se encontró proyecto con id:', cardProyecto.id_proyecto);
+      }
+    } else {
+      console.warn('⚠️ [CARD-SYNC] No se encontró cardProyecto para card:', cardDB.card_id);
+
+      // Fallback: intentar cargar solo las notas asociadas
+      const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
+      if (proyectoNotas && proyectoNotas.length > 0 && card.proyectoData) {
+        card.proyectoData.notas = proyectoNotas.map(nota => nota.id_card_nota);
+        console.log('ℹ️ [CARD-SYNC] Solo se cargaron notas del proyecto (sin datos de proyecto)');
       }
     }
   } catch (error) {
-    // Este error no es crítico, solo log en modo debug si necesario
-    // console.log('ℹ️ [CARD-SYNC] No se pudieron cargar notas del proyecto (esto es normal si no hay notas):', cardDB.id);
+    console.error('❌ [CARD-SYNC] Error cargando datos de proyecto para card:', cardDB.card_id, error);
   }
 }
 

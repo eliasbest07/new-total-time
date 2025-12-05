@@ -1376,21 +1376,36 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
               });
             }
 
-            // Si es una card de tipo proyecto, crear las relaciones con las notas
-            // TODO: Verificar si la interfaz ProyectoData necesita el campo 'notas'
-            /* if (createdCard && (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.notas && card.proyectoData.notas.length > 0) {
-              const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
-              const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
+            // Si es una card de tipo proyecto, crear la relación card-proyecto y las notas
+            if (createdCard && (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData) {
+              // 1. Crear la relación card-proyecto si tiene id de proyecto
+              if (card.proyectoData.id) {
+                const { SupabaseCardProyectoRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoRepository');
+                const cardProyectoRepo = new SupabaseCardProyectoRepository();
 
-              for (let i = 0; i < card.proyectoData.notas.length; i++) {
-                const notaCardId = card.proyectoData.notas[i];
-                await cardProyectoNotaRepo.create({
-                  id_card_proyecto: createdCard.id,
-                  id_card_nota: notaCardId,
-                  position: i
+                await cardProyectoRepo.create({
+                  id_card: createdCard.id,
+                  id_proyecto: card.proyectoData.id
                 });
+                console.log('✅ [PROYECTO] Relación card-proyecto creada para proyecto ID:', card.proyectoData.id);
               }
-            } */
+
+              // 2. Crear las relaciones con las notas
+              if (card.proyectoData.notas && card.proyectoData.notas.length > 0) {
+                const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
+                const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
+
+                for (let i = 0; i < card.proyectoData.notas.length; i++) {
+                  const notaCardId = card.proyectoData.notas[i];
+                  await cardProyectoNotaRepo.create({
+                    id_card_proyecto: createdCard.id,
+                    id_card_nota: notaCardId,
+                    position: i
+                  });
+                }
+                console.log('✅ [PROYECTO] Relaciones con', card.proyectoData.notas.length, 'notas creadas');
+              }
+            }
           }
         }
       }
@@ -2182,29 +2197,76 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Auto-guardado en Supabase cuando está activado
   useEffect(() => {
-    if (!autoSave || !usuario || !isInitialized || cards.length === 0) {
+    // Log detallado para debugging
+    console.log('🔍 [AUTO-SAVE CHECK]', {
+      autoSave,
+      hasUsuario: !!usuario,
+      isInitialized,
+      cardsLength: cards.length,
+      isViewingOtherUser,
+      isOrganizacionPizarra,
+      hasPizarraOrganizacion: !!pizarraOrganizacion
+    });
+
+    // No auto-guardar si estamos viendo la pizarra de otro usuario
+    if (isViewingOtherUser) {
+      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - viendo pizarra de otro usuario');
+      return;
+    }
+
+    if (!autoSave) {
+      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - autoSave desactivado');
+      return;
+    }
+
+    if (!usuario) {
+      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - no hay usuario');
+      return;
+    }
+
+    if (!isInitialized) {
+      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - no inicializado');
+      return;
+    }
+
+    if (cards.length === 0) {
+      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - no hay cards');
       return;
     }
 
     // Debounce para evitar guardados excesivos
+    console.log(`⏰ [AUTO-SAVE] Programando auto-guardado en 2 segundos... (${cards.length} cards)`);
     const timeoutId = setTimeout(async () => {
       try {
         if (isOrganizacionPizarra && pizarraOrganizacion) {
           // Guardar en pizarra de organización
-          console.log('🔄 [PIZARRA ORG] Auto-guardado en Supabase...');
-          await saveToSupabaseOrganizacion(pizarraOrganizacion);
+          console.log('🔄 [PIZARRA ORG] Auto-guardado en Supabase iniciado...');
+          const result = await saveToSupabaseOrganizacion(pizarraOrganizacion);
+          if (result) {
+            console.log('✅ [PIZARRA ORG] Auto-guardado completado exitosamente');
+          } else {
+            console.warn('⚠️ [PIZARRA ORG] Auto-guardado falló');
+          }
         } else {
           // Guardar en pizarra personal
-          console.log('🔄 Auto-guardado en Supabase...');
-          await saveToSupabase();
+          console.log('🔄 [AUTO-SAVE] Auto-guardado en Supabase iniciado...');
+          const result = await saveToSupabase();
+          if (result) {
+            console.log('✅ [AUTO-SAVE] Auto-guardado completado exitosamente');
+          } else {
+            console.warn('⚠️ [AUTO-SAVE] Auto-guardado falló');
+          }
         }
       } catch (error) {
-        console.error('❌ Error en auto-guardado:', error);
+        console.error('❌ [AUTO-SAVE] Error en auto-guardado:', error);
       }
-    }, 3000); // Esperar 3 segundos después del último cambio
+    }, 200); // Reducido a 2 segundos para mayor responsividad
 
-    return () => clearTimeout(timeoutId);
-  }, [cards, connections, panOffset, autoSave, usuario, isInitialized, isOrganizacionPizarra, pizarraOrganizacion, saveToSupabase, saveToSupabaseOrganizacion]);
+    return () => {
+      console.log('🧹 [AUTO-SAVE] Cancelando timeout de auto-guardado');
+      clearTimeout(timeoutId);
+    };
+  }, [cards, connections, panOffset, autoSave, usuario, isInitialized, isOrganizacionPizarra, pizarraOrganizacion, saveToSupabase, saveToSupabaseOrganizacion, isViewingOtherUser]);
 
   // Función para agregar una conexión programáticamente
   const addConnection = useCallback((fromCardId: string, toCardId: string, skipValidation = false) => {
@@ -2390,13 +2452,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [resizingCard, handleResizeMove, handleResizeEnd]);
 
-  // Effect: Marcar como inicializado cuando el usuario esté disponible
-  useEffect(() => {
-    if (usuario?.id && !isInitialized) {
-      console.log('✅ Usuario cargado, listo para operaciones:', usuario.id);
-      setIsInitialized(true);
-    }
-  }, [usuario, isInitialized]);
+  // ELIMINADO: Este useEffect establecía isInitialized=true demasiado pronto,
+  // bloqueando la carga de cards desde Supabase al recargar la página.
+  // isInitialized ahora solo se establece después de sincronizar cards desde DB (línea 199)
 
 
   return (
@@ -2621,8 +2679,6 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           background: #718096;
         }
       `}</style>
-
-      {/* Debug Panel */}
 
     </div>
   );
