@@ -9,13 +9,15 @@ import Image from "next/image";
 import { Usuario } from "@/domain/entities/Usuario";
 import { SupabaseUsuarioRepository } from "@/infrastructure/datasource/SupabaseUsuarioRepository";
 import { useUserTracking } from "@/hooks/useUserTracking";
-
 // Componente para mostrar las estadísticas de un usuario
-const UserStatsRow = ({ usuario }: { usuario: Usuario }) => {
+const UserStatsRow = ({ usuario, onClick }: { usuario: Usuario; onClick?: () => void }) => {
   const { estadisticas, isLoading } = useUserTracking(usuario.userAuth);
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+    <div
+      onClick={onClick}
+      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer hover:shadow-md"
+    >
       {/* Avatar del usuario */}
       <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
         {usuario.profile.avatar ? (
@@ -60,7 +62,11 @@ const UserStatsRow = ({ usuario }: { usuario: Usuario }) => {
   );
 };
 
-export default function InfoOrganizacion() {
+interface InfoOrganizacionProps {
+  onUsuarioClick?: (userId: string, userName: string) => void;
+}
+
+export default function InfoOrganizacion({ onUsuarioClick }: InfoOrganizacionProps) {
   const { usuario } = useAuth();
   const { organizacion, loading, error } = useOrganizacion(usuario?.userAuth || null);
   const { usuarios: usuariosOrganizacion } = useUsuariosOrganizacionContext();
@@ -261,7 +267,15 @@ export default function InfoOrganizacion() {
             </p>
           ) : (
             usuariosOrganizacion.map((usr) => (
-              <UserStatsRow key={usr.id} usuario={usr} />
+              <UserStatsRow
+                key={usr.id}
+                usuario={usr}
+                onClick={() => {
+                  if (onUsuarioClick) {
+                    onUsuarioClick(usr.userAuth, usr.getNombreCompleto());
+                  }
+                }}
+              />
             ))
           )}
         </div>

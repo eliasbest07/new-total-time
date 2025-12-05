@@ -21,6 +21,7 @@ import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizac
 import { useOrganizacion } from "@/hooks/useOrganizacion";
 import { Target, Building2, X } from "lucide-react";
 import Image from "next/image";
+import CalendarioSemanalUsuario from "@/app/components/CalendarioSemanalUsuario";
 
 export default function DashboardPage() {
   const pizarraRef = useRef<PizarraRef>(null);
@@ -65,6 +66,11 @@ function DashboardAdmin() {
   const [showActividadModal, setShowActividadModal] = useState(false);
   const [showInfoOrganizacion, setShowInfoOrganizacion] = useState(false);
   const [showCapturasModal, setShowCapturasModal] = useState(false);
+  const [showCalendarioSemanal, setShowCalendarioSemanal] = useState(false);
+  const [usuarioSeleccionadoCalendario, setUsuarioSeleccionadoCalendario] = useState<{
+    userId: string;
+    userName: string;
+  } | null>(null);
   const [capturasMisionActiva, setCapturasMisionActiva] = useState<{ id: number; title: string } | null>(null);
   const [capturasHistorial, setCapturasHistorial] = useState<Array<{ url: string; fecha: string }>>([]);
   const [loadingCapturas, setLoadingCapturas] = useState(false);
@@ -1302,7 +1308,13 @@ function DashboardAdmin() {
           minHeight={500}
           showOverlay={true}
         >
-          <InfoOrganizacion />
+          <InfoOrganizacion
+            onUsuarioClick={(userId, userName) => {
+              setUsuarioSeleccionadoCalendario({ userId, userName });
+              setShowCalendarioSemanal(true);
+              setShowInfoOrganizacion(false);
+            }}
+          />
         </Ventana>
       )}
 
@@ -1566,6 +1578,31 @@ function DashboardAdmin() {
               onClick={(e) => e.stopPropagation()}
             />
           </div>
+        </div>
+      )}
+
+      {/* Modal del Calendario Semanal - Tamaño completo */}
+      {showCalendarioSemanal && usuarioSeleccionadoCalendario && (
+        <div className="fixed inset-0 z-[9999]">
+          <Ventana
+            isOpen={showCalendarioSemanal}
+            onClose={() => {
+              setShowCalendarioSemanal(false);
+              setUsuarioSeleccionadoCalendario(null);
+            }}
+            title={`Calendario Semanal - ${usuarioSeleccionadoCalendario.userName}`}
+            initialWidth={1800}
+            initialHeight={1000}
+            minWidth={900}
+            minHeight={600}
+            showOverlay={true}
+            defaultMaximized={true}
+          >
+            <CalendarioSemanalUsuario
+              userId={usuarioSeleccionadoCalendario.userId}
+              userName={usuarioSeleccionadoCalendario.userName}
+            />
+          </Ventana>
         </div>
       )}
 
