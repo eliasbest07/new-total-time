@@ -22,6 +22,14 @@ import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 import Ventana from '@/app/demo/components/Ventana';
 import { SupabaseRecursoRepository } from '@/infrastructure/datasource/SupabaseRecursoRepository';
+import { loadViewingUserId } from './pizarra-functions/user-id-converter';
+import { createImageWindow, removeImageWindow, type ImageWindow } from './pizarra-functions/image-window-manager';
+import { syncCardsFromDB, shouldSyncFromDB } from './pizarra-functions/card-sync';
+import { handleConnectionCreate, handleConnectionDelete } from './pizarra-functions/connection-handlers';
+import { loadConnectionsIfNeeded } from './pizarra-functions/connection-loader';
+import { autoConnectMisionToProyecto, autoConnectProyectoToMisiones } from './pizarra-functions/auto-connection';
+import { navigateToCard, bringCardToFront, findCardByMisionId } from './pizarra-functions/navigation-utils';
+import { handleActivityPlayPause, handleMisionPlayPause } from './pizarra-functions/play-pause-handlers';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
   const { usuario } = useAuth();
@@ -37,53 +45,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Convertir viewingUserId (user_auth UUID) a id numérico
   useEffect(() => {
-    const loadViewingUserId = async () => {
-      if (!viewingUserId) {
-        setViewingUserNumericId(null);
-        return;
-      }
-
-      try {
-        console.log('🔍 [Pizarra] Buscando ID numérico para id_usuario:', viewingUserId);
-        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-        const { data, error } = await supabase
-          .from('usuario')
-          .select('id, id_usuario, nombre, username')
-          .eq('id_usuario', viewingUserId)
-          .maybeSingle();
-
-        if (error) {
-          console.error('❌ [Pizarra] Error obteniendo ID de usuario:', {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            viewingUserId: viewingUserId
-          });
-
-          // Si no se encuentra el usuario, es un error esperado
-          if (error.code === 'PGRST116') {
-            console.warn('⚠️ [Pizarra] No se encontró usuario con id_usuario:', viewingUserId);
-          }
-          return;
-        }
-
-        if (data) {
-          console.log('✅ [Pizarra] Usuario encontrado:', {
-            id: data.id,
-            id_usuario: data.id_usuario,
-            nombre: data.nombre || data.username
-          });
-          setViewingUserNumericId(parseInt(data.id));
-        } else {
-          console.warn('⚠️ [Pizarra] No se encontró usuario con id_usuario:', viewingUserId);
-        }
-      } catch (error) {
-        console.error('❌ Error en loadViewingUserId:', error);
-      }
-    };
-
-    loadViewingUserId();
+    loadViewingUserId(viewingUserId ?? null).then(setViewingUserNumericId);
   }, [viewingUserId]);
 
   // Debug: Verificar que el usuario esté cargado
@@ -136,53 +98,19 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   const [pastedImages, setPastedImages] = useState<{ [key: string]: string }>({});
 
   // Estado para ventanas de imágenes independientes
-  const [imageWindows, setImageWindows] = useState<Array<{
-    id: string;
-    title: string;
-    imageUrl: string;
-    width: number;
-    height: number;
-  }>>([]);
+  const [imageWindows, setImageWindows] = useState<ImageWindow[]>([]);
 
   // Función para abrir una ventana de imagen
-  const openImageWindow = useCallback((imageUrl: string, title: string) => {
-    const img = new Image();
-    img.onload = () => {
-      const aspectRatio = img.naturalWidth / img.naturalHeight;
-      const maxWidth = window.innerWidth * 0.9;
-      const maxHeight = window.innerHeight * 0.9;
-
-      let width = img.naturalWidth;
-      let height = img.naturalHeight;
-
-      if (width > maxWidth) {
-        width = maxWidth;
-        height = width / aspectRatio;
-      }
-
-      if (height > maxHeight) {
-        height = maxHeight;
-        width = height * aspectRatio;
-      }
-
-      // Reducir 25% el tamaño
-      width = width * 0.75;
-      height = height * 0.75;
-
-      setImageWindows(prev => [...prev, {
-        id: `img-${Date.now()}`,
-        title,
-        imageUrl,
-        width,
-        height
-      }]);
-    };
-    img.src = imageUrl;
+  const openImageWindow = useCallback(async (imageUrl: string, title: string) => {
+    const newWindow = await createImageWindow(imageUrl, title);
+    if (newWindow) {
+      setImageWindows(prev => [...prev, newWindow]);
+    }
   }, []);
 
   // Función para cerrar una ventana de imagen
   const closeImageWindow = useCallback((id: string) => {
-    setImageWindows(prev => prev.filter(w => w.id !== id));
+    setImageWindows(prev => removeImageWindow(prev, id));
   }, []);
 
   // Efecto para bajar z-index de salas cuando hay ventanas de imagen abiertas
@@ -206,7 +134,6 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).pizarraCaptureNow = captureNow;
-      console.log('✅ captureNow expuesto globalmente en window.pizarraCaptureNow');
     }
     return () => {
       if (typeof window !== 'undefined') {
@@ -217,254 +144,75 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Sincronizar cardsDB con cards
   useEffect(() => {
-    const syncCardsFromDB = async () => {
-      // Si estamos viendo la pizarra de OTRO usuario, siempre sincronizar
-      // Si es NUESTRA pizarra, sincronizar SOLO si hay datos en Supabase Y localStorage está vacío
-      if (!pizarra) {
-        return;
-      }
-
-      if (!cardsDB || cardsDB.length === 0) {
-        console.log('📭 [PIZARRA SYNC] No hay cards en Supabase para cargar');
-        return;
-      }
-
-      // Para la pizarra propia: Solo cargar desde Supabase si localStorage está vacío
-      if (!isViewingOtherUser) {
-        if (cards.length > 0) {
-          // Ya hay cards en localStorage, no sobreescribir
-          console.log('📦 [PIZARRA SYNC] Cards ya cargadas desde localStorage, omitiendo sincronización desde Supabase');
-          return;
-        }
-        console.log('🔄 [PIZARRA SYNC] LocalStorage vacío, cargando desde Supabase:', cardsDB.length, 'cards');
-      } else {
-        console.log('🔄 [PIZARRA COMPARTIDA] Sincronizando cards desde Supabase:', cardsDB.length);
-      }
-
-      // Mapear cardsDB a cards locales
-      const { SupabaseCardMisionRepository } = await import('@/infrastructure/datasource/SupabaseCardMisionRepository');
-      const { SupabaseMisionRepository } = await import('@/infrastructure/datasource/SupabaseMisionRepository');
-      const { SupabaseCardActividadRepository } = await import('@/infrastructure/datasource/SupabaseCardActividadRepository');
-      const { SupabaseCardUsuarioRepository } = await import('@/infrastructure/datasource/SupabaseCardUsuarioRepository');
-      const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
-      const { SupabaseCardImageRepository } = await import('@/infrastructure/datasource/SupabaseCardImageRepository');
-
-      const cardMisionRepo = new SupabaseCardMisionRepository();
-      const misionRepo = new SupabaseMisionRepository();
-      const cardActividadRepo = new SupabaseCardActividadRepository();
-      const cardUsuarioRepo = new SupabaseCardUsuarioRepository();
-      const cardTodoRepo = new SupabaseCardTodoRepository();
-      const cardImageRepo = new SupabaseCardImageRepository();
-
-      const mappedCards: Card[] = [];
-
-      for (const cardDB of cardsDB) {
-        const card = mapCardDBToCard(cardDB);
-
-        // Cargar datos específicos según el tipo de card
-        if (cardDB.type === 'mision') {
-          try {
-            const cardMision = await cardMisionRepo.getByCardId(cardDB.id);
-            if (cardMision) {
-              const mision = await misionRepo.getMisionById(cardMision.id_mision);
-              if (mision) {
-                card.misionData = {
-                  title: mision.nombre || card.title,
-                  hours: mision.horas || 1,
-                  description: mision.descripcion || card.content,
-                  idCreador: mision.id_creador,
-                  isRunning: cardMision.is_running,
-                  lastCaptureUrl: cardMision.last_capture_url,
-                  id_mision: cardMision.id_mision,
-                  id_usuario: mision.id_usuario?.toString()
-                };
-              }
-            }
-          } catch (error) {
-            console.error('Error cargando datos de misión para card:', cardDB.id, error);
-          }
-        }
-
-        if (cardDB.type === 'actividad') {
-          try {
-            const cardActividad = await cardActividadRepo.getByCardId(cardDB.id);
-            if (cardActividad && usuario) {
-              const currentUserParticipant = {
-                name: usuario.getNombreCompleto(),
-                initial: usuario.getNombreCompleto().charAt(0).toUpperCase(),
-                color: usuario.profile.marco || '#3b82f6'
-              };
-
-              card.activityData = {
-                subject: cardActividad.subject || '',
-                participants: [currentUserParticipant],
-                date: cardActividad.date || '',
-                time: cardActividad.time || '',
-                duration: cardActividad.duration || 0,
-                isRunning: cardActividad.is_running || false,
-                timeLeft: cardActividad.time_left || 0,
-                id_actividad: cardDB.id
-              };
-            }
-          } catch (error) {
-            console.error('Error cargando datos de actividad:', error);
-          }
-        }
-
-        if (cardDB.type === 'usuario') {
-          try {
-            const cardUsuario = await cardUsuarioRepo.getByCardId(cardDB.id);
-            if (cardUsuario) {
-              card.usuarioData = {
-                userId: cardUsuario.user_id,
-                name: cardUsuario.name || '',
-                avatar: cardUsuario.avatar || '',
-                color: cardUsuario.color || '#3b82f6',
-                online: cardUsuario.online || false,
-                messages: []
-              };
-
-              if (card.content) {
-                try {
-                  const parsedContent = JSON.parse(card.content);
-                  if (parsedContent.messages && Array.isArray(parsedContent.messages)) {
-                    card.usuarioData.messages = parsedContent.messages.map((msg: any) => ({
-                      ...msg,
-                      timestamp: new Date(msg.timestamp)
-                    }));
-                  }
-                } catch (e) {
-                  console.log('No hay mensajes en formato JSON para esta card de usuario');
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Error cargando datos de usuario:', error);
-          }
-        }
-
-        if (cardDB.type === 'todo') {
-          try {
-            const cardTodos = await cardTodoRepo.getByCardId(cardDB.id);
-            if (cardTodos && cardTodos.length > 0) {
-              card.todos = cardTodos.map(todo => ({
-                id: todo.todo_id,
-                text: todo.text,
-                completed: todo.completed
-              }));
-            }
-          } catch (error) {
-            console.error('Error cargando todos:', error);
-          }
-        }
-
-        if (cardDB.type === 'image') {
-          try {
-            const cardImage = await cardImageRepo.getByCardId(cardDB.id);
-            if (cardImage) {
-              card.imageUrl = cardImage.image_url;
-              setPastedImages(prev => ({
-                ...prev,
-                [card.id]: cardImage.image_url
-              }));
-            }
-          } catch (error) {
-            console.error('Error cargando imagen:', error);
-          }
-        }
-
-        if (cardDB.type === 'proyecto' || cardDB.type === 'proyecto-organizacion') {
-          try {
-            const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
-            const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
-
-            const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
-            if (proyectoNotas && proyectoNotas.length > 0) {
-              // Guardar solo los IDs de las notas
-              if (card.proyectoData) {
-                // TODO: Verificar si la interfaz ProyectoData necesita el campo 'notas'
-                // card.proyectoData.notas = proyectoNotas.map(nota => nota.id_card_nota);
-              }
-            }
-          } catch (error) {
-            console.error('Error cargando notas del proyecto:', error);
-          }
-        }
-
-        mappedCards.push(card);
-      }
-
-      const logPrefix = isViewingOtherUser ? '[PIZARRA COMPARTIDA]' : '[PIZARRA SYNC]';
-      console.log(`✅ ${logPrefix} Cards sincronizadas desde Supabase:`, mappedCards.length);
-      setCards(mappedCards);
-    };
-
-    syncCardsFromDB();
-  }, [cardsDB, pizarra, usuario, setPastedImages, isViewingOtherUser, cards.length]);
-
-  // Callback personalizado para detectar conexión nota-proyecto
-  const handleInternalConnectionCreate = useCallback(async (connection: Connection, fromCard: Card, toCard: Card) => {
-    console.log('🔗 Nueva conexión creada:', {
-      from: fromCard.type,
-      to: toCard.type,
-      fromCard,
-      toCard
+    console.log('🔍 [PIZARRA] useEffect sincronización disparado:', {
+      hasPizarra: !!pizarra,
+      pizarraId: pizarra?.id,
+      cardsDBLength: cardsDB?.length || 0,
+      cardsLocalLength: cards.length,
+      isViewingOtherUser,
+      isInitialized,
+      usuario: usuario?.email
     });
 
-    // Detectar si se conectó una nota (type="text") con un proyecto
-    const isNoteToProject =
-      (fromCard.type === 'text' && (toCard.type === 'proyecto' || toCard.type === 'proyecto-organizacion')) ||
-      ((fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') && toCard.type === 'text');
+    const performSync = async () => {
+      // Verificar si debe sincronizar
+      const shouldSync = shouldSyncFromDB({
+        pizarra,
+        cardsDB,
+        cardsLocal: cards,
+        isViewingOtherUser,
+        isInitialized
+      });
+      console.log('🔍 [PIZARRA] shouldSyncFromDB retornó:', shouldSync);
 
-    if (isNoteToProject) {
-      const notaCard = fromCard.type === 'text' ? fromCard : toCard;
-      const proyectoCard = (fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') ? fromCard : toCard;
+      if (!shouldSync) {
+        return;
+      }
 
-      console.log('📝 ✅ Detectada conexión Nota ↔️ Proyecto:', {
-        nota: notaCard.title,
-        notaId: notaCard.id,
-        proyecto: proyectoCard.proyectoData?.nombre,
-        proyectoCardId: proyectoCard.id
+      console.log('🔄 [PIZARRA] Iniciando sincronización de cards desde Supabase...');
+
+      // Sincronizar cards desde DB
+      const mappedCards = await syncCardsFromDB({
+        cardsDB: cardsDB!,
+        usuario,
+        isViewingOtherUser,
+        onUpdatePastedImages: (cardId, imageUrl) => {
+          setPastedImages(prev => ({
+            ...prev,
+            [cardId]: imageUrl
+          }));
+        }
       });
 
-      // ✅ Agregar el ID del card de nota a la lista de notas del proyecto
-      try {
-        console.log('📝 Agregando nota a la lista del proyecto...');
+      const logPrefix = isViewingOtherUser ? '[PIZARRA COMPARTIDA]' : '[PIZARRA SYNC]';
+      console.log(`✅ ${logPrefix} ${mappedCards.length} cards sincronizadas desde Supabase`);
+      console.log(`🔄 [PIZARRA] Cards ANTES de setCards:`, cards.length);
+      console.log(`🔄 [PIZARRA] Cards DESPUÉS de syncCardsFromDB:`, mappedCards.length);
 
-        // Actualizar el card de proyecto agregando la nota a su lista (evitar duplicados)
-        // TODO: Verificar si la interfaz ProyectoData necesita el campo 'notas'
-        // setCards(prevCards => prevCards.map(card => {
-        //   if (card.id === proyectoCard.id) {
-        //     const notasActuales = card.proyectoData?.notas || [];
+      setCards(mappedCards);
 
-        //     // Evitar duplicados
-        //     if (notasActuales.includes(notaCard.id)) {
-        //       console.log('⚠️ La nota ya está en la lista del proyecto');
-        //       return card;
-        //     }
+      console.log(`✅ [PIZARRA] setCards() ejecutado con ${mappedCards.length} cards`);
 
-        //     return {
-        //       ...card,
-        //       proyectoData: {
-        //         ...card.proyectoData!,
-        //         notas: [...notasActuales, notaCard.id]
-        //       }
-        //     };
-        //   }
-        //   return card;
-        // }));
-
-        console.log('✅ Nota agregada a la lista del proyecto:', notaCard.id);
-      } catch (error) {
-        console.error('❌ Error agregando nota al proyecto:', error);
+      // Marcar como inicializado después de la primera sincronización
+      if (!isInitialized) {
+        console.log('✅ [PIZARRA] Marcando pizarra como inicializada');
+        setIsInitialized(true);
       }
-    }
+    };
 
-    // Llamar al callback externo si existe
-    if (onConnectionCreate) {
-      onConnectionCreate(connection, fromCard, toCard);
-    }
-  }, [usuario, onConnectionCreate]);
+    performSync();
+  }, [cardsDB, pizarra, usuario, isViewingOtherUser, isInitialized]);
+
+  // Callback personalizado para detectar conexión nota-proyecto
+  const handleInternalConnectionCreate = useCallback((connection: Connection, fromCard: Card, toCard: Card) => {
+    handleConnectionCreate({
+      connection,
+      fromCard,
+      toCard,
+      onConnectionCreate
+    });
+  }, [onConnectionCreate]);
+
 
   const {
     connections,
@@ -480,92 +228,25 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Wrapper para deleteConnection que también limpia el tracking y actualiza notas del proyecto
   const deleteConnection = useCallback((connectionId: string) => {
-    // Buscar la conexión que se va a eliminar
-    const connection = connections.find(c => c.id === connectionId);
-
-    if (connection) {
-      // Buscar los cards involucrados
-      const fromCard = cards.find(c => c.id === connection.from);
-      const toCard = cards.find(c => c.id === connection.to);
-
-      if (fromCard && toCard) {
-        // Detectar si es una conexión nota-proyecto
-        const isNoteToProject =
-          (fromCard.type === 'text' && (toCard.type === 'proyecto' || toCard.type === 'proyecto-organizacion')) ||
-          ((fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') && toCard.type === 'text');
-
-        if (isNoteToProject) {
-          const notaCard = fromCard.type === 'text' ? fromCard : toCard;
-          const proyectoCard = (fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') ? fromCard : toCard;
-
-          console.log('🗑️ Eliminando nota de la lista del proyecto:', {
-            notaId: notaCard.id,
-            proyectoId: proyectoCard.id
-          });
-
-          // Remover el ID de la nota de la lista del proyecto
-          // TODO: Verificar si la interfaz ProyectoData necesita el campo 'notas'
-          // setCards(prevCards => prevCards.map(card => {
-          //   if (card.id === proyectoCard.id && card.proyectoData?.notas) {
-          //     return {
-          //       ...card,
-          //       proyectoData: {
-          //         ...card.proyectoData,
-          //         notas: card.proyectoData.notas.filter(notaId => notaId !== notaCard.id)
-          //       }
-          //     };
-          //   }
-          //   return card;
-          // }));
-
-          console.log('✅ Nota removida de la lista del proyecto');
-        }
-      }
-    }
-
-    // Limpiar del tracking si es auto-creada
-    if (connectionId.startsWith('auto-')) {
-      autoConnectionsRef.current.delete(connectionId);
-      console.log('🗑️ Conexión auto-creada eliminada del tracking:', connectionId);
-    }
-
-    // Llamar a la función original
-    baseDeleteConnection(connectionId);
+    handleConnectionDelete({
+      connectionId,
+      connections,
+      cards,
+      autoConnectionsRef,
+      baseDeleteConnection
+    });
   }, [baseDeleteConnection, connections, cards]);
 
   // Cargar conexiones desde Supabase SOLO cuando se visualiza la pizarra de otro usuario
   useEffect(() => {
-    const loadConnectionsFromDB = async () => {
-      // IMPORTANTE: Solo cargar conexiones cuando estamos viendo la pizarra de OTRO usuario
-      if (!isViewingOtherUser) {
-        return; // Para la pizarra propia, usar LocalStorage normalmente
-      }
-
-      if (!pizarra) {
-        return;
-      }
-
-      try {
-        console.log('🔗 [PIZARRA COMPARTIDA] Cargando conexiones desde Supabase...');
-        const { SupabaseCardConnectionRepository } = await import('@/infrastructure/datasource/SupabaseCardConnectionRepository');
-        const cardConnectionRepo = new SupabaseCardConnectionRepository();
-
-        const connectionesEnBD = await cardConnectionRepo.getByPizarraId(pizarra.id);
-
-        const mappedConnections = connectionesEnBD.map(connDB => ({
-          id: connDB.connection_id,
-          from: connDB.from_card_id || undefined,
-          to: connDB.to_card_id
-        }));
-
-        setConnections(mappedConnections);
-        console.log('✅ [PIZARRA COMPARTIDA] Conexiones cargadas:', mappedConnections.length);
-      } catch (error) {
-        console.error('❌ Error cargando conexiones:', error);
+    const performLoad = async () => {
+      const connections = await loadConnectionsIfNeeded(pizarra, isViewingOtherUser);
+      if (connections) {
+        setConnections(connections);
       }
     };
 
-    loadConnectionsFromDB();
+    performLoad();
   }, [pizarra, setConnections, isViewingOtherUser]);
 
   const {
@@ -610,155 +291,51 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   usePasteImage(cards, setCards, panOffset, canvasRef, setPastedImages);
 
   // Función para auto-conectar una misión a su proyecto (llamada desde drop)
-  const autoConnectMisionToProyecto = useCallback(async (misionCardId: string, misionId: number) => {
-    try {
-      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-
-      console.log('🔍 [AUTO-CONEXIÓN] Verificando misión:', { misionCardId, misionId });
-
-      // Obtener id_proyecto de la misión desde Supabase
-      const { data: misionData } = await supabase
-        .from('misiones')
-        .select('id_proyecto')
-        .eq('id', misionId)
-        .single();
-
-      if (misionData?.id_proyecto) {
-        // Buscar el proyecto correspondiente en las cards
-        const proyectoCard = cards.find(card =>
-          (card.type === 'proyecto-organizacion' || card.type === 'proyecto') &&
-          (card.proyectoData as any)?.id === misionData.id_proyecto
-        );
-
-        if (proyectoCard) {
-          // Crear ID único para esta conexión
-          const connectionId = `auto-${misionCardId}-${proyectoCard.id}`;
-
-          // Verificar si ya existe una conexión
-          const connectionExists = connections.some(conn =>
-            conn.from === misionCardId && conn.to === proyectoCard.id
-          );
-
-          if (!connectionExists) {
-            console.log('🔗 [AUTO-CONEXIÓN] Creando conexión:', {
-              mision: cards.find(c => c.id === misionCardId)?.title,
-              proyecto: proyectoCard.title,
-              id_proyecto: misionData.id_proyecto
-            });
-
-            // Marcar como creada
-            autoConnectionsRef.current.add(connectionId);
-
-            // Crear la conexión
-            setConnections(prev => [...prev, {
-              id: connectionId,
-              from: misionCardId,
-              to: proyectoCard.id
-            }]);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error en auto-conexión:', error);
-    }
+  const autoConnectMisionToProyectoWrapper = useCallback(async (misionCardId: string, misionId: number) => {
+    await autoConnectMisionToProyecto({
+      misionCardId,
+      misionId,
+      cards,
+      connections,
+      autoConnectionsRef,
+      onAddConnection: (connection) => setConnections(prev => [...prev, connection])
+    });
   }, [cards, connections, setConnections]);
 
   // Función para conectar un proyecto con todas las misiones existentes que le pertenecen
-  const autoConnectProyectoToMisiones = useCallback(async (proyectoCardId: string, proyectoId: number) => {
-    try {
-      console.log('🔍 [AUTO-CONEXIÓN] Verificando misiones del proyecto:', { proyectoCardId, proyectoId });
-
-      // Buscar todas las cards de misión que ya están en la pizarra
-      const misionCards = cards.filter(card =>
-        (card.type === 'mision-organizacion' || card.type === 'mision') &&
-        card.misionData?.id_mision
-      );
-
-      if (misionCards.length === 0) return;
-
-      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-      const newConnections: Array<{ id: string; from: string; to: string }> = [];
-
-      // Verificar cada misión
-      for (const misionCard of misionCards) {
-        try {
-          // Obtener id_proyecto de la misión
-          const { data: misionData } = await supabase
-            .from('misiones')
-            .select('id_proyecto')
-            .eq('id', misionCard.misionData!.id_mision)
-            .single();
-
-          if (misionData?.id_proyecto === proyectoId) {
-            // Esta misión pertenece a este proyecto
-            const connectionId = `auto-${misionCard.id}-${proyectoCardId}`;
-
-            // Verificar si ya existe
-            const connectionExists = connections.some(conn =>
-              conn.from === misionCard.id && conn.to === proyectoCardId
-            );
-
-            if (!connectionExists && !autoConnectionsRef.current.has(connectionId)) {
-              console.log('🔗 [AUTO-CONEXIÓN] Conectando misión existente al proyecto:', {
-                mision: misionCard.title,
-                proyecto: cards.find(c => c.id === proyectoCardId)?.title
-              });
-
-              autoConnectionsRef.current.add(connectionId);
-              newConnections.push({
-                id: connectionId,
-                from: misionCard.id,
-                to: proyectoCardId
-              });
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error verificando misión:', error);
-        }
-      }
-
-      // Agregar las nuevas conexiones
-      if (newConnections.length > 0) {
-        setConnections(prev => [...prev, ...newConnections]);
-      }
-    } catch (error) {
-      console.error('❌ Error en auto-conexión de proyecto:', error);
-    }
+  const autoConnectProyectoToMisionesWrapper = useCallback(async (proyectoCardId: string, proyectoId: number) => {
+    await autoConnectProyectoToMisiones({
+      proyectoCardId,
+      proyectoId,
+      cards,
+      connections,
+      autoConnectionsRef,
+      onAddConnections: (conns) => setConnections(prev => [...prev, ...conns])
+    });
   }, [cards, connections, setConnections]);
 
-  const bringCardToFront = useCallback((cardId: string) => {
-    const newZIndex = maxZIndex + 1;
-    setCardZIndices(prev => ({ ...prev, [cardId]: newZIndex }));
-    setMaxZIndex(newZIndex);
+  const bringCardToFrontWrapper = useCallback((cardId: string) => {
+    bringCardToFront({
+      cardId,
+      currentMaxZIndex: maxZIndex,
+      setCardZIndices,
+      setMaxZIndex
+    });
   }, [maxZIndex]);
 
-  const navigateToCard = useCallback((cardId: string) => {
-    const card = cards.find(c => c.id === cardId);
-    if (!card || !canvasRef.current) return;
-
-    const canvasRect = canvasRef.current.getBoundingClientRect();
-    const canvasCenterX = canvasRect.width / 2;
-    const canvasCenterY = canvasRect.height / 2;
-
-    const cardCenterX = card.x + card.width / 2;
-    const cardCenterY = card.y + card.height / 2;
-
-    const newPanX = canvasCenterX - cardCenterX;
-    const newPanY = canvasCenterY - cardCenterY;
-
-    setPanOffset({ x: newPanX, y: newPanY });
-
-    // Also bring the card to front
-    bringCardToFront(cardId);
-  }, [cards, bringCardToFront, setPanOffset]);
+  const navigateToCardWrapper = useCallback((cardId: string) => {
+    navigateToCard({
+      cardId,
+      cards,
+      canvasRef,
+      setPanOffset,
+      bringToFront: bringCardToFrontWrapper
+    });
+  }, [cards, setPanOffset, bringCardToFrontWrapper]);
 
   // Función para buscar un card por id_mision
-  const findCardByMisionId = useCallback((misionId: number): string | null => {
-    const card = cards.find(c =>
-      (c.type === 'mision-organizacion' || c.type === 'mision') &&
-      c.misionData?.id_mision === misionId
-    );
-    return card ? card.id : null;
+  const findCardByMisionIdWrapper = useCallback((misionId: number): string | null => {
+    return findCardByMisionId(cards, misionId);
   }, [cards]);
 
   // Estado para controlar la animación de navegación
@@ -851,10 +428,10 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     canvasRef,
     cards,
     storagePrefix === 'organizacion',
-    autoConnectMisionToProyecto,
-    autoConnectProyectoToMisiones,
-    navigateToCard,
-    findCardByMisionId
+    autoConnectMisionToProyectoWrapper,
+    autoConnectProyectoToMisionesWrapper,
+    navigateToCardWrapper,
+    findCardByMisionIdWrapper
   );
 
   // LocalStorage para persistencia - SOLO para pizarra propia, NO para pizarras compartidas
@@ -866,7 +443,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     isViewingOtherUser ? () => {} : setConnections, // No setear conexiones si es otro usuario
     isViewingOtherUser ? () => {} : setPanOffset, // No setear panOffset si es otro usuario
     storagePrefix,
-    isOrganizacionPizarra // Pasar la prop para pizarras de organización
+    isOrganizacionPizarra, // Pasar la prop para pizarras de organización
+    isInitialized // Pasar estado de inicialización
   );
 
   // Solo usar funciones de LocalStorage si NO es otro usuario
@@ -879,289 +457,51 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     markSupabaseLoaded
   } = localStorageHookResult;
 
+  // Helper para actualizar cards desde funciones externas
+  const updateCardData = useCallback((cardId: string, updates: any) => {
+    setCards(prev => prev.map(c => {
+      if (c.id === cardId) {
+        return { ...c, ...updates };
+      }
+      return c;
+    }));
+  }, []);
+
   // Funciones para actividades
-  const handleActivityPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
-    console.log('🎬 [ACTIVITY PLAY/PAUSE] Botón presionado en tarjeta:', cardId);
-    console.log('👤 [ACTIVITY PLAY/PAUSE] Usuario logeado:', usuario);
-    const newRunningState = !currentIsRunning;
+  const handleActivityPlayPauseWrapper = useCallback(async (cardId: string, currentIsRunning: boolean) => {
+    await handleActivityPlayPause({
+      cardId,
+      currentIsRunning,
+      cards,
+      isCapturing,
+      usuario,
+      startCapturing,
+      stopCapturing,
+      getOrCreateMisionActiva,
+      updateRunningState,
+      addCaptureUrl,
+      onUpdateCard: updateCardData
+    });
+  }, [cards, isCapturing, usuario, startCapturing, stopCapturing, getOrCreateMisionActiva, updateRunningState, addCaptureUrl, updateCardData]);
 
-    // Si va a iniciar (play)
-    if (newRunningState && !isCapturing) {
-      try {
-        const card = cards.find(c => c.id === cardId);
-        if (!card || !card.activityData) {
-          console.error('❌ No se encontró la card o no tiene activityData');
-          return;
-        }
-
-        const activityData = card.activityData;
-        const actividadId = activityData.id_actividad || cardId.split('-')[1] || '1';
-        // IMPORTANTE: Usar userAuth (UUID de Supabase Auth) para que coincida con las búsquedas
-        const userId = usuario?.userAuth || 'usuario-desconocido';
-        const misionActividad = activityData.subject || card.title || 'Actividad sin nombre';
-
-        console.log('📤 [ACTIVITY PLAY/PAUSE] Iniciando captura con userId (userAuth):', userId);
-        console.log('📤 [ACTIVITY PLAY/PAUSE] actividadId:', actividadId);
-        console.log('🎥 [ACTIVITY PLAY/PAUSE] Solicitando permiso de pantalla PRIMERO...');
-
-        // 1. PRIMERO: Solicitar permiso de pantalla (debe estar en el user gesture)
-        let mediaStream: MediaStream;
-        try {
-          mediaStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              cursor: "always" as any
-            },
-            audio: false
-          } as DisplayMediaStreamOptions);
-          console.log('✅ [ACTIVITY PLAY/PAUSE] Permiso de pantalla concedido');
-        } catch (permissionError) {
-          console.error('❌ Usuario canceló el permiso de pantalla:', permissionError);
-          return; // Salir si el usuario cancela
-        }
-
-        // 2. SEGUNDO: Ahora que tenemos el permiso, hacer las operaciones de BD
-        console.log('💾 [MISION ACTIVA] Creando/obteniendo actividad activa en Supabase...');
-        const misionActiva = await getOrCreateMisionActiva({
-          tipo: 'actividad',
-          id_referencia: parseInt(actividadId),
-          id_usuario_asignado: userId,
-          id_creador: userId
-        });
-
-        if (!misionActiva) {
-          console.error('❌ No se pudo crear/obtener la actividad activa');
-          // Detener el stream si falla la BD
-          mediaStream.getTracks().forEach(track => track.stop());
-          return;
-        }
-
-        console.log('✅ [MISION ACTIVA] Actividad activa obtenida:', misionActiva.id);
-
-        // 3. TERCERO: Iniciar captura con el stream ya obtenido
-        await startCapturing({
-          userId: userId,
-          userEmail: usuario?.email || '',
-          actividadId: actividadId,
-          misionActividad: misionActividad,
-          totalTrabajadoHoy: activityData.duration?.toString(),
-          tiempoTareaActual: activityData.timeLeft?.toString(),
-          mediaStream: mediaStream, // Pasar el stream ya obtenido
-          onCaptureUpdate: async (url: string) => {
-            // Guardar captura en misiones_activas
-            console.log('📸 [MISION ACTIVA] Guardando captura en Supabase:', url);
-            await addCaptureUrl(misionActiva.id, url);
-            console.log('✅ [MISION ACTIVA] Captura guardada en misiones_activas');
-          }
-        });
-
-        console.log('✅ [ACTIVITY PLAY/PAUSE] Captura iniciada exitosamente');
-
-        // 4. Actualizar estado en Supabase a "en_progreso" e is_running = true
-        console.log('💾 [MISION ACTIVA] Actualizando estado a en_progreso en Supabase...');
-        await updateRunningState(misionActiva.id, {
-          is_running: true,
-          estado: 'en_progreso',
-          fecha_inicio: new Date().toISOString()
-        });
-        console.log('✅ [MISION ACTIVA] Estado en_progreso guardado en Supabase');
-
-        // 5. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
-        setCards(prev => prev.map(c =>
-          c.id === cardId && c.activityData
-            ? { ...c, activityData: { ...c.activityData, isRunning: true, misionActivaId: misionActiva.id } }
-            : c
-        ));
-      } catch (error) {
-        console.error('❌ Error:', error);
-      }
-    } else if (!newRunningState && isCapturing) {
-      // Si va a pausar
-      console.log('⏸️ [ACTIVITY PLAY/PAUSE] Pausando actividad...');
-
-      // Obtener el ID de la misión activa del card
-      const card = cards.find(c => c.id === cardId);
-      const misionActivaId = card?.activityData?.misionActivaId;
-
-      if (misionActivaId) {
-        // 1. Actualizar estado en Supabase
-        console.log('💾 [MISION ACTIVA] Actualizando estado a pausada en Supabase...');
-        await updateRunningState(misionActivaId, {
-          is_running: false,
-          estado: 'pausada',
-          fecha_pausa: new Date().toISOString()
-        });
-
-        console.log('✅ [MISION ACTIVA] Estado pausada guardado en Supabase');
-      }
-
-      // 2. Actualizar estado local
-      setCards(prev => prev.map(c =>
-        c.id === cardId && c.activityData
-          ? { ...c, activityData: { ...c.activityData, isRunning: false } }
-          : c
-      ));
-
-      // 3. Detener captura
-      stopCapturing();
-
-      console.log('✅ [ACTIVITY PLAY/PAUSE] Actividad pausada exitosamente');
-    }
-  }, [cards, isCapturing, startCapturing, stopCapturing, usuario, getOrCreateMisionActiva, updateRunningState, addCaptureUrl]);
 
   // Funciones para misiones
-  const handleMisionPlayPause = useCallback(async (cardId: string, currentIsRunning: boolean) => {
-    console.log('🎯 [MISION PLAY/PAUSE] Botón presionado en tarjeta:', cardId);
-    console.log('👤 [MISION PLAY/PAUSE] Usuario logeado:', usuario);
-    console.log('📊 [MISION PLAY/PAUSE] Estado actual isCapturing:', isCapturing);
-    console.log('📊 [MISION PLAY/PAUSE] Estado actual currentIsRunning:', currentIsRunning);
+  const handleMisionPlayPauseWrapper = useCallback(async (cardId: string, currentIsRunning: boolean) => {
+    await handleMisionPlayPause({
+      cardId,
+      currentIsRunning,
+      cards,
+      isCapturing,
+      usuario,
+      startCapturing,
+      stopCapturing,
+      getOrCreateMisionActiva,
+      updateRunningState,
+      addCaptureUrl,
+      onUpdateCard: updateCardData
+    });
+  }, [cards, isCapturing, usuario, startCapturing, stopCapturing, getOrCreateMisionActiva, updateRunningState, addCaptureUrl, updateCardData]);
 
-    const newRunningState = !currentIsRunning;
-
-    // Si va a iniciar (play)
-    if (newRunningState) {
-      console.log('▶️ [MISION PLAY/PAUSE] Iniciando misión...');
-
-      try {
-        const card = cards.find(c => c.id === cardId);
-        if (!card || !card.misionData) {
-          console.error('❌ No se encontró la card o no tiene misionData');
-          return;
-        }
-
-        const misionData = card.misionData;
-        const misionId = misionData.id_mision || cardId.split('-')[1] || '1';
-        // Usar el usuario logeado primero, luego el de la misión, y finalmente un fallback
-        const userId = usuario?.id || misionData.id_usuario || 'usuario-desconocido';
-        const misionActividad = misionData.title || misionData.description || card.title || 'Misión sin nombre';
-
-        console.log('📤 [MISION PLAY/PAUSE] Iniciando captura con userId:', userId);
-        console.log('📤 [MISION PLAY/PAUSE] misionId:', misionId);
-        console.log('🎥 [MISION PLAY/PAUSE] Solicitando permiso de pantalla PRIMERO...');
-
-        // 1. PRIMERO: Solicitar permiso de pantalla (debe estar en el user gesture)
-        let mediaStream: MediaStream;
-        try {
-          mediaStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              cursor: "always" as any
-            },
-            audio: false
-          } as DisplayMediaStreamOptions);
-          console.log('✅ [MISION PLAY/PAUSE] Permiso de pantalla concedido');
-        } catch (permissionError) {
-          console.error('❌ Usuario canceló el permiso de pantalla:', permissionError);
-          return; // Salir si el usuario cancela
-        }
-
-        // 2. SEGUNDO: Ahora que tenemos el permiso, hacer las operaciones de BD
-        console.log('💾 [MISION ACTIVA] Creando/obteniendo misión activa en Supabase...');
-        const misionActiva = await getOrCreateMisionActiva({
-          tipo: 'mision',
-          id_referencia: typeof misionId === 'string' ? parseInt(misionId) : misionId,
-          id_usuario_asignado: userId,
-          id_creador: userId
-        });
-
-        if (!misionActiva) {
-          console.error('❌ No se pudo crear/obtener la misión activa');
-          // Detener el stream si falla la BD
-          mediaStream.getTracks().forEach(track => track.stop());
-          return;
-        }
-
-        console.log('✅ [MISION ACTIVA] Misión activa obtenida:', misionActiva.id);
-
-        // 3. TERCERO: Iniciar captura con el stream ya obtenido
-        await startCapturing({
-          userId: userId,
-          userEmail: usuario?.email || '',
-          actividadId: String(misionId),
-          misionActividad: misionActividad,
-          totalTrabajadoHoy: misionData.hours?.toString(),
-          mediaStream: mediaStream, // Pasar el stream ya obtenido
-          onCaptureUpdate: async (url: string) => {
-            // Actualizar la última captura en la card
-            setCards(prev => prev.map(c =>
-              c.id === cardId && c.misionData
-                ? { ...c, misionData: { ...c.misionData, lastCaptureUrl: url } }
-                : c
-            ));
-
-            // Guardar captura en misiones_activas
-            console.log('📸 [MISION ACTIVA] Guardando captura en Supabase:', url);
-            await addCaptureUrl(misionActiva.id, url);
-            console.log('✅ [MISION ACTIVA] Captura guardada en misiones_activas');
-          }
-        });
-
-        console.log('✅ [MISION PLAY/PAUSE] Captura iniciada exitosamente, activando contador...');
-
-        // 4. Actualizar estado en Supabase a "en_progreso" e is_running = true
-        console.log('💾 [MISION ACTIVA] Actualizando estado a en_progreso en Supabase...');
-        await updateRunningState(misionActiva.id, {
-          is_running: true,
-          estado: 'en_progreso',
-          fecha_inicio: new Date().toISOString()
-        });
-        console.log('✅ [MISION ACTIVA] Estado en_progreso guardado en Supabase');
-
-        // Nota: El tracking ahora se calcula automáticamente desde la tabla capture
-
-        // 5. Actualizar estado local (guardamos el ID de la misión activa para usarlo al pausar)
-        setCards(prev => {
-          console.log('🔄 [MISION PLAY/PAUSE] Actualizando cards, buscando card:', cardId);
-          const updatedCards = prev.map(c => {
-            if (c.id === cardId && c.misionData) {
-              console.log('✅ [MISION PLAY/PAUSE] Card encontrada, actualizando isRunning a true');
-              return { ...c, misionData: { ...c.misionData, isRunning: true, misionActivaId: misionActiva.id } };
-            }
-            return c;
-          });
-          return updatedCards;
-        });
-
-        console.log('✅ [MISION PLAY/PAUSE] Contador activado, card debería estar en naranja');
-      } catch (error) {
-        console.error('❌ Error iniciando captura de misión:', error);
-        console.log('⚠️ No se activó el contador porque el usuario canceló o hubo un error');
-        // No actualizar isRunning si hubo error
-      }
-    } else if (!newRunningState) {
-      // Si va a pausar, actualizar el estado y detener captura completamente
-      console.log('⏸️ [MISION PLAY/PAUSE] Pausando misión...');
-
-      // Obtener el ID de la misión activa del card
-      const card = cards.find(c => c.id === cardId);
-      const misionActivaId = card?.misionData?.misionActivaId;
-
-      if (misionActivaId) {
-        // 1. Actualizar estado en Supabase
-        console.log('💾 [MISION ACTIVA] Actualizando estado a pausada en Supabase...');
-        await updateRunningState(misionActivaId, {
-          is_running: false,
-          estado: 'pausada',
-          fecha_pausa: new Date().toISOString()
-        });
-
-        console.log('✅ [MISION ACTIVA] Estado pausada guardado en Supabase');
-
-        // Nota: El tracking ahora se calcula automáticamente desde la tabla capture
-      }
-
-      // 2. Actualizar estado local
-      setCards(prev => prev.map(c =>
-        c.id === cardId && c.misionData
-          ? { ...c, misionData: { ...c.misionData, isRunning: false } }
-          : c
-      ));
-
-      // 3. Detener captura y cerrar stream de pantalla
-      console.log('⏹️ [MISION PLAY/PAUSE] Deteniendo captura de pantalla...');
-      stopCapturing();
-
-      console.log('✅ [MISION PLAY/PAUSE] Misión pausada exitosamente (captura detenida)');
-    }
-  }, [cards, isCapturing, startCapturing, stopCapturing, usuario, getOrCreateMisionActiva, updateRunningState, addCaptureUrl]);
 
   // Funciones para todos
   const toggleTodo = useCallback(async (cardId: string, todoId: number) => {
@@ -1688,7 +1028,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     console.log('✅ [addMisionCard] Ticket card (tipo mision) creada en pizarra en posición:', { x: cardX, y: cardY });
     console.log('✅ [addMisionCard] Agregando card al estado...');
     setCards(prev => {
-      const newCards = [...prev, newCard];
+      const newCards = Array.isArray(prev) ? [...prev, newCard] : [newCard];
       console.log('✅ [addMisionCard] Cards después de agregar:', newCards.length, 'cards totales');
       return newCards;
     });
@@ -2993,11 +2333,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     loadPizarraById,
     addConnection,
     removeConnectionBetween,
-    centerOnCard: navigateToCard, // navigateToCard funciona como centerOnCard
-    findCardByMisionId,
+    centerOnCard: navigateToCardWrapper, // navigateToCard funciona como centerOnCard
+    findCardByMisionId: findCardByMisionIdWrapper,
     updateCardId,
     updateCard: updateCardFromRef
-  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, addMisionCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCard, findCardByMisionId, updateCardId, updateCardFromRef]);
+  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, addMisionCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCardWrapper, findCardByMisionIdWrapper, updateCardId, updateCardFromRef]);
 
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
@@ -3108,7 +2448,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           connectingFrom={connectingFrom}
           mousePosition={mousePosition}
           deleteConnection={deleteConnection}
-          navigateToCard={navigateToCard}
+          navigateToCard={navigateToCardWrapper}
         />
 
         {cards.length === 0 && (
@@ -3164,15 +2504,15 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             addTodoToCard={addTodoToCard}
             deleteTodoFromCard={deleteTodoFromCard}
             updateTodoInCard={updateTodoInCard}
-            handleActivityPlayPause={handleActivityPlayPause}
-            handleMisionPlayPause={handleMisionPlayPause}
+            handleActivityPlayPause={handleActivityPlayPauseWrapper}
+            handleMisionPlayPause={handleMisionPlayPauseWrapper}
             onShowScreenshots={onShowScreenshots}
             screenshots={screenshots}
             isCapturing={isCapturing}
             captureNow={captureNow}
             setCards={setCards}
             pastedImages={pastedImages}
-            bringCardToFront={bringCardToFront}
+            bringCardToFront={bringCardToFrontWrapper}
             onOpenUserChat={handleOpenUserChat}
             usuarios={usuarios}
             currentUserId={currentUserId}

@@ -17,7 +17,8 @@ export const usePizarraLocalStorage = (
   setConnections: React.Dispatch<React.SetStateAction<Connection[]>>,
   setPanOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>,
   storagePrefix: string = 'real',
-  isOrganizacionPizarra: boolean = false // Nueva prop para identificar pizarras de organización
+  isOrganizacionPizarra: boolean = false, // Nueva prop para identificar pizarras de organización
+  isInitialized: boolean = false // Estado de inicialización de la pizarra
 ) => {
   // Generar claves de almacenamiento con prefijo
   const PIZARRA_STORAGE_KEY = `pizarra-${storagePrefix}-cards-v1`;
@@ -175,7 +176,7 @@ export const usePizarraLocalStorage = (
       if (savedCards) {
         const parsedCards = safeJsonParse(savedCards, []) as Card[];
         if (parsedCards && Array.isArray(parsedCards)) {
-          // console.log('📦 [PIZARRA STORAGE] Cards cargadas desde localStorage:', parsedCards.length);
+          console.log('📦 [PIZARRA STORAGE] Cards cargadas desde localStorage:', parsedCards.length);
 
           // Restaurar Date objects en ChatMessages
           const cardsWithDates = parsedCards.map(card => {
@@ -209,6 +210,7 @@ export const usePizarraLocalStorage = (
             }
           });
 
+          console.log('📦 [PIZARRA STORAGE] Ejecutando setCards() con', cardsWithDates.length, 'cards desde localStorage');
           setCards(cardsWithDates);
         } else {
           console.warn('❌ [PIZARRA STORAGE] Cards no válidas, usando array vacío');
@@ -437,8 +439,17 @@ export const usePizarraLocalStorage = (
   }, [setCards, setConnections, setPanOffset]);
 
   // Cargar al montar el componente
+  // NUNCA cargar desde localStorage al inicio - las cards deben venir desde Supabase
+  // localStorage solo se usa para guardar cambios posteriores
   useEffect(() => {
-    loadFromLocalStorage();
+    console.log('⏭️ [PIZARRA STORAGE] NO cargar desde localStorage - solo Supabase carga las cards iniciales');
+
+    // Si no está inicializado, limpiar localStorage para evitar conflictos
+    if (!isInitialized) {
+      console.log('🧹 [PIZARRA STORAGE] Limpiando localStorage para permitir carga limpia desde Supabase');
+      localStorage.removeItem(PIZARRA_STORAGE_KEY);
+      localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
+    }
   }, []); // Solo se ejecuta una vez al montar
 
   // Guardar automáticamente cuando cambien los datos (con debounce)
