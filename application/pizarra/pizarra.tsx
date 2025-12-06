@@ -75,6 +75,15 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   // Estado para trackear conexiones auto-creadas (evitar duplicados)
   const autoConnectionsRef = useRef<Set<string>>(new Set());
 
+  // Estado para trackear usuarios agregados (evitar duplicados en llamadas rápidas)
+  const addedUsersRef = useRef<Set<string>>(new Set());
+
+  // Estado para trackear proyectos agregados (evitar duplicados en llamadas rápidas)
+  const addedProyectosRef = useRef<Set<number>>(new Set());
+
+  // Estado para trackear recursos agregados (evitar duplicados en llamadas rápidas)
+  const addedRecursosRef = useRef<Set<number>>(new Set());
+
   const [cards, setCards] = useState<Card[]>([]);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [editingTodo, setEditingTodo] = useState<{ cardId: string, todoId: number } | null>(null);
@@ -202,6 +211,36 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
     performSync();
   }, [cardsDB, pizarra, usuario, isViewingOtherUser, isInitialized]);
+
+  // Sincronizar ref de usuarios agregados con el estado de cards
+  useEffect(() => {
+    const currentUserIds = new Set(
+      cards
+        .filter(card => card.type === 'usuario' && card.usuarioData?.userId)
+        .map(card => card.usuarioData!.userId)
+    );
+    addedUsersRef.current = currentUserIds;
+  }, [cards]);
+
+  // Sincronizar ref de proyectos agregados con el estado de cards
+  useEffect(() => {
+    const currentProyectoIds = new Set(
+      cards
+        .filter(card => (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.id)
+        .map(card => card.proyectoData!.id)
+    );
+    addedProyectosRef.current = currentProyectoIds;
+  }, [cards]);
+
+  // Sincronizar ref de recursos agregados con el estado de cards
+  useEffect(() => {
+    const currentRecursoIds = new Set(
+      cards
+        .filter(card => card.type === 'resource' && card.recursoData?.id)
+        .map(card => card.recursoData!.id!)
+    );
+    addedRecursosRef.current = currentRecursoIds;
+  }, [cards]);
 
   // Callback personalizado para detectar conexión nota-proyecto
   const handleInternalConnectionCreate = useCallback((connection: Connection, fromCard: Card, toCard: Card) => {
@@ -414,25 +453,6 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleResizeMove,
     handleResizeEnd
   } = useCardResize(cards, setCards);
-
-  const {
-    isDragOver,
-    isReceivingDrag,
-    handleDragEnter,
-    handleDragLeave,
-    handleDragOver,
-    handleDrop
-  } = useDropHandler(
-    setCards,
-    panOffset,
-    canvasRef,
-    cards,
-    storagePrefix === 'organizacion',
-    autoConnectMisionToProyectoWrapper,
-    autoConnectProyectoToMisionesWrapper,
-    navigateToCardWrapper,
-    findCardByMisionIdWrapper
-  );
 
   // LocalStorage para persistencia - SOLO para pizarra propia, NO para pizarras compartidas
   const localStorageHookResult = usePizarraLocalStorage(
@@ -860,46 +880,295 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     color?: string;
     online?: boolean;
   }) => {
-    const existingIds = cards.map(card => card.id);
-
-    // Calcular el centro visible de la pizarra
-    const canvasWidth = canvasRef.current?.clientWidth || 1000;
-    const canvasHeight = canvasRef.current?.clientHeight || 800;
-    const centerX = -panOffset.x + (canvasWidth / 2);
-    const centerY = -panOffset.y + (canvasHeight / 2);
-
-    // Agregar un pequeño offset aleatorio para que no se superpongan
-    const randomOffset = () => (Math.random() - 0.5) * 100;
-
-    const nextZIndex = getNextZIndex();
-    const cardId = generateUniqueId('usuario', existingIds);
-
-    const newCard = {
-      id: cardId,
-      type: 'usuario',
-      title: userData.name || 'Usuario',
-      content: `Usuario: ${userData.name}`,
-      x: centerX + randomOffset() - 140, // -140 para centrar la card (width/2)
-      y: centerY + randomOffset() - 200, // -200 para centrar la card (height/2)
-      width: 280,
-      height: 400,
-      fontSize: 18,
-      zIndex: nextZIndex, // Nuevo card aparece encima de todos
-      usuarioData: {
-        userId: userData.userId,
-        name: userData.name || 'Usuario',
-        avatar: userData.avatar || 'US',
-        color: userData.color || 'bg-blue-500',
-        online: userData.online || false,
-        messages: []
+    console.log('🔵 addUsuarioCard llamado:', userData.name, userData.userId);
+    console.log('🔵 Ref actual antes de verificar:', Array.from(addedUsersRef.current));
+    
+    // Verificar primero en el ref (para llamadas rápidas)
+    if (addedUsersRef.current.has(userData.userId)) {
+      console.log('⚠️ Usuario ya está siendo agregado (ref):', userData.name, userData.userId);
+      // Buscar el card existente y navegar a él
+      const existingUserCard = cards.find(card => 
+        card.type === 'usuario' && card.usuarioData?.userId === userData.userId
+      );
+      if (existingUserCard) {
+        console.log('📍 Navegando al usuario existente:', existingUserCard.id);
+        navigateToCardWrapper(existingUserCard.id);
       }
-    };
+      return;
+    }
 
-    // Actualizar cardZIndices para que se renderice correctamente
-    setCardZIndices(prev => ({ ...prev, [cardId]: nextZIndex }));
+    // Marcar como agregado en el ref INMEDIATAMENTE
+    addedUsersRef.current.add(userData.userId);
+    console.log('✅ Agregando usuario:', userData.name, 'UserID:', userData.userId);
+    console.log('✅ Ref después de agregar:', Array.from(addedUsersRef.current));
 
-    setCards(prev => [...prev, newCard]);
-  }, [cards, panOffset, canvasRef, getNextZIndex]);
+    // Usar setCards con función updater para tener el estado más reciente
+    setCards(prevCards => {
+      // Verificar si ya existe en el estado actual
+      const existingUserCard = prevCards.find(card => 
+        card.type === 'usuario' && card.usuarioData?.userId === userData.userId
+      );
+
+      if (existingUserCard) {
+        console.log('⚠️ Usuario ya existe en la pizarra (estado):', userData.name);
+        // Remover del ref ya que no se agregó
+        addedUsersRef.current.delete(userData.userId);
+        // Navegar al card existente
+        setTimeout(() => navigateToCardWrapper(existingUserCard.id), 0);
+        return prevCards;
+      }
+
+      const existingIds = prevCards.map(card => card.id);
+
+      // Calcular el centro visible de la pizarra
+      const canvasWidth = canvasRef.current?.clientWidth || 1000;
+      const canvasHeight = canvasRef.current?.clientHeight || 800;
+      const centerX = -panOffset.x + (canvasWidth / 2);
+      const centerY = -panOffset.y + (canvasHeight / 2);
+
+      // Agregar un pequeño offset aleatorio para que no se superpongan
+      const randomOffset = () => (Math.random() - 0.5) * 100;
+
+      const nextZIndex = getNextZIndex();
+      const cardId = generateUniqueId('usuario', existingIds);
+
+      const newCard = {
+        id: cardId,
+        type: 'usuario',
+        title: userData.name || 'Usuario',
+        content: `Usuario: ${userData.name}`,
+        x: centerX + randomOffset() - 140,
+        y: centerY + randomOffset() - 200,
+        width: 280,
+        height: 400,
+        fontSize: 18,
+        zIndex: nextZIndex,
+        usuarioData: {
+          userId: userData.userId,
+          name: userData.name || 'Usuario',
+          avatar: userData.avatar || 'US',
+          color: userData.color || 'bg-blue-500',
+          online: userData.online || false,
+          messages: []
+        }
+      };
+
+      // Actualizar cardZIndices
+      setCardZIndices(prev => ({ ...prev, [cardId]: nextZIndex }));
+
+      return [...prevCards, newCard];
+    });
+  }, [cards, panOffset, canvasRef, getNextZIndex, navigateToCardWrapper]);
+
+  const addProyectoCard = useCallback((proyectoData: {
+    id: number;
+    nombre: string;
+    descripcion?: string | null;
+    icono?: string | null;
+    id_organizacion?: number | null;
+    colors?: any;
+    created_at?: string;
+  }, isOrganizacion: boolean = false) => {
+    console.log('🔵 addProyectoCard llamado:', proyectoData.nombre, proyectoData.id);
+    console.log('🔵 Ref actual antes de verificar:', Array.from(addedProyectosRef.current));
+    
+    // Verificar primero en el ref (para llamadas rápidas)
+    if (addedProyectosRef.current.has(proyectoData.id)) {
+      console.log('⚠️ Proyecto ya está siendo agregado (ref):', proyectoData.nombre, proyectoData.id);
+      // Buscar el card existente y navegar a él
+      const existingProyectoCard = cards.find(card => 
+        (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && 
+        card.proyectoData?.id === proyectoData.id
+      );
+      if (existingProyectoCard) {
+        console.log('📍 Navegando al proyecto existente:', existingProyectoCard.id);
+        navigateToCardWrapper(existingProyectoCard.id);
+      }
+      return;
+    }
+
+    // Marcar como agregado en el ref INMEDIATAMENTE
+    addedProyectosRef.current.add(proyectoData.id);
+    console.log('✅ Agregando proyecto:', proyectoData.nombre, 'ID:', proyectoData.id);
+    console.log('✅ Ref después de agregar:', Array.from(addedProyectosRef.current));
+
+    // Usar setCards con función updater para tener el estado más reciente
+    setCards(prevCards => {
+      // Verificar si ya existe en el estado actual
+      const existingProyectoCard = prevCards.find(card => 
+        (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && 
+        card.proyectoData?.id === proyectoData.id
+      );
+
+      if (existingProyectoCard) {
+        console.log('⚠️ Proyecto ya existe en la pizarra (estado):', proyectoData.nombre);
+        // Remover del ref ya que no se agregó
+        addedProyectosRef.current.delete(proyectoData.id);
+        // Navegar al card existente
+        setTimeout(() => navigateToCardWrapper(existingProyectoCard.id), 0);
+        return prevCards;
+      }
+
+      const existingIds = prevCards.map(card => card.id);
+
+      // Calcular el centro visible de la pizarra
+      const canvasWidth = canvasRef.current?.clientWidth || 1000;
+      const canvasHeight = canvasRef.current?.clientHeight || 800;
+      const centerX = -panOffset.x + (canvasWidth / 2);
+      const centerY = -panOffset.y + (canvasHeight / 2);
+
+      // Agregar un pequeño offset aleatorio para que no se superpongan
+      const randomOffset = () => (Math.random() - 0.5) * 100;
+
+      const nextZIndex = getNextZIndex();
+      const cardType = isOrganizacion ? 'proyecto-organizacion' : 'proyecto';
+      const cardId = generateUniqueId(cardType, existingIds);
+
+      const newCard = {
+        id: cardId,
+        type: cardType,
+        title: proyectoData.nombre || 'Proyecto',
+        content: proyectoData.descripcion || `Proyecto: ${proyectoData.nombre}`,
+        x: centerX + randomOffset() - 175,
+        y: centerY + randomOffset() - 250,
+        width: 350,
+        height: 500,
+        fontSize: 14,
+        zIndex: nextZIndex,
+        proyectoData: {
+          id: proyectoData.id,
+          nombre: proyectoData.nombre || 'Proyecto',
+          descripcion: proyectoData.descripcion || null,
+          icono: proyectoData.icono || null,
+          id_organizacion: proyectoData.id_organizacion || null,
+          colors: proyectoData.colors || null,
+          created_at: proyectoData.created_at
+        }
+      };
+
+      // Actualizar cardZIndices
+      setCardZIndices(prev => ({ ...prev, [cardId]: nextZIndex }));
+
+      // Auto-conectar proyecto a sus misiones si existen en la pizarra
+      if (proyectoData.id && autoConnectProyectoToMisionesWrapper && isOrganizacion) {
+        console.log('🔗 [AUTO-CONEXIÓN] Iniciando auto-conexión para ProyectoCardOrganizacion...');
+        setTimeout(() => autoConnectProyectoToMisionesWrapper(cardId, proyectoData.id), 0);
+      }
+
+      return [...prevCards, newCard];
+    });
+  }, [cards, panOffset, canvasRef, getNextZIndex, navigateToCardWrapper, autoConnectProyectoToMisionesWrapper]);
+
+  const addRecursoCard = useCallback((recursoData: {
+    id: number;
+    name: string;
+    resourceType: string;
+    url?: string | null;
+    icon?: string | null;
+    color?: string;
+  }) => {
+    console.log('🔵 addRecursoCard llamado:', recursoData.name, recursoData.id);
+    console.log('🔵 Ref actual antes de verificar:', Array.from(addedRecursosRef.current));
+    
+    // Verificar primero en el ref (para llamadas rápidas)
+    if (addedRecursosRef.current.has(recursoData.id)) {
+      console.log('⚠️ Recurso ya está siendo agregado (ref):', recursoData.name, recursoData.id);
+      // Buscar el card existente y navegar a él
+      const existingRecursoCard = cards.find(card => 
+        card.type === 'resource' && card.recursoData?.id === recursoData.id
+      );
+      if (existingRecursoCard) {
+        console.log('📍 Navegando al recurso existente:', existingRecursoCard.id);
+        navigateToCardWrapper(existingRecursoCard.id);
+      }
+      return;
+    }
+
+    // Marcar como agregado en el ref INMEDIATAMENTE
+    addedRecursosRef.current.add(recursoData.id);
+    console.log('✅ Agregando recurso:', recursoData.name, 'ID:', recursoData.id);
+    console.log('✅ Ref después de agregar:', Array.from(addedRecursosRef.current));
+
+    // Usar setCards con función updater para tener el estado más reciente
+    setCards(prevCards => {
+      // Verificar si ya existe en el estado actual
+      const existingRecursoCard = prevCards.find(card => 
+        card.type === 'resource' && card.recursoData?.id === recursoData.id
+      );
+
+      if (existingRecursoCard) {
+        console.log('⚠️ Recurso ya existe en la pizarra (estado):', recursoData.name);
+        // Remover del ref ya que no se agregó
+        addedRecursosRef.current.delete(recursoData.id);
+        // Navegar al card existente
+        setTimeout(() => navigateToCardWrapper(existingRecursoCard.id), 0);
+        return prevCards;
+      }
+
+      const existingIds = prevCards.map(card => card.id);
+
+      // Calcular el centro visible de la pizarra
+      const canvasWidth = canvasRef.current?.clientWidth || 1000;
+      const canvasHeight = canvasRef.current?.clientHeight || 800;
+      const centerX = -panOffset.x + (canvasWidth / 2);
+      const centerY = -panOffset.y + (canvasHeight / 2);
+
+      // Agregar un pequeño offset aleatorio para que no se superpongan
+      const randomOffset = () => (Math.random() - 0.5) * 100;
+
+      const nextZIndex = getNextZIndex();
+      const cardId = generateUniqueId('resource', existingIds);
+
+      const newCard = {
+        id: cardId,
+        type: 'resource',
+        title: recursoData.name,
+        content: `Tipo: ${recursoData.resourceType}`,
+        x: centerX + randomOffset() - 140,
+        y: centerY + randomOffset() - 110,
+        width: 280,
+        height: 220,
+        fontSize: 18,
+        zIndex: nextZIndex,
+        recursoData: {
+          id: recursoData.id,
+          name: recursoData.name,
+          resourceType: recursoData.resourceType,
+          url: recursoData.url || null,
+          icon: recursoData.icon || null,
+          color: recursoData.color || 'bg-blue-500'
+        }
+      };
+
+      // Actualizar cardZIndices
+      setCardZIndices(prev => ({ ...prev, [cardId]: nextZIndex }));
+
+      return [...prevCards, newCard];
+    });
+  }, [cards, panOffset, canvasRef, getNextZIndex, navigateToCardWrapper]);
+
+  // useDropHandler debe estar DESPUÉS de addUsuarioCard, addProyectoCard y addRecursoCard para poder usarlos
+  const {
+    isDragOver,
+    isReceivingDrag,
+    handleDragEnter,
+    handleDragLeave,
+    handleDragOver,
+    handleDrop
+  } = useDropHandler(
+    setCards,
+    panOffset,
+    canvasRef,
+    cards,
+    storagePrefix === 'organizacion',
+    autoConnectMisionToProyectoWrapper,
+    autoConnectProyectoToMisionesWrapper,
+    navigateToCardWrapper,
+    findCardByMisionIdWrapper,
+    addUsuarioCard,
+    addProyectoCard,
+    addRecursoCard
+  );
 
   const addMisionCardOrganizacion = useCallback((misionData: {
     id_mision: number;

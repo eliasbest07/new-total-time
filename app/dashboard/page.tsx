@@ -22,6 +22,7 @@ import { useOrganizacion } from "@/hooks/useOrganizacion";
 import { Target, Building2, X } from "lucide-react";
 import Image from "next/image";
 import CalendarioSemanalUsuario from "@/app/components/CalendarioSemanalUsuario";
+import fotoDePerfil from "../components/image.png";
 
 export default function DashboardPage() {
   const pizarraRef = useRef<PizarraRef>(null);
@@ -885,9 +886,13 @@ function DashboardAdmin() {
                 </div>
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-white/20 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-white">
-                    {organizacion ? organizacion.nombre.charAt(0).toUpperCase() : 'O'}
-                  </span>
+                  <Image
+                    src= {fotoDePerfil} // Replace with the actual path to the pasted image
+                    alt="Organization Image"
+                    width={48}
+                    height={48}
+                    className="object-cover"
+                  />
                 </div>
               )}
               <span className="text-xs font-semibold text-center line-clamp-2 leading-tight">

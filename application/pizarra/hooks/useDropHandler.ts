@@ -11,7 +11,10 @@ export const useDropHandler = (
   autoConnectMisionToProyecto?: (misionCardId: string, misionId: number) => void,
   autoConnectProyectoToMisiones?: (proyectoCardId: string, proyectoId: number) => void,
   centerOnCard?: (cardId: string) => void,
-  findCardByMisionId?: (misionId: number) => string | null
+  findCardByMisionId?: (misionId: number) => string | null,
+  addUsuarioCard?: (userData: { userId: string; name: string; avatar?: string; color?: string; online?: boolean }) => void,
+  addProyectoCard?: (proyectoData: { id: number; nombre: string; descripcion?: string | null; icono?: string | null; id_organizacion?: number | null; colors?: any; created_at?: string }, isOrganizacion: boolean) => void,
+  addRecursoCard?: (recursoData: { id: number; name: string; resourceType: string; url?: string | null; icon?: string | null; color?: string }) => void
 ) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isReceivingDrag, setIsReceivingDrag] = useState(false);
@@ -102,19 +105,10 @@ export const useDropHandler = (
           console.log('📁 [PIZARRA DROP] Datos de proyecto recibidos:', resource);
           console.log('📁 [PIZARRA DROP] Es organización:', isOrganizacion);
 
-          const cardType = isOrganizacion ? 'proyecto-organizacion' : 'proyecto';
-          const newProyectoCardId = generateUniqueId(cardType, existingIds);
-
-          setCards(prev => [...prev, {
-            id: newProyectoCardId,
-            type: cardType,
-            title: resource.nombre || 'Proyecto',
-            content: resource.descripcion || `Proyecto: ${resource.nombre}`,
-            x, y,
-            width: 350,
-            height: 500,
-            fontSize: 14,
-            proyectoData: {
+          // Usar addProyectoCard si está disponible (tiene validación de duplicados)
+          if (addProyectoCard) {
+            console.log('📁 [PIZARRA DROP] Usando addProyectoCard con validación');
+            addProyectoCard({
               id: resource.id,
               nombre: resource.nombre || 'Proyecto',
               descripcion: resource.descripcion || null,
@@ -122,14 +116,38 @@ export const useDropHandler = (
               id_organizacion: resource.id_organizacion || null,
               colors: resource.colors || null,
               created_at: resource.created_at
-            }
-          }]);
+            }, isOrganizacion);
+          } else {
+            // Fallback: crear directamente (sin validación)
+            console.log('📁 [PIZARRA DROP] Creando proyecto directamente (sin validación)');
+            const cardType = isOrganizacion ? 'proyecto-organizacion' : 'proyecto';
+            const newProyectoCardId = generateUniqueId(cardType, existingIds);
 
-          // Auto-conectar proyecto a sus misiones si existen en la pizarra
-          // SOLO en pizarra de organización
-          if (resource.id && autoConnectProyectoToMisiones && isOrganizacion) {
-            console.log('🔗 [AUTO-CONEXIÓN] Iniciando auto-conexión para ProyectoCardOrganizacion...');
-            autoConnectProyectoToMisiones(newProyectoCardId, resource.id);
+            setCards(prev => [...prev, {
+              id: newProyectoCardId,
+              type: cardType,
+              title: resource.nombre || 'Proyecto',
+              content: resource.descripcion || `Proyecto: ${resource.nombre}`,
+              x, y,
+              width: 350,
+              height: 500,
+              fontSize: 14,
+              proyectoData: {
+                id: resource.id,
+                nombre: resource.nombre || 'Proyecto',
+                descripcion: resource.descripcion || null,
+                icono: resource.icono || null,
+                id_organizacion: resource.id_organizacion || null,
+                colors: resource.colors || null,
+                created_at: resource.created_at
+              }
+            }]);
+
+            // Auto-conectar proyecto a sus misiones si existen en la pizarra
+            if (resource.id && autoConnectProyectoToMisiones && isOrganizacion) {
+              console.log('🔗 [AUTO-CONEXIÓN] Iniciando auto-conexión para ProyectoCardOrganizacion...');
+              autoConnectProyectoToMisiones(newProyectoCardId, resource.id);
+            }
           }
 
           return;
@@ -137,24 +155,39 @@ export const useDropHandler = (
         // USUARIO
         else if (resource.name && resource.avatar && resource.color && resource.online !== undefined) {
           console.log('👤 [PIZARRA DROP] Detectado USUARIO');
-          setCards(prev => [...prev, {
-            id: generateUniqueId('usuario', existingIds),
-            type: 'usuario',
-            title: resource.name || 'Usuario',
-            content: `Usuario: ${resource.name}`,
-            x, y,
-            width: 280,
-            height: 400,
-            fontSize: 18,
-            usuarioData: {
+          
+          // Usar addUsuarioCard si está disponible (tiene validación de duplicados)
+          if (addUsuarioCard) {
+            console.log('👤 [PIZARRA DROP] Usando addUsuarioCard con validación');
+            addUsuarioCard({
               userId: resource.userId || '',
               name: resource.name || 'Usuario',
               avatar: resource.avatar || 'US',
               color: resource.color || 'bg-blue-500',
-              online: resource.online || false,
-              messages: []
-            }
-          }]);
+              online: resource.online || false
+            });
+          } else {
+            // Fallback: crear directamente (sin validación)
+            console.log('👤 [PIZARRA DROP] Creando usuario directamente (sin validación)');
+            setCards(prev => [...prev, {
+              id: generateUniqueId('usuario', existingIds),
+              type: 'usuario',
+              title: resource.name || 'Usuario',
+              content: `Usuario: ${resource.name}`,
+              x, y,
+              width: 280,
+              height: 400,
+              fontSize: 18,
+              usuarioData: {
+                userId: resource.userId || '',
+                name: resource.name || 'Usuario',
+                avatar: resource.avatar || 'US',
+                color: resource.color || 'bg-blue-500',
+                online: resource.online || false,
+                messages: []
+              }
+            }]);
+          }
           return;
         }
         // MISIÓN ORGANIZACIÓN
@@ -323,23 +356,40 @@ export const useDropHandler = (
         else if (resource.name && resource.resourceType) {
           console.log('📦 [PIZARRA DROP] Detectado RECURSO');
           console.log('📦 [PIZARRA DROP] Datos de recurso recibidos:', resource);
-          setCards(prev => [...prev, {
-            id: generateUniqueId('resource', existingIds),
-            type: 'resource',
-            title: resource.name,
-            content: `Tipo: ${resource.resourceType}`,
-            x, y,
-            width: 280,
-            height: 220,
-            fontSize: 18,
-            recursoData: {
+          
+          // Usar addRecursoCard si está disponible (tiene validación de duplicados)
+          if (addRecursoCard && resource.id) {
+            console.log('📦 [PIZARRA DROP] Usando addRecursoCard con validación');
+            addRecursoCard({
+              id: resource.id,
               name: resource.name,
               resourceType: resource.resourceType,
               url: resource.url || null,
               icon: resource.icon || null,
               color: resource.color || 'bg-blue-500'
-            }
-          }]);
+            });
+          } else {
+            // Fallback: crear directamente (sin validación)
+            console.log('📦 [PIZARRA DROP] Creando recurso directamente (sin validación)');
+            setCards(prev => [...prev, {
+              id: generateUniqueId('resource', existingIds),
+              type: 'resource',
+              title: resource.name,
+              content: `Tipo: ${resource.resourceType}`,
+              x, y,
+              width: 280,
+              height: 220,
+              fontSize: 18,
+              recursoData: {
+                id: resource.id,
+                name: resource.name,
+                resourceType: resource.resourceType,
+                url: resource.url || null,
+                icon: resource.icon || null,
+                color: resource.color || 'bg-blue-500'
+              }
+            }]);
+          }
           return;
         }
       } catch (error) {

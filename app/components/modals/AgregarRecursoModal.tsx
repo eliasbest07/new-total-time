@@ -66,8 +66,8 @@ const AgregarRecursoModal: React.FC<AgregarRecursoModalProps> = ({ isOpen, onClo
                 id_usuario: usuario.userAuth
             });
 
-            // Recargar la página completa para mostrar el nuevo recurso
-            window.location.reload();
+            // Cerrar el modal y limpiar el formulario
+            handleClose();
         } catch (err) {
             console.error('Error creando recurso:', err);
             setError('Error al crear el recurso. Inténtalo de nuevo.');

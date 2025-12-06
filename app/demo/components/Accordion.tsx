@@ -638,6 +638,7 @@ const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuario
                                   e.dataTransfer.setData('text/plain', `Recurso: ${recurso.name} (${recurso.type})`);
                                   e.dataTransfer.setData('application/json', JSON.stringify({
                                     type: 'resource',
+                                    id: recurso.id,
                                     name: recurso.name,
                                     resourceType: recurso.type,
                                     color: recurso.color,
