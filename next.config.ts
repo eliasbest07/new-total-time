@@ -4,7 +4,14 @@ const nextConfig: NextConfig = {
   reactStrictMode: false, // Deshabilitar para evitar doble montaje en desarrollo
   experimental: {},
   images: {
-    domains: ['efiarbtzeotqfykaqpjq.supabase.co'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'efiarbtzeotqfykaqpjq.supabase.co',
+        port: '',
+        pathname: '/**',
+      },
+    ],
     unoptimized: true,
   },
 };

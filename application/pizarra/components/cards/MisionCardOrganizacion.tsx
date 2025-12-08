@@ -526,7 +526,10 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
     // Llamar al callback para abrir el modal a nivel de página
     if (onOpenCapturasModal) {
-      onOpenCapturasModal(misionData.misionActivaId, misionData.title);
+      const misionActivaIdNum = typeof misionData.misionActivaId === 'string'
+        ? parseInt(misionData.misionActivaId, 10)
+        : misionData.misionActivaId;
+      onOpenCapturasModal(misionActivaIdNum, misionData.title);
     } else {
       console.warn('⚠️ No se proporcionó el callback onOpenCapturasModal');
       alert('No se puede abrir el modal de capturas. Funcionalidad no disponible.');

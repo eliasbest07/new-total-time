@@ -117,7 +117,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           card={card}
           updateCard={(cardId, updates) => {
             props.setCards((prevCards) =>
-              prevCards.map((c) => {
+              prevCards.map((c): Card => {
                 if (c.id !== cardId) return c;
 
                 // Si updates tiene misionData, hacer merge profundo
@@ -129,10 +129,10 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
                       ...c.misionData,
                       ...updates.misionData
                     }
-                  };
+                  } as Card;
                 }
 
-                return { ...c, ...updates };
+                return { ...c, ...updates } as Card;
               })
             );
           }}

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, f
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useSettings } from '@/app/contexts/SettingsContext';
-import { Card, PizarraRef, PizarraProps, TodoItem, ActivityData, MisionData, Connection } from './types';
+import { Card, PizarraRef, PizarraProps, TodoItem, ActivityData, MisionData, Connection, ProyectoData, UsuarioData } from './types';
 import { usePizarra } from '@/hooks/usePizarra';
 import { useCards } from '@/hooks/useCards';
 import { useCardMision } from '@/hooks/useCardMision';
@@ -227,7 +227,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     const currentProyectoIds = new Set(
       cards
         .filter(card => (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.id)
-        .map(card => card.proyectoData!.id)
+        .map(card => card.proyectoData!.id!)
     );
     addedProyectosRef.current = currentProyectoIds;
   }, [cards]);
@@ -1283,7 +1283,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         title: misionData.title,
         hours: misionData.hours,
         description: misionData.description || misionData.title,
-        id_mision: misionData.id_mision.toString(),
+        id_mision: misionData.id_mision,
         idCreador: misionData.id_creador,
         id_usuario: misionData.id_usuario?.toString()
       }
@@ -2622,25 +2622,38 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, []);
 
   // Función para actualizar un card (parcial) - para uso desde refs externos
-  const updateCardFromRef = useCallback((cardId: string, updates: Partial<Card>) => {
+  const updateCardFromRef = useCallback((
+    cardId: string,
+    updates: Partial<Omit<Card, 'misionData' | 'proyectoData' | 'usuarioData' | 'activityData'>> & {
+      misionData?: Partial<MisionData>;
+      proyectoData?: Partial<ProyectoData>;
+      usuarioData?: Partial<UsuarioData>;
+      activityData?: Partial<ActivityData>;
+    }
+  ) => {
     console.log('🔄 [updateCardFromRef] Actualizando card:', { cardId, updates });
 
     setCards((prevCards: Card[]) => {
       return prevCards.map((c: Card) => {
         if (c.id === cardId) {
           console.log('✅ Card encontrado, aplicando actualizaciones');
-          // Hacer merge profundo de misionData si existe
+          // Hacer merge profundo de datos anidados
+          const result = { ...c, ...updates } as Card;
+
           if (updates.misionData && c.misionData) {
-            return {
-              ...c,
-              ...updates,
-              misionData: {
-                ...c.misionData,
-                ...updates.misionData
-              }
-            } as Card;
+            result.misionData = { ...c.misionData, ...updates.misionData };
           }
-          return { ...c, ...updates } as Card;
+          if (updates.proyectoData && c.proyectoData) {
+            result.proyectoData = { ...c.proyectoData, ...updates.proyectoData };
+          }
+          if (updates.usuarioData && c.usuarioData) {
+            result.usuarioData = { ...c.usuarioData, ...updates.usuarioData };
+          }
+          if (updates.activityData && c.activityData) {
+            result.activityData = { ...c.activityData, ...updates.activityData };
+          }
+
+          return result;
         }
         return c;
       });

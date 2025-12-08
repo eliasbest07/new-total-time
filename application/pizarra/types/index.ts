@@ -72,13 +72,14 @@ export interface ProyectoData {
   nombre: string;
   descripcion: string | null; // Changed from 'description' to match DB
   icono: string | null;
-  id_organizacion?: string | null; // UUID de la organización
+  id_organizacion?: string | number | null; // UUID de la organización (string) o ID numérico
   colors: string[] | null;
   created_at?: string;
   notas?: string[]; // IDs de cards de tipo 'text' asociadas como notas
 }
 
 export interface RecursoData {
+  id?: number;
   name: string;
   resourceType: string;
   url: string | null;

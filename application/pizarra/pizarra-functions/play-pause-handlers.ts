@@ -137,7 +137,7 @@ export interface MisionActiva {
   tipo: PlayPauseType;
   id_referencia: number;
   id_usuario_asignado: string;
-  id_creador: string;
+  id_creador: string | null;
 }
 
 /**
@@ -147,7 +147,7 @@ export interface GetOrCreateParams {
   tipo: PlayPauseType;
   id_referencia: number;
   id_usuario_asignado: string;
-  id_creador: string;
+  id_creador?: string;
 }
 
 /**
@@ -163,8 +163,8 @@ export interface HandlePlayPauseParams {
   startCapturing: (params: any) => Promise<void>;
   stopCapturing: () => void;
   getOrCreateMisionActiva: (params: GetOrCreateParams) => Promise<MisionActiva | null>;
-  updateRunningState: (id: string, updates: any) => Promise<void>;
-  addCaptureUrl: (id: string, url: string) => Promise<void>;
+  updateRunningState: (id: string, updates: any) => Promise<MisionActiva | null>;
+  addCaptureUrl: (id: string, url: string) => Promise<MisionActiva | null>;
   onUpdateCard: (cardId: string, updates: any) => void;
 }
 
