@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useRecursos } from '@/hooks/useRecursos';
+import { useProyectos } from '@/hooks/useProyectos';
 import Ventana from '@/app/demo/components/Ventana';
 
 
@@ -14,6 +15,7 @@ interface AgregarRecursoModalProps {
 const AgregarRecursoModal: React.FC<AgregarRecursoModalProps> = ({ isOpen, onClose }) => {
     const { usuario } = useAuth();
     const { createRecurso } = useRecursos(usuario?.userAuth || null);
+    const { proyectos } = useProyectos();
 
     const [formData, setFormData] = useState({
         nombre: '',
@@ -159,24 +161,28 @@ const AgregarRecursoModal: React.FC<AgregarRecursoModalProps> = ({ isOpen, onClo
                     </div>
                 </div>
 
-                {/* Proyecto ID (opcional) */}
+                {/* Proyecto (opcional) */}
                 <div>
                     <label htmlFor="proyecto_id" className="block text-sm font-medium text-gray-700 mb-2">
-                        ID del Proyecto (opcional)
+                        Proyecto (opcional)
                     </label>
-                    <input
-                        type="number"
+                    <select
                         id="proyecto_id"
                         value={formData.proyecto_id || ''}
                         onChange={(e) => setFormData(prev => ({
                             ...prev,
                             proyecto_id: e.target.value ? parseInt(e.target.value) : null
                         }))}
-                        className="w-full px-3 py-2 border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                        placeholder="Ej: 123"
+                        className="w-full px-3 py-2 border border-gray-300 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
                         disabled={loading}
-                        min="1"
-                    />
+                    >
+                        <option value="">-- Sin proyecto --</option>
+                        {proyectos.map((proyecto) => (
+                            <option key={proyecto.id} value={proyecto.id}>
+                                {proyecto.nombre}
+                            </option>
+                        ))}
+                    </select>
                     <p className="text-xs text-gray-500 mt-1">
                         Asocia este recurso con un proyecto específico
                     </p>

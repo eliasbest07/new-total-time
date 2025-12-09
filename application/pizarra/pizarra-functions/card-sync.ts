@@ -427,17 +427,17 @@ export function shouldSyncFromDB(params: ShouldSyncParams): boolean {
     return false;
   }
 
-  // Para la pizarra propia: Solo cargar desde Supabase si no se ha inicializado
+  // Para la pizarra propia: SIEMPRE cargar desde Supabase al inicio
   if (!isViewingOtherUser) {
-    // Si NO está inicializado, SIEMPRE sincronizar desde Supabase (primera carga)
+    // Si NO está inicializado, SIEMPRE sincronizar desde Supabase (primera carga o reload)
     if (!isInitialized) {
-      console.log('🆕 [shouldSyncFromDB] Primera carga, sincronizando desde Supabase:', cardsDB.length, 'cards → SÍ sincronizar');
+      console.log('🆕 [shouldSyncFromDB] Primera carga o reload, sincronizando desde Supabase:', cardsDB.length, 'cards → SÍ sincronizar');
       return true;
     }
 
-    // Si ya está inicializado, NO sincronizar más (evitar sobrescribir cambios locales)
-    console.log('✅ [shouldSyncFromDB] Pizarra ya inicializada, NO sincronizar desde Supabase → NO sincronizar');
-    return false;
+    // Si ya está inicializado, también sincronizar para obtener actualizaciones de Supabase
+    console.log('🔄 [shouldSyncFromDB] Sincronizando cards actualizados desde Supabase:', cardsDB.length, '→ SÍ sincronizar');
+    return true;
   } else {
     // Para pizarras compartidas, SIEMPRE sincronizar
     console.log('🔄 [shouldSyncFromDB] Pizarra compartida, sincronizando cards desde Supabase:', cardsDB.length, '→ SÍ sincronizar');

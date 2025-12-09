@@ -502,8 +502,9 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
   const cleanIcono = card.proyectoData?.icono ? sanitizeIconUrl(card.proyectoData.icono) : null;
 
-  // Calcular cantidad de recursos tipo "nota"
+  // Separar recursos en notas y recursos normales
   const recursosNota = recursos.filter(r => r.link?.startsWith('nota://'));
+  const recursosNormales = recursos.filter(r => !r.link?.startsWith('nota://'));
 
   return (
     <div className="flex flex-col h-full w-full bg-gray-200 rounded-xl shadow-lg overflow-hidden">
@@ -879,20 +880,20 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors"
                 data-todo-interactive
               >
-                <span className="font-semibold text-sm">Notas ({recursosNota.length})</span>
+                <span className="font-semibold text-sm">Recursos ({recursos.length})</span>
                 {expandedRecursos ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </button>
 
               {expandedRecursos && (
                 <div className="px-4 pb-4 space-y-2">
-                  {recursosNota.length === 0 ? (
+                  {recursos.length === 0 ? (
                     <div className="text-center text-gray-400 text-sm py-4">
-                      No hay notas disponibles
+                      No hay recursos disponibles
                     </div>
                   ) : (
-                    recursosNota.map((recurso) => {
-                      // Son todos recursos tipo nota
-                      const esNota = true;
+                    recursos.map((recurso) => {
+                      // Determinar si es nota o recurso normal
+                      const esNota = recurso.link?.startsWith('nota://');
 
                       return (
                         <div

@@ -175,6 +175,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       console.log('🔍 [PIZARRA] shouldSyncFromDB retornó:', shouldSync);
 
       if (!shouldSync) {
+        // Marcar como inicializado incluso si no hay cards que sincronizar
+        if (!isInitialized && pizarra) {
+          console.log('✅ [PIZARRA] Marcando pizarra como inicializada (sin cards en DB)');
+          setIsInitialized(true);
+        }
         return;
       }
 
@@ -210,7 +215,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
 
     performSync();
-  }, [cardsDB, pizarra, usuario, isViewingOtherUser, isInitialized]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardsDB, pizarra, usuario, isViewingOtherUser]);
 
   // Sincronizar ref de usuarios agregados con el estado de cards
   useEffect(() => {
@@ -1339,7 +1345,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
 
     try {
-      console.log('💾 Guardando pizarra en Supabase...');
+      console.log('💾 Guardando  en Supabase...');
       console.log('   - ID Usuario (UUID):', usuario.userAuth);
       console.log('   - Cards a guardar:', cards.length);
 

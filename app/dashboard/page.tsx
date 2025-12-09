@@ -7,11 +7,11 @@ import AuthWrapper from "@/app/components/AuthWrapper";
 import { useAuth } from "@/app/contexts/AuthContext";
 import ChatWindow from "@/app/components/ChatWindow";
 import InputAreaLight from "@/app/components/mainUI/InputAreaLight";
-import MisionesOrganizacion from "@/app/components/organizacion/MisionesOrganizacion";
-import ActividadesOrganizacion from "@/app/components/organizacion/ActividadesOrganizacion";
 import ListadoProyectos from "@/app/components/organizacion/ListadoProyectos";
+import AccordionAdmin from "@/app/components/organizacion/AccordionAdmin";
 import InfoOrganizacion from "@/app/components/organizacion/InfoOrganizacion";
 import DashboardUsuario from "@/app/components/DashboardUsuario";
+import AgregarRecursoModal from "@/app/components/modals/AgregarRecursoModal";
 import { useIncomingMessages } from "@/hooks/useIncomingMessages";
 import { useMisiones } from "@/hooks/useMisiones";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
@@ -19,6 +19,9 @@ import { useProyectos } from "@/hooks/useProyectos";
 import { useActividades } from "@/hooks/useActividades";
 import { useUsuariosOrganizacionContext } from "@/app/contexts/UsuariosOrganizacionContext";
 import { useOrganizacion } from "@/hooks/useOrganizacion";
+import { useMisionesOrganizacion } from "@/hooks/useMisionesOrganizacion";
+import { useActividadesOrganizacion } from "@/hooks/useActividadesOrganizacion";
+import { useRecursos } from "@/hooks/useRecursos";
 import { Target, Building2, X } from "lucide-react";
 import Image from "next/image";
 import CalendarioSemanalUsuario from "@/app/components/CalendarioSemanalUsuario";
@@ -47,12 +50,17 @@ function DashboardAdmin() {
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
   const { createMision, updateMision } = useMisiones(usuarioId);
-  const { createProyecto } = useProyectos();
+  const { createProyecto, proyectos } = useProyectos();
   const { usuarios } = useUsuariosOrganizacionContext();
   const { organizacion } = useOrganizacion(usuario?.userAuth || null);
 
   // Hook para crear actividades
   const { createActividad } = useActividades(usuario?.userAuth || null);
+
+  // Hooks para AccordionAdmin
+  const { misiones: misionesOrg } = useMisionesOrganizacion(usuarios);
+  const { actividades: actividadesOrg } = useActividadesOrganizacion(usuarios);
+  const { recursos } = useRecursos(usuario?.userAuth || null);
 
   const [showChatWindow, setShowChatWindow] = useState(false);
   const [selectedChatUser, setSelectedChatUser] = useState<{
@@ -120,6 +128,7 @@ function DashboardAdmin() {
   const [actividadUsuarioId, setActividadUsuarioId] = useState<string>("");
   const [actividadProyectoId, setActividadProyectoId] = useState<number | null>(null);
   const [creandoActividad, setCreandoActividad] = useState(false);
+  const [showAgregarRecursoModal, setShowAgregarRecursoModal] = useState(false);
 
   // Handler para cuando se hace click en un usuario
   const handleUserClick = (userData: {
@@ -910,10 +919,24 @@ function DashboardAdmin() {
           />
         </div>
 
-        {/* Misiones y Actividades - Esquina superior derecha */}
-        <div className="fixed top-20 right-4 z-50 pointer-events-auto flex flex-col gap-3">
-          <MisionesOrganizacion pizarraRef={pizarraRef} />
-          <ActividadesOrganizacion />
+        {/* AccordionAdmin - Esquina superior derecha */}
+        <div className="fixed top-20 right-4 z-50 pointer-events-auto" style={{ width: '350px' }}>
+          <AccordionAdmin
+            misiones={misionesOrg}
+            actividades={actividadesOrg}
+            usuarios={usuarios}
+            recursos={recursos}
+            onAddResource={() => setShowAgregarRecursoModal(true)}
+            onUserClick={handleUserClick}
+            onMisionClick={(mision) => {
+              console.log('Misión seleccionada:', mision);
+              // TODO: Implementar modal de detalles de misión si es necesario
+            }}
+            onActividadClick={(actividad) => {
+              console.log('Actividad seleccionada:', actividad);
+              // TODO: Implementar modal de detalles de actividad si es necesario
+            }}
+          />
         </div>
 
         {/* Botones para crear misiones/actividades - Esquina inferior derecha */}
@@ -1797,6 +1820,14 @@ function DashboardAdmin() {
             </div>
           </div>
         </Ventana>
+      )}
+
+      {/* Modal para agregar recurso */}
+      {showAgregarRecursoModal && (
+        <AgregarRecursoModal
+          isOpen={showAgregarRecursoModal}
+          onClose={() => setShowAgregarRecursoModal(false)}
+        />
       )}
     </AuthWrapper>
   );
