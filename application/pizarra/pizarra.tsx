@@ -215,8 +215,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
 
     performSync();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardsDB, pizarra, usuario, isViewingOtherUser]);
+  }, [cardsDB, pizarra, usuario, isViewingOtherUser, isInitialized]);
 
   // Sincronizar ref de usuarios agregados con el estado de cards
   useEffect(() => {
