@@ -30,6 +30,7 @@ import { loadConnectionsIfNeeded } from './pizarra-functions/connection-loader';
 import { autoConnectMisionToProyecto, autoConnectProyectoToMisiones } from './pizarra-functions/auto-connection';
 import { navigateToCard, bringCardToFront, findCardByMisionId } from './pizarra-functions/navigation-utils';
 import { handleActivityPlayPause, handleMisionPlayPause } from './pizarra-functions/play-pause-handlers';
+import DiagnosticoPizarra from '@/app/components/debug/DiagnosticoPizarra';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
   const { usuario } = useAuth();
@@ -2745,7 +2746,10 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
 
   return (
-    <div className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}>
+    <div
+      className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}
+      data-pizarra-cards={cards.length}
+    >
       <div
         ref={canvasRef}
         className={`
@@ -2966,6 +2970,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           background: #718096;
         }
       `}</style>
+
+      {/* Componente de diagnóstico */}
+      <DiagnosticoPizarra />
 
     </div>
   );
