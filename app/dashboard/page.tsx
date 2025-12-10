@@ -22,6 +22,7 @@ import { useOrganizacion } from "@/hooks/useOrganizacion";
 import { useMisionesOrganizacion } from "@/hooks/useMisionesOrganizacion";
 import { useActividadesOrganizacion } from "@/hooks/useActividadesOrganizacion";
 import { useRecursos } from "@/hooks/useRecursos";
+import { usePizarraOrganizacion } from "@/hooks/usePizarraOrganizacion";
 import { Target, Building2, X } from "lucide-react";
 import Image from "next/image";
 import CalendarioSemanalUsuario from "@/app/components/CalendarioSemanalUsuario";
@@ -61,6 +62,9 @@ function DashboardAdmin() {
   const { misiones: misionesOrg } = useMisionesOrganizacion(usuarios);
   const { actividades: actividadesOrg } = useActividadesOrganizacion(usuarios);
   const { recursos } = useRecursos(usuario?.userAuth || null);
+
+  // Hook para pizarra de organización
+  const { pizarra: pizarraOrg, loading: loadingPizarraOrg } = usePizarraOrganizacion(organizacion?.id || null);
 
   const [showChatWindow, setShowChatWindow] = useState(false);
   const [selectedChatUser, setSelectedChatUser] = useState<{
@@ -848,6 +852,8 @@ function DashboardAdmin() {
             currentUserId={usuario?.userAuth}
             onConnectionCreate={handleConnectionCreate}
             onOpenCapturasModal={handleOpenCapturasModal}
+            isOrganizacionPizarra={true}
+            pizarraOrganizacion={pizarraOrg}
           />
         </div>
 

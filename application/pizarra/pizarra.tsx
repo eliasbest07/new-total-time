@@ -59,8 +59,33 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Hooks de Supabase - Cargar pizarra del usuario automáticamente
   const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(effectiveUserId);
+
+  // Determinar qué pizarra usar: organización o personal
+  const pizarraActual = (isOrganizacionPizarra && pizarraOrganizacion) ? pizarraOrganizacion : pizarra;
+
+  // Log para debug: mostrar qué pizarra se está usando
+  useEffect(() => {
+    if (isOrganizacionPizarra) {
+      console.log('🏢 [PIZARRA] Modo ORGANIZACIÓN:', {
+        pizarraOrganizacionId: pizarraOrganizacion?.id,
+        pizarraOrganizacionCargada: !!pizarraOrganizacion,
+        pizarraActualId: pizarraActual?.id
+      });
+    } else {
+      console.log('👤 [PIZARRA] Modo PERSONAL:', {
+        pizarraPersonalId: pizarra?.id,
+        pizarraActualId: pizarraActual?.id,
+        usuarioId: effectiveUserId
+      });
+    }
+  }, [isOrganizacionPizarra, pizarraOrganizacion, pizarra, pizarraActual, effectiveUserId]);
+
+  // Para pizarras de organización, NO usar el hook useCards (se maneja manualmente)
+  // Para pizarras personales, usar useCards normalmente
+  const pizarraIdParaCards = isOrganizacionPizarra ? null : (pizarra?.id || null);
+
   const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB } = useCards(
-    pizarra?.id || null
+    pizarraIdParaCards
   );
 
   // Hook para gestionar misiones activas
@@ -152,8 +177,14 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
   }, [captureNow]);
 
-  // Sincronizar cardsDB con cards
+  // Sincronizar cardsDB con cards (SOLO PARA PIZARRAS PERSONALES)
   useEffect(() => {
+    // No ejecutar para pizarras de organización - tienen su propia lógica de carga
+    if (isOrganizacionPizarra) {
+      console.log('🏢 [PIZARRA ORG] Saltando sincronización automática de cardsDB (se maneja por separado)');
+      return;
+    }
+
     console.log('🔍 [PIZARRA] useEffect sincronización disparado:', {
       hasPizarra: !!pizarra,
       pizarraId: pizarra?.id,
@@ -216,7 +247,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
 
     performSync();
-  }, [cardsDB, pizarra, usuario, isViewingOtherUser, isInitialized]);
+  }, [cardsDB, pizarra, usuario, isViewingOtherUser, isInitialized, isOrganizacionPizarra]);
 
   // Sincronizar ref de usuarios agregados con el estado de cards
   useEffect(() => {
