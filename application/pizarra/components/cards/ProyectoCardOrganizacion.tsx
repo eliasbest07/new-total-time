@@ -743,7 +743,6 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       <div
         className="flex-1 overflow-y-auto"
         onWheel={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
       >
         {loading ? (
           <div className="flex items-center justify-center h-full text-gray-500">
@@ -803,7 +802,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                         key={mision.id}
                         draggable
                         onDragStart={(e) => {
-                          e.stopPropagation();
+                          e.dataTransfer.setData('text/plain', `Misi\u00f3n: ${mision.nombre}`);
                           e.dataTransfer.setData('application/json', JSON.stringify({
                             type: 'mision-organizacion',
                             id_mision: mision.id,
@@ -815,9 +814,12 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                             id_usuario: mision.id_usuario,
                             id_creador: mision.id_creador
                           }));
-                          e.dataTransfer.effectAllowed = 'copy';
+                          e.currentTarget.style.opacity = '0.5';
                         }}
-                        className="bg-gray-600 rounded-lg p-3 cursor-move hover:bg-gray-550 transition-colors shadow-sm relative group"
+                        onDragEnd={(e) => {
+                          e.currentTarget.style.opacity = '1';
+                        }}
+                        className="bg-gray-600 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:bg-gray-550 transition-colors shadow-sm relative group select-none"
                       >
                         {/* ✅ Botón de eliminar en la esquina superior derecha */}
                         <button
@@ -898,12 +900,12 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                       return (
                         <div
                           key={recurso.id}
-                          className={`w-full bg-gray-600 rounded-lg p-3 transition-all shadow-sm border-2 relative group ${
+                          className={`w-full bg-gray-600 rounded-lg p-3 transition-all shadow-sm border-2 relative group select-none ${
                             esNota
                               ? 'hover:bg-blue-600 hover:border-blue-400 cursor-pointer hover:scale-[1.02] border-transparent'
-                              : 'hover:bg-gray-550 border-transparent'
+                              : 'hover:bg-gray-550 border-transparent cursor-grab active:cursor-grabbing'
                           }`}
-                          style={{ cursor: esNota ? 'pointer' : 'default' }}
+                          style={{ cursor: esNota ? 'pointer' : 'grab' }}
                           onClick={(e) => {
                             if (esNota) {
                               e.preventDefault();
@@ -914,17 +916,30 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                               });
                             }
                           }}
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                          }}
-                          onMouseUp={(e) => {
-                            e.stopPropagation();
-                          }}
                           onDragStart={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
+                            if (!esNota) {
+                              e.dataTransfer.setData('text/plain', `Recurso: ${recurso.nombre}`);
+                              e.dataTransfer.setData('application/json', JSON.stringify({
+                                type: 'recurso',
+                                id: recurso.id,
+                                name: recurso.nombre,
+                                resourceType: recurso.tipo || 'document',
+                                url: recurso.link,
+                                icon: recurso.icono,
+                                color: 'bg-blue-500'
+                              }));
+                              e.currentTarget.style.opacity = '0.5';
+                            } else {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }
                           }}
-                          draggable={false}
+                          onDragEnd={(e) => {
+                            if (!esNota) {
+                              e.currentTarget.style.opacity = '1';
+                            }
+                          }}
+                          draggable={!esNota}
                         >
                           {/* Botón eliminar */}
                           <button

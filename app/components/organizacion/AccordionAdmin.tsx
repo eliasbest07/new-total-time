@@ -328,11 +328,30 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                             {currentMisiones.map((mision) => (
                               <div
                                 key={mision.id}
-                                className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-pointer"
+                                draggable
+                                className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none"
                                 onClick={() => {
                                   if (onMisionClick) {
                                     onMisionClick(mision);
                                   }
+                                }}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', `Misión: ${mision.nombre}`);
+                                  e.dataTransfer.setData('application/json', JSON.stringify({
+                                    type: 'mision-organizacion',
+                                    id_mision: mision.id,
+                                    title: mision.nombre,
+                                    description: mision.descripcion,
+                                    hours: mision.horas,
+                                    fecha_start: mision.fecha_start,
+                                    fecha_end: mision.fecha_end,
+                                    id_usuario: mision.id_usuario,
+                                    id_creador: mision.id_creador
+                                  }));
+                                  e.currentTarget.style.opacity = '0.5';
+                                }}
+                                onDragEnd={(e) => {
+                                  e.currentTarget.style.opacity = '1';
                                 }}
                               >
                                 <div className="flex items-start justify-between mb-2">
@@ -405,11 +424,31 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                             {currentActividades.map((actividad) => (
                               <div
                                 key={actividad.id}
-                                className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-pointer"
+                                draggable
+                                className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none"
                                 onClick={() => {
                                   if (onActividadClick) {
                                     onActividadClick(actividad);
                                   }
+                                }}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', `Actividad: ${actividad.descripcion}`);
+                                  e.dataTransfer.setData('application/json', JSON.stringify({
+                                    type: 'actividad-organizacion',
+                                    id_actividad: actividad.id,
+                                    descripcion: actividad.descripcion,
+                                    fecha: actividad.fecha,
+                                    hora_inicio: actividad.hora_inicio,
+                                    cant_horas: actividad.cant_horas,
+                                    link: actividad.link,
+                                    id_usuario: actividad.id_usuario,
+                                    id_proyecto: actividad.id_proyecto,
+                                    tiempo_dedicado: actividad.tiempo_dedicado
+                                  }));
+                                  e.currentTarget.style.opacity = '0.5';
+                                }}
+                                onDragEnd={(e) => {
+                                  e.currentTarget.style.opacity = '1';
                                 }}
                               >
                                 <div className="flex items-start justify-between mb-2">
@@ -474,7 +513,8 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                             {currentUsers.map((user) => (
                               <div
                                 key={user.id}
-                                className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-pointer"
+                                draggable
+                                className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none"
                                 onClick={() => {
                                   if (onUserClick) {
                                     onUserClick({
@@ -485,6 +525,21 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                       online: user.online
                                     });
                                   }
+                                }}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', `Usuario: ${user.name}`);
+                                  e.dataTransfer.setData('application/json', JSON.stringify({
+                                    type: 'usuario',
+                                    userId: user.userAuth,
+                                    name: user.name,
+                                    avatar: user.avatar,
+                                    color: user.color,
+                                    online: user.online
+                                  }));
+                                  e.currentTarget.style.opacity = '0.5';
+                                }}
+                                onDragEnd={(e) => {
+                                  e.currentTarget.style.opacity = '1';
                                 }}
                               >
                                 <div className="relative" title={user.name}>
@@ -593,7 +648,8 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                               return (
                                 <div
                                   key={recurso.id}
-                                  className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-pointer hover:scale-105 flex flex-col items-center"
+                                  draggable
+                                  className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-grab active:cursor-grabbing hover:scale-105 flex flex-col items-center select-none"
                                   onMouseEnter={(e) => {
                                     const rect = e.currentTarget.getBoundingClientRect();
                                     setHoveredRecurso({
@@ -605,6 +661,23 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                   }}
                                   onMouseLeave={() => {
                                     setHoveredRecurso(null);
+                                  }}
+                                  onDragStart={(e) => {
+                                    setHoveredRecurso(null);
+                                    e.dataTransfer.setData('text/plain', `Recurso: ${recurso.nombre}`);
+                                    e.dataTransfer.setData('application/json', JSON.stringify({
+                                      type: 'recurso',
+                                      id: recurso.id,
+                                      name: recurso.nombre,
+                                      resourceType: recurso.tipo || 'document',
+                                      url: recurso.link,
+                                      icon: recurso.icono,
+                                      color: 'bg-blue-500'
+                                    }));
+                                    e.currentTarget.style.opacity = '0.5';
+                                  }}
+                                  onDragEnd={(e) => {
+                                    e.currentTarget.style.opacity = '1';
                                   }}
                                   onClick={() => {
                                     // Si tiene URL, abrir en nueva pestaña
