@@ -167,8 +167,20 @@ export const useDropHandler = (
               online: resource.online || false
             });
           } else {
-            // Fallback: crear directamente (sin validación)
-            console.log('👤 [PIZARRA DROP] Creando usuario directamente (sin validación)');
+            // Fallback: crear directamente CON validación
+            console.log('👤 [PIZARRA DROP] Creando usuario directamente con validación');
+
+            // Verificar si ya existe una card con este usuario
+            const existingUser = cards.find(card =>
+              card.type === 'usuario' &&
+              card.usuarioData?.userId === resource.userId
+            );
+
+            if (existingUser) {
+              console.log('⚠️ [PIZARRA DROP] Ya existe una card de este usuario:', resource.userId);
+              return;
+            }
+
             setCards(prev => [...prev, {
               id: generateUniqueId('usuario', existingIds),
               type: 'usuario',
@@ -194,6 +206,20 @@ export const useDropHandler = (
         else if (resource.type === 'mision-organizacion') {
           console.log('🎯 [PIZARRA DROP] Detectado MISIÓN ORGANIZACIÓN');
           console.log('🎯 [PIZARRA DROP] Datos de misión recibidos:', resource);
+
+          // Verificar si ya existe una card con esta misión
+          const existingMision = cards.find(card =>
+            card.type === 'mision-organizacion' &&
+            card.misionData?.id_mision === resource.id_mision
+          );
+
+          if (existingMision) {
+            console.log('⚠️ [PIZARRA DROP] Ya existe una card de esta misión, redirigiendo...', resource.id_mision);
+            if (centerOnCard) {
+              centerOnCard(existingMision.id);
+            }
+            return;
+          }
 
           const newMisionCardId = generateUniqueId('mision-org', existingIds);
 
@@ -271,6 +297,20 @@ export const useDropHandler = (
         else if (resource.type === 'actividad-organizacion') {
           console.log('📅 [PIZARRA DROP] Detectado ACTIVIDAD ORGANIZACIÓN');
           console.log('📅 [PIZARRA DROP] Datos de actividad recibidos:', resource);
+
+          // Verificar si ya existe una card con esta actividad
+          const existingActividad = cards.find(card =>
+            card.type === 'actividad-organizacion' &&
+            card.actividadData?.id_actividad === resource.id_actividad
+          );
+
+          if (existingActividad) {
+            console.log('⚠️ [PIZARRA DROP] Ya existe una card de esta actividad, redirigiendo...', resource.id_actividad);
+            if (centerOnCard) {
+              centerOnCard(existingActividad.id);
+            }
+            return;
+          }
 
           const newActividadCardId = generateUniqueId('actividad-org', existingIds);
 
@@ -369,8 +409,20 @@ export const useDropHandler = (
               color: resource.color || 'bg-blue-500'
             });
           } else {
-            // Fallback: crear directamente (sin validación)
-            console.log('📦 [PIZARRA DROP] Creando recurso directamente (sin validación)');
+            // Fallback: crear directamente CON validación
+            console.log('📦 [PIZARRA DROP] Creando recurso directamente con validación');
+
+            // Verificar si ya existe una card con este recurso
+            const existingRecurso = cards.find(card =>
+              card.type === 'resource' &&
+              card.recursoData?.id === resource.id
+            );
+
+            if (existingRecurso) {
+              console.log('⚠️ [PIZARRA DROP] Ya existe una card de este recurso:', resource.id);
+              return;
+            }
+
             setCards(prev => [...prev, {
               id: generateUniqueId('resource', existingIds),
               type: 'resource',

@@ -251,14 +251,14 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
 
   return (
     <>
-      <div className="w-full bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg pointer-events-auto">
+      <div className="w-full bg-[#001f3f] rounded-lg overflow-hidden shadow-lg pointer-events-auto">
         {sections.map((section) => {
           const Icon = section.icon;
           const isActive = activeSection === section.id;
           const isExpanded = isActive;
 
           return (
-            <div key={section.id} className="border-b border-white/10 last:border-b-0">
+            <div key={section.id} className="border-b border-white/20 last:border-b-0">
               {/* Header */}
               <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${
                 isActive ? section.color : 'bg-transparent'
@@ -314,7 +314,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
               <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
                 isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
               }`}>
-                <div className="bg-white/5 backdrop-blur-sm px-4 py-3 overflow-y-auto max-h-[600px]">
+                <div className="bg-[#002b56] px-4 py-3 overflow-y-auto max-h-[600px]">
                   {section.content === 'misiones' ? (
                     // Sección de Misiones
                     <div>
