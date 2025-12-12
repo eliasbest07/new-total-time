@@ -58,10 +58,13 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, [usuario, viewingUserId, isViewingOtherUser, viewingUserNumericId]);
 
   // Hooks de Supabase - Cargar pizarra del usuario automáticamente
-  const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(effectiveUserId);
+  // NO cargar si es pizarra de organización (ya viene precargada)
+  const { pizarra, loading: loadingPizarra, updatePanOffset, refetch: refetchPizarra } = usePizarra(
+    isOrganizacionPizarra ? null : effectiveUserId
+  );
 
   // Determinar qué pizarra usar: organización o personal
-  const pizarraActual = (isOrganizacionPizarra && pizarraOrganizacion) ? pizarraOrganizacion : pizarra;
+  const pizarraActual = isOrganizacionPizarra ? pizarraOrganizacion : pizarra;
 
   // Log para debug: mostrar qué pizarra se está usando
   useEffect(() => {
@@ -80,12 +83,20 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [isOrganizacionPizarra, pizarraOrganizacion, pizarra, pizarraActual, effectiveUserId]);
 
-  // Para pizarras de organización, NO usar el hook useCards (se maneja manualmente)
-  // Para pizarras personales, usar useCards normalmente
-  const pizarraIdParaCards = isOrganizacionPizarra ? null : (pizarra?.id || null);
+  // Debug: Verificar qué pizarra se está usando para cards
+  useEffect(() => {
+    if (pizarraActual) {
+      console.log('🃏 [PIZARRA] useCards va a cargar cards de pizarra:', {
+        pizarraId: pizarraActual.id,
+        esOrganizacion: isOrganizacionPizarra,
+        id_organizacion: pizarraActual.idOrganizacion || pizarraActual.id_organizacion
+      });
+    }
+  }, [pizarraActual, isOrganizacionPizarra]);
 
+  // Usar useCards con el ID de la pizarra actual (organización o personal)
   const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB } = useCards(
-    pizarraIdParaCards
+    pizarraActual?.id || null
   );
 
   // Hook para gestionar misiones activas
@@ -109,6 +120,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Estado para trackear recursos agregados (evitar duplicados en llamadas rápidas)
   const addedRecursosRef = useRef<Set<number>>(new Set());
+
+  // Ref para trackear el ID de la pizarra actual y detectar cambios
+  const currentPizarraIdRef = useRef<string | null>(null);
 
   const [cards, setCards] = useState<Card[]>([]);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
@@ -177,17 +191,40 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
   }, [captureNow]);
 
-  // Sincronizar cardsDB con cards (SOLO PARA PIZARRAS PERSONALES)
+  // Detectar cambios de pizarra y limpiar cards cuando se cambia entre pizarras
   useEffect(() => {
-    // No ejecutar para pizarras de organización - tienen su propia lógica de carga
-    if (isOrganizacionPizarra) {
-      console.log('🏢 [PIZARRA ORG] Saltando sincronización automática de cardsDB (se maneja por separado)');
-      return;
+    const nuevaPizarraId = pizarraActual?.id || null;
+    const pizarraAnteriorId = currentPizarraIdRef.current;
+
+    // Si cambió el ID de la pizarra (y no es la primera carga)
+    if (pizarraAnteriorId !== null && nuevaPizarraId !== pizarraAnteriorId) {
+      console.log('🔄 [PIZARRA] Cambio de pizarra detectado:', {
+        pizarraAnterior: pizarraAnteriorId,
+        pizarraNueva: nuevaPizarraId,
+        cardsActuales: cards.length
+      });
+
+      // Limpiar cards del estado (las conexiones se limpiarán automáticamente al cargar)
+      setCards([]);
+
+      // Resetear inicialización para forzar nueva sincronización
+      setIsInitialized(false);
+
+      console.log('✅ [PIZARRA] Estado limpiado para nueva pizarra');
     }
 
+    // Actualizar ref con el ID actual
+    currentPizarraIdRef.current = nuevaPizarraId;
+  }, [pizarraActual?.id]);
+
+  // Sincronizar cardsDB con cards (PARA PIZARRAS PERSONALES Y DE ORGANIZACIÓN)
+  useEffect(() => {
+    const pizarraParaLog = isOrganizacionPizarra ? pizarraOrganizacion : pizarra;
+
     console.log('🔍 [PIZARRA] useEffect sincronización disparado:', {
-      hasPizarra: !!pizarra,
-      pizarraId: pizarra?.id,
+      esOrganizacion: isOrganizacionPizarra,
+      hasPizarra: !!pizarraParaLog,
+      pizarraId: pizarraParaLog?.id,
       cardsDBLength: cardsDB?.length || 0,
       cardsLocalLength: cards.length,
       isViewingOtherUser,
@@ -196,9 +233,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     });
 
     const performSync = async () => {
-      // Verificar si debe sincronizar
+      // Verificar si debe sincronizar (usar pizarraActual para que funcione con org y personal)
       const shouldSync = shouldSyncFromDB({
-        pizarra,
+        pizarra: pizarraActual,
         cardsDB,
         cardsLocal: cards,
         isViewingOtherUser,
@@ -208,7 +245,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
       if (!shouldSync) {
         // Marcar como inicializado incluso si no hay cards que sincronizar
-        if (!isInitialized && pizarra) {
+        if (!isInitialized && pizarraActual) {
           console.log('✅ [PIZARRA] Marcando pizarra como inicializada (sin cards en DB)');
           setIsInitialized(true);
         }
@@ -247,7 +284,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
 
     performSync();
-  }, [cardsDB, pizarra, usuario, isViewingOtherUser, isInitialized, isOrganizacionPizarra]);
+  }, [cardsDB, pizarraActual, usuario, isViewingOtherUser, isInitialized, isOrganizacionPizarra]);
 
   // Sincronizar ref de usuarios agregados con el estado de cards
   useEffect(() => {
@@ -1405,16 +1442,18 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       const SupabasePizarraRepository = (await import('@/infrastructure/datasource/SupabasePizarraRepository')).SupabasePizarraRepository;
       const pizarraRepo = new SupabasePizarraRepository();
 
-      // Obtener o crear la pizarra del día usando el UUID
-      const pizarraActual = await pizarraRepo.getPizarraDelDia(usuario.userAuth, new Date());
-
+      // Usar la pizarra ya cargada (pizarraActual del estado)
       if (!pizarraActual) {
-        console.error('❌ No se pudo obtener o crear la pizarra del día');
-        alert('❌ Error: No se pudo crear la pizarra en la base de datos.');
+        console.error('❌ No hay pizarra cargada');
         return false;
       }
 
-      console.log('   ✅ Pizarra del día obtenida:', pizarraActual.id);
+      console.log('💾 [GUARDAR] Usando pizarra:', {
+        pizarraId: pizarraActual.id,
+        esOrganizacion: isOrganizacionPizarra,
+        id_organizacion: pizarraActual.idOrganizacion || pizarraActual.id_organizacion,
+        id_usuario: pizarraActual.id_usuario
+      });
 
       // 2. Actualizar panOffset
       console.log('   - Actualizando panOffset:', panOffset);
@@ -1574,10 +1613,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         } else {
           // Crear nueva card
           const cardData = mapCardToCardDB(card, pizarraActual.id);
-          console.log('📝 Intentando crear card:', {
+          console.log('📝 [CREAR CARD] Intentando crear card:', {
             card_id: card.id,
             type: card.type,
-            pizarraId: pizarraActual.id
+            pizarraId: pizarraActual.id,
+            id_pizarra_en_cardData: cardData.id_pizarra
           });
 
           const { data: createdCard, error: createError } = await supabase
@@ -1795,7 +1835,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       console.error('❌ Error guardando en Supabase:', error);
       return false;
     }
-  }, [pizarra, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections, saveHistorySnapshot]);
+  }, [pizarraActual, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections, saveHistorySnapshot, pizarraOrganizacion]);
 
   // Función para guardar pizarra de organización en Supabase
   const saveToSupabaseOrganizacion = useCallback(async (pizarraOrg: any) => {
@@ -2456,70 +2496,6 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [usuario, setConnections]);
 
-  // Para pizarras de organización: cargar desde Supabase la primera vez en el día
-  useEffect(() => {
-    if (!isOrganizacionPizarra || !pizarraOrganizacion) return;
-
-    const loadOrganizacionPizarraFromSupabase = async () => {
-      if (shouldLoadFromSupabase()) {
-        console.log('🏢 [PIZARRA ORG] Cargando desde Supabase (primera vez del día)...');
-
-        try {
-          // Cargar desde Supabase
-          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-
-          // Cargar cards de la pizarra de organización
-          const { data: cardsEnBD, error: cardsError } = await supabase
-            .from('cards')
-            .select('*')
-            .eq('id_pizarra', pizarraOrganizacion.id);
-
-          if (cardsError) {
-            console.error('❌ Error cargando cards:', cardsError);
-            return;
-          }
-
-          console.log('📦 [PIZARRA ORG] Cards cargadas:', cardsEnBD?.length || 0);
-
-          // Mapear cards (similar a loadFromSupabase pero sin crear pizarra)
-          if (cardsEnBD && cardsEnBD.length > 0) {
-            const mappedCards: Card[] = [];
-
-            for (const cardDB of cardsEnBD) {
-              const card = mapCardDBToCard(cardDB);
-              mappedCards.push(card);
-            }
-
-            setCards(mappedCards);
-          }
-
-          // Cargar conexiones
-          const { data: connectionsData, error: connectionsError } = await supabase
-            .from('pizarra_connections')
-            .select('*')
-            .eq('id_pizarra', pizarraOrganizacion.id);
-
-          if (!connectionsError && connectionsData) {
-            const loadedConnections = connectionsData.map((c: any) => ({
-              id: c.id || `${c.from_card}-${c.to_card}`,
-              from: c.from_card,
-              to: c.to_card
-            }));
-            setConnections(loadedConnections);
-          }
-
-          // Marcar que ya se cargó desde Supabase hoy
-          markSupabaseLoaded();
-          console.log('✅ [PIZARRA ORG] Carga desde Supabase completada');
-        } catch (error) {
-          console.error('❌ [PIZARRA ORG] Error cargando desde Supabase:', error);
-        }
-      }
-    };
-
-    loadOrganizacionPizarraFromSupabase();
-  }, [isOrganizacionPizarra, pizarraOrganizacion, shouldLoadFromSupabase, markSupabaseLoaded, setCards, setConnections]);
-
   // Auto-guardado en Supabase cuando está activado
   useEffect(() => {
     // Log detallado para debugging
@@ -2529,13 +2505,19 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       isInitialized,
       cardsLength: cards.length,
       isViewingOtherUser,
-      isOrganizacionPizarra,
-      hasPizarraOrganizacion: !!pizarraOrganizacion
+      readOnly
     });
 
-    // No auto-guardar si estamos viendo la pizarra de otro usuario
-    if (isViewingOtherUser) {
-      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - viendo pizarra de otro usuario');
+    // No auto-guardar si está en modo solo lectura
+    if (readOnly) {
+      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - modo solo lectura');
+      return;
+    }
+
+    // No auto-guardar si estamos viendo la pizarra de otro usuario Y no tenemos permiso de edición
+    // (Si readOnly === false, significa que tenemos permiso, por ejemplo admin en pizarra de org)
+    if (isViewingOtherUser && readOnly !== false) {
+      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - viendo pizarra sin permiso de edición');
       return;
     }
 
@@ -2563,35 +2545,23 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     console.log(`⏰ [AUTO-SAVE] Programando auto-guardado en 2 segundos... (${cards.length} cards)`);
     const timeoutId = setTimeout(async () => {
       try {
-        if (isOrganizacionPizarra && pizarraOrganizacion) {
-          // Guardar en pizarra de organización
-          console.log('🔄 [PIZARRA ORG] Auto-guardado en Supabase iniciado...');
-          const result = await saveToSupabaseOrganizacion(pizarraOrganizacion);
-          if (result) {
-            console.log('✅ [PIZARRA ORG] Auto-guardado completado exitosamente');
-          } else {
-            console.warn('⚠️ [PIZARRA ORG] Auto-guardado falló');
-          }
+        console.log('🔄 [AUTO-SAVE] Auto-guardado en Supabase iniciado...');
+        const result = await saveToSupabase();
+        if (result) {
+          console.log('✅ [AUTO-SAVE] Auto-guardado completado exitosamente');
         } else {
-          // Guardar en pizarra personal
-          console.log('🔄 [AUTO-SAVE] Auto-guardado en Supabase iniciado...');
-          const result = await saveToSupabase();
-          if (result) {
-            console.log('✅ [AUTO-SAVE] Auto-guardado completado exitosamente');
-          } else {
-            console.warn('⚠️ [AUTO-SAVE] Auto-guardado falló');
-          }
+          console.warn('⚠️ [AUTO-SAVE] Auto-guardado falló');
         }
       } catch (error) {
         console.error('❌ [AUTO-SAVE] Error en auto-guardado:', error);
       }
-    }, 200); // Reducido a 2 segundos para mayor responsividad
+    }, 2000); // 2 segundos de debounce
 
     return () => {
       console.log('🧹 [AUTO-SAVE] Cancelando timeout de auto-guardado');
       clearTimeout(timeoutId);
     };
-  }, [cards, connections, panOffset, autoSave, usuario, isInitialized, isOrganizacionPizarra, pizarraOrganizacion, saveToSupabase, saveToSupabaseOrganizacion, isViewingOtherUser]);
+  }, [cards, connections, panOffset, autoSave, usuario, isInitialized, saveToSupabase, isViewingOtherUser, readOnly]);
 
   // Función para agregar una conexión programáticamente
   const addConnection = useCallback((fromCardId: string, toCardId: string, skipValidation = false) => {

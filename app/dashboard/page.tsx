@@ -66,6 +66,8 @@ function DashboardAdmin() {
   // Hook para pizarra de organización
   const { pizarra: pizarraOrg, loading: loadingPizarraOrg } = usePizarraOrganizacion(organizacion?.id || null);
 
+
+
   const [showChatWindow, setShowChatWindow] = useState(false);
   const [selectedChatUser, setSelectedChatUser] = useState<{
     userId: string;
@@ -846,12 +848,13 @@ function DashboardAdmin() {
             storagePrefix="organizacion"
             lightMode={true}
             fullMode={true}
+            isOrganizacionPizarra={true}
+            pizarraOrganizacion={pizarraOrg}
+            readOnly={false}
             usuarios={usuarios}
             currentUserId={usuario?.userAuth}
             onConnectionCreate={handleConnectionCreate}
             onOpenCapturasModal={handleOpenCapturasModal}
-            isOrganizacionPizarra={true}
-            pizarraOrganizacion={pizarraOrg}
           />
         </div>
 

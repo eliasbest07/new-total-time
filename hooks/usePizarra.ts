@@ -24,7 +24,6 @@ export const usePizarra = (idUsuario: string | null): UsePizarraReturn => {
   // Funcion para cargar la pizarra del dia
   const loadPizarra = useCallback(async () => {
     if (!idUsuario) {
-      // console.log('Sin ID de usuario, no se puede cargar pizarra');
       setPizarra(null);
       setLoading(false);
       return;
@@ -34,19 +33,64 @@ export const usePizarra = (idUsuario: string | null): UsePizarraReturn => {
     setError(null);
 
     try {
-      // console.log('Cargando pizarra del dia para usuario:', idUsuario);
+      console.log('🔄 [usePizarra] Cargando pizarra para ID:', idUsuario);
+
+      // Primero intentar cargar como pizarra de usuario (por fecha)
       const hoy = new Date();
-      const pizarraData = await pizarraRepository.current.getPizarraDelDia(idUsuario, hoy);
+      let pizarraData = await pizarraRepository.current.getPizarraDelDia(idUsuario, hoy);
+
+      // Si no encontró por id_usuario, intentar buscar por id_organizacion
+      if (!pizarraData) {
+        console.log('🏢 [usePizarra] No encontrada como usuario, buscando como organización...');
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+        const { data, error } = await supabase
+          .from('pizarras')
+          .select('*')
+          .eq('id_organizacion', idUsuario)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.error('❌ [usePizarra] Error buscando por id_organizacion:', error);
+        } else if (data) {
+          console.log('✅ [usePizarra] Pizarra de organización encontrada:', data.id);
+          pizarraData = data;
+        } else {
+          // No existe, crear pizarra de organización
+          console.log('📝 [usePizarra] Creando pizarra de organización...');
+          const { data: newData, error: createError } = await supabase
+            .from('pizarras')
+            .insert({
+              id_usuario: 'f14a1ce3-ee6c-493c-a1df-fb31ba82c3d4', // ID fijo
+              id_organizacion: idUsuario,
+              pan_offset_x: 0,
+              pan_offset_y: 0
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('❌ [usePizarra] Error creando pizarra:', createError);
+          } else if (newData) {
+            console.log('✅ [usePizarra] Pizarra de organización creada:', newData.id);
+            pizarraData = newData;
+          }
+        }
+      }
 
       if (pizarraData) {
         setPizarra(pizarraData);
-        // console.log('Pizarra cargada exitosamente:', pizarraData.id);
+        const tipo = pizarraData.id_organizacion ? 'ORGANIZACIÓN' : 'USUARIO';
+        console.log(`✅ [usePizarra] Pizarra ${tipo} cargada:`, pizarraData.id);
       } else {
-        setError('No se pudo cargar o crear la pizarra del dia');
+        console.error('❌ [usePizarra] No se pudo cargar o crear la pizarra');
+        setError('No se pudo cargar o crear la pizarra');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar pizarra';
-      console.error('Error cargando pizarra:', errorMessage);
+      console.error('❌ [usePizarra] Error:', errorMessage);
       setError(errorMessage);
     } finally {
       setLoading(false);

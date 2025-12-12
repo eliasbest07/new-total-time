@@ -14,11 +14,15 @@ export class SupabasePizarraOrganizacionRepository {
    */
   async getPizarraByOrganizacion(idOrganizacion: string): Promise<PizarraOrganizacion | null> {
     try {
-      console.log('🎨 [PizarraOrg] Obteniendo pizarra para organización:', idOrganizacion);
+      console.log('🎨 [PizarraOrg] Obteniendo pizarra para organización:', {
+        idOrganizacion,
+        tipo: typeof idOrganizacion,
+        esValido: !!idOrganizacion
+      });
 
       // Buscar pizarra existente
       const { data, error } = await supabase
-        .from('pizarra_organizacion')
+        .from('pizarras')
         .select('*')
         .eq('id_organizacion', idOrganizacion)
         .maybeSingle();
@@ -30,12 +34,16 @@ export class SupabasePizarraOrganizacionRepository {
 
       // Si existe, retornarla mapeada
       if (data) {
-        console.log('✅ [PizarraOrg] Pizarra encontrada:', data.id);
+        console.log('✅ [PizarraOrg] Pizarra encontrada:', {
+          id: data.id,
+          id_organizacion: data.id_organizacion,
+          id_usuario: data.id_usuario
+        });
         return this.mapToDomain(data);
       }
 
       // Si no existe, crear una nueva
-      console.log('📝 [PizarraOrg] No existe pizarra, creando una nueva...');
+      console.log('📝 [PizarraOrg] No existe pizarra con id_organizacion:', idOrganizacion, '- creando una nueva...');
       return await this.createPizarra(idOrganizacion);
 
     } catch (error) {
@@ -49,16 +57,24 @@ export class SupabasePizarraOrganizacionRepository {
    */
   async createPizarra(idOrganizacion: string): Promise<PizarraOrganizacion | null> {
     try {
-      console.log('📝 [PizarraOrg] Creando pizarra para organización:', idOrganizacion);
+      console.log('📝 [PizarraOrg] Creando pizarra para organización:', {
+        idOrganizacion,
+        tipo: typeof idOrganizacion,
+        esValido: !!idOrganizacion
+      });
+
+      const insertData = {
+        id_usuario: 'f14a1ce3-ee6c-493c-a1df-fb31ba82c3d4',
+        id_organizacion: idOrganizacion,
+        pan_offset_x: 0,
+        pan_offset_y: 0,
+      };
+
+      console.log('📝 [PizarraOrg] Datos a insertar:', insertData);
 
       const { data, error } = await supabase
-        .from('pizarra_organizacion')
-        .insert({
-          id_organizacion: idOrganizacion,
-          pan_offset_x: 0,
-          pan_offset_y: 0,
-          zoom_level: 1.0
-        })
+        .from('pizarras')
+        .insert(insertData)
         .select()
         .single();
 
@@ -67,7 +83,11 @@ export class SupabasePizarraOrganizacionRepository {
         return null;
       }
 
-      console.log('✅ [PizarraOrg] Pizarra creada:', data.id);
+      console.log('✅ [PizarraOrg] Pizarra creada:', {
+        id: data.id,
+        id_organizacion: data.id_organizacion,
+        id_usuario: data.id_usuario
+      });
       return this.mapToDomain(data);
 
     } catch (error) {
@@ -86,6 +106,8 @@ export class SupabasePizarraOrganizacionRepository {
     zoomLevel?: number
   ): Promise<PizarraOrganizacion | null> {
     try {
+      console.log('📝 [PizarraOrg] Actualizando pan offset:', { id, panOffsetX, panOffsetY });
+
       const updateData: any = {
         pan_offset_x: panOffsetX,
         pan_offset_y: panOffsetY,
@@ -97,7 +119,7 @@ export class SupabasePizarraOrganizacionRepository {
       }
 
       const { data, error } = await supabase
-        .from('pizarra_organizacion')
+        .from('pizarras')
         .update(updateData)
         .eq('id', id)
         .select()
@@ -113,6 +135,7 @@ export class SupabasePizarraOrganizacionRepository {
         return null;
       }
 
+      console.log('✅ [PizarraOrg] Pan offset actualizado');
       return this.mapToDomain(data);
 
     } catch (error) {
@@ -127,7 +150,7 @@ export class SupabasePizarraOrganizacionRepository {
   async getPizarraById(id: string): Promise<PizarraOrganizacion | null> {
     try {
       const { data, error } = await supabase
-        .from('pizarra_organizacion')
+        .from('pizarras')
         .select('*')
         .eq('id', id)
         .maybeSingle();
@@ -155,7 +178,7 @@ export class SupabasePizarraOrganizacionRepository {
   async deletePizarra(id: string): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('pizarra_organizacion')
+        .from('pizarras')
         .delete()
         .eq('id', id);
 
