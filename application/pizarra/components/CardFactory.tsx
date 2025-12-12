@@ -108,6 +108,27 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           screenshots={props.screenshots}
           isCapturing={props.isCapturing}
           captureNow={props.captureNow}
+          updateCard={(cardId, updates) => {
+            props.setCards((prevCards) =>
+              prevCards.map((c): Card => {
+                if (c.id !== cardId) return c;
+
+                // Si updates tiene misionData, hacer merge profundo
+                if (updates.misionData && c.misionData) {
+                  return {
+                    ...c,
+                    ...updates,
+                    misionData: {
+                      ...c.misionData,
+                      ...updates.misionData
+                    }
+                  } as Card;
+                }
+
+                return { ...c, ...updates } as Card;
+              })
+            );
+          }}
         />
       );
 
@@ -179,7 +200,23 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           card={card}
           updateCard={(cardId, updates) => {
             props.setCards((prevCards) =>
-              prevCards.map((c) => (c.id === cardId ? { ...c, ...updates } : c))
+              prevCards.map((c): Card => {
+                if (c.id !== cardId) return c;
+
+                // Si updates tiene activityData, hacer merge profundo
+                if (updates.activityData && c.activityData) {
+                  return {
+                    ...c,
+                    ...updates,
+                    activityData: {
+                      ...c.activityData,
+                      ...updates.activityData
+                    }
+                  } as Card;
+                }
+
+                return { ...c, ...updates } as Card;
+              })
             );
           }}
           usuarios={props.usuarios}

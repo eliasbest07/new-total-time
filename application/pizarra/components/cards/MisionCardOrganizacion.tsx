@@ -23,7 +23,7 @@ interface MisionCardOrganizacionProps {
   addTodoCard?: (text?: string) => string; // Función para crear cards TODO
   addConnection?: (fromCardId: string, toCardId: string, skipValidation?: boolean) => void; // Función para crear conexiones
   allCards?: React.Dispatch<React.SetStateAction<Card[]>>; // Para verificar si el card TODO existe
-  onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void; // Callback para abrir modal de capturas a nivel de página
+  onOpenCapturasModal?: (misionActivaId: string, misionTitle: string) => void; // Callback para abrir modal de capturas a nivel de página
 }
 
 export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
@@ -42,18 +42,15 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   const [showSubtareas, setShowSubtareas] = useState(true);
   const [showEntregas, setShowEntregas] = useState(false);
   const [newSubtareaText, setNewSubtareaText] = useState('');
-  const [captureNow, setCaptureNow] = useState<string | null>(null);
-  const [showCaptureNotification, setShowCaptureNotification] = useState(false);
-  const [pendingCaptureRequest, setPendingCaptureRequest] = useState<number | null>(null);
-  const [tiempoEsperaSegundos, setTiempoEsperaSegundos] = useState<number>(0);
-  const captureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Estado simple para capturas (nuevo sistema)
+  const [lastCaptureUrl, setLastCaptureUrl] = useState<string | null>(null);
 
   const {
-    updateCaptureNow,
     subscribeToMisionActiva,
     subscribeToMisionActivaByReferencia,
     getOrCreateMisionActiva,
-    verificarMisionesInactivas
+    verificarMisionesInactivas,
+    updateCaptureNow
   } = useMisionActiva();
 
   const { updateMision } = useMisiones(null);
@@ -86,18 +83,51 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     }
   }, [misionData.estado, misionData.isRunning, misionData.id_mision]);
 
-  // Cleanup: Limpiar timeout al desmontar el componente
-  useEffect(() => {
-    return () => {
-      if (captureTimeoutRef.current) {
-        console.log('🧹 [CLEANUP] Limpiando timeout de verificación de captura');
-        clearTimeout(captureTimeoutRef.current);
-        captureTimeoutRef.current = null;
-        setPendingCaptureRequest(null);
-        setTiempoEsperaSegundos(0);
-      }
-    };
-  }, []);
+  // Función SIMPLE para solicitar captura
+  const handleRequestCapture = async () => {
+    console.log('🎯 [DEBUG ADMIN] ========== INICIO SOLICITUD CAPTURA ==========');
+    console.log('🎯 [DEBUG ADMIN] Estado de la misión:', {
+      misionActivaId: misionData.misionActivaId,
+      isRunning: misionData.isRunning,
+      usuario_asignado: misionData.usuario_asignado_nombre,
+      id_usuario_asignado: misionData.id_usuario_asignado
+    });
+
+    if (!misionData.isRunning) {
+      console.log('❌ [DEBUG ADMIN] La misión NO está corriendo');
+      alert('⚠️ La misión debe estar en progreso para solicitar capturas');
+      return;
+    }
+
+    if (!misionData.usuario_asignado_nombre) {
+      console.log('❌ [DEBUG ADMIN] No hay usuario asignado');
+      alert('⚠️ Debe asignar un usuario a la misión antes de solicitar capturas');
+      return;
+    }
+
+    if (!misionData.misionActivaId) {
+      console.log('❌ [DEBUG ADMIN] No hay misionActivaId');
+      alert('⚠️ No se encontró la misión activa');
+      return;
+    }
+
+    console.log('📸 [DEBUG ADMIN] Enviando señal de captura...');
+    console.log('📸 [DEBUG ADMIN] misionActivaId:', misionData.misionActivaId);
+    console.log('📸 [DEBUG ADMIN] Actualizando capture_now a "1"');
+
+    // Actualizar capture_now a '1' para solicitar captura
+    const resultado = await updateCaptureNow(misionData.misionActivaId, '1');
+
+    if (resultado) {
+      console.log('✅ [DEBUG ADMIN] Señal enviada exitosamente:', resultado);
+      alert(`📸 Solicitud enviada a ${misionData.usuario_asignado_nombre}. El usuario recibirá una notificación.`);
+    } else {
+      console.error('❌ [DEBUG ADMIN] Error al enviar la señal');
+      alert('❌ Error al enviar la solicitud de captura');
+    }
+
+    console.log('🎯 [DEBUG ADMIN] ========== FIN SOLICITUD CAPTURA ==========');
+  };
 
   // Buscar y actualizar información del usuario asignado al montar el componente
   useEffect(() => {
@@ -247,293 +277,115 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     };
   }, [card.misionData?.id_mision, card.id]);
 
-  // Cargar estado inicial y suscribirse a cambios en tiempo real de misiones_activas
+  // Cargar estado inicial y suscribirse a cambios (restaurado)
   useEffect(() => {
     if (!card.misionData?.id_mision) {
-      console.log('⚠️ No hay id_mision, no se puede suscribir');
       return;
     }
 
-    console.log('🔔 [MISION ORG] Suscribiendo a misiones_activas con filtro:', {
-      tipo: 'mision',
-      id_referencia: card.misionData.id_mision,
-      nombreMision: card.misionData.title
-    });
+    console.log('🔔 [MISION ORG] Suscribiendo a misiones_activas:', card.misionData.id_mision);
 
-    // Cargar el estado inicial de la misión activa (si existe)
+    // Cargar estado inicial
     const cargarEstadoInicial = async () => {
       if (!card.misionData?.id_mision) return;
 
-      // 1. Primero verificar y actualizar misiones inactivas
-      console.log('🔍 [MISION ORG] Verificando misiones inactivas antes de cargar estado...');
+      // Verificar misiones inactivas primero
       await verificarMisionesInactivas();
 
-      // 2. Luego cargar el estado actualizado
+      // Cargar estado actual de la misión activa
       const misionActivaInicial = await misionActivaRepository.getByTipoAndReferenciaOnly(
         'mision',
         card.misionData.id_mision
       );
 
       if (misionActivaInicial) {
-        console.log('📡 [MISION ORG] Estado inicial cargado de misiones_activas:', {
+        console.log('📡 [MISION ORG] Estado inicial cargado:', {
           id: misionActivaInicial.id,
-          id_referencia: misionActivaInicial.id_referencia,
           estado: misionActivaInicial.estado,
-          is_running: misionActivaInicial.is_running,
-          id_usuario_asignado: misionActivaInicial.id_usuario_asignado,
-          capture_now: misionActivaInicial.capture_now,
-          fecha_ultimo_capture: misionActivaInicial.fecha_ultimo_capture
+          is_running: misionActivaInicial.is_running
         });
 
+        // Actualizar card con estado inicial
         updateCard(card.id, {
           misionData: {
             misionActivaId: misionActivaInicial.id,
             estado: misionActivaInicial.estado,
-            isRunning: misionActivaInicial.is_running || false,
-            fecha_ultimo_capture: misionActivaInicial.fecha_ultimo_capture
+            isRunning: misionActivaInicial.is_running || false
           }
         });
 
-        // Cargar capture_now si existe
-        if (misionActivaInicial.capture_now !== null) {
-          setCaptureNow(misionActivaInicial.capture_now);
+        // Cargar última captura si existe
+        if (misionActivaInicial.capture_now && misionActivaInicial.capture_now !== '0' && misionActivaInicial.capture_now.startsWith('http')) {
+          setLastCaptureUrl(misionActivaInicial.capture_now);
         }
 
-        console.log('✅ [ESTADO INICIAL] Card actualizado con estado de misiones_activas');
+        console.log('✅ [ESTADO INICIAL] Card actualizado');
       } else {
-        console.log('ℹ️ [ESTADO INICIAL] No hay misión activa aún para id_referencia:', card.misionData.id_mision);
+        console.log('ℹ️ [ESTADO INICIAL] No hay misión activa para:', card.misionData.id_mision);
       }
     };
 
     cargarEstadoInicial();
 
+    // Suscribirse a cambios en tiempo real
     const channel = subscribeToMisionActivaByReferencia(
       'mision',
       card.misionData.id_mision,
       (updatedMision) => {
-        if (!updatedMision) {
-          return;
-        }
+        if (!updatedMision) return;
 
-        console.log('📡 [MISION ORG CARD] Actualización recibida:', {
-          id_referencia: updatedMision.id_referencia,
-          estado: updatedMision.estado,
-          is_running: updatedMision.is_running
-        });
+        console.log('📡 [DEBUG ADMIN] ========== ACTUALIZACIÓN RECIBIDA ==========');
+        console.log('📡 [DEBUG ADMIN] Estado completo:', updatedMision);
+        console.log('📡 [DEBUG ADMIN] capture_now:', updatedMision.capture_now);
+        console.log('📡 [DEBUG ADMIN] estado:', updatedMision.estado);
+        console.log('📡 [DEBUG ADMIN] is_running:', updatedMision.is_running);
 
-        // Actualizar el card con los datos de misiones_activas
-        // CardFactory hará merge profundo automáticamente
-        // Usar solo los campos que vienen de misiones_activas, sin spread de misionData antiguo
+        // Actualizar estado básico
         updateCard(card.id, {
           misionData: {
             misionActivaId: updatedMision.id,
             estado: updatedMision.estado,
-            isRunning: updatedMision.is_running || false,
-            fecha_ultimo_capture: updatedMision.fecha_ultimo_capture
+            isRunning: updatedMision.is_running || false
           }
         });
 
-        console.log('✅ [MISION ORG CARD] Card actualizado con nuevo estado');
-
-        // Actualizar capture_now
-        if (updatedMision.capture_now !== null) {
-          const previousCaptureNow = captureNow;
-          setCaptureNow(updatedMision.capture_now);
-          setShowCaptureNotification(true);
-          setTimeout(() => setShowCaptureNotification(false), 3000);
-
-          // ✅ Si se recibió una nueva captura (no es "0"), cancelar el timeout de inactividad
-          if (updatedMision.capture_now !== '0' && updatedMision.capture_now.startsWith('http')) {
-            console.log('✅ [VERIFICACIÓN ACTIVIDAD] Nueva captura recibida, misión confirmada como activa');
-            setPendingCaptureRequest(null);
-            setTiempoEsperaSegundos(0);
-            if (captureTimeoutRef.current) {
-              clearTimeout(captureTimeoutRef.current);
-              captureTimeoutRef.current = null;
-            }
-          }
+        // Si hay una nueva captura, mostrarla
+        if (updatedMision.capture_now && updatedMision.capture_now !== '0' && updatedMision.capture_now.startsWith('http')) {
+          console.log('📸 [DEBUG ADMIN] Nueva captura recibida:', updatedMision.capture_now);
+          setLastCaptureUrl(updatedMision.capture_now);
+        } else if (updatedMision.capture_now === '1') {
+          console.log('🔔 [DEBUG ADMIN] Señal de captura confirmada (capture_now = "1")');
+        } else {
+          console.log('ℹ️ [DEBUG ADMIN] capture_now tiene valor:', updatedMision.capture_now);
         }
+
+        console.log('📡 [DEBUG ADMIN] ========== FIN ACTUALIZACIÓN ==========');
       }
     );
 
-    // Cleanup: desuscribirse al desmontar
     return () => {
-      console.log('🔕 [MISION ORG] Desuscribiendo de misiones_activas (id_referencia:', card.misionData?.id_mision, ')');
+      console.log('🔕 [MISION ORG] Desuscribiendo');
       channel.unsubscribe();
     };
-    // Solo re-suscribirse si cambia el id de la misión o el id del card
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card.id, card.misionData?.id_mision]);
 
-  // Manejar solicitud de captura
-  const handleRequestCapture = async () => {
-    if (!misionData.misionActivaId) {
-      // Intentar crear la misión activa si no existe
-      if (misionData.id_mision && misionData.id_usuario_asignado && currentUserId) {
-        console.log('📝 Creando misión activa antes de solicitar captura...');
-        const nuevaMisionActiva = await getOrCreateMisionActiva({
-          tipo: 'mision',
-          id_referencia: misionData.id_mision,
-          id_usuario_asignado: currentUserId,
-          id_creador: misionData.idCreador || currentUserId
-        });
-
-        if (nuevaMisionActiva) {
-          // Actualizar el card con el misionActivaId
-          updateCard(card.id, {
-            misionData: {
-              ...misionData,
-              misionActivaId: nuevaMisionActiva.id
-            }
-          });
-
-          // Solicitar captura con el nuevo ID
-          const result = await updateCaptureNow(nuevaMisionActiva.id, '0');
-          if (result) {
-            console.log('✅ Solicitud de captura enviada');
-            startCaptureVerification();
-          }
-        } else {
-          console.error('❌ No se pudo crear la misión activa');
-        }
-      } else {
-        console.warn('⚠️ No hay misionActivaId ni datos suficientes para crearlo');
-      }
-      return;
-    }
-
-    console.log('📸 Solicitando captura...');
-    const result = await updateCaptureNow(misionData.misionActivaId, '0');
-
-    if (result) {
-      console.log('✅ Solicitud de captura enviada');
-      startCaptureVerification();
-    } else {
-      console.error('❌ Error al solicitar captura');
-    }
-  };
-
-  // Función para iniciar la verificación de actividad mediante captura
-  const startCaptureVerification = () => {
-    // Limpiar timeout anterior si existe
-    if (captureTimeoutRef.current) {
-      clearTimeout(captureTimeoutRef.current);
-    }
-
-    // Guardar timestamp de la solicitud
-    const requestTime = Date.now();
-    setPendingCaptureRequest(requestTime);
-
-    // 📊 Calcular tiempo dinámicamente basado en fecha_ultimo_capture
-    const INTERVALO_CAPTURAS_MS = 5 * 60 * 1000; // 5 minutos
-    const MARGEN_SEGURIDAD_MS = 30 * 1000; // 30 segundos
-    const TIEMPO_TOTAL_ESPERADO_MS = INTERVALO_CAPTURAS_MS + MARGEN_SEGURIDAD_MS; // 5:30
-
-    let tiempoEsperaMs = TIEMPO_TOTAL_ESPERADO_MS;
-
-    if (misionData.fecha_ultimo_capture) {
-      const fechaUltimaCaptura = new Date(misionData.fecha_ultimo_capture);
-      const ahora = new Date();
-      const tiempoTranscurridoMs = ahora.getTime() - fechaUltimaCaptura.getTime();
-      const tiempoRestanteMs = TIEMPO_TOTAL_ESPERADO_MS - tiempoTranscurridoMs;
-
-      console.log('📊 [VERIFICACIÓN ACTIVIDAD] Análisis de tiempo:', {
-        fecha_ultimo_capture: misionData.fecha_ultimo_capture,
-        tiempo_transcurrido_ms: tiempoTranscurridoMs,
-        tiempo_transcurrido_min: Math.floor(tiempoTranscurridoMs / 60000),
-        tiempo_restante_ms: tiempoRestanteMs,
-        tiempo_restante_seg: Math.floor(tiempoRestanteMs / 1000),
-        tiempo_total_esperado_seg: TIEMPO_TOTAL_ESPERADO_MS / 1000
-      });
-
-      // Si ya pasó el tiempo esperado, marcar como inactiva inmediatamente
-      if (tiempoRestanteMs <= 0) {
-        console.log('❌ [VERIFICACIÓN ACTIVIDAD] Ya pasaron más de 5:30 min sin captura, marcando como inactiva INMEDIATAMENTE');
-        marcarMisionComoInactiva();
-        setPendingCaptureRequest(null);
-        setTiempoEsperaSegundos(0);
-        return;
-      }
-
-      tiempoEsperaMs = tiempoRestanteMs;
-    } else {
-      console.log('⚠️ [VERIFICACIÓN ACTIVIDAD] No hay fecha_ultimo_capture, usando tiempo predeterminado de 5:30 min');
-    }
-
-    const tiempoEsperaSeg = Math.floor(tiempoEsperaMs / 1000);
-    setTiempoEsperaSegundos(tiempoEsperaSeg);
-    console.log(`⏰ [VERIFICACIÓN ACTIVIDAD] Iniciando timeout de ${tiempoEsperaSeg} segundos para verificar respuesta de captura`);
-
-    // Establecer timeout dinámico
-    captureTimeoutRef.current = setTimeout(async () => {
-      console.log('⏱️ [VERIFICACIÓN ACTIVIDAD] Timeout alcanzado, verificando si se recibió captura...');
-
-      // Verificar si aún está pendiente (no se recibió respuesta)
-      if (pendingCaptureRequest === requestTime) {
-        console.log('❌ [VERIFICACIÓN ACTIVIDAD] No se recibió captura nueva, marcando misión como inactiva');
-        await marcarMisionComoInactiva();
-        setPendingCaptureRequest(null);
-        setTiempoEsperaSegundos(0);
-      } else {
-        console.log('✅ [VERIFICACIÓN ACTIVIDAD] La solicitud fue respondida, no se marca como inactiva');
-      }
-
-      captureTimeoutRef.current = null;
-    }, tiempoEsperaMs);
-  };
-
-  // Función auxiliar para marcar misión como inactiva
-  const marcarMisionComoInactiva = async () => {
-    if (misionData.misionActivaId) {
-      try {
-        const { error } = await supabase
-          .from('misiones_activas')
-          .update({
-            estado: 'pausada',
-            is_running: false
-          })
-          .eq('id', misionData.misionActivaId);
-
-        if (error) {
-          console.error('❌ Error actualizando estado de misión:', error);
-        } else {
-          console.log('✅ Misión marcada como inactiva en la BD');
-
-          // Actualizar estado local
-          updateCard(card.id, {
-            misionData: {
-              ...misionData,
-              estado: 'pausada',
-              isRunning: false
-            }
-          });
-
-          // Mostrar notificación
-          alert(`⚠️ La misión "${misionData.title}" no ha generado capturas en más de 5:30 minutos y ha sido marcada como inactiva.`);
-        }
-      } catch (error) {
-        console.error('❌ Error en verificación de actividad:', error);
-      }
-    }
-  };
-
-  // Función para abrir modal de capturas
+  // Función para abrir modal de capturas a nivel de página
   const handleVerTodasCapturas = () => {
-    if (!misionData.misionActivaId) {
-      alert('No hay misión activa para mostrar capturas');
+    if (!onOpenCapturasModal) {
+      console.warn('⚠️ onOpenCapturasModal no está disponible');
       return;
     }
 
-    // Llamar al callback para abrir el modal a nivel de página
-    if (onOpenCapturasModal) {
-      const misionActivaIdNum = typeof misionData.misionActivaId === 'string'
-        ? parseInt(misionData.misionActivaId, 10)
-        : misionData.misionActivaId;
-      onOpenCapturasModal(misionActivaIdNum, misionData.title);
-    } else {
-      console.warn('⚠️ No se proporcionó el callback onOpenCapturasModal');
-      alert('No se puede abrir el modal de capturas. Funcionalidad no disponible.');
+    if (!misionData.misionActivaId) {
+      console.warn('⚠️ No hay misionActivaId para ver capturas');
+      alert('⚠️ La misión debe estar en progreso para ver las capturas');
+      return;
     }
+
+    console.log('📸 [CAPTURAS] Abriendo modal de capturas para misionActivaId:', misionData.misionActivaId);
+
+    // Llamar al callback del padre para abrir el modal a nivel de página
+    onOpenCapturasModal(misionData.misionActivaId, misionData.title);
   };
 
   // Manejar cambio de título
@@ -988,67 +840,30 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
             }
           >
             <Camera size={14} />
-            {showCaptureNotification && (
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-ping" />
-            )}
           </button>
         )}
       </div>
 
-      {/* Notificación de captura */}
-      {showCaptureNotification && captureNow !== null && (
-        <div className="mb-2 bg-blue-100 border border-blue-400 text-blue-700 px-3 py-2 rounded text-xs">
-          📸 Captura solicitada: {captureNow === '0' ? 'Procesando...' : 'Captura recibida'}
-        </div>
-      )}
-
-      {/* Indicador de verificación pendiente */}
-      {pendingCaptureRequest !== null && (
-        <div className="mb-2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-2 rounded text-xs flex items-center gap-2">
-          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-          <span>
-            Esperando respuesta de captura... La misión se marcará como inactiva si no hay respuesta en{' '}
-            <strong>{Math.floor(tiempoEsperaSegundos / 60)}:{String(tiempoEsperaSegundos % 60).padStart(2, '0')}</strong>
-            {misionData.fecha_ultimo_capture && (
-              <span className="block mt-1 text-[10px] opacity-75">
-                Última captura: hace {Math.floor((Date.now() - new Date(misionData.fecha_ultimo_capture).getTime()) / 60000)} min
-              </span>
-            )}
-          </span>
-        </div>
-      )}
-
-      {/* Imagen de captura */}
-      {captureNow && captureNow !== '0' && captureNow.startsWith('http') && (
+      {/* Imagen de captura simple */}
+      {lastCaptureUrl && (
         <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
           <img
-            src={captureNow}
-            alt="Captura de pantalla"
+            src={lastCaptureUrl}
+            alt="Última captura"
             className="w-full h-auto object-contain"
             style={{ maxHeight: '200px' }}
           />
           <div className="px-2 py-1 bg-gray-100 flex items-center justify-between">
             <span className="text-xs text-gray-600">📸 Última captura</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleVerTodasCapturas}
-                className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
-                data-todo-interactive
-                title="Ver todas las capturas"
-              >
-                <Images size={12} />
-                Ver todas
-              </button>
-              <a
-                href={captureNow}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:text-blue-700"
-                data-todo-interactive
-              >
-                Ver completa
-              </a>
-            </div>
+            <button
+              onClick={handleVerTodasCapturas}
+              className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
+              data-todo-interactive
+              title="Ver todas las capturas"
+            >
+              <Images size={12} />
+              Ver todas
+            </button>
           </div>
         </div>
       )}

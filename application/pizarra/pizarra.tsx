@@ -518,7 +518,26 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   const updateCardData = useCallback((cardId: string, updates: any) => {
     setCards(prev => prev.map(c => {
       if (c.id === cardId) {
-        return { ...c, ...updates };
+        // Hacer merge profundo para misionData y activityData
+        const mergedCard = { ...c, ...updates };
+
+        // Si updates tiene misionData, hacer merge con el misionData existente
+        if (updates.misionData && c.misionData) {
+          mergedCard.misionData = {
+            ...c.misionData,
+            ...updates.misionData
+          };
+        }
+
+        // Si updates tiene activityData, hacer merge con el activityData existente
+        if (updates.activityData && c.activityData) {
+          mergedCard.activityData = {
+            ...c.activityData,
+            ...updates.activityData
+          };
+        }
+
+        return mergedCard;
       }
       return c;
     }));

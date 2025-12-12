@@ -84,8 +84,8 @@ function DashboardAdmin() {
     userId: string;
     userName: string;
   } | null>(null);
-  const [capturasMisionActiva, setCapturasMisionActiva] = useState<{ id: number; title: string } | null>(null);
-  const [capturasHistorial, setCapturasHistorial] = useState<Array<{ url: string; fecha: string }>>([]);
+  const [capturasMisionActiva, setCapturasMisionActiva] = useState<{ id: string; title: string } | null>(null);
+  const [capturasHistorial, setCapturasHistorial] = useState<Array<{ id: number; url: string; fecha: string }>>([]);
   const [loadingCapturas, setLoadingCapturas] = useState(false);
   const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
@@ -151,8 +151,8 @@ function DashboardAdmin() {
   };
 
   // Handler para abrir modal de capturas
-  const handleOpenCapturasModal = async (misionActivaId: number, misionTitle: string) => {
-    console.log('📸 Abriendo modal de capturas para misión activa ID:', misionActivaId, 'Título:', misionTitle);
+  const handleOpenCapturasModal = async (misionActivaId: string, misionTitle: string) => {
+    console.log('📸 [CAPTURAS] Abriendo modal para misión activa UUID:', misionActivaId, 'Título:', misionTitle);
     setCapturasMisionActiva({ id: misionActivaId, title: misionTitle });
     setShowCapturasModal(true);
     setLoadingCapturas(true);
@@ -160,46 +160,44 @@ function DashboardAdmin() {
     try {
       const { supabase } = await import('@/infrastructure/services/SupabaseClient');
 
-      // Primero obtener la misión activa para saber su id_referencia (que es el id de la misión)
+      // Paso 1: Obtener la misión activa para saber su id_referencia (ID numérico de la misión)
+      console.log('🔍 [CAPTURAS] Obteniendo misión activa UUID:', misionActivaId);
       const { data: misionActiva, error: errorMisionActiva } = await supabase
         .from('misiones_activas')
-        .select('id_referencia, tipo')
+        .select('id_referencia')
         .eq('id', misionActivaId)
         .single();
 
       if (errorMisionActiva) {
-        console.error('❌ Error obteniendo misión activa:', errorMisionActiva);
+        console.error('❌ [CAPTURAS] Error obteniendo misión activa:', errorMisionActiva);
         setCapturasHistorial([]);
         setLoadingCapturas(false);
         return;
       }
 
-      console.log('📋 Misión activa encontrada:', misionActiva);
-
-      // Las capturas se guardan en la tabla 'capture' con id_bloque = String(id_referencia)
-      // donde id_referencia es el ID de la misión original
       const idBloque = String(misionActiva.id_referencia);
-      console.log('🔍 Buscando capturas con id_bloque:', idBloque);
+      console.log('🔍 [CAPTURAS] Buscando capturas con id_bloque:', idBloque);
 
+      // Paso 2: Buscar capturas usando el id_referencia (ID numérico) como id_bloque
       const { data: capturas, error } = await supabase
         .from('capture')
-        .select('img_url, created_at')
+        .select('id, img_url, created_at')
         .eq('id_bloque', idBloque)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ Error cargando capturas:', error);
+        console.error('❌ [CAPTURAS] Error cargando capturas:', error);
         setCapturasHistorial([]);
       } else {
-        console.log('✅ Capturas cargadas:', capturas?.length || 0);
-        // Mapear los campos correctos
+        console.log('✅ [CAPTURAS] Capturas cargadas:', capturas?.length || 0);
         setCapturasHistorial(capturas?.map(c => ({
+          id: c.id,
           url: c.img_url,
           fecha: c.created_at
         })) || []);
       }
     } catch (error) {
-      console.error('❌ Error en handleOpenCapturasModal:', error);
+      console.error('❌ [CAPTURAS] Error en handleOpenCapturasModal:', error);
       setCapturasHistorial([]);
     } finally {
       setLoadingCapturas(false);
@@ -1545,9 +1543,9 @@ function DashboardAdmin() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {capturasHistorial.map((captura, index) => (
+                  {capturasHistorial.map((captura) => (
                     <div
-                      key={index}
+                      key={captura.id}
                       className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
                     >
                       <div
@@ -1556,7 +1554,7 @@ function DashboardAdmin() {
                       >
                         <img
                           src={captura.url}
-                          alt={`Captura ${index + 1}`}
+                          alt={`Captura ${captura.id}`}
                           className="w-full h-48 object-cover hover:opacity-90 transition-opacity"
                         />
                       </div>

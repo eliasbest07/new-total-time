@@ -10,6 +10,7 @@ interface ActivityCardProps {
   onShowScreenshots?: (cardId: string) => void;
   screenshots: any[];
   isCapturing: boolean;
+  captureNow?: () => Promise<string | null>;
 }
 
 export const ActivityCard: React.FC<ActivityCardProps> = ({

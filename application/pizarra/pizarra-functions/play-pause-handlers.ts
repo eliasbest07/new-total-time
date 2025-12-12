@@ -294,9 +294,14 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
           console.log('✅ [MISION ACTIVA] Captura guardada en misiones_activas');
 
           // Para misiones, también actualizar lastCaptureUrl en el card
+          // IMPORTANTE: Obtener datos actuales del card para no borrar nada
           if (tipo === 'mision') {
+            const currentCard = cards.find(c => c.id === cardId);
             onUpdateCard(cardId, {
-              misionData: { lastCaptureUrl: url }
+              misionData: {
+                ...currentCard?.misionData,
+                lastCaptureUrl: url
+              }
             });
           }
         }
@@ -314,9 +319,17 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
       console.log('✅ [MISION ACTIVA] Estado en_progreso guardado en Supabase');
 
       // 5. Actualizar estado local
+      // IMPORTANTE: Obtener datos actuales del card para no borrar nada
+      const currentCard = cards.find(c => c.id === cardId);
       const updateKey = tipo === 'actividad' ? 'activityData' : 'misionData';
+      const currentData = tipo === 'actividad' ? currentCard?.activityData : currentCard?.misionData;
+
       onUpdateCard(cardId, {
-        [updateKey]: { isRunning: true, misionActivaId: misionActiva.id }
+        [updateKey]: {
+          ...currentData,
+          isRunning: true,
+          misionActivaId: misionActiva.id
+        }
       });
 
       console.log(`✅ [${tipoLabel} PLAY/PAUSE] Estado actualizado, contador activado`);
@@ -347,9 +360,15 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
     }
 
     // 2. Actualizar estado local
+    // IMPORTANTE: Obtener datos actuales del card para no borrar nada
     const updateKey = tipo === 'actividad' ? 'activityData' : 'misionData';
+    const currentData = tipo === 'actividad' ? card?.activityData : card?.misionData;
+
     onUpdateCard(cardId, {
-      [updateKey]: { isRunning: false }
+      [updateKey]: {
+        ...currentData,
+        isRunning: false
+      }
     });
 
     // 3. Detener captura
