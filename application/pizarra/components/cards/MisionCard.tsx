@@ -39,9 +39,9 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   const [entregaImagen, setEntregaImagen] = useState<File | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 🔒 ESTADO LOCAL PROTEGIDO - No se actualiza automáticamente desde BD
+  // 🔒 ESTADO LOCAL SIMPLE - Solo bloquear después de capturas
   const [localIsRunning, setLocalIsRunning] = useState(card.misionData?.isRunning || false);
-  const [lastKnownIsRunning, setLastKnownIsRunning] = useState(card.misionData?.isRunning || false);
+  const [justProcessedCapture, setJustProcessedCapture] = useState(false);
 
   // Obtener el usuario actual (UUID del auth)
   const { usuario } = useAuth();
@@ -159,6 +159,15 @@ export const MisionCard: React.FC<MisionCardProps> = ({
                 if (captureUrl) {
                   console.log('✅ [DEBUG NORMAL] Captura tomada exitosamente:', captureUrl);
 
+                  // Marcar que acabamos de procesar una captura
+                  setJustProcessedCapture(true);
+                  
+                  // Limpiar el flag después de 5 segundos
+                  setTimeout(() => {
+                    setJustProcessedCapture(false);
+                    console.log('🔄 [SIMPLE STATE] Flag de captura limpiado');
+                  }, 5000);
+
                   // Actualizar capture_now con la URL de la captura
                   if (updatedMision.id) {
                     console.log('📤 [DEBUG NORMAL] Enviando URL de captura al servidor...');
@@ -220,6 +229,15 @@ export const MisionCard: React.FC<MisionCardProps> = ({
                 if (captureUrl) {
                   console.log('✅ [DEBUG NORMAL] Captura tomada exitosamente:', captureUrl);
 
+                  // Marcar que acabamos de procesar una captura
+                  setJustProcessedCapture(true);
+                  
+                  // Limpiar el flag después de 5 segundos
+                  setTimeout(() => {
+                    setJustProcessedCapture(false);
+                    console.log('🔄 [SIMPLE STATE] Flag de captura limpiado');
+                  }, 5000);
+
                   // Actualizar capture_now con la URL de la captura
                   if (updatedMision.id) {
                     console.log('📤 [DEBUG NORMAL] Enviando URL de captura al servidor...');
@@ -277,25 +295,27 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     enviarMensaje
   } = useChatMessages(currentUserUuid, creadorUuid);
 
-  // Sincronizar estado local solo cuando el usuario hace cambios explícitos
+  // Sincronizar estado - SOLO sincronizar, sin bloqueos complejos
   useEffect(() => {
-    // Solo actualizar si el estado cambió por acción del usuario (no por BD)
-    if (card.misionData?.isRunning !== lastKnownIsRunning) {
-      console.log('🔄 [LOCAL STATE] Sincronizando estado local:', {
-        anterior: lastKnownIsRunning,
-        nuevo: card.misionData?.isRunning,
-        local_actual: localIsRunning
-      });
-      
-      // Solo actualizar si es un cambio válido (no de true a false automático)
-      if (card.misionData?.isRunning || !localIsRunning) {
-        setLocalIsRunning(card.misionData?.isRunning || false);
-        setLastKnownIsRunning(card.misionData?.isRunning || false);
-      } else {
-        console.log('🚫 [LOCAL STATE] Ignorando cambio automático de true a false');
+    const dbIsRunning = card.misionData?.isRunning || false;
+    
+    console.log('🔄 [SIMPLE STATE] Cambio detectado:', {
+      db_state: dbIsRunning,
+      local_state: localIsRunning
+    });
+    
+    // Sincronizar siempre, excepto si acabamos de procesar una captura Y es una pausa
+    if (dbIsRunning !== localIsRunning) {
+      // Si acabamos de procesar una captura y viene una pausa automática, ignorarla
+      if (justProcessedCapture && !dbIsRunning && localIsRunning) {
+        console.log('🚫 [SIMPLE STATE] Ignorando pausa automática después de captura');
+        return;
       }
+      
+      console.log('✅ [SIMPLE STATE] Sincronizando estado:', dbIsRunning);
+      setLocalIsRunning(dbIsRunning);
     }
-  }, [card.misionData?.isRunning, lastKnownIsRunning, localIsRunning]);
+  }, [card.misionData?.isRunning]);
 
   // Efecto para el contador de tiempo - usar estado local
   useEffect(() => {
@@ -453,11 +473,13 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     console.log('🎮 [PLAY/PAUSE] Click detectado:', { cardId, isRunning, newState: !isRunning });
     
     // Actualizar estado local inmediatamente para respuesta visual rápida
-    const newRunningState = !isRunning;
-    setLocalIsRunning(newRunningState);
-    setLastKnownIsRunning(newRunningState);
+    const newState = !isRunning;
+    setLocalIsRunning(newState);
     
-    console.log('🔄 [PLAY/PAUSE] Estado local actualizado a:', newRunningState);
+    // Limpiar flag de captura cuando el usuario hace cambios manuales
+    setJustProcessedCapture(false);
+    
+    console.log('✅ [PLAY/PAUSE] Estado local actualizado inmediatamente a:', newState);
     
     // Llamar al handler original
     handleMisionPlayPause(cardId, isRunning);
@@ -468,10 +490,9 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   // Función para manejar el botón de entregar
   const handleEntregar = () => {
     setShowEntregarModal(true);
-    // Detener la misión (como si se diera pause) - usar estado local
+    // Detener la misión (como si se diera pause)
     if (localIsRunning) {
-      setLocalIsRunning(false);
-      setLastKnownIsRunning(false);
+      setJustProcessedCapture(false); // Limpiar flag
       handleMisionPlayPause(card.id, true);
     }
   };
