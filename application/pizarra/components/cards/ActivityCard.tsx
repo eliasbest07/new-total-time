@@ -21,8 +21,28 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
   handleActivityPlayPause,
   onShowScreenshots,
   screenshots,
-  isCapturing
+  isCapturing,
+  captureNow
 }) => {
+  
+  // SIMPLE: Función de captura que siempre funciona
+  const handleSimpleCapture = async () => {
+    if (!captureNow) {
+      alert('❌ Función de captura no disponible');
+      return;
+    }
+    
+    try {
+      const captureUrl = await captureNow();
+      if (captureUrl) {
+        alert('✅ ¡Captura tomada!');
+      } else {
+        alert('❌ Error en captura');
+      }
+    } catch (error) {
+      alert('❌ Error: ' + error);
+    }
+  };
   const cardScreenshots = screenshots.filter(s => {
     const actividadId = parseInt(card.id.split('-')[1]) || 0;
     return s.actividadId === actividadId;
@@ -118,6 +138,23 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
           }
         </div>
         <div className="flex gap-2">
+          {/* Botón de captura manual */}
+          {captureNow && (
+            <button
+              onClick={handleSimpleCapture}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 transition-colors shadow-md"
+              data-todo-interactive
+              style={{
+                width: `${Math.max(32, (card.fontSize || 18) + 14)}px`,
+                height: `${Math.max(32, (card.fontSize || 18) + 14)}px`
+              }}
+            >
+              <div style={{ fontSize: `${Math.max(12, (card.fontSize || 18) - 6)}px` }}>
+                📸
+              </div>
+            </button>
+          )}
+
           {/* Botón de screenshots */}
           <button
             onClick={(e) => {

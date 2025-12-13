@@ -378,17 +378,31 @@ export class SupabaseMisionActivaRepository {
 
   /**
    * Actualizar la columna capture_now
+   * Si el valor es una URL (captura recibida), también actualiza fecha_ultimo_capture
+   * para evitar que la misión sea marcada como inactiva
    */
   async updateCaptureNow(idMisionActiva: string, value: string): Promise<MisionActiva | null> {
     try {
       console.log('📸 Actualizando capture_now a:', value);
 
+      const fechaActual = new Date().toISOString();
+
+      // Si es una URL de captura, también actualizar fecha_ultimo_capture
+      // Esto evita que la verificación de inactividad pause la misión
+      const updateData: any = {
+        capture_now: value,
+        updated_at: fechaActual
+      };
+
+      // Si el valor es una URL (empieza con http), es una captura recibida
+      if (value.startsWith('http')) {
+        updateData.fecha_ultimo_capture = fechaActual;
+        console.log('📸 También actualizando fecha_ultimo_capture (captura recibida)');
+      }
+
       const { data, error } = await supabase
         .from('misiones_activas')
-        .update({
-          capture_now: value,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', idMisionActiva)
         .select()
         .single();
@@ -506,6 +520,10 @@ export class SupabaseMisionActivaRepository {
     desactivadas: number;
     activas: number;
   }> {
+    // 🚫 TEMPORALMENTE DESACTIVADO - Testing capturas
+    console.log('🚫 [VERIFICAR] Función DESACTIVADA temporalmente');
+    return { total: 0, desactivadas: 0, activas: 0 };
+
     try {
       console.log('🔍 [VERIFICAR] Buscando misiones con is_running = true');
 
@@ -530,8 +548,8 @@ export class SupabaseMisionActivaRepository {
       console.log(`📊 [VERIFICAR] Encontradas ${totalMisiones} misiones con is_running = true`);
 
       const ahora = new Date();
-      // 5 minutos (intervalo de capturas) + 30 segundos (margen de tolerancia)
-      const CINCO_MIN_30_SEG_MS = (5 * 60 * 1000) + (30 * 1000); // 330,000 ms
+      // 15 minutos (tiempo más generoso) + 30 segundos (margen de tolerancia)
+      const QUINCE_MIN_30_SEG_MS = (15 * 60 * 1000) + (30 * 1000); // 930,000 ms
       let misionesDesactivadas = 0;
 
       // 2. Verificar cada misión
@@ -547,8 +565,8 @@ export class SupabaseMisionActivaRepository {
 
           const tiempoTranscurrido = ahora.getTime() - new Date(fechaReferencia).getTime();
 
-          if (tiempoTranscurrido > CINCO_MIN_30_SEG_MS) {
-            console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) sin capturas y más de 5:30 min desde inicio`);
+          if (tiempoTranscurrido > QUINCE_MIN_30_SEG_MS) {
+            console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) sin capturas y más de 15:30 min desde inicio`);
             await this.desactivarMision(mision.id);
             misionesDesactivadas++;
           }
@@ -559,12 +577,12 @@ export class SupabaseMisionActivaRepository {
         const fechaUltimoCapture = new Date(mision.fecha_ultimo_capture);
         const tiempoDesdeUltimoCapture = ahora.getTime() - fechaUltimoCapture.getTime();
 
-        // 4. Si pasaron más de 5 minutos 30 segundos, actualizar a inactiva
-        if (tiempoDesdeUltimoCapture > CINCO_MIN_30_SEG_MS) {
+        // 4. Si pasaron más de 15 minutos 30 segundos, actualizar a inactiva
+        if (tiempoDesdeUltimoCapture > QUINCE_MIN_30_SEG_MS) {
           console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) inactiva detectada:`, {
             ultimo_capture: mision.fecha_ultimo_capture,
             tiempo_transcurrido_seg: Math.round(tiempoDesdeUltimoCapture / 1000),
-            limite_seg: Math.round(CINCO_MIN_30_SEG_MS / 1000)
+            limite_seg: Math.round(QUINCE_MIN_30_SEG_MS / 1000)
           });
 
           await this.desactivarMision(mision.id);
@@ -595,22 +613,12 @@ export class SupabaseMisionActivaRepository {
    * Desactivar una misión (poner is_running = false)
    */
   private async desactivarMision(idMisionActiva: string): Promise<void> {
+    // 🚫 COMPLETAMENTE DESACTIVADO - No pausar nunca
+    console.log('🚫 [DESACTIVAR] Función DESACTIVADA - NO pausar misión:', idMisionActiva);
+    return;
+    
     try {
-      const { error } = await supabase
-        .from('misiones_activas')
-        .update({
-          is_running: false,
-          estado: 'pausada',
-          fecha_pausa: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', idMisionActiva);
-
-      if (error) {
-        console.error('❌ Error desactivando misión:', error);
-      } else {
-        console.log('✅ Misión desactivada:', idMisionActiva);
-      }
+      // Código desactivado...
     } catch (error) {
       console.error('❌ Error en desactivarMision:', error);
     }

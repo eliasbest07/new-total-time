@@ -289,8 +289,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     const cargarEstadoInicial = async () => {
       if (!card.misionData?.id_mision) return;
 
-      // Verificar misiones inactivas primero
-      await verificarMisionesInactivas();
+      // NO verificar misiones inactivas aquí - se hace periódicamente en la página
+      // para evitar pausar misiones incorrectamente al montar el componente
 
       // Cargar estado actual de la misión activa
       const misionActivaInicial = await misionActivaRepository.getByTipoAndReferenciaOnly(
@@ -334,12 +334,6 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       (updatedMision) => {
         if (!updatedMision) return;
 
-        console.log('📡 [DEBUG ADMIN] ========== ACTUALIZACIÓN RECIBIDA ==========');
-        console.log('📡 [DEBUG ADMIN] Estado completo:', updatedMision);
-        console.log('📡 [DEBUG ADMIN] capture_now:', updatedMision.capture_now);
-        console.log('📡 [DEBUG ADMIN] estado:', updatedMision.estado);
-        console.log('📡 [DEBUG ADMIN] is_running:', updatedMision.is_running);
-
         // Actualizar estado básico
         updateCard(card.id, {
           misionData: {
@@ -351,15 +345,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
         // Si hay una nueva captura, mostrarla
         if (updatedMision.capture_now && updatedMision.capture_now !== '0' && updatedMision.capture_now.startsWith('http')) {
-          console.log('📸 [DEBUG ADMIN] Nueva captura recibida:', updatedMision.capture_now);
           setLastCaptureUrl(updatedMision.capture_now);
-        } else if (updatedMision.capture_now === '1') {
-          console.log('🔔 [DEBUG ADMIN] Señal de captura confirmada (capture_now = "1")');
-        } else {
-          console.log('ℹ️ [DEBUG ADMIN] capture_now tiene valor:', updatedMision.capture_now);
         }
-
-        console.log('📡 [DEBUG ADMIN] ========== FIN ACTUALIZACIÓN ==========');
       }
     );
 

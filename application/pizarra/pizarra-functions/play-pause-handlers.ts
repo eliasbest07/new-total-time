@@ -209,6 +209,14 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
   const newRunningState = !currentIsRunning;
   const tipoLabel = tipo === 'actividad' ? 'ACTIVIDAD' : 'MISION';
 
+  console.log(`🎮 [${tipoLabel} PLAY/PAUSE] *** FUNCIÓN LLAMADA ***`, {
+    cardId,
+    currentIsRunning,
+    newRunningState,
+    isCapturing,
+    tipo
+  });
+
   // ========================================
   // PLAY - Iniciar captura
   // ========================================
@@ -338,43 +346,18 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
     }
   }
   // ========================================
-  // PAUSE - Detener captura
+  // PAUSE - DESACTIVADO TEMPORALMENTE
   // ========================================
   else if (!newRunningState && isCapturing) {
-    console.log(`⏸️ [${tipoLabel} PLAY/PAUSE] Pausando ${tipo}...`);
-
-    // Obtener el ID de la misión activa del card
-    const card = cards.find(c => c.id === cardId);
-    const data = tipo === 'actividad' ? card?.activityData : card?.misionData;
-    const misionActivaId = data?.misionActivaId;
-
-    if (misionActivaId) {
-      // 1. Actualizar estado en Supabase
-      console.log('💾 [MISION ACTIVA] Actualizando estado a pausada en Supabase...');
-      await updateRunningState(misionActivaId, {
-        is_running: false,
-        estado: 'pausada',
-        fecha_pausa: new Date().toISOString()
-      });
-      console.log('✅ [MISION ACTIVA] Estado pausada guardado en Supabase');
-    }
-
-    // 2. Actualizar estado local
-    // IMPORTANTE: Obtener datos actuales del card para no borrar nada
-    const updateKey = tipo === 'actividad' ? 'activityData' : 'misionData';
-    const currentData = tipo === 'actividad' ? card?.activityData : card?.misionData;
-
-    onUpdateCard(cardId, {
-      [updateKey]: {
-        ...currentData,
-        isRunning: false
-      }
+    console.log(`🚫 [${tipoLabel} PLAY/PAUSE] PAUSA DESACTIVADA - No pausar automáticamente`);
+    console.log(`🚫 [${tipoLabel} PLAY/PAUSE] Parámetros:`, {
+      newRunningState,
+      isCapturing,
+      cardId
     });
-
-    // 3. Detener captura
-    stopCapturing();
-
-    console.log(`✅ [${tipoLabel} PLAY/PAUSE] ${tipo} pausada exitosamente`);
+    
+    // NO HACER NADA - Mantener la misión activa
+    return;
   }
 }
 

@@ -39,6 +39,10 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   const [entregaImagen, setEntregaImagen] = useState<File | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 🔒 ESTADO LOCAL PROTEGIDO - No se actualiza automáticamente desde BD
+  const [localIsRunning, setLocalIsRunning] = useState(card.misionData?.isRunning || false);
+  const [lastKnownIsRunning, setLastKnownIsRunning] = useState(card.misionData?.isRunning || false);
+
   // Obtener el usuario actual (UUID del auth)
   const { usuario } = useAuth();
   const currentUserUuid = usuario?.id || null;
@@ -123,13 +127,23 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     // Si solo tenemos id_mision, suscribirse por referencia
     channel = usarMisionActivaId
       ? subscribeToMisionActiva(
-          idParaSuscribirse,
+          String(idParaSuscribirse),
           async (updatedMision) => {
             if (!updatedMision) return;
 
             console.log('📡 [DEBUG NORMAL] ========== ACTUALIZACIÓN RECIBIDA ==========');
             console.log('📡 [DEBUG NORMAL] Estado completo:', updatedMision);
             console.log('📡 [DEBUG NORMAL] capture_now:', updatedMision.capture_now);
+            console.log('📡 [DEBUG NORMAL] is_running ANTES:', card.misionData?.isRunning);
+            console.log('📡 [DEBUG NORMAL] is_running NUEVO:', updatedMision.is_running);
+
+            // 🚫 BLOQUEAR CAMBIOS DE ESTADO NO DESEADOS
+            // Si la misión estaba corriendo y ahora viene is_running=false, IGNORAR
+            if (card.misionData?.isRunning && !updatedMision.is_running) {
+              console.log('🚫 [ANTI-PAUSE] BLOQUEANDO cambio de is_running=true a false');
+              console.log('🚫 [ANTI-PAUSE] Manteniendo estado local isRunning=true');
+              // NO actualizar el estado local - mantener la misión corriendo
+            }
 
             // Detectar solicitud de captura (capture_now === '1')
             if (updatedMision.capture_now === '1' && !captureRequestedRef.current) {
@@ -181,6 +195,16 @@ export const MisionCard: React.FC<MisionCardProps> = ({
             console.log('📡 [DEBUG NORMAL] ========== ACTUALIZACIÓN RECIBIDA ==========');
             console.log('📡 [DEBUG NORMAL] Estado completo:', updatedMision);
             console.log('📡 [DEBUG NORMAL] capture_now:', updatedMision.capture_now);
+            console.log('📡 [DEBUG NORMAL] is_running ANTES:', card.misionData?.isRunning);
+            console.log('📡 [DEBUG NORMAL] is_running NUEVO:', updatedMision.is_running);
+
+            // 🚫 BLOQUEAR CAMBIOS DE ESTADO NO DESEADOS
+            // Si la misión estaba corriendo y ahora viene is_running=false, IGNORAR
+            if (card.misionData?.isRunning && !updatedMision.is_running) {
+              console.log('🚫 [ANTI-PAUSE] BLOQUEANDO cambio de is_running=true a false');
+              console.log('🚫 [ANTI-PAUSE] Manteniendo estado local isRunning=true');
+              // NO actualizar el estado local - mantener la misión corriendo
+            }
 
             // Detectar solicitud de captura (capture_now === '1')
             if (updatedMision.capture_now === '1' && !captureRequestedRef.current) {
@@ -237,13 +261,13 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     };
   }, [card.misionData?.misionActivaId, card.misionData?.id_mision, subscribeToMisionActiva, subscribeToMisionActivaByReferencia]);
 
-  // SIMPLE: Solo mostrar alerta cuando el usuario debe tomar captura
+  // SIMPLE: Solo mostrar alerta cuando el usuario debe tomar captura - usar estado local
   useEffect(() => {
     // Si la misión está corriendo, mostrar botón de captura manual
-    if (card.misionData?.isRunning) {
+    if (localIsRunning) {
       console.log('✅ [SIMPLE] Misión corriendo, usuario puede tomar capturas');
     }
-  }, [card.misionData?.isRunning]);
+  }, [localIsRunning]);
 
   // Hook de chat para mensajes reales
   const {
@@ -253,9 +277,29 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     enviarMensaje
   } = useChatMessages(currentUserUuid, creadorUuid);
 
-  // Efecto para el contador de tiempo
+  // Sincronizar estado local solo cuando el usuario hace cambios explícitos
   useEffect(() => {
-    if (card.misionData?.isRunning) {
+    // Solo actualizar si el estado cambió por acción del usuario (no por BD)
+    if (card.misionData?.isRunning !== lastKnownIsRunning) {
+      console.log('🔄 [LOCAL STATE] Sincronizando estado local:', {
+        anterior: lastKnownIsRunning,
+        nuevo: card.misionData?.isRunning,
+        local_actual: localIsRunning
+      });
+      
+      // Solo actualizar si es un cambio válido (no de true a false automático)
+      if (card.misionData?.isRunning || !localIsRunning) {
+        setLocalIsRunning(card.misionData?.isRunning || false);
+        setLastKnownIsRunning(card.misionData?.isRunning || false);
+      } else {
+        console.log('🚫 [LOCAL STATE] Ignorando cambio automático de true a false');
+      }
+    }
+  }, [card.misionData?.isRunning, lastKnownIsRunning, localIsRunning]);
+
+  // Efecto para el contador de tiempo - usar estado local
+  useEffect(() => {
+    if (localIsRunning) {
       // ✅ FIX MEMORY LEAK: Limpiar intervalo anterior antes de crear uno nuevo
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -279,15 +323,15 @@ export const MisionCard: React.FC<MisionCardProps> = ({
         intervalRef.current = null;
       }
     };
-  }, [card.misionData?.isRunning]);
+  }, [localIsRunning]);
 
-  // Efecto para actualizar el título de la pestaña del navegador
+  // Efecto para actualizar el título de la pestaña del navegador - usar estado local
   useEffect(() => {
-    if (card.misionData?.isRunning && elapsedSeconds > 0) {
+    if (localIsRunning && elapsedSeconds > 0) {
       const timeString = formatTime(elapsedSeconds);
       const misionTitle = card.misionData?.title || card.title;
       document.title = `⏱️ ${timeString} - ${misionTitle}`;
-    } else if (!card.misionData?.isRunning && elapsedSeconds > 0) {
+    } else if (!localIsRunning && elapsedSeconds > 0) {
       // Si se pausa, mostrar el tiempo pausado
       const timeString = formatTime(elapsedSeconds);
       const misionTitle = card.misionData?.title || card.title;
@@ -296,21 +340,34 @@ export const MisionCard: React.FC<MisionCardProps> = ({
 
     // Restaurar el título original cuando se desmonte o cuando se reinicie
     return () => {
-      if (elapsedSeconds === 0 || !card.misionData?.isRunning) {
+      if (elapsedSeconds === 0 || !localIsRunning) {
         document.title = 'Pizarra'; // Título por defecto
       }
     };
-  }, [card.misionData?.isRunning, elapsedSeconds, card.misionData?.title, card.title]);
+  }, [localIsRunning, elapsedSeconds, card.misionData?.title, card.title]);
   // SIMPLE: Función para tomar captura manual
   const handleManualCapture = async () => {
-    // Función simple de captura manual
+    console.log('📸 [MANUAL CAPTURE] INICIO - Estado antes:', {
+      isRunning: card.misionData?.isRunning,
+      estado: card.misionData?.estado,
+      misionActivaId: card.misionData?.misionActivaId
+    });
 
     setIsCapturingManual(true);
     
     try {
+      console.log('📸 [MANUAL CAPTURE] Llamando captureNow()...');
       const captureUrl = await captureNow();
+      
+      console.log('📸 [MANUAL CAPTURE] captureNow() completado:', captureUrl);
+      console.log('📸 [MANUAL CAPTURE] Estado después de captureNow:', {
+        isRunning: card.misionData?.isRunning,
+        estado: card.misionData?.estado,
+        misionActivaId: card.misionData?.misionActivaId
+      });
+      
       if (captureUrl) {
-       
+        alert('✅ ¡Captura tomada exitosamente!');
         console.log('✅ Captura guardada:', captureUrl);
       } else {
         alert('❌ Error al tomar la captura');
@@ -320,6 +377,12 @@ export const MisionCard: React.FC<MisionCardProps> = ({
       alert('❌ Error al tomar la captura');
     } finally {
       setIsCapturingManual(false);
+      
+      console.log('📸 [MANUAL CAPTURE] FIN - Estado final:', {
+        isRunning: card.misionData?.isRunning,
+        estado: card.misionData?.estado,
+        misionActivaId: card.misionData?.misionActivaId
+      });
     }
   };
   // Función para formatear el tiempo
@@ -385,9 +448,18 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     setNewMessage('');
   };
 
-  // Función para manejar play/pause
-  // La solicitud de permiso de pantalla se maneja automáticamente en useScreenshots
+  // Función para manejar play/pause - actualizar estado local inmediatamente
   const handlePlayPauseClick = (cardId: string, isRunning: boolean) => {
+    console.log('🎮 [PLAY/PAUSE] Click detectado:', { cardId, isRunning, newState: !isRunning });
+    
+    // Actualizar estado local inmediatamente para respuesta visual rápida
+    const newRunningState = !isRunning;
+    setLocalIsRunning(newRunningState);
+    setLastKnownIsRunning(newRunningState);
+    
+    console.log('🔄 [PLAY/PAUSE] Estado local actualizado a:', newRunningState);
+    
+    // Llamar al handler original
     handleMisionPlayPause(cardId, isRunning);
   };
 
@@ -396,8 +468,10 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   // Función para manejar el botón de entregar
   const handleEntregar = () => {
     setShowEntregarModal(true);
-    // Detener la misión (como si se diera pause)
-    if (card.misionData?.isRunning) {
+    // Detener la misión (como si se diera pause) - usar estado local
+    if (localIsRunning) {
+      setLocalIsRunning(false);
+      setLastKnownIsRunning(false);
       handleMisionPlayPause(card.id, true);
     }
   };
@@ -586,8 +660,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     );
   }
 
-  // Determinar si está corriendo para cambiar colores
-  const isRunning = card.misionData?.isRunning || false;
+  // Determinar si está corriendo para cambiar colores - usar estado local protegido
+  const isRunning = localIsRunning;
   const borderColor = isRunning ? 'border-orange-200' : 'border-green-200';
   const textColor = isRunning ? 'text-orange-800' : 'text-green-800';
   const textColorSecondary = isRunning ? 'text-orange-700' : 'text-green-700';
@@ -750,7 +824,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            handlePlayPauseClick(card.id, card.misionData?.isRunning || false);
+            handlePlayPauseClick(card.id, localIsRunning);
           }}
           onMouseDown={(e) => {
             e.preventDefault();
@@ -759,7 +833,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
           data-todo-interactive
         >
           <div style={{ fontSize: `${Math.max(14, (card.fontSize || 18) - 2)}px` }}>
-            {card.misionData?.isRunning ? '⏸️' : '▶️'}
+            {localIsRunning ? '⏸️' : '▶️'}
           </div>
         </button>
 

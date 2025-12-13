@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
-import { AlertCircle, CheckCircle, XCircle, RefreshCw, Bug } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle, RefreshCw, Bug, Target } from 'lucide-react';
 
 interface DiagnosticoResultado {
   paso: string;
@@ -11,10 +11,144 @@ interface DiagnosticoResultado {
   detalles?: any;
 }
 
+interface MisionCardDebug {
+  cardId: string;
+  cardType: string;
+  title: string;
+  idMision: number | null;
+  misionActiva?: {
+    id: string;
+    estado: string;
+    isRunning: boolean;
+    captureNow: string | null;
+    fechaUltimoCapture: string | null;
+  } | null;
+}
+
 export default function DiagnosticoPizarra() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resultados, setResultados] = useState<DiagnosticoResultado[]>([]);
+  const [misionCards, setMisionCards] = useState<MisionCardDebug[]>([]);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  // Diagnóstico de misiones en tiempo real
+  const diagnosticarMisiones = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const misionCardsData: MisionCardDebug[] = [];
+      let allCards: any[] = [];
+
+      // 1. Buscar en pizarra personal (tabla cards)
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const fin = new Date();
+      fin.setHours(23, 59, 59, 999);
+
+      const { data: pizarraPersonal } = await supabase
+        .from('pizarras')
+        .select('id')
+        .eq('id_usuario', user.id)
+        .gte('created_at', hoy.toISOString())
+        .lte('created_at', fin.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pizarraPersonal) {
+        const { data: cardsPersonales } = await supabase
+          .from('cards')
+          .select('*')
+          .eq('id_pizarra', pizarraPersonal.id);
+
+        if (cardsPersonales) {
+          allCards.push(...cardsPersonales);
+        }
+      }
+
+      // 2. Buscar en pizarra de organización (campo cards JSON)
+      const { data: pizarraOrg } = await supabase
+        .from('pizarras_organizacion')
+        .select('id, cards')
+        .limit(1)
+        .maybeSingle();
+
+      if (pizarraOrg?.cards) {
+        const cardsOrg = pizarraOrg.cards as any[];
+        allCards.push(...cardsOrg);
+      }
+
+      // 3. Filtrar cards de tipo misión (más tipos posibles)
+      const misionTypeCards = allCards.filter(c =>
+        c.type === 'mision' || 
+        c.type === 'mision-organizacion' ||
+        c.type === 'actividad' ||
+        c.type === 'actividad-organizacion' ||
+        (c.misionData && c.misionData.id_mision)
+      );
+
+      for (const card of misionTypeCards) {
+        // Buscar id_mision en diferentes lugares
+        const idMision = card.misionData?.id_mision || 
+                         card.activityData?.id_mision ||
+                         card.data?.id_mision ||
+                         null;
+
+        let misionActivaData = null;
+
+        if (idMision) {
+          // Buscar en misiones_activas (tanto mision como actividad)
+          const { data: misionActiva } = await supabase
+            .from('misiones_activas')
+            .select('id, estado, is_running, capture_now, fecha_ultimo_capture')
+            .or(`and(tipo.eq.mision,id_referencia.eq.${idMision}),and(tipo.eq.actividad,id_referencia.eq.${idMision})`)
+            .maybeSingle();
+
+          if (misionActiva) {
+            misionActivaData = {
+              id: misionActiva.id,
+              estado: misionActiva.estado,
+              isRunning: misionActiva.is_running,
+              captureNow: misionActiva.capture_now,
+              fechaUltimoCapture: misionActiva.fecha_ultimo_capture
+            };
+          }
+        }
+
+        misionCardsData.push({
+          cardId: card.id || 'sin-id',
+          cardType: card.type,
+          title: card.title || card.misionData?.title || card.activityData?.title || 'Sin título',
+          idMision: idMision,
+          misionActiva: misionActivaData
+        });
+      }
+
+      setMisionCards(misionCardsData);
+    } catch (error) {
+      console.error('Error diagnosticando misiones:', error);
+    }
+  };
+
+  // Auto-refresh cada 2 segundos si está activo
+  useEffect(() => {
+    if (!autoRefresh || !isOpen) return;
+
+    const interval = setInterval(() => {
+      diagnosticarMisiones();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, isOpen]);
+
+  // Cargar al abrir
+  useEffect(() => {
+    if (isOpen) {
+      diagnosticarMisiones();
+    }
+  }, [isOpen]);
 
   const ejecutarDiagnostico = async () => {
     setLoading(true);
@@ -63,111 +197,75 @@ export default function DiagnosticoPizarra() {
       if (!pizarraHoy) {
         nuevosResultados.push({
           paso: '2. Pizarra',
-          estado: 'error',
-          mensaje: 'No hay pizarra del día',
-          detalles: null
-        });
-        setResultados(nuevosResultados);
-        setLoading(false);
-        return;
-      }
-
-      nuevosResultados.push({
-        paso: '2. Pizarra',
-        estado: 'success',
-        mensaje: `ID: ${pizarraHoy.id.substring(0, 8)}...`,
-        detalles: { id: pizarraHoy.id }
-      });
-
-      // 3. Buscar cards
-      const { data: cards } = await supabase
-        .from('cards')
-        .select('*')
-        .eq('id_pizarra', pizarraHoy.id);
-
-      cardsSupabase = cards;
-
-      nuevosResultados.push({
-        paso: '3. Cards',
-        estado: cards && cards.length > 0 ? 'success' : 'warning',
-        mensaje: `${cards?.length || 0} cards encontradas`,
-        detalles: cards?.map(c => ({ id: c.id, type: c.type, title: c.title }))
-      });
-
-      // 4. DIAGNÓSTICO DETALLADO DE RECURSOS
-      const resourceCards = cardsSupabase?.filter(c => c.type === 'resource') || [];
-
-      if (resourceCards.length === 0) {
-        nuevosResultados.push({
-          paso: '4. Recursos',
           estado: 'warning',
-          mensaje: 'No hay cards de recursos',
+          mensaje: 'No hay pizarra personal del día',
           detalles: null
         });
       } else {
-        // Verificar cada card de recurso en detalle
-        const recursosDetallados = [];
+        nuevosResultados.push({
+          paso: '2. Pizarra',
+          estado: 'success',
+          mensaje: `ID: ${pizarraHoy.id.substring(0, 8)}...`,
+          detalles: { id: pizarraHoy.id }
+        });
 
-        for (const card of resourceCards) {
-          // 1. Verificar relación en card_recurso
-          const { data: cardRecurso, error: errorCardRecurso } = await supabase
-            .from('card_recurso')
-            .select('id_recurso')
-            .eq('id_card', card.id)
-            .maybeSingle();
+        // 3. Buscar cards
+        const { data: cards } = await supabase
+          .from('cards')
+          .select('*')
+          .eq('id_pizarra', pizarraHoy.id);
 
-          let recursoData = null;
-          let errorRecurso = null;
-
-          if (cardRecurso) {
-            // 2. Verificar que el recurso existe en la tabla recursos
-            const { data: recurso, error: errorRecursoQuery } = await supabase
-              .from('recursos')
-              .select('*')
-              .eq('id', cardRecurso.id_recurso)
-              .maybeSingle();
-
-            recursoData = recurso;
-            errorRecurso = errorRecursoQuery;
-          }
-
-          recursosDetallados.push({
-            card_id: card.id,
-            card_title: card.title,
-            tiene_relacion_card_recurso: !!cardRecurso,
-            id_recurso: cardRecurso?.id_recurso || null,
-            recurso_existe: !!recursoData,
-            recurso_datos: recursoData ? {
-              id: recursoData.id,
-              nombre: recursoData.nombre,
-              tipo: recursoData.tipo_recurso,
-              url: recursoData.url,
-              icono: recursoData.icono
-            } : null,
-            errores: {
-              error_card_recurso: errorCardRecurso?.message || null,
-              error_recurso: errorRecurso?.message || null
-            }
-          });
-        }
-
-        const recursosOK = recursosDetallados.filter(r => r.tiene_relacion_card_recurso && r.recurso_existe);
-        const recursosError = recursosDetallados.filter(r => !r.tiene_relacion_card_recurso || !r.recurso_existe);
+        cardsSupabase = cards;
 
         nuevosResultados.push({
-          paso: '4. Recursos',
-          estado: recursosError.length > 0 ? 'error' : 'success',
-          mensaje: recursosError.length > 0
-            ? `${recursosError.length} de ${resourceCards.length} recursos con problemas`
-            : `${recursosOK.length} recursos OK`,
-          detalles: {
-            total: resourceCards.length,
-            ok: recursosOK.length,
-            con_errores: recursosError.length,
-            detalle_completo: recursosDetallados
-          }
+          paso: '3. Cards',
+          estado: cards && cards.length > 0 ? 'success' : 'warning',
+          mensaje: `${cards?.length || 0} cards encontradas`,
+          detalles: cards?.map(c => ({ id: c.id.substring(0, 8), type: c.type, title: c.title }))
         });
       }
+
+      // 4. Resumen de cards de misión encontradas
+      const totalMisionCards = misionCards.length;
+      const misionesConId = misionCards.filter(c => c.idMision).length;
+      const misionesActivas = misionCards.filter(c => c.misionActiva?.isRunning).length;
+
+      nuevosResultados.push({
+        paso: '4. Cards de Misión',
+        estado: totalMisionCards > 0 ? 'success' : 'warning',
+        mensaje: `${totalMisionCards} cards encontradas (${misionesConId} con ID, ${misionesActivas} activas)`,
+        detalles: {
+          total: totalMisionCards,
+          conId: misionesConId,
+          activas: misionesActivas,
+          tipos: misionCards.reduce((acc, c) => {
+            acc[c.cardType] = (acc[c.cardType] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>)
+        }
+      });
+
+      // 5. Misiones activas en BD
+      const { data: misionesActivasBD } = await supabase
+        .from('misiones_activas')
+        .select('id, tipo, id_referencia, estado, is_running, capture_now')
+        .eq('tipo', 'mision');
+
+      nuevosResultados.push({
+        paso: '5. Misiones Activas BD',
+        estado: misionesActivasBD && misionesActivasBD.length > 0 ? 'success' : 'warning',
+        mensaje: `${misionesActivasBD?.length || 0} misiones activas en BD`,
+        detalles: misionesActivasBD?.map(m => ({
+          id: m.id.substring(0, 8),
+          ref: m.id_referencia,
+          estado: m.estado,
+          running: m.is_running,
+          capture: m.capture_now?.substring(0, 20)
+        }))
+      });
+
+      // Actualizar diagnóstico de misiones
+      await diagnosticarMisiones();
 
     } catch (error) {
       nuevosResultados.push({
@@ -175,9 +273,7 @@ export default function DiagnosticoPizarra() {
         estado: 'error',
         mensaje: 'Error inesperado durante el diagnóstico',
         detalles: {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          raw: error
+          error: error instanceof Error ? error.message : String(error)
         }
       });
     }
@@ -231,21 +327,28 @@ export default function DiagnosticoPizarra() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-72 max-h-[450px] bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden flex flex-col">
+    <div className="fixed bottom-4 right-4 z-50 w-80 max-h-[550px] bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden flex flex-col">
       {/* Header */}
       <div className="bg-purple-600 text-white px-3 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bug className="w-4 h-4" />
-          <h3 className="font-semibold text-sm">Diagnóstico</h3>
+          <h3 className="font-semibold text-sm">Debug Misiones</h3>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`p-1 rounded transition-colors ${autoRefresh ? 'bg-green-500' : 'hover:bg-purple-700'}`}
+            title={autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+          >
+            <RefreshCw className={`w-3 h-3 ${autoRefresh ? 'animate-spin' : ''}`} />
+          </button>
           <button
             onClick={ejecutarDiagnostico}
             disabled={loading}
             className="p-1 hover:bg-purple-700 rounded transition-colors disabled:opacity-50"
             title="Reejecutar diagnóstico"
           >
-            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+            <Target className="w-3 h-3" />
           </button>
           <button
             onClick={() => setIsOpen(false)}
@@ -256,7 +359,82 @@ export default function DiagnosticoPizarra() {
         </div>
       </div>
 
-      {/* Contenido */}
+      {/* Cards de Misión en tiempo real */}
+      <div className="bg-gray-900 p-2 border-b border-gray-700">
+        <h4 className="text-xs font-semibold text-green-400 mb-2">Cards de Misión (Real-time)</h4>
+        {misionCards.length === 0 ? (
+          <p className="text-gray-500 text-xs">No hay cards de misión</p>
+        ) : (
+          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+            {misionCards.map((card) => (
+              <div
+                key={card.cardId}
+                className={`p-1.5 rounded text-xs ${
+                  card.misionActiva?.isRunning
+                    ? 'bg-green-900/50 border border-green-500'
+                    : 'bg-gray-800 border border-gray-700'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-white truncate flex-1">
+                    {card.title}
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                    card.cardType === 'mision-organizacion'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-orange-600 text-white'
+                  }`}>
+                    {card.cardType}
+                  </span>
+                </div>
+                <div className="text-[9px] text-gray-400 mb-1">
+                  ID Misión: {card.idMision || 'null'} | Card: {card.cardId.substring(0, 8)}
+                </div>
+                {card.misionActiva ? (
+                  <div className="space-y-1">
+                    <div className="grid grid-cols-3 gap-1 text-[10px]">
+                      <div>
+                        <span className="text-gray-500">Estado:</span>
+                        <span className={`ml-1 ${
+                          card.misionActiva.estado === 'en_progreso' ? 'text-green-400' : 'text-yellow-400'
+                        }`}>
+                          {card.misionActiva.estado}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Running:</span>
+                        <span className={`ml-1 ${card.misionActiva.isRunning ? 'text-green-400' : 'text-red-400'}`}>
+                          {card.misionActiva.isRunning ? 'SI' : 'NO'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Capture:</span>
+                        <span className={`ml-1 ${
+                          card.misionActiva.captureNow === '1' ? 'text-yellow-400 animate-pulse' :
+                          card.misionActiva.captureNow?.startsWith('http') ? 'text-blue-400' : 'text-gray-500'
+                        }`}>
+                          {card.misionActiva.captureNow === '1' ? 'PEDIDA' :
+                           card.misionActiva.captureNow?.startsWith('http') ? 'URL' :
+                           card.misionActiva.captureNow || '-'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-[9px] text-gray-500">
+                      Último capture: {card.misionActiva.fechaUltimoCapture
+                        ? new Date(card.misionActiva.fechaUltimoCapture).toLocaleTimeString()
+                        : 'nunca'}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-gray-500">Sin misión activa (no hay registro en misiones_activas)</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Contenido - Diagnóstico general */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {loading && resultados.length === 0 && (
           <div className="flex items-center justify-center py-6">
@@ -295,19 +473,12 @@ export default function DiagnosticoPizarra() {
             </div>
           </div>
         ))}
-
-        {resultados.length === 0 && !loading && (
-          <div className="text-center py-8 text-gray-500">
-            <Bug className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-            <p>Haz clic en el botón de refrescar para ejecutar el diagnóstico</p>
-          </div>
-        )}
       </div>
 
-      {/* Footer con resumen y acciones */}
+      {/* Footer */}
       {resultados.length > 0 && (
         <div className="border-t border-gray-200 px-3 py-1.5 bg-gray-50">
-          <div className="flex items-center justify-between text-[10px] mb-1">
+          <div className="flex items-center justify-between text-[10px]">
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-0.5">
                 <CheckCircle className="w-2.5 h-2.5 text-green-500" />
@@ -322,11 +493,10 @@ export default function DiagnosticoPizarra() {
                 {resultados.filter(r => r.estado === 'error').length}
               </span>
             </div>
-            <span className="text-gray-600">
-              {resultados.length} checks
+            <span className={`px-1.5 py-0.5 rounded ${autoRefresh ? 'bg-green-100 text-green-700' : 'text-gray-600'}`}>
+              {autoRefresh ? 'Auto-refresh ON' : `${resultados.length} checks`}
             </span>
           </div>
-
         </div>
       )}
     </div>

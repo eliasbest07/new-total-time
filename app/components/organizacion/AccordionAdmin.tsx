@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -26,6 +26,7 @@ import { Usuario } from '@/domain/entities/Usuario';
 import { Actividad } from '@/domain/entities/Actividad';
 import { Mision } from '@/domain/entities/Mision';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { supabase } from '@/infrastructure/services/SupabaseClient';
 
 // Tipos/Interfaces
 interface Section {
@@ -96,6 +97,74 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
   const MISIONES_PER_PAGE = 2;
   const ACTIVIDADES_PER_PAGE = 2;
   const USERS_PER_PAGE = 4;
+
+  // Estado para misiones activas (desde misiones_activas)
+  const [misionesActivas, setMisionesActivas] = useState<Record<number, { estado: string; isRunning: boolean }>>({});
+
+  // Cargar y escuchar estado de misiones activas
+  useEffect(() => {
+    if (misiones.length === 0) return;
+
+    const loadMisionesActivas = async () => {
+      const { data, error } = await supabase
+        .from('misiones_activas')
+        .select('id_referencia, estado, is_running')
+        .eq('tipo', 'mision')
+        .in('id_referencia', misiones.map(m => m.id));
+
+      if (error) {
+        console.error('❌ [AccordionAdmin] Error cargando misiones activas:', error);
+        return;
+      }
+
+      const estadoMisiones: Record<number, { estado: string; isRunning: boolean }> = {};
+      data?.forEach(ma => {
+        estadoMisiones[ma.id_referencia] = {
+          estado: ma.estado || 'pendiente',
+          isRunning: ma.is_running || false
+        };
+      });
+
+      setMisionesActivas(estadoMisiones);
+      console.log('✅ [AccordionAdmin] Misiones activas cargadas:', estadoMisiones);
+    };
+
+    loadMisionesActivas();
+
+    // Suscribirse a cambios en tiempo real
+    const channel = supabase
+      .channel('accordion-misiones-activas')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'misiones_activas',
+          filter: 'tipo=eq.mision'
+        },
+        (payload) => {
+          console.log('📡 [AccordionAdmin] Cambio en misiones_activas:', payload);
+          const updatedMision = payload.new as any;
+          if (!updatedMision) return;
+
+          const idReferencia = updatedMision.id_referencia;
+          if (misiones.some(m => m.id === idReferencia)) {
+            setMisionesActivas(prev => ({
+              ...prev,
+              [idReferencia]: {
+                estado: updatedMision.estado || 'pendiente',
+                isRunning: updatedMision.is_running || false
+              }
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [misiones]);
 
   // Obtener el estado de presencia desde AuthContext
   const { isUserOnline: checkUserOnline } = useAuth();
@@ -228,7 +297,11 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
       case 'en progreso':
       case 'en_progreso':
       case 'activo':
+        return 'bg-green-100 text-green-800';
+      case 'entregada':
         return 'bg-blue-100 text-blue-800';
+      case 'revisada':
+        return 'bg-purple-100 text-purple-800';
       case 'pendiente':
         return 'bg-yellow-100 text-yellow-800';
       case 'cancelado':
@@ -325,11 +398,21 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                       ) : (
                         <div>
                           <div className="space-y-3 mb-3">
-                            {currentMisiones.map((mision) => (
+                            {currentMisiones.map((mision) => {
+                              const estadoActivo = misionesActivas[mision.id];
+                              const isEnProgreso = estadoActivo?.estado === 'en_progreso' || estadoActivo?.isRunning;
+                              // Usar estado de misiones_activas si existe, sino usar el de la tabla misiones
+                              const estadoFinal = isEnProgreso ? 'en_progreso' : (estadoActivo?.estado || mision.estado);
+
+                              return (
                               <div
                                 key={mision.id}
                                 draggable
-                                className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none"
+                                className={`p-3 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none ${
+                                  isEnProgreso
+                                    ? 'bg-green-500/30 hover:bg-green-500/40 border border-green-400/50'
+                                    : 'bg-white/10 hover:bg-white/20'
+                                }`}
                                 onClick={() => {
                                   if (onMisionClick) {
                                     onMisionClick(mision);
@@ -355,11 +438,20 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                 }}
                               >
                                 <div className="flex items-start justify-between mb-2">
-                                  <h4 className="font-semibold text-white">
-                                    {mision.nombre || 'Sin nombre'}
-                                  </h4>
+                                  <div className="flex items-center gap-2">
+                                    {isEnProgreso && (
+                                      <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" title="En progreso"></span>
+                                    )}
+                                    <h4 className="font-semibold text-white">
+                                      {mision.nombre || 'Sin nombre'}
+                                    </h4>
+                                  </div>
                                   {mision.horas && (
-                                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium ml-2">
+                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ml-2 ${
+                                      isEnProgreso
+                                        ? 'bg-green-200 text-green-800'
+                                        : 'bg-orange-100 text-orange-700'
+                                    }`}>
                                       {mision.horas}h
                                     </span>
                                   )}
@@ -369,9 +461,9 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                     {mision.descripcion}
                                   </p>
                                 )}
-                                {mision.estado && (
-                                  <span className={`inline-block text-xs px-2 py-1 rounded ${getEstadoColor(mision.estado)}`}>
-                                    {formatEstado(mision.estado)}
+                                {estadoFinal && (
+                                  <span className={`inline-block text-xs px-2 py-1 rounded ${getEstadoColor(estadoFinal)}`}>
+                                    {formatEstado(estadoFinal)}
                                   </span>
                                 )}
                                 <div className="flex gap-3 text-xs text-white/60 mt-2">
@@ -383,7 +475,8 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                   )}
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
 
                           {/* Paginación horizontal para misiones */}

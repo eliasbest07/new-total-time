@@ -97,11 +97,11 @@ export default function PizarraOrganizacionPage() {
       }
     };
 
-    // Ejecutar inmediatamente al montar
-    ejecutarVerificacion();
-
-    // Luego cada 6 minutos (alineado con el intervalo de capturas de 5 min + margen)
-    intervalo = setInterval(ejecutarVerificacion, 6 * 60 * 1000); // 6 minutos
+    // DESACTIVADO COMPLETAMENTE - Testing
+    // ejecutarVerificacion();
+    // intervalo = setInterval(ejecutarVerificacion, 20 * 60 * 1000);
+    
+    console.log('🚫 [PizarraOrg] Verificación automática COMPLETAMENTE DESACTIVADA');
 
     return () => {
       console.log('🔕 [PizarraOrg] Deteniendo verificación periódica de misiones inactivas');
