@@ -11,6 +11,7 @@ interface ConnectionLinesProps {
   mousePosition: { x: number; y: number };
   deleteConnection: (connectionId: string) => void;
   navigateToCard?: (cardId: string) => void;
+  zoomLevel?: number;
 }
 
 export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
@@ -21,7 +22,8 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
   connectingFrom,
   mousePosition,
   deleteConnection,
-  navigateToCard
+  navigateToCard,
+  zoomLevel = 1
 }) => {
   const [hoveredConnection, setHoveredConnection] = React.useState<string | null>(null);
   return (
@@ -168,8 +170,9 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
         const fromCard = cards.find(card => card.id === connectingFrom);
         if (!fromCard) return null;
 
-        const cursorX = mousePosition.x - panOffset.x;
-        const cursorY = mousePosition.y - panOffset.y;
+        // Compensar el zoom dividiendo las coordenadas del mouse
+        const cursorX = (mousePosition.x / zoomLevel) - panOffset.x;
+        const cursorY = (mousePosition.y / zoomLevel) - panOffset.y;
         const fromEdge = getCardEdgePoint(fromCard, cursorX, cursorY);
 
         return (

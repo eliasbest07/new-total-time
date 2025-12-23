@@ -2900,6 +2900,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             mousePosition={mousePosition}
             deleteConnection={deleteConnection}
             navigateToCard={navigateToCardWrapper}
+            zoomLevel={zoomLevel}
           />
 
           {cards.length === 0 && (
