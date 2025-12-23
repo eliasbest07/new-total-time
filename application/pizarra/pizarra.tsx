@@ -2893,6 +2893,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             addMisionCard={addMisionCard}
             cards={cards}
             onOpenCapturasModal={onOpenCapturasModal}
+            idPizarraOrganizacion={isOrganizacionPizarra ? pizarraOrganizacion?.id : null}
           />
         ))}
 

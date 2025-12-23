@@ -12,6 +12,7 @@ import { ImageCard } from './cards/ImageCard';
 import { GenericCard } from './cards/GenericCard';
 import { NoteCard } from './cards/NoteCard';
 import { RecursoCard } from './cards/RecursoCard';
+import { SupabaseCardOrganizacionRepository } from '@/infrastructure/datasource/SupabaseCardOrganizacionRepository';
 
 interface CardFactoryProps {
   card: Card;
@@ -50,6 +51,7 @@ interface CardFactoryProps {
   openImageWindow?: (imageUrl: string, title: string) => void;
   cards?: Card[]; // ✅ Todas las cards para buscar notas asociadas
   onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void; // ✅ Callback para abrir modal de capturas
+  idPizarraOrganizacion?: string | null; // ✅ ID de la pizarra de organización para sincronizar cambios
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -136,7 +138,8 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
       return (
         <MisionCardOrganizacion
           card={card}
-          updateCard={(cardId, updates) => {
+          updateCard={async (cardId, updates) => {
+            // 1. Actualizar estado local inmediatamente
             props.setCards((prevCards) =>
               prevCards.map((c): Card => {
                 if (c.id !== cardId) return c;
@@ -156,6 +159,19 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
                 return { ...c, ...updates } as Card;
               })
             );
+
+            // 2. Sincronizar con Supabase si hay cambios de title
+            if (updates.title !== undefined && props.idPizarraOrganizacion) {
+              try {
+                const repository = new SupabaseCardOrganizacionRepository();
+                await repository.updateCard(props.idPizarraOrganizacion, cardId, {
+                  title: updates.title
+                });
+                console.log('✅ [CardFactory] Título sincronizado con Supabase:', updates.title);
+              } catch (error) {
+                console.error('❌ [CardFactory] Error sincronizando título con Supabase:', error);
+              }
+            }
           }}
           usuarios={props.usuarios}
           currentUserId={props.currentUserId}
