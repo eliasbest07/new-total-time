@@ -133,6 +133,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   const [cardZIndices, setCardZIndices] = useState<{ [cardId: string]: number }>({});
   const [maxZIndex, setMaxZIndex] = useState(1);
 
+  // Estado de zoom (1 = 100%)
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const MIN_ZOOM = 0.25;
+  const MAX_ZOOM = 2;
+  const ZOOM_STEP = 0.1;
+
   const canvasRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
 
   const {
@@ -370,7 +376,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     handleGlobalMouseMove: panGlobalMouseMove,
     handleMouseUp: panHandleMouseUp,
     setCanvasRef
-  } = useCanvasPan(isConnecting);
+  } = useCanvasPan(isConnecting, zoomLevel);
 
   // Sincronizar panOffset SOLO cuando se carga la pizarra de otro usuario
   useEffect(() => {
@@ -513,20 +519,53 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
   }, []);
 
+  // Funciones de zoom
+  const zoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(prev + ZOOM_STEP, MAX_ZOOM));
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(prev - ZOOM_STEP, MIN_ZOOM));
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    setZoomLevel(1);
+  }, []);
+
+  // Handler para Ctrl+Scroll zoom
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      setZoomLevel(prev => Math.min(Math.max(prev + delta, MIN_ZOOM), MAX_ZOOM));
+    }
+  }, []);
+
+  // Registrar evento wheel para zoom
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [handleWheel]);
+
   const {
     draggedCard,
     draggedMisionId,
     handleCardMouseDown,
     handleGlobalMouseMove: dragGlobalMouseMove,
     handleMouseUp: dragHandleMouseUp
-  } = useCardDrag(cards, setCards, panOffset, isConnecting, canvasRef);
+  } = useCardDrag(cards, setCards, panOffset, isConnecting, canvasRef, zoomLevel);
 
   const {
     resizingCard,
     handleResizeStart,
     handleResizeMove,
     handleResizeEnd
-  } = useCardResize(cards, setCards);
+  } = useCardResize(cards, setCards, zoomLevel);
 
   // LocalStorage para persistencia - SOLO para pizarra propia, NO para pizarras compartidas
   const localStorageHookResult = usePizarraLocalStorage(
@@ -2785,42 +2824,85 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         onDrop={handleDrop}
         onMouseDown={handleCanvasMouseDown}
       >
-        {/* Botón para navegar al origen (0,0) */}
-        <button
-          onClick={navigateToOrigin}
-          className={`absolute z-[999] bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-full p-3 shadow-lg border border-gray-300 hover:border-blue-400 transition-all duration-200 hover:scale-110 active:scale-95 group ${
+        {/* Controles de navegación y zoom */}
+        <div
+          className={`absolute z-[999] flex items-center gap-2 ${
             fullMode ? 'bottom-4 left-4' : 'top-4 left-4'
           }`}
-          title="Ir al origen (0,0)"
           style={{ pointerEvents: 'auto' }}
         >
-          {/* Icono de ubicación/centro con crosshair */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+          {/* Botón ir al origen */}
+          <button
+            onClick={navigateToOrigin}
+            className="bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-full p-2.5 shadow-lg border border-gray-300 hover:border-blue-400 transition-all duration-200 hover:scale-110 active:scale-95"
+            title="Ir al origen (0,0)"
           >
-            <circle cx="12" cy="12" r="3" strokeWidth={2} />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v4m0 12v4M2 12h4m12 0h4" />
-          </svg>
-          <span className="absolute -bottom-10 left-0 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-            Ir al origen (0,0)
-          </span>
-        </button>
-        <ConnectionLines
-          connections={connections}
-          cards={cards}
-          panOffset={panOffset}
-          isConnecting={isConnecting}
-          connectingFrom={connectingFrom}
-          mousePosition={mousePosition}
-          deleteConnection={deleteConnection}
-          navigateToCard={navigateToCardWrapper}
-        />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <circle cx="12" cy="12" r="3" strokeWidth={2} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v4m0 12v4M2 12h4m12 0h4" />
+            </svg>
+          </button>
 
-        {cards.length === 0 && (
+          {/* Separador */}
+          <div className="w-px h-6 bg-gray-300" />
+
+          {/* Controles de zoom */}
+          <div className="flex items-center bg-white rounded-full shadow-lg border border-gray-300 overflow-hidden">
+            {/* Botón zoom out */}
+            <button
+              onClick={zoomOut}
+              disabled={zoomLevel <= MIN_ZOOM}
+              className="p-2.5 text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Alejar (Ctrl + Scroll ↓)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+              </svg>
+            </button>
+
+            {/* Indicador de zoom (clickeable para reset) */}
+            <button
+              onClick={resetZoom}
+              className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 transition-colors min-w-[52px]"
+              title="Restablecer zoom a 100%"
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+
+            {/* Botón zoom in */}
+            <button
+              onClick={zoomIn}
+              disabled={zoomLevel >= MAX_ZOOM}
+              className="p-2.5 text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Acercar (Ctrl + Scroll ↑)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Contenedor con zoom aplicado */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            transform: `scale(${zoomLevel})`,
+            transformOrigin: '0 0',
+          }}
+        >
+          <ConnectionLines
+            connections={connections}
+            cards={cards}
+            panOffset={panOffset}
+            isConnecting={isConnecting}
+            connectingFrom={connectingFrom}
+            mousePosition={mousePosition}
+            deleteConnection={deleteConnection}
+            navigateToCard={navigateToCardWrapper}
+          />
+
+          {cards.length === 0 && (
           <div
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
             style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px)` }}
@@ -2896,6 +2978,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             idPizarra={pizarraActual?.id || null}
           />
         ))}
+        </div>
+        {/* Fin del contenedor con zoom */}
 
         {isConnecting && (
           <div

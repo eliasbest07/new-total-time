@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 
-export const useCanvasPan = (isConnecting: boolean = false) => {
+export const useCanvasPan = (isConnecting: boolean = false, zoomLevel: number = 1) => {
   const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -19,19 +19,21 @@ export const useCanvasPan = (isConnecting: boolean = false) => {
     if (!draggedCard && e.target === e.currentTarget && !isConnecting) {
       e.preventDefault();
       setIsPanning(true);
-      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+      // Guardar posición inicial compensando el zoom
+      setPanStart({ x: e.clientX - (panOffset.x * zoomLevel), y: e.clientY - (panOffset.y * zoomLevel) });
       document.body.style.userSelect = 'none';
       document.body.style.webkitUserSelect = 'none';
     }
-  }, [panOffset]);
+  }, [panOffset, zoomLevel]);
 
   const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
     if (isPanning) {
-      const newPanX = e.clientX - panStart.x;
-      const newPanY = e.clientY - panStart.y;
+      // Compensar el zoom dividiendo el movimiento
+      const newPanX = (e.clientX - panStart.x) / zoomLevel;
+      const newPanY = (e.clientY - panStart.y) / zoomLevel;
       setPanOffset({ x: newPanX, y: newPanY });
     }
-  }, [isPanning, panStart]);
+  }, [isPanning, panStart, zoomLevel]);
 
   const handleMouseUp = useCallback(() => {
     if (isPanning) {

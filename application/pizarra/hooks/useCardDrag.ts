@@ -6,7 +6,8 @@ export const useCardDrag = (
   setCards: React.Dispatch<React.SetStateAction<Card[]>>,
   panOffset: { x: number; y: number },
   isConnecting: boolean,
-  canvasRef: React.RefObject<HTMLDivElement>
+  canvasRef: React.RefObject<HTMLDivElement>,
+  zoomLevel: number = 1
 ) => {
   const [draggedCard, setDraggedCard] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -81,26 +82,32 @@ export const useCardDrag = (
     if (isConnecting) return;
 
     const rect = canvasRef.current!.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left - panOffset.x - card.x;
-    const offsetY = e.clientY - rect.top - panOffset.y - card.y;
+    // Compensar el zoom dividiendo las coordenadas relativas
+    const mouseX = (e.clientX - rect.left) / zoomLevel;
+    const mouseY = (e.clientY - rect.top) / zoomLevel;
+    const offsetX = mouseX - panOffset.x - card.x;
+    const offsetY = mouseY - panOffset.y - card.y;
 
     setDraggedCard(card.id);
     setDragOffset({ x: offsetX, y: offsetY });
-  }, [panOffset, isConnecting, canvasRef]);
+  }, [panOffset, isConnecting, canvasRef, zoomLevel]);
 
   const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
     if (!canvasRef.current || !draggedCard) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
-    const newX = e.clientX - rect.left - panOffset.x - dragOffset.x;
-    const newY = e.clientY - rect.top - panOffset.y - dragOffset.y;
+    // Compensar el zoom dividiendo las coordenadas relativas
+    const mouseX = (e.clientX - rect.left) / zoomLevel;
+    const mouseY = (e.clientY - rect.top) / zoomLevel;
+    const newX = mouseX - panOffset.x - dragOffset.x;
+    const newY = mouseY - panOffset.y - dragOffset.y;
 
     setCards(prev => prev.map(card =>
       card.id === draggedCard
         ? { ...card, x: newX, y: newY }
         : card
     ));
-  }, [draggedCard, dragOffset, panOffset, canvasRef, setCards]);
+  }, [draggedCard, dragOffset, panOffset, canvasRef, setCards, zoomLevel]);
 
   const handleMouseUp = useCallback(() => {
     console.log('🖱️ [DRAG] handleMouseUp ejecutado');

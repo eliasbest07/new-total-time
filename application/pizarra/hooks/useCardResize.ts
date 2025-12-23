@@ -3,7 +3,8 @@ import { Card } from '../types';
 
 export const useCardResize = (
   cards: Card[],
-  setCards: React.Dispatch<React.SetStateAction<Card[]>>
+  setCards: React.Dispatch<React.SetStateAction<Card[]>>,
+  zoomLevel: number = 1
 ) => {
   const [resizingCard, setResizingCard] = useState<string | null>(null);
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
@@ -27,8 +28,9 @@ export const useCardResize = (
   const handleResizeMove = useCallback((e: MouseEvent) => {
     if (!resizingCard) return;
 
-    const deltaX = e.clientX - resizeStart.x;
-    const deltaY = e.clientY - resizeStart.y;
+    // Compensar el zoom dividiendo los deltas
+    const deltaX = (e.clientX - resizeStart.x) / zoomLevel;
+    const deltaY = (e.clientY - resizeStart.y) / zoomLevel;
 
     const newWidth = Math.max(250, Math.min(600, resizeStart.width + deltaX));
     const newHeight = Math.max(200, Math.min(500, resizeStart.height + deltaY));
@@ -38,7 +40,7 @@ export const useCardResize = (
         ? { ...card, width: newWidth, height: newHeight }
         : card
     ));
-  }, [resizingCard, resizeStart, setCards]);
+  }, [resizingCard, resizeStart, setCards, zoomLevel]);
 
   const handleResizeEnd = useCallback(() => {
     setResizingCard(null);

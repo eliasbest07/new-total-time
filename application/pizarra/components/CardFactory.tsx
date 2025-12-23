@@ -167,9 +167,8 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
                 await repository.updateCard(props.idPizarra, cardId, {
                   title: updates.title
                 });
-                console.log('✅ [CardFactory] Título sincronizado con Supabase:', updates.title);
               } catch (error) {
-                console.error('❌ [CardFactory] Error sincronizando título con Supabase:', error);
+                // Silent fail - el título ya se actualizó localmente
               }
             }
           }}
