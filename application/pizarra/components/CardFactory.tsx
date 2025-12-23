@@ -12,7 +12,7 @@ import { ImageCard } from './cards/ImageCard';
 import { GenericCard } from './cards/GenericCard';
 import { NoteCard } from './cards/NoteCard';
 import { RecursoCard } from './cards/RecursoCard';
-import { SupabaseCardOrganizacionRepository } from '@/infrastructure/datasource/SupabaseCardOrganizacionRepository';
+import { SupabaseCardRepository } from '@/infrastructure/datasource/SupabaseCardRepository';
 
 interface CardFactoryProps {
   card: Card;
@@ -51,7 +51,7 @@ interface CardFactoryProps {
   openImageWindow?: (imageUrl: string, title: string) => void;
   cards?: Card[]; // ✅ Todas las cards para buscar notas asociadas
   onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void; // ✅ Callback para abrir modal de capturas
-  idPizarraOrganizacion?: string | null; // ✅ ID de la pizarra de organización para sincronizar cambios
+  idPizarra?: string | null; // ✅ ID de la pizarra para sincronizar cambios en DB
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -161,10 +161,10 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
             );
 
             // 2. Sincronizar con Supabase si hay cambios de title
-            if (updates.title !== undefined && props.idPizarraOrganizacion) {
+            if (updates.title !== undefined && props.idPizarra) {
               try {
-                const repository = new SupabaseCardOrganizacionRepository();
-                await repository.updateCard(props.idPizarraOrganizacion, cardId, {
+                const repository = new SupabaseCardRepository();
+                await repository.updateCard(props.idPizarra, cardId, {
                   title: updates.title
                 });
                 console.log('✅ [CardFactory] Título sincronizado con Supabase:', updates.title);
