@@ -263,11 +263,11 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
 
     const { SupabaseCardProyectoRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoRepository');
     const { SupabaseProyectoRepository } = await import('@/infrastructure/datasource/SupabaseProyectoRepository');
-    const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
+    // const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
 
     const cardProyectoRepo = new SupabaseCardProyectoRepository();
     const proyectoRepo = new SupabaseProyectoRepository();
-    const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
+    // const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
 
     // 1. Obtener la relación card-proyecto
     const cardProyecto = await cardProyectoRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
@@ -279,9 +279,18 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
       console.log('🔍 [CARD-SYNC] proyecto obtenido:', proyecto);
 
       if (proyecto) {
-        // 3. Obtener notas asociadas
-        const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
-        const notasIds = proyectoNotas ? proyectoNotas.map(nota => nota.id_card_nota) : [];
+        // 3. Obtener notas asociadas (COMENTADO - tabla no existe)
+        // const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
+        // const notasIds = proyectoNotas ? proyectoNotas.map(nota => nota.id_card_nota) : [];
+        const notasIds: string[] = [];
+
+        // Parsear colors de forma segura
+        let parsedColors = null;
+        if (proyecto.colors && typeof proyecto.colors === 'string' && proyecto.colors.trim()) {
+          try {
+            parsedColors = JSON.parse(proyecto.colors);
+          } catch { /* ignorar error de parsing */ }
+        }
 
         // 4. Actualizar proyectoData
         card.proyectoData = {
@@ -290,22 +299,87 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
           descripcion: proyecto.descripcion || null,
           icono: proyecto.icono || null,
           id_organizacion: proyecto.id_organizacion || null,
-          colors: proyecto.colors ? JSON.parse(proyecto.colors as any) : null,
+          colors: parsedColors,
           created_at: proyecto.created_at,
           notas: notasIds
         };
-        console.log('✅ [CARD-SYNC] proyectoData cargado exitosamente:', card.proyectoData);
+        console.log('✅ [CARD-SYNC] proyectoData cargado exitosamente:', {
+          proyectoId: card.proyectoData.id,
+          proyectoIdType: typeof card.proyectoData.id,
+          nombre: card.proyectoData.nombre,
+          cardId: cardDB.card_id
+        });
       } else {
         console.warn('⚠️ [CARD-SYNC] No se encontró proyecto con id:', cardProyecto.id_proyecto);
       }
     } else {
       console.warn('⚠️ [CARD-SYNC] No se encontró cardProyecto para card:', cardDB.card_id);
 
-      // Fallback: intentar cargar solo las notas asociadas
-      const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
-      if (proyectoNotas && proyectoNotas.length > 0 && card.proyectoData) {
-        card.proyectoData.notas = proyectoNotas.map(nota => nota.id_card_nota);
-        console.log('ℹ️ [CARD-SYNC] Solo se cargaron notas del proyecto (sin datos de proyecto)');
+      // Fallback: intentar leer proyectoId del campo content (guardado como JSON)
+      let proyectoIdFromContent: number | null = null;
+      if (cardDB.content) {
+        try {
+          const contentData = JSON.parse(cardDB.content);
+          if (contentData.proyectoId) {
+            proyectoIdFromContent = contentData.proyectoId;
+            console.log('🔄 [CARD-SYNC] proyectoId encontrado en content:', proyectoIdFromContent);
+          }
+        } catch {
+          // No es JSON válido, ignorar
+        }
+      }
+
+      if (proyectoIdFromContent) {
+        // Cargar proyecto usando el ID del content
+        const proyecto = await proyectoRepo.getProyectoById(proyectoIdFromContent);
+        if (proyecto) {
+          // COMENTADO - tabla card_proyecto_notas no existe
+          // const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
+          // const notasIds = proyectoNotas ? proyectoNotas.map(nota => nota.id_card_nota) : [];
+          const notasIds: string[] = [];
+
+          // Parsear colors de forma segura
+          let parsedColors = null;
+          if (proyecto.colors && typeof proyecto.colors === 'string' && proyecto.colors.trim()) {
+            try {
+              parsedColors = JSON.parse(proyecto.colors);
+            } catch { /* ignorar error de parsing */ }
+          }
+
+          card.proyectoData = {
+            id: proyecto.id,
+            nombre: proyecto.nombre || card.title,
+            descripcion: proyecto.descripcion || null,
+            icono: proyecto.icono || null,
+            id_organizacion: proyecto.id_organizacion || null,
+            colors: parsedColors,
+            created_at: proyecto.created_at,
+            notas: notasIds
+          };
+          console.log('✅ [CARD-SYNC] proyectoData cargado desde content:', {
+            proyectoId: card.proyectoData.id,
+            nombre: card.proyectoData.nombre
+          });
+
+          // Crear la relación card_proyectos para futuras cargas
+          try {
+            await cardProyectoRepo.create({
+              id_card: cardDB.id,
+              id_proyecto: proyectoIdFromContent
+            });
+            console.log('✅ [CARD-SYNC] Relación card_proyectos creada automáticamente');
+          } catch (e) {
+            // Puede fallar si ya existe, ignorar
+          }
+        }
+      } else {
+        // Fallback: intentar cargar solo las notas asociadas
+        // COMENTADO - tabla card_proyecto_notas no existe
+        // const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
+        // if (proyectoNotas && proyectoNotas.length > 0 && card.proyectoData) {
+        //   card.proyectoData.notas = proyectoNotas.map(nota => nota.id_card_nota);
+        //   console.log('ℹ️ [CARD-SYNC] Solo se cargaron notas del proyecto (sin datos de proyecto)');
+        // }
       }
     }
   } catch (error) {

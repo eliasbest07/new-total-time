@@ -9,6 +9,31 @@ import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Ventana from '@/app/demo/components/Ventana';
 
+// Helper para convertir iconos de texto a emojis
+const getIconEmoji = (icono: string | null): string => {
+  if (!icono) return '📄';
+
+  const iconMap: { [key: string]: string } = {
+    'icon_doc': '📄',
+    'icon_sheet': '📊',
+    'icon_slide': '📽️',
+    'icon_pdf': '📕',
+    'icon_link': '🔗',
+    'icon_folder': '📁',
+    'icon_image': '🖼️',
+    'icon_video': '🎥',
+    'icon_code': '💻',
+    'icon_note': '📝'
+  };
+
+  // Si el icono ya es un emoji (tiene más de 1 carácter o no está en el mapa), devolverlo tal cual
+  if (!icono.startsWith('icon_')) {
+    return icono;
+  }
+
+  return iconMap[icono] || '📄';
+};
+
 interface ProyectoCardOrganizacionProps {
   card: Card;
   editingTitle: string | null;
@@ -64,11 +89,92 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   const [showImageMenu, setShowImageMenu] = useState(false);
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null);
   const [actualizandoImagen, setActualizandoImagen] = useState(false);
+  const eliminandoRecursoRef = useRef(false);
   const imageMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Estado local para datos del proyecto cargados desde BD
+  const [proyectoDataLocal, setProyectoDataLocal] = useState<{
+    icono: string | null;
+    descripcion: string | null;
+    nombre: string | null;
+  } | null>(null);
+
   // Extraer ID del proyecto (puede venir de diferentes campos según la implementación)
-  const proyectoId = (card.proyectoData as any)?.id;
+  // Fallback: si proyectoData no está disponible, intentar leer del content (donde se guarda como JSON)
+  const proyectoId = React.useMemo(() => {
+    console.log('🔍 [ProyectoCardOrganizacion] Calculando proyectoId:', {
+      cardId: card.id,
+      proyectoDataId: card.proyectoData?.id,
+      content: card.content?.substring?.(0, 100)
+    });
+
+    if (card.proyectoData?.id) {
+      console.log('✅ [ProyectoCardOrganizacion] proyectoId desde proyectoData:', card.proyectoData.id);
+      return card.proyectoData.id;
+    }
+    // Fallback: intentar leer del content
+    if (card.content) {
+      try {
+        const contentData = JSON.parse(card.content);
+        if (contentData.proyectoId) {
+          console.log('✅ [ProyectoCardOrganizacion] proyectoId desde content (fallback):', contentData.proyectoId);
+          return contentData.proyectoId;
+        }
+      } catch {
+        // No es JSON válido, ignorar
+        console.log('⚠️ [ProyectoCardOrganizacion] Content no es JSON válido');
+      }
+    }
+    console.log('❌ [ProyectoCardOrganizacion] No se encontró proyectoId');
+    return null;
+  }, [card.proyectoData?.id, card.content]);
+
+  // Cargar datos básicos del proyecto (icono, descripción) si no están en proyectoData
+  useEffect(() => {
+    const cargarDatosProyecto = async () => {
+      // Si ya tenemos los datos del proyecto en props, no necesitamos cargar
+      if (card.proyectoData?.icono !== undefined || card.proyectoData?.descripcion !== undefined) {
+        console.log('✅ [ProyectoCardOrganizacion] Datos del proyecto ya disponibles en props');
+        return;
+      }
+
+      // Si no tenemos proyectoId, no podemos cargar
+      if (!proyectoId) {
+        console.log('⚠️ [ProyectoCardOrganizacion] No hay proyectoId para cargar datos del proyecto');
+        return;
+      }
+
+      try {
+        console.log('🔄 [ProyectoCardOrganizacion] Cargando datos del proyecto desde BD, proyectoId:', proyectoId);
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+        const { data: proyecto, error } = await supabase
+          .from('proyecto')
+          .select('nombre, descripcion, icono')
+          .eq('id', proyectoId)
+          .single();
+
+        if (error) {
+          console.error('❌ [ProyectoCardOrganizacion] Error cargando proyecto:', error);
+          return;
+        }
+
+        if (proyecto) {
+          console.log('✅ [ProyectoCardOrganizacion] Datos del proyecto cargados:', proyecto);
+          setProyectoDataLocal({
+            icono: proyecto.icono,
+            descripcion: proyecto.descripcion,
+            nombre: proyecto.nombre
+          });
+        }
+      } catch (error) {
+        console.error('❌ [ProyectoCardOrganizacion] Error cargando datos del proyecto:', error);
+      }
+    };
+
+    cargarDatosProyecto();
+  }, [proyectoId, card.proyectoData?.icono, card.proyectoData?.descripcion]);
 
   // Cerrar menú al hacer clic fuera
   useEffect(() => {
@@ -89,9 +195,17 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
   useEffect(() => {
     const cargarDatos = async () => {
-      if (!proyectoId) return;
+      console.log('🔄 [ProyectoCardOrganizacion] cargarDatos llamado con proyectoId:', proyectoId, 'cardId:', card.id);
+
+      // Si no hay proyectoId, no hay datos que cargar - terminar loading
+      if (!proyectoId) {
+        console.log('⚠️ [ProyectoCardOrganizacion] No hay proyectoId, terminando loading');
+        setLoading(false);
+        return;
+      }
 
       try {
+        console.log('✅ [ProyectoCardOrganizacion] Iniciando carga de datos para proyectoId:', proyectoId);
         setLoading(true);
         const { supabase } = await import('@/infrastructure/services/SupabaseClient');
 
@@ -162,27 +276,36 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   }, [proyectoId]);
 
   const eliminarRecursoNota = async (recursoId: number) => {
+    console.log('[eliminarRecurso] Iniciando, id:', recursoId);
+
+    eliminandoRecursoRef.current = true;
+
+    // Eliminar del estado local inmediatamente
+    setRecursos(prev => prev.filter(r => r.id !== recursoId));
+
     try {
-      console.log('Intentando eliminar recurso con ID:', recursoId);
-      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-      const { error, data } = await supabase
-        .from('recursos')
-        .delete()
-        .eq('id', recursoId)
-        .select();
+      const { SupabaseRecursoRepository } = await import('@/infrastructure/datasource/SupabaseRecursoRepository');
+      const repo = new SupabaseRecursoRepository();
 
-      if (error) {
-        console.error('Error de Supabase:', error);
-        throw error;
+      const eliminado = await repo.deleteRecurso(recursoId);
+
+      if (!eliminado) {
+        console.error('[eliminarRecurso] No se pudo eliminar de BD');
+        // Recargar recursos si falló
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+        const { data } = await supabase
+          .from('recursos')
+          .select('*')
+          .eq('proyecto_id', proyectoId)
+          .order('created_at', { ascending: false });
+        setRecursos(data || []);
       }
-
-      console.log('Recurso eliminado exitosamente:', data);
-
-      // Actualizar la lista local
-      setRecursos(recursos.filter(r => r.id !== recursoId));
     } catch (error) {
-      console.error('Error eliminando recurso nota:', error);
-      alert('Error al eliminar la nota: ' + (error as Error).message);
+      console.error('[eliminarRecurso] Error:', error);
+    } finally {
+      setTimeout(() => {
+        eliminandoRecursoRef.current = false;
+      }, 3000);
     }
   };
 
@@ -191,6 +314,12 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     if (!expandedRecursos || !proyectoId) return;
 
     const interval = setInterval(async () => {
+      if (eliminandoRecursoRef.current) {
+        console.log('[error recurso] INTERVALO: Bloqueado');
+        return;
+      }
+
+      console.log('[error recurso] INTERVALO: Recargando...');
       try {
         const { supabase } = await import('@/infrastructure/services/SupabaseClient');
         const { data: recursosData } = await supabase
@@ -199,9 +328,10 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           .eq('proyecto_id', proyectoId)
           .order('created_at', { ascending: false });
 
+        console.log('[error recurso] INTERVALO: Cargados:', recursosData?.length);
         setRecursos(recursosData || []);
       } catch (error) {
-        console.error('Error recargando recursos:', error);
+        console.error('[error recurso] INTERVALO: Error:', error);
       }
     }, 2000); // Recargar cada 2 segundos
 
@@ -500,7 +630,9 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     return url;
   };
 
-  const cleanIcono = card.proyectoData?.icono ? sanitizeIconUrl(card.proyectoData.icono) : null;
+  // Usar icono de proyectoData o del estado local cargado desde BD
+  const iconoSource = card.proyectoData?.icono || proyectoDataLocal?.icono;
+  const cleanIcono = iconoSource ? sanitizeIconUrl(iconoSource) : null;
 
   // Separar recursos en notas y recursos normales
   const recursosNota = recursos.filter(r => r.link?.startsWith('nota://'));
@@ -923,7 +1055,6 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                                 type: 'recurso',
                                 id: recurso.id,
                                 name: recurso.nombre,
-                                resourceType: recurso.tipo || 'document',
                                 url: recurso.link,
                                 icon: recurso.icono,
                                 color: 'bg-blue-500'
@@ -943,23 +1074,24 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                         >
                           {/* Botón eliminar */}
                           <button
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              if (confirm('¿Eliminar esta nota?')) {
-                                eliminarRecursoNota(recurso.id);
+                              const mensaje = esNota ? '¿Eliminar esta nota?' : '¿Eliminar este recurso?';
+                              if (confirm(mensaje)) {
+                                await eliminarRecursoNota(recurso.id);
                               }
                             }}
-                            className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                             data-todo-interactive
-                            title="Eliminar nota"
+                            title={esNota ? "Eliminar nota" : "Eliminar recurso"}
                           >
                             <X size={12} />
                           </button>
 
                           <div className="flex items-start gap-2">
                             <div className="text-xl flex-shrink-0">
-                              {recurso.icono || '📄'}
+                              {getIconEmoji(recurso.icono)}
                             </div>
                             <div className="flex-1 min-w-0 pr-6">
                               <div className="font-medium text-white truncate text-sm">

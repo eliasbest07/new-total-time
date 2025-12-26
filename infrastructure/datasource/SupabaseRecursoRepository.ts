@@ -77,20 +77,26 @@ export class SupabaseRecursoRepository implements RecursoRepository {
 
   async deleteRecurso(id: number): Promise<boolean> {
     try {
-      // console.log('🗑️ Eliminando recurso:', id);
+      console.log('[deleteRecurso] Iniciando eliminación, id:', id);
 
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('recursos')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('id', id);
+
+      console.log('[deleteRecurso] Resultado:', { error, count });
 
       if (error) {
         console.error('❌ Error eliminando recurso:', error);
         return false;
       }
 
-      // console.log('✅ Recurso eliminado exitosamente');
-      return true;
+      if (count === 0) {
+        console.warn('⚠️ [deleteRecurso] No se eliminó ninguna fila. Posible problema de RLS.');
+      }
+
+      console.log('✅ Recurso eliminado, filas:', count);
+      return count !== null && count > 0;
     } catch (error) {
       console.error('❌ Error en deleteRecurso:', error);
       return false;

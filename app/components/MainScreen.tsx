@@ -1170,7 +1170,8 @@ export default function MainScreen() {
                             if (item.cardData && pizarraRef.current) {
                               // Usar el método de la pizarra para agregar el card
                               pizarraRef.current.restoreCard?.(item.cardData);
-                              // alert(`✅ ${item.type} "${item.title}" agregado a la pizarra`);
+                              // Cerrar la ventana de historial
+                              setShowHistoryModal(false);
                             }
                           }}
                           className={`w-full ${colors.badge} px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity`}

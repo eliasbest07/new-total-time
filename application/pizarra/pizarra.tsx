@@ -1440,15 +1440,32 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     console.log('🔧 restoreCard ejecutado con:', cardData);
     // Restaurar un card desde el historial
     const existingIds = cards.map(card => card.id);
+    const newId = generateUniqueId(cardData.type || 'card', existingIds);
+
+    // Manejar image_url de la DB -> imageUrl del frontend
+    const imageUrl = cardData.image_url || cardData.imageUrl;
+
     const restoredCard = {
       ...cardData,
-      id: generateUniqueId(cardData.type || 'card', existingIds),
-      x: cardData.x || generatePosition(),
-      y: cardData.y || generatePosition(),
-      z: Date.now() // Asegurar que aparezca en la parte superior
+      id: newId,
+      x: (cardData.x || generatePosition()) + 50,
+      y: (cardData.y || generatePosition()) + 80,
+      z: Date.now(), // Asegurar que aparezca en la parte superior
+      imageUrl: imageUrl // Asegurar que tenga imageUrl en formato correcto
     };
+
     console.log('✅ Card restaurado creado:', restoredCard);
     console.log('📋 Cards actuales antes de agregar:', cards);
+
+    // Si es una imagen, actualizar pastedImages para que se muestre
+    if (cardData.type === 'image' && imageUrl) {
+      console.log('🖼️ Agregando imagen a pastedImages:', newId, imageUrl);
+      setPastedImages(prev => ({
+        ...prev,
+        [newId]: imageUrl
+      }));
+    }
+
     setCards(prev => {
       const newCards = [...prev, restoredCard];
       console.log('📋 Cards después de agregar:', newCards);
@@ -1612,43 +1629,35 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           }
 
           // Card existente - actualizar sus notas (para proyectos)
-          if ((card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData) {
-            const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
-            const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
-
-            // Obtener el UUID de la card en la BD
-            const cardUUID = cardIdToUUID.get(card.id);
-            if (!cardUUID) {
-              console.error('❌ No se encontró UUID para card proyecto:', card.id);
-              continue;
-            }
-
-            // Obtener notas existentes
-            const notasExistentes = await cardProyectoNotaRepo.getByCardProyectoId(cardUUID);
-            const notasExistentesIds = notasExistentes.map(n => n.id_card_nota);
-
-            // Eliminar notas que ya no existen
-            for (const notaExistente of notasExistentes) {
-              if (!card.proyectoData.notas || !card.proyectoData.notas.includes(notaExistente.id_card_nota)) {
-                await cardProyectoNotaRepo.delete(cardUUID, notaExistente.id_card_nota);
-              }
-            }
-
-            // Crear nuevas notas
-            if (card.proyectoData.notas && card.proyectoData.notas.length > 0) {
-              for (let i = 0; i < card.proyectoData.notas.length; i++) {
-                const notaCardId = card.proyectoData.notas[i];
-                if (!notasExistentesIds.includes(notaCardId)) {
-                  // Crear nueva relación
-                  await cardProyectoNotaRepo.create({
-                    id_card_proyecto: cardUUID,
-                    id_card_nota: notaCardId,
-                    position: i
-                  });
-                }
-              }
-            }
-          }
+          // COMENTADO - tabla card_proyecto_notas no existe
+          // if ((card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData) {
+          //   const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
+          //   const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
+          //   const cardUUID = cardIdToUUID.get(card.id);
+          //   if (!cardUUID) {
+          //     console.error('❌ No se encontró UUID para card proyecto:', card.id);
+          //     continue;
+          //   }
+          //   const notasExistentes = await cardProyectoNotaRepo.getByCardProyectoId(cardUUID);
+          //   const notasExistentesIds = notasExistentes.map(n => n.id_card_nota);
+          //   for (const notaExistente of notasExistentes) {
+          //     if (!card.proyectoData.notas || !card.proyectoData.notas.includes(notaExistente.id_card_nota)) {
+          //       await cardProyectoNotaRepo.delete(cardUUID, notaExistente.id_card_nota);
+          //     }
+          //   }
+          //   if (card.proyectoData.notas && card.proyectoData.notas.length > 0) {
+          //     for (let i = 0; i < card.proyectoData.notas.length; i++) {
+          //       const notaCardId = card.proyectoData.notas[i];
+          //       if (!notasExistentesIds.includes(notaCardId)) {
+          //         await cardProyectoNotaRepo.create({
+          //           id_card_proyecto: cardUUID,
+          //           id_card_nota: notaCardId,
+          //           position: i
+          //         });
+          //       }
+          //     }
+          //   }
+          // }
         } else {
           // Crear nueva card
           const cardData = mapCardToCardDB(card, pizarraActual.id);
@@ -1669,18 +1678,40 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             // Si es un error de duplicado (23505), intentar actualizar en lugar de insertar
             if (createError.code === '23505') {
               console.log('⚠️ Card ya existe, actualizando en lugar de crear:', card.id);
-              const { error: updateError } = await supabase
+              const { data: updatedCard, error: updateError } = await supabase
                 .from('cards')
                 .update(cardData)
                 .eq('id_pizarra', pizarraActual.id)
-                .eq('card_id', card.id);
+                .eq('card_id', card.id)
+                .select()
+                .single();
 
               if (updateError) {
                 console.error('❌ Error actualizando card duplicada:', card.id, updateError);
                 continue;
               } else {
                 console.log('   ✏️ Card duplicada actualizada exitosamente:', card.id);
-                // Continuar con el flujo normal, pero no crear relaciones adicionales
+
+                // Para cards de tipo proyecto/proyecto-organizacion, asegurar que existe la relación card_proyectos
+                if (updatedCard && (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.id) {
+                  const { SupabaseCardProyectoRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoRepository');
+                  const cardProyectoRepo = new SupabaseCardProyectoRepository();
+
+                  // Verificar si ya existe la relación
+                  const existingRelation = await cardProyectoRepo.getByCardId(updatedCard.id);
+
+                  if (!existingRelation) {
+                    // Crear la relación si no existe
+                    await cardProyectoRepo.create({
+                      id_card: updatedCard.id,
+                      id_proyecto: card.proyectoData.id
+                    });
+                    console.log('✅ [PROYECTO-DUPLICADO] Relación card-proyecto creada para proyecto ID:', card.proyectoData.id);
+                  } else {
+                    console.log('ℹ️ [PROYECTO-DUPLICADO] Relación card-proyecto ya existe');
+                  }
+                }
+
                 continue;
               }
             } else {
@@ -1795,20 +1826,20 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
               }
 
               // 2. Crear las relaciones con las notas
-              if (card.proyectoData.notas && card.proyectoData.notas.length > 0) {
-                const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
-                const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
-
-                for (let i = 0; i < card.proyectoData.notas.length; i++) {
-                  const notaCardId = card.proyectoData.notas[i];
-                  await cardProyectoNotaRepo.create({
-                    id_card_proyecto: createdCard.id,
-                    id_card_nota: notaCardId,
-                    position: i
-                  });
-                }
-                console.log('✅ [PROYECTO] Relaciones con', card.proyectoData.notas.length, 'notas creadas');
-              }
+              // COMENTADO - tabla card_proyecto_notas no existe
+              // if (card.proyectoData.notas && card.proyectoData.notas.length > 0) {
+              //   const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
+              //   const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
+              //   for (let i = 0; i < card.proyectoData.notas.length; i++) {
+              //     const notaCardId = card.proyectoData.notas[i];
+              //     await cardProyectoNotaRepo.create({
+              //       id_card_proyecto: createdCard.id,
+              //       id_card_nota: notaCardId,
+              //       position: i
+              //     });
+              //   }
+              //   console.log('✅ [PROYECTO] Relaciones con', card.proyectoData.notas.length, 'notas creadas');
+              // }
             }
           }
         }
@@ -1958,6 +1989,27 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             console.error('❌ Error actualizando card:', card.id, updateError);
           } else {
             console.log('   ✏️ Card actualizada:', card.id);
+
+            // Para cards de tipo proyecto/proyecto-organizacion, asegurar que existe la relación card_proyectos
+            if ((card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.id) {
+              const cardUUID = cardIdToUUID.get(card.id);
+              if (cardUUID) {
+                const { SupabaseCardProyectoRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoRepository');
+                const cardProyectoRepo = new SupabaseCardProyectoRepository();
+
+                // Verificar si ya existe la relación
+                const existingRelation = await cardProyectoRepo.getByCardId(cardUUID);
+
+                if (!existingRelation) {
+                  // Crear la relación si no existe
+                  await cardProyectoRepo.create({
+                    id_card: cardUUID,
+                    id_proyecto: card.proyectoData.id
+                  });
+                  console.log('✅ [ORG-PROYECTO] Relación card-proyecto creada para proyecto ID:', card.proyectoData.id);
+                }
+              }
+            }
           }
 
           // Actualizar todos si es card tipo todo
@@ -2037,6 +2089,18 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
                   position: todo.id - 1
                 });
               }
+            }
+
+            // Crear relación card-proyecto si es card de tipo proyecto
+            if ((card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.id && insertedCard) {
+              const { SupabaseCardProyectoRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoRepository');
+              const cardProyectoRepo = new SupabaseCardProyectoRepository();
+
+              await cardProyectoRepo.create({
+                id_card: insertedCard.id,
+                id_proyecto: card.proyectoData.id
+              });
+              console.log('✅ [ORG-PROYECTO-NUEVA] Relación card-proyecto creada para proyecto ID:', card.proyectoData.id);
             }
           }
         }
@@ -2885,10 +2949,16 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
         {/* Contenedor con zoom aplicado */}
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 select-none"
           style={{
             transform: `scale(${zoomLevel})`,
             transformOrigin: '0 0',
+          }}
+          onMouseDown={(e) => {
+            // Permitir que el pan funcione cuando se hace click en el fondo del contenedor de zoom
+            if (e.target === e.currentTarget) {
+              handleCanvasMouseDown(e as any);
+            }
           }}
         >
           <ConnectionLines

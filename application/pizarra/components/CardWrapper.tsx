@@ -99,8 +99,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         width: card.width,
         height: card.height,
         transform: `translate(${props.panOffset.x}px, ${props.panOffset.y}px)`,
-        zIndex: props.cardZIndex,
-        pointerEvents: 'auto'
+        zIndex: props.cardZIndex
       }}
       onMouseDown={(e) => {
         props.bringCardToFront(card.id);

@@ -301,8 +301,24 @@ export const useChartHistory = (pizarraRef: RefObject<PizarraRef | null>, userId
               .eq('id_pizarra', snapshot.pizarraId);
 
             if (!cardsError && cardsEnBD && cardsEnBD.length > 0) {
+              // Para cards de tipo imagen, cargar la URL desde card_images
+              const cardsConImagenes = await Promise.all(cardsEnBD.map(async (cardDB: any) => {
+                if (cardDB.type === 'image') {
+                  const { data: cardImage } = await supabase
+                    .from('card_images')
+                    .select('image_url')
+                    .eq('id_card', cardDB.id)
+                    .single();
+
+                  if (cardImage?.image_url) {
+                    return { ...cardDB, image_url: cardImage.image_url };
+                  }
+                }
+                return cardDB;
+              }));
+
               // Convertir las cards a items del snapshot
-              const items: BoardHistoryItem[] = cardsEnBD.map((cardDB: any) => ({
+              const items: BoardHistoryItem[] = cardsConImagenes.map((cardDB: any) => ({
                 id: cardDB.id,
                 title: cardDB.title || 'Sin título',
                 type: getCardTypeLabel(cardDB.type),

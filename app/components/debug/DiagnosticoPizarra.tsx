@@ -25,12 +25,30 @@ interface MisionCardDebug {
   } | null;
 }
 
+interface ProyectoCardDebug {
+  cardId: string;
+  cardUUID: string;
+  cardType: string;
+  title: string;
+  hasProyectoData: boolean;
+  proyectoId: number | null;
+  proyectoNombre: string | null;
+  hasRelacionEnBD: boolean;
+  relacionEnBD?: {
+    id_card: string;
+    id_proyecto: number;
+  } | null;
+  recursosCount?: number;
+}
+
 export default function DiagnosticoPizarra() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resultados, setResultados] = useState<DiagnosticoResultado[]>([]);
   const [misionCards, setMisionCards] = useState<MisionCardDebug[]>([]);
+  const [proyectoCards, setProyectoCards] = useState<ProyectoCardDebug[]>([]);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [activeTab, setActiveTab] = useState<'misiones' | 'proyectos'>('proyectos');
 
   // Diagnóstico de misiones en tiempo real
   const diagnosticarMisiones = async () => {
@@ -132,12 +150,113 @@ export default function DiagnosticoPizarra() {
     }
   };
 
+  // Diagnóstico de proyectos en tiempo real
+  const diagnosticarProyectos = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const proyectoCardsData: ProyectoCardDebug[] = [];
+
+      // 1. Obtener el usuario para saber su organización
+      const { data: usuarioData } = await supabase
+        .from('usuario')
+        .select('id_organizacion')
+        .eq('user_auth', user.id)
+        .maybeSingle();
+
+      if (!usuarioData?.id_organizacion) {
+        console.log('🔍 [DEBUG] Usuario sin organización');
+        setProyectoCards([]);
+        return;
+      }
+
+      // 2. Buscar la pizarra de organización
+      const { data: pizarraOrg } = await supabase
+        .from('pizarras_organizacion')
+        .select('id')
+        .eq('id_organizacion', usuarioData.id_organizacion)
+        .maybeSingle();
+
+      if (!pizarraOrg) {
+        console.log('🔍 [DEBUG] No hay pizarra de organización');
+        setProyectoCards([]);
+        return;
+      }
+
+      console.log('🔍 [DEBUG] Pizarra de organización encontrada:', pizarraOrg.id);
+
+      // 3. Buscar cards en la tabla cards (NO en el campo JSON)
+      const { data: cardsEnBD } = await supabase
+        .from('cards')
+        .select('id, card_id, type, title')
+        .eq('id_pizarra', pizarraOrg.id);
+
+      console.log('🔍 [DEBUG] Cards en BD:', cardsEnBD?.length || 0);
+
+      // Filtrar cards de tipo proyecto
+      const proyectoCards = (cardsEnBD || []).filter(c =>
+        c.type === 'proyecto' || c.type === 'proyecto-organizacion'
+      );
+
+      console.log('🔍 [DEBUG] Cards de proyecto encontradas:', proyectoCards.length);
+
+      for (const card of proyectoCards) {
+        // Buscar relación en card_proyectos usando el UUID
+        const { data: relacion } = await supabase
+          .from('card_proyectos')
+          .select('id_card, id_proyecto')
+          .eq('id_card', card.id)
+          .maybeSingle();
+
+        // Si hay relación, buscar datos del proyecto
+        let proyectoNombre = null;
+        if (relacion?.id_proyecto) {
+          const { data: proyecto } = await supabase
+            .from('proyecto')
+            .select('nombre')
+            .eq('id', relacion.id_proyecto)
+            .maybeSingle();
+          proyectoNombre = proyecto?.nombre || null;
+        }
+
+        // Buscar recursos asociados a este proyecto
+        let recursosCount = 0;
+        if (relacion?.id_proyecto) {
+          const { count } = await supabase
+            .from('recursos')
+            .select('id', { count: 'exact', head: true })
+            .eq('proyecto_id', relacion.id_proyecto);
+          recursosCount = count || 0;
+        }
+
+        proyectoCardsData.push({
+          cardId: card.card_id || 'sin-id',
+          cardUUID: card.id,
+          cardType: card.type,
+          title: card.title || 'Sin título',
+          hasProyectoData: !!relacion,
+          proyectoId: relacion?.id_proyecto || null,
+          proyectoNombre: proyectoNombre,
+          hasRelacionEnBD: !!relacion,
+          relacionEnBD: relacion,
+          recursosCount: recursosCount
+        } as any);
+      }
+
+      setProyectoCards(proyectoCardsData);
+    } catch (error) {
+      console.error('Error diagnosticando proyectos:', error);
+    }
+  };
+
   // Auto-refresh cada 2 segundos si está activo
   useEffect(() => {
     if (!autoRefresh || !isOpen) return;
 
     const interval = setInterval(() => {
       diagnosticarMisiones();
+      diagnosticarProyectos();
     }, 2000);
 
     return () => clearInterval(interval);
@@ -147,6 +266,7 @@ export default function DiagnosticoPizarra() {
   useEffect(() => {
     if (isOpen) {
       diagnosticarMisiones();
+      diagnosticarProyectos();
     }
   }, [isOpen]);
 
@@ -332,7 +452,7 @@ export default function DiagnosticoPizarra() {
       <div className="bg-purple-600 text-white px-3 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bug className="w-4 h-4" />
-          <h3 className="font-semibold text-sm">Debug Misiones</h3>
+          <h3 className="font-semibold text-sm">Debug Panel</h3>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -359,7 +479,105 @@ export default function DiagnosticoPizarra() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex border-b border-gray-700 bg-gray-800">
+        <button
+          onClick={() => setActiveTab('proyectos')}
+          className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
+            activeTab === 'proyectos'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:text-white hover:bg-gray-700'
+          }`}
+        >
+          Proyectos ({proyectoCards.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('misiones')}
+          className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
+            activeTab === 'misiones'
+              ? 'bg-orange-600 text-white'
+              : 'text-gray-400 hover:text-white hover:bg-gray-700'
+          }`}
+        >
+          Misiones ({misionCards.length})
+        </button>
+      </div>
+
+      {/* Cards de Proyecto en tiempo real */}
+      {activeTab === 'proyectos' && (
+        <div className="bg-gray-900 p-2 border-b border-gray-700">
+          <h4 className="text-xs font-semibold text-blue-400 mb-2">Cards de Proyecto (Real-time)</h4>
+          {proyectoCards.length === 0 ? (
+            <p className="text-gray-500 text-xs">No hay cards de proyecto</p>
+          ) : (
+            <div className="space-y-1.5 max-h-60 overflow-y-auto">
+              {proyectoCards.map((card) => (
+                <div
+                  key={card.cardId}
+                  className={`p-1.5 rounded text-xs ${
+                    card.hasProyectoData && card.hasRelacionEnBD
+                      ? 'bg-green-900/50 border border-green-500'
+                      : card.hasProyectoData
+                      ? 'bg-yellow-900/50 border border-yellow-500'
+                      : 'bg-red-900/50 border border-red-500'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-white truncate flex-1">
+                      {card.title}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-600 text-white">
+                      {card.cardType}
+                    </span>
+                  </div>
+                  <div className="text-[9px] text-gray-400 mb-1">
+                    Card ID: {card.cardId.substring(0, 12)} | UUID: {card.cardUUID.substring(0, 8)}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 text-[10px]">
+                    <div>
+                      <span className="text-gray-500">Relación BD:</span>
+                      <span className={`ml-1 ${card.hasRelacionEnBD ? 'text-green-400' : 'text-red-400'}`}>
+                        {card.hasRelacionEnBD ? 'SI' : 'NO'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">proyectoId:</span>
+                      <span className={`ml-1 ${card.proyectoId ? 'text-green-400' : 'text-red-400'}`}>
+                        {card.proyectoId || 'null'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Nombre:</span>
+                      <span className="ml-1 text-white truncate">
+                        {card.proyectoNombre || '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Recursos:</span>
+                      <span className={`ml-1 ${(card.recursosCount || 0) > 0 ? 'text-green-400' : 'text-yellow-400'}`}>
+                        {card.recursosCount || 0}
+                      </span>
+                    </div>
+                  </div>
+                  {!card.hasRelacionEnBD && (
+                    <div className="mt-1 text-[9px] text-red-400 bg-red-900/30 p-1 rounded">
+                      ⚠️ Falta relación en card_proyectos - guarda la pizarra para crearla
+                    </div>
+                  )}
+                  {card.hasRelacionEnBD && (card.recursosCount || 0) === 0 && (
+                    <div className="mt-1 text-[9px] text-yellow-400 bg-yellow-900/30 p-1 rounded">
+                      ℹ️ No hay recursos asociados a este proyecto
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Cards de Misión en tiempo real */}
+      {activeTab === 'misiones' && (
       <div className="bg-gray-900 p-2 border-b border-gray-700">
         <h4 className="text-xs font-semibold text-green-400 mb-2">Cards de Misión (Real-time)</h4>
         {misionCards.length === 0 ? (
@@ -433,6 +651,7 @@ export default function DiagnosticoPizarra() {
           </div>
         )}
       </div>
+      )}
 
       {/* Contenido - Diagnóstico general */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
