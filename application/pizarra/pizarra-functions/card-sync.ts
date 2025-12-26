@@ -70,6 +70,28 @@ async function loadMisionData(cardDB: CardDB, card: Card): Promise<void> {
       console.log('🔍 [CARD-SYNC] mision obtenida:', mision);
 
       if (mision) {
+        // Cargar información del usuario asignado si existe
+        let usuarioAsignadoNombre: string | null = null;
+        let usuarioAsignadoAvatar: string | null = null;
+
+        if (mision.id_usuario) {
+          try {
+            const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+            const { data: usuarioData } = await supabase
+              .from('usuario')
+              .select('id, nombre, avatar')
+              .eq('id', mision.id_usuario)
+              .single();
+
+            if (usuarioData) {
+              usuarioAsignadoNombre = usuarioData.nombre || 'Sin nombre';
+              usuarioAsignadoAvatar = usuarioData.avatar || null;
+            }
+          } catch (e) {
+            // Silenciar error
+          }
+        }
+
         card.misionData = {
           title: mision.nombre || card.title,
           hours: mision.horas || 1,
@@ -78,7 +100,10 @@ async function loadMisionData(cardDB: CardDB, card: Card): Promise<void> {
           isRunning: cardMision.is_running,
           lastCaptureUrl: cardMision.last_capture_url,
           id_mision: cardMision.id_mision,
-          id_usuario: mision.id_usuario?.toString()
+          id_usuario: mision.id_usuario?.toString(),
+          id_usuario_asignado: mision.id_usuario || undefined,
+          usuario_asignado_nombre: usuarioAsignadoNombre || undefined,
+          usuario_asignado_avatar: usuarioAsignadoAvatar || undefined
         };
         console.log('✅ [CARD-SYNC] misionData cargado exitosamente:', card.misionData);
       } else {

@@ -129,39 +129,24 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     console.log('🎯 [DEBUG ADMIN] ========== FIN SOLICITUD CAPTURA ==========');
   };
 
-  // Buscar y actualizar información del usuario asignado al montar el componente
+  // Buscar y actualizar información del usuario asignado SOLO al montar o cuando no hay nombre
   useEffect(() => {
-    // Si ya tiene nombre de usuario, no hacer nada
-    if (misionData.usuario_asignado_nombre) {
+    if (!misionData.id_usuario_asignado || misionData.usuario_asignado_nombre) {
       return;
     }
 
-    // Si tiene id_usuario_asignado pero no nombre, buscarlo
-    if (misionData.id_usuario_asignado && usuarios.length > 0) {
+    if (usuarios.length > 0) {
       const usuarioAsignado = usuarios.find(u => u.id === misionData.id_usuario_asignado);
-
       if (usuarioAsignado) {
-        console.log('👤 [MISION ORG] Usuario asignado encontrado:', {
-          id: usuarioAsignado.id,
-          nombre: `${usuarioAsignado.profile.nombre} ${usuarioAsignado.profile.apellido}`,
-          avatar: usuarioAsignado.profile.avatar
-        });
         updateCard(card.id, {
           misionData: {
-            ...misionData,
             usuario_asignado_nombre: `${usuarioAsignado.profile.nombre} ${usuarioAsignado.profile.apellido}`,
             usuario_asignado_avatar: usuarioAsignado.profile.avatar || null
           }
         });
-        console.log('✅ [USUARIO ASIGNADO] Card actualizado con información del usuario');
-      } else {
-        console.warn('⚠️ [MISION ORG] Usuario asignado no encontrado en la lista:', {
-          id_buscado: misionData.id_usuario_asignado,
-          usuarios_disponibles: usuarios.map(u => ({ id: u.id, nombre: u.profile.nombre }))
-        });
       }
     }
-  }, [misionData.id_usuario_asignado, misionData.usuario_asignado_nombre, usuarios, card.id, updateCard]);
+  }, [usuarios.length, card.id]);
 
   // Sincronizar tareas de la BD con subtareas locales
   useEffect(() => {
@@ -253,16 +238,12 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           filter: `id=eq.${card.misionData.id_mision}`
         },
         (payload) => {
-          console.log('📡 [MISION ORG] Misión actualizada:', payload);
-
           const nuevaMision = payload.new as any;
 
-          // Actualizar card_todos si cambió
+          // Actualizar solo card_todos si cambió - NO usar spread de misionData
           if (nuevaMision.card_todos) {
-            console.log('🔄 Actualizando card_todos en el card:', nuevaMision.card_todos);
             updateCard(card.id, {
               misionData: {
-                ...misionData,
                 card_todos: nuevaMision.card_todos
               }
             });
@@ -400,34 +381,15 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
   // Manejar asignación de usuario
   const handleAsignarUsuario = async (usuario: any) => {
-    // Actualizar en la base de datos
     if (misionData.id_mision) {
-      console.log('👤 Asignando usuario a misión en BD:', {
-        id_mision: misionData.id_mision,
-        tipo_id_mision: typeof misionData.id_mision,
-        id_usuario: usuario.id,
-        tipo_id_usuario: typeof usuario.id
-      });
-
-      const resultado = await updateMision(misionData.id_mision, {
+      await updateMision(misionData.id_mision, {
         id_usuario: usuario.id
       });
-
-      if (!resultado) {
-        console.error('❌ No se pudo actualizar la misión en la base de datos');
-        console.error('⚠️ La misión probablemente no existe o hay un problema de permisos');
-        // Continuar con la actualización local de todos modos
-      } else {
-        console.log('✅ Misión actualizada en BD:', resultado);
-      }
-    } else {
-      console.warn('⚠️ No hay id_mision disponible, solo se actualizará localmente');
     }
 
-    // Actualizar estado local del card
     updateCard(card.id, {
       misionData: {
-        ...misionData,
+        ...card.misionData,
         id_usuario_asignado: usuario.id,
         usuario_asignado_nombre: `${usuario.profile.nombre} ${usuario.profile.apellido}`,
         usuario_asignado_avatar: usuario.profile.avatar || null
@@ -717,7 +679,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
             onClick={() => setIsEditingDescription(true)}
             data-todo-interactive
           >
-            {misionData.description || 'Click para agregar descripción...'}
+            {misionData.description || 'Click pra agregar descripción...'}
           </p>
         )}
       </div>

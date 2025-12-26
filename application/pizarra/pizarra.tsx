@@ -1437,8 +1437,6 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, [cards, panOffset, canvasRef, getNextZIndex]);
 
   const restoreCard = useCallback((cardData: any) => {
-    console.log('🔧 restoreCard ejecutado con:', cardData);
-    // Restaurar un card desde el historial
     const existingIds = cards.map(card => card.id);
     const newId = generateUniqueId(cardData.type || 'card', existingIds);
 
@@ -1450,27 +1448,19 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       id: newId,
       x: (cardData.x || generatePosition()) + 50,
       y: (cardData.y || generatePosition()) + 80,
-      z: Date.now(), // Asegurar que aparezca en la parte superior
-      imageUrl: imageUrl // Asegurar que tenga imageUrl en formato correcto
+      z: Date.now(),
+      imageUrl: imageUrl
     };
-
-    console.log('✅ Card restaurado creado:', restoredCard);
-    console.log('📋 Cards actuales antes de agregar:', cards);
 
     // Si es una imagen, actualizar pastedImages para que se muestre
     if (cardData.type === 'image' && imageUrl) {
-      console.log('🖼️ Agregando imagen a pastedImages:', newId, imageUrl);
       setPastedImages(prev => ({
         ...prev,
         [newId]: imageUrl
       }));
     }
 
-    setCards(prev => {
-      const newCards = [...prev, restoredCard];
-      console.log('📋 Cards después de agregar:', newCards);
-      return newCards;
-    });
+    setCards(prev => [...prev, restoredCard]);
   }, [cards]);
 
   // Función manual para guardar en Supabase
@@ -1725,7 +1715,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             console.log('   ➕ Card creada exitosamente:', card.id);
 
             // Si es una misión, crear también su entrada en card_misiones
-            if (createdCard && card.type === 'mision' && card.misionData?.id_mision) {
+            if (createdCard && (card.type === 'mision' || card.type === 'mision-organizacion') && card.misionData?.id_mision) {
               const cardMisionRepo = new SupabaseCardMisionRepository();
               await cardMisionRepo.create({
                 id_card: createdCard.id,

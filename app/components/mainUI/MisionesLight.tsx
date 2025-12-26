@@ -7,13 +7,14 @@ import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { Mision } from '@/domain/entities/Mision';
 import { Actividad } from '@/domain/entities/Actividad';
 import Ventana from '@/app/demo/components/Ventana';
-import { ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { ChevronDown, ChevronUp, Calendar, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
 
 export default function MisionesLight() {
     const { usuario } = useAuth();
   const { usuarioId, loading: loadingUserId } = useUsuarioId();
-  const { misiones, loading: loadingMisiones } = useMisiones(usuarioId);
+  const { misiones, loading: loadingMisiones, refetch } = useMisiones(usuarioId);
+  const [isRefetching, setIsRefetching] = useState(false);
   const { actividades, loading: loadingActividades } = useActividades(usuario?.id ?? null);
 
   const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
@@ -47,7 +48,7 @@ export default function MisionesLight() {
     console.log('🎯 [MisionesLight] Mostrando loading...');
     return (
       <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md p-4">
-        <div className="text-sm text-gray-500">Cargando misiones...</div>
+        <div className="text-sm text-gray-500">Cargando tickets...</div>
       </div>
     );
   }
@@ -61,12 +62,18 @@ export default function MisionesLight() {
     console.log('🎯 [MisionesLight] No hay misiones, mostrando mensaje');
     return (
       <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md p-4">
-        <div className="text-sm text-gray-500">No hay misiones</div>
+        <div className="text-sm text-gray-500">No hay tickets</div>
       </div>
     );
   }
 
   console.log('🎯 [MisionesLight] Renderizando', misiones.length, 'misiones');
+
+  const handleRefetch = async () => {
+    setIsRefetching(true);
+    await refetch();
+    setIsRefetching(false);
+  };
 
   const handleDragStartMision = (e: React.DragEvent, mision: Mision) => {
     e.dataTransfer.setData('application/json', JSON.stringify({
@@ -103,20 +110,30 @@ export default function MisionesLight() {
       <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md p-3 space-y-3" style={{ maxWidth: '280px' }}>
         {/* SECCIÓN DE MISIONES */}
         <div>
-          {/* Header de Misiones con título y botón de minimizar/maximizar */}
+          {/* Header de Tickets con título y botones */}
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-semibold text-gray-700">📋 Misiones</h3>
-            <button
-              onClick={() => setIsMisionesMinimized(!isMisionesMinimized)}
-              className="p-1 hover:bg-gray-200 rounded transition-colors"
-              title={isMisionesMinimized ? 'Maximizar misiones' : 'Minimizar misiones'}
-            >
-              {!isMisionesMinimized ? (
-                <ChevronDown className="w-4 h-4 text-gray-600" />
-              ) : (
-                <ChevronUp className="w-4 h-4 text-gray-600" />
-              )}
-            </button>
+            <h3 className="text-xs font-semibold text-gray-700">🎟️ Tickets</h3>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleRefetch}
+                disabled={isRefetching}
+                className="p-1 hover:bg-gray-200 rounded transition-colors disabled:opacity-50"
+                title="Recargar tickets"
+              >
+                <RefreshCw className={`w-4 h-4 text-gray-600 ${isRefetching ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={() => setIsMisionesMinimized(!isMisionesMinimized)}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                title={isMisionesMinimized ? 'Maximizar tickets' : 'Minimizar tickets'}
+              >
+                {!isMisionesMinimized ? (
+                  <ChevronDown className="w-4 h-4 text-gray-600" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Contenedor de Misiones con altura dinámica y scroll */}
