@@ -3,6 +3,10 @@ import { SupabaseMisionRepository } from '@/infrastructure/datasource/SupabaseMi
 import { Mision } from '@/domain/entities/Mision';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+interface UseMisionesOptions {
+  enableRealtime?: boolean;
+}
+
 interface UseMisionesReturn {
   misiones: Mision[];
   loading: boolean;
@@ -13,7 +17,8 @@ interface UseMisionesReturn {
   deleteMision: (id: number) => Promise<boolean>;
 }
 
-export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
+export const useMisiones = (idUsuario: number | null, options: UseMisionesOptions = {}): UseMisionesReturn => {
+  const { enableRealtime = true } = options;
   const [misiones, setMisiones] = useState<Mision[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,14 +109,18 @@ export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
     }
   }, []);
 
-  // Configurar suscripción en tiempo real
+  // Configurar suscripción en tiempo real (solo si enableRealtime es true)
   useEffect(() => {
+    if (!enableRealtime) {
+      return;
+    }
+
     // console.log('📡 Configurando suscripción realtime para misiones');
 
     // Callbacks para el realtime
     const realtimeCallbacks = {
       onMisionesUpdated: (nuevasMisiones: Mision[]) => {
-        // console.log('📡 Misiones actualizadas via realtime:', nuevasMisiones.length);
+        console.log('📡 [useMisiones] Actualizado:', nuevasMisiones.length);
         setMisiones(nuevasMisiones);
       },
       onError: (errorMessage: string) => {
@@ -139,7 +148,7 @@ export const useMisiones = (idUsuario: number | null): UseMisionesReturn => {
         realtimeChannel.current = null;
       }
     };
-  }, [idUsuario]); // Reaccionar cuando cambie el ID del usuario
+  }, [idUsuario, enableRealtime]); // Reaccionar cuando cambie el ID del usuario o enableRealtime
 
   // Cargar misiones inicialmente
   useEffect(() => {

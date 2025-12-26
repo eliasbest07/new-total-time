@@ -13,7 +13,7 @@ import { useAuth } from '@/app/contexts/AuthContext';
 export default function MisionesLight() {
     const { usuario } = useAuth();
   const { usuarioId, loading: loadingUserId } = useUsuarioId();
-  const { misiones, loading: loadingMisiones, refetch } = useMisiones(usuarioId);
+  const { misiones, loading: loadingMisiones, refetch } = useMisiones(usuarioId, { enableRealtime: false });
   const [isRefetching, setIsRefetching] = useState(false);
   const { actividades, loading: loadingActividades } = useActividades(usuario?.id ?? null);
 

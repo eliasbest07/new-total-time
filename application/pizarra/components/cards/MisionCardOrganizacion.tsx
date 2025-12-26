@@ -53,7 +53,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     updateCaptureNow
   } = useMisionActiva();
 
-  const { updateMision } = useMisiones(null);
+  const { updateMision } = useMisiones(null, { enableRealtime: false });
 
   // Obtener datos de la misión
   const misionData = card.misionData || {
@@ -237,16 +237,51 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           table: 'misiones',
           filter: `id=eq.${card.misionData.id_mision}`
         },
-        (payload) => {
+        async (payload) => {
           const nuevaMision = payload.new as any;
 
-          // Actualizar solo card_todos si cambió - NO usar spread de misionData
+          // Actualizar card_todos si cambió
           if (nuevaMision.card_todos) {
             updateCard(card.id, {
               misionData: {
                 card_todos: nuevaMision.card_todos
               }
             });
+          }
+
+          // Manejar cambios en id_usuario (asignación/desasignación)
+          if ('id_usuario' in nuevaMision) {
+            if (nuevaMision.id_usuario === null) {
+              // Usuario desasignado - limpiar campos
+              updateCard(card.id, {
+                misionData: {
+                  id_usuario_asignado: null,
+                  usuario_asignado_nombre: null,
+                  usuario_asignado_avatar: null
+                }
+              });
+            } else {
+              // Usuario asignado - cargar info del usuario
+              try {
+                const { data: usuarioData } = await supabase
+                  .from('usuario')
+                  .select('id, nombre, avatar')
+                  .eq('id', nuevaMision.id_usuario)
+                  .single();
+
+                if (usuarioData) {
+                  updateCard(card.id, {
+                    misionData: {
+                      id_usuario_asignado: nuevaMision.id_usuario,
+                      usuario_asignado_nombre: usuarioData.nombre || 'Sin nombre',
+                      usuario_asignado_avatar: usuarioData.avatar || null
+                    }
+                  });
+                }
+              } catch (e) {
+                console.error('Error cargando usuario asignado:', e);
+              }
+            }
           }
         }
       )

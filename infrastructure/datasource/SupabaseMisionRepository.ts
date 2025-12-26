@@ -469,15 +469,15 @@ export class SupabaseMisionRepository implements MisionRepository {
           {
             event: '*', // INSERT, UPDATE, DELETE
             schema: 'public',
-            table: 'misiones',
-            filter: `id_usuario=eq.${idUsuario}`
+            table: 'misiones'
+            // Sin filtro para detectar asignaciones y desasignaciones
           },
           async (payload) => {
-            // console.log('📡 Cambio detectado en misiones:', payload);
+            console.log('📡 [REPO] Cambio detectado, recargando para user:', idUsuario);
 
             try {
               const nuevasMisiones = await this.getMisionesByUsuario(idUsuario);
-
+              console.log('📡 [REPO] Recargadas:', nuevasMisiones.length);
               callbacks.onMisionesUpdated(nuevasMisiones);
             } catch (error) {
               console.error('❌ Error procesando cambio de misiones:', error);
