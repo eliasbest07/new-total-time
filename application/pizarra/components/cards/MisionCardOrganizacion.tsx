@@ -392,7 +392,26 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   };
 
   // Manejar cambio de título
-  const handleTitleChange = (newTitle: string) => {
+  const handleTitleChange = async (newTitle: string) => {
+    // Actualizar en BD si hay id_mision
+    if (misionData.id_mision) {
+      try {
+        const { error } = await supabase
+          .from('misiones')
+          .update({ nombre: newTitle })
+          .eq('id', misionData.id_mision);
+
+        if (error) {
+          console.error('Error actualizando título en BD:', error);
+        } else {
+          console.log('✅ Título actualizado en BD');
+        }
+      } catch (e) {
+        console.error('Error en handleTitleChange:', e);
+      }
+    }
+
+    // Actualizar estado local
     updateCard(card.id, {
       title: newTitle,
       misionData: {
@@ -404,7 +423,26 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   };
 
   // Manejar cambio de descripción
-  const handleDescriptionChange = (newDescription: string) => {
+  const handleDescriptionChange = async (newDescription: string) => {
+    // Actualizar en BD si hay id_mision
+    if (misionData.id_mision) {
+      try {
+        const { error } = await supabase
+          .from('misiones')
+          .update({ descripcion: newDescription })
+          .eq('id', misionData.id_mision);
+
+        if (error) {
+          console.error('Error actualizando descripción en BD:', error);
+        } else {
+          console.log('✅ Descripción actualizada en BD');
+        }
+      } catch (e) {
+        console.error('Error en handleDescriptionChange:', e);
+      }
+    }
+
+    // Actualizar estado local
     updateCard(card.id, {
       misionData: {
         ...misionData,

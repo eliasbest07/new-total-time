@@ -250,7 +250,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
   const sections: Section[] = [
     {
       id: 'misiones',
-      title: 'Misiones',
+      title: 'Tickets',
       icon: Target,
       color: 'bg-orange-500',
       content: 'misiones'
@@ -393,7 +393,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                     <div>
                       {misiones.length === 0 ? (
                         <div className="text-center py-8">
-                          <p className="text-white/60 text-sm">No hay misiones disponibles</p>
+                          <p className="text-white/60 text-sm">No hay tickets disponibles</p>
                         </div>
                       ) : (
                         <div>
@@ -442,7 +442,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                     {isEnProgreso && (
                                       <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" title="En progreso"></span>
                                     )}
-                                    <h4 className="font-semibold text-white">
+                                    <h4 className="font-semibold text-white truncate">
                                       {mision.nombre || 'Sin nombre'}
                                     </h4>
                                   </div>
@@ -457,9 +457,24 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                   )}
                                 </div>
                                 {mision.descripcion && (
-                                  <p className="text-sm text-white/70 mb-2">
-                                    {mision.descripcion}
-                                  </p>
+                                  <div className="mb-2">
+                                    <p className="text-sm text-white/70 line-clamp-1">
+                                      {mision.descripcion}
+                                    </p>
+                                    {mision.descripcion.length > 150 && (
+                                      <button
+                                        className="text-xs text-blue-300 hover:text-blue-200 mt-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (onMisionClick) {
+                                            onMisionClick(mision);
+                                          }
+                                        }}
+                                      >
+                                        ... ver más
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                                 {estadoFinal && (
                                   <span className={`inline-block text-xs px-2 py-1 rounded ${getEstadoColor(estadoFinal)}`}>

@@ -12,6 +12,8 @@ import AccordionAdmin from "@/app/components/organizacion/AccordionAdmin";
 import InfoOrganizacion from "@/app/components/organizacion/InfoOrganizacion";
 import DashboardUsuario from "@/app/components/DashboardUsuario";
 import AgregarRecursoModal from "@/app/components/modals/AgregarRecursoModal";
+import VentanaMisionDetalles from "@/app/components/organizacion/VentanaMisionDetalles";
+import { Mision } from "@/domain/entities/Mision";
 import { useIncomingMessages } from "@/hooks/useIncomingMessages";
 import { useMisiones } from "@/hooks/useMisiones";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
@@ -59,7 +61,7 @@ function DashboardAdmin() {
   const { createActividad } = useActividades(usuario?.userAuth || null);
 
   // Hooks para AccordionAdmin
-  const { misiones: misionesOrg } = useMisionesOrganizacion(usuarios);
+  const { misiones: misionesOrg, refetch: refetchMisiones } = useMisionesOrganizacion(usuarios);
   const { actividades: actividadesOrg } = useActividadesOrganizacion(usuarios);
   const { recursos } = useRecursos(usuario?.userAuth || null);
 
@@ -135,6 +137,8 @@ function DashboardAdmin() {
   const [actividadProyectoId, setActividadProyectoId] = useState<number | null>(null);
   const [creandoActividad, setCreandoActividad] = useState(false);
   const [showAgregarRecursoModal, setShowAgregarRecursoModal] = useState(false);
+  const [showMisionDetalles, setShowMisionDetalles] = useState(false);
+  const [selectedMisionDetalles, setSelectedMisionDetalles] = useState<Mision | null>(null);
 
   // Handler para cuando se hace click en un usuario
   const handleUserClick = (userData: {
@@ -937,7 +941,8 @@ function DashboardAdmin() {
             onUserClick={handleUserClick}
             onMisionClick={(mision) => {
               console.log('Misión seleccionada:', mision);
-              // TODO: Implementar modal de detalles de misión si es necesario
+              setSelectedMisionDetalles(mision);
+              setShowMisionDetalles(true);
             }}
             onActividadClick={(actividad) => {
               console.log('Actividad seleccionada:', actividad);
@@ -1836,6 +1841,22 @@ function DashboardAdmin() {
           onClose={() => setShowAgregarRecursoModal(false)}
         />
       )}
+
+      {/* Ventana de detalles de misión */}
+      <VentanaMisionDetalles
+        isOpen={showMisionDetalles}
+        onClose={() => {
+          setShowMisionDetalles(false);
+          setSelectedMisionDetalles(null);
+        }}
+        mision={selectedMisionDetalles}
+        usuarios={usuarios}
+        currentUserId={usuario?.userAuth}
+        onOpenChat={handleUserClick}
+        onMisionUpdated={() => {
+          refetchMisiones();
+        }}
+      />
     </AuthWrapper>
   );
 }
