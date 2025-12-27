@@ -149,11 +149,16 @@ export class SupabasePostRepository implements PostRepository {
   async createPost(post: Omit<Post, 'id' | 'created_at'>): Promise<Post | null> {
     try {
       // Crear el objeto con solo los campos que existen en la tabla
-      const postData = {
+      const postData: any = {
         id_sala: post.id_sala,
         contenido: post.contenido,
         id_usuario: post.id_usuario
       };
+
+      // Agregar imagen si existe
+      if (post.imagen) {
+        postData.imagen = post.imagen;
+      }
 
       // console.log('📝 Creando post con datos:', postData);
 
@@ -193,6 +198,7 @@ export class SupabasePostRepository implements PostRepository {
       const allowedUpdates: any = {};
       if (updates.contenido !== undefined) allowedUpdates.contenido = updates.contenido;
       if (updates.id_sala !== undefined) allowedUpdates.id_sala = updates.id_sala;
+      if (updates.imagen !== undefined) allowedUpdates.imagen = updates.imagen;
 
       console.log('✏️ [SupabasePostRepository] Updates permitidos:', allowedUpdates);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, MessageCircle, Calendar, Send, Plus, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Trash2, Edit2, X, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageCircle, Calendar, Send, Plus, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Trash2, Edit2, X, Check, ImageIcon } from "lucide-react";
 import { Sala } from "@/domain/entities/Sala";
 import { usePosts } from "@/hooks/usePosts";
 import { Post } from "@/domain/entities/Post";
@@ -222,6 +222,12 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
   const [newPostContent, setNewPostContent] = useState('');
   const [creatingPost, setCreatingPost] = useState(false);
 
+  // Estados para imagen del post
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
   // Estados para crear comentario
   const [commentingOnPost, setCommentingOnPost] = useState<string | null>(null);
   const [newCommentContent, setNewCommentContent] = useState('');
@@ -349,23 +355,118 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
     });
   };
 
+  // Manejar paste de imagen
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          // Validar tamaño (max 5MB)
+          if (file.size > 5 * 1024 * 1024) {
+            alert('La imagen no debe superar los 5MB');
+            return;
+          }
+          setSelectedImage(file);
+          setImagePreview(URL.createObjectURL(file));
+        }
+        break;
+      }
+    }
+  };
+
+  // Funciones para manejo de imagen
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validar que sea una imagen
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor selecciona un archivo de imagen');
+        return;
+      }
+      // Validar tamaño (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('La imagen no debe superar los 5MB');
+        return;
+      }
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (imageInputRef.current) {
+      imageInputRef.current.value = '';
+    }
+  };
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('idSala', sala.id.toString());
+
+      const response = await fetch('/api/upload-post-image', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        return data.url;
+      } else {
+        console.error('Error subiendo imagen:', data.error);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error subiendo imagen:', error);
+      return null;
+    }
+  };
+
   const handleCreatePost = async () => {
-    if (!usuario?.id || !newPostContent.trim()) {
-   alert('Debes escribir algo para publicar');
+    if (!usuario?.id || (!newPostContent.trim() && !selectedImage)) {
+      alert('Debes escribir algo o agregar una imagen para publicar');
       return;
     }
 
     console.log('📝 [SalaDetalle] Creando nuevo post en sala', sala.id, '- Usuario:', usuarioId);
     setCreatingPost(true);
+
     try {
+      let imageUrl: string | null = null;
+
+      // Subir imagen si hay una seleccionada
+      if (selectedImage) {
+        setUploadingImage(true);
+        imageUrl = await uploadImage(selectedImage);
+        setUploadingImage(false);
+
+        if (!imageUrl) {
+          alert('Error al subir la imagen. Intenta de nuevo.');
+          setCreatingPost(false);
+          return;
+        }
+      }
+
       const newPost = await postRepository.createPost({
         id_sala: sala.id,
-        contenido: newPostContent,
-        id_usuario: usuarioId, // ID numérico del usuario
+        contenido: newPostContent || null,
+        id_usuario: usuarioId,
         id_comentarios: null,
         edited_at: null,
         likes_count: 0,
-        dislikes_count: 0
+        dislikes_count: 0,
+        imagen: imageUrl
       });
 
       if (newPost) {
@@ -379,6 +480,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
         console.log('📝 [SalaDetalle] 🔔 Evento "new-post-created" disparado para sala:', sala.id);
 
         setNewPostContent('');
+        handleRemoveImage();
         setShowNewPost(false);
         refetch();
       }
@@ -387,6 +489,7 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
       alert('Error al crear el post');
     } finally {
       setCreatingPost(false);
+      setUploadingImage(false);
     }
   };
 
@@ -676,18 +779,37 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
                   e.target.style.height = 'auto';
                   e.target.style.height = e.target.scrollHeight + 'px';
                 }}
+                onPaste={handlePaste}
                 placeholder="¿Qué quieres compartir con tu equipo?"
                 className="w-full p-3 text-gray-900 placeholder-gray-400 resize-none focus:outline-none text-base leading-relaxed"
                 rows={3}
                 autoFocus
               />
 
+              {/* Preview de imagen */}
+              {imagePreview && (
+                <div className="relative mt-3 inline-block">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="max-h-48 rounded-lg border border-gray-200 shadow-sm"
+                  />
+                  <button
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                    title="Eliminar imagen"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Contador de caracteres */}
               <div className="flex items-center justify-between mt-2">
                 <div className="text-xs text-gray-400">
                   {newPostContent.length} caracteres
                 </div>
-                {newPostContent.length > 0 && (
+                {(newPostContent.length > 0 || imagePreview) && (
                   <div className="text-xs text-green-500 flex items-center gap-1">
                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -700,19 +822,35 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
 
             {/* Footer con botones */}
             <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <MessageCircle className="w-4 h-4" />
-                <span>Los miembros de la sala podrán comentar</span>
+              <div className="flex items-center gap-3">
+                {/* Input oculto para imagen */}
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+                {/* Botón para agregar imagen */}
+                <button
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={creatingPost}
+                  className="flex items-center gap-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50"
+                  title="Agregar imagen"
+                >
+                  <ImageIcon className="w-5 h-5" />
+                  <span className="hidden sm:inline">Imagen</span>
+                </button>
               </div>
               <button
                 onClick={handleCreatePost}
-                disabled={creatingPost || !newPostContent.trim()}
+                disabled={creatingPost || (!newPostContent.trim() && !selectedImage)}
                 className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-400 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 text-sm"
               >
                 {creatingPost ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Publicando...
+                    {uploadingImage ? 'Subiendo imagen...' : 'Publicando...'}
                   </>
                 ) : (
                   <>
@@ -865,9 +1003,31 @@ export default function SalaDetalle({ sala }: SalaDetalleProps) {
                             </div>
                           </div>
                         ) : (
-                          <p className="text-gray-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">
-                            {post.contenido || 'Sin contenido'}
-                          </p>
+                          <>
+                            {post.contenido && (
+                              <p className="text-gray-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">
+                                {post.contenido}
+                              </p>
+                            )}
+                            {/* Imagen del post */}
+                            {post.imagen && (
+                              <div className="mb-3">
+                                <img
+                                  src={post.imagen}
+                                  alt="Imagen del post"
+                                  className="max-w-full max-h-96 rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:opacity-95 transition-opacity"
+                                  onClick={() => window.open(post.imagen!, '_blank')}
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                            )}
+                            {!post.contenido && !post.imagen && (
+                              <p className="text-gray-400 text-sm italic mb-3">Sin contenido</p>
+                            )}
+                          </>
                         )}
 
                         <div className="flex items-center gap-3">

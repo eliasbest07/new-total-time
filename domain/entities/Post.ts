@@ -8,6 +8,7 @@ export interface Post {
   edited_at: string | null;
   likes_count: number;
   dislikes_count: number;
+  imagen: string | null; // URL de la imagen en Supabase Storage
   // Datos del usuario (join)
   usuario?: {
     nombre: string | null;

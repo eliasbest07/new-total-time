@@ -12,6 +12,17 @@ export const usePasteImage = (
 ) => {
 
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    // Ignorar paste si el usuario está en un input, textarea o elemento editable
+    const target = e.target as HTMLElement;
+    if (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable
+    ) {
+      console.log('📋 [PIZARRA PASTE] Ignorando paste en elemento editable');
+      return;
+    }
+
     console.log('📋 [PIZARRA PASTE] Evento paste detectado');
 
     const items = e.clipboardData?.items;
