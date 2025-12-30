@@ -770,8 +770,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   // Vista normal de la misión
   return (
     <div className="flex flex-col h-full w-full p-3">
-      {/* Botón de entregar */}
-      {true && (
+      {/* Botón de entregar - solo visible cuando la misión está activa */}
+      {isRunning && (
         <div className="flex justify-end mb-2">
           <button
             onClick={handleEntregar}

@@ -1443,14 +1443,62 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     // Manejar image_url de la DB -> imageUrl del frontend
     const imageUrl = cardData.image_url || cardData.imageUrl;
 
-    const restoredCard = {
-      ...cardData,
+    // Construir el card restaurado con los datos correctos
+    const restoredCard: Card = {
       id: newId,
+      type: cardData.type,
+      title: cardData.title || '',
+      content: cardData.content || '',
       x: (cardData.x || generatePosition()) + 50,
       y: (cardData.y || generatePosition()) + 80,
-      z: Date.now(),
+      width: cardData.width || 200,
+      height: cardData.height || 150,
+      fontSize: cardData.font_size || cardData.fontSize || 14,
+      zIndex: Date.now(),
       imageUrl: imageUrl
     };
+
+    // Copiar todos si es una TodoCard
+    if (cardData.type === 'todo' && cardData.todos) {
+      restoredCard.todos = cardData.todos.map((todo: any) => ({
+        id: todo.id,
+        text: todo.text,
+        completed: todo.completed
+      }));
+    }
+
+    // Copiar proyectoData si es una ProjectCard
+    if ((cardData.type === 'proyecto' || cardData.type === 'proyecto-organizacion') && cardData.proyectoData) {
+      restoredCard.proyectoData = {
+        id: cardData.proyectoData.id,
+        nombre: cardData.proyectoData.nombre,
+        descripcion: cardData.proyectoData.descripcion,
+        icono: cardData.proyectoData.icono,
+        id_organizacion: cardData.proyectoData.id_organizacion,
+        colors: cardData.proyectoData.colors,
+        created_at: cardData.proyectoData.created_at
+      };
+    }
+
+    // Copiar misionData si es una MisionCard
+    if ((cardData.type === 'mision' || cardData.type === 'mision-organizacion') && cardData.misionData) {
+      restoredCard.misionData = { ...cardData.misionData };
+    }
+
+    // Copiar activityData si es una ActivityCard
+    if (cardData.type === 'actividad' && cardData.activityData) {
+      restoredCard.activityData = { ...cardData.activityData };
+    }
+
+    // Copiar usuarioData si es una UsuarioCard
+    if (cardData.type === 'usuario' && cardData.usuarioData) {
+      restoredCard.usuarioData = { ...cardData.usuarioData };
+    }
+
+    // Copiar recursoData si es una RecursoCard
+    if (cardData.type === 'resource' && cardData.recursoData) {
+      restoredCard.recursoData = { ...cardData.recursoData };
+    }
 
     // Si es una imagen, actualizar pastedImages para que se muestre
     if (cardData.type === 'image' && imageUrl) {
@@ -1459,6 +1507,14 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         [newId]: imageUrl
       }));
     }
+
+    console.log('🔄 [restoreCard] Restaurando card:', {
+      type: restoredCard.type,
+      id: restoredCard.id,
+      hasTodos: !!restoredCard.todos,
+      todosCount: restoredCard.todos?.length,
+      hasProyectoData: !!restoredCard.proyectoData
+    });
 
     setCards(prev => [...prev, restoredCard]);
   }, [cards]);

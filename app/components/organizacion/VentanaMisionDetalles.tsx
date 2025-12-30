@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import Ventana from '@/app/demo/components/Ventana';
 import { Mision } from '@/domain/entities/Mision';
 import { Usuario } from '@/domain/entities/Usuario';
+import { Proyecto } from '@/domain/entities/Proyecto';
 import { Capture } from '@/domain/entities/Capture';
 import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
-import { Pencil, Check, X, ChevronDown, MessageCircle } from 'lucide-react';
+import { Pencil, Check, X, ChevronDown, MessageCircle, Folder } from 'lucide-react';
 
 const captureRepository = new CaptureRepositorySupabase();
 
@@ -15,6 +16,7 @@ interface VentanaMisionDetallesProps {
   onClose: () => void;
   mision: Mision | null;
   usuarios?: Usuario[];
+  proyectos?: Proyecto[];
   currentUserId?: string;
   onOpenChat?: (userData: {
     userId: string;
@@ -269,6 +271,128 @@ const UserSelector: React.FC<{
   );
 };
 
+// Componente para selector de proyecto
+const ProjectSelector: React.FC<{
+  selectedProjectId: number | null;
+  proyectos: Proyecto[];
+  onSelect: (projectId: number | null) => void;
+}> = ({ selectedProjectId, proyectos, onSelect }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedProject = proyectos.find(p => p.id === selectedProjectId);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Obtener color del proyecto
+  const getProjectColor = (proyecto: Proyecto) => {
+    if (proyecto.colors && proyecto.colors.length > 0) {
+      return proyecto.colors[0];
+    }
+    return '#6366f1'; // indigo por defecto
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div
+        className="group flex items-center gap-2 cursor-pointer rounded-lg hover:bg-gray-50 transition-colors -mx-2 px-2 py-1"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {selectedProject ? (
+          <div className="flex items-center gap-2 flex-1">
+            <div
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm overflow-hidden"
+              style={{ backgroundColor: getProjectColor(selectedProject) }}
+            >
+              {selectedProject.icono ? (
+                <img
+                  src={selectedProject.icono}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <Folder size={14} className={selectedProject.icono ? 'hidden' : ''} />
+            </div>
+            <span className="text-gray-900">{selectedProject.nombre || 'Sin nombre'}</span>
+          </div>
+        ) : (
+          <span className="flex-1 text-gray-400 italic">Sin proyecto</span>
+        )}
+        <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+          <button
+            onClick={() => {
+              onSelect(null);
+              setIsOpen(false);
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors text-left border-b border-gray-100"
+          >
+            <div className="w-7 h-7 bg-gray-200 rounded-lg flex items-center justify-center">
+              <X size={14} className="text-gray-500" />
+            </div>
+            <span className="text-gray-500">Sin proyecto</span>
+          </button>
+
+          {proyectos.map((proyecto) => (
+            <button
+              key={proyecto.id}
+              onClick={() => {
+                onSelect(proyecto.id);
+                setIsOpen(false);
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors text-left ${
+                selectedProjectId === proyecto.id ? 'bg-blue-50' : ''
+              }`}
+            >
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm overflow-hidden"
+                style={{ backgroundColor: getProjectColor(proyecto) }}
+              >
+                {proyecto.icono ? (
+                  <img
+                    src={proyecto.icono}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <Folder size={14} className={proyecto.icono ? 'hidden' : ''} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-gray-900 text-sm truncate">{proyecto.nombre || 'Sin nombre'}</p>
+                {proyecto.descripcion && (
+                  <p className="text-xs text-gray-500 truncate">{proyecto.descripcion}</p>
+                )}
+              </div>
+              {selectedProjectId === proyecto.id && (
+                <Check size={16} className="text-blue-500 flex-shrink-0" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Componente para selector de estado
 const StatusSelector: React.FC<{
   value: string;
@@ -342,6 +466,7 @@ const VentanaMisionDetalles: React.FC<VentanaMisionDetallesProps> = ({
   onClose,
   mision,
   usuarios = [],
+  proyectos = [],
   currentUserId,
   onOpenChat,
   onMisionUpdated
@@ -360,6 +485,7 @@ const VentanaMisionDetalles: React.FC<VentanaMisionDetallesProps> = ({
     fecha_end: string;
     estado: string;
     id_usuario: number | null;
+    id_proyecto: number | null;
   }>({
     nombre: '',
     descripcion: '',
@@ -367,7 +493,8 @@ const VentanaMisionDetalles: React.FC<VentanaMisionDetallesProps> = ({
     fecha_start: '',
     fecha_end: '',
     estado: 'pendiente',
-    id_usuario: null
+    id_usuario: null,
+    id_proyecto: null
   });
 
   // Inicializar estado local cuando cambia la misión
@@ -380,7 +507,8 @@ const VentanaMisionDetalles: React.FC<VentanaMisionDetallesProps> = ({
         fecha_start: mision.fecha_start || '',
         fecha_end: mision.fecha_end || '',
         estado: mision.estado || 'pendiente',
-        id_usuario: mision.id_usuario || null
+        id_usuario: mision.id_usuario || null,
+        id_proyecto: mision.id_proyecto || null
       });
     }
   }, [mision, isOpen]);
@@ -525,6 +653,18 @@ const VentanaMisionDetalles: React.FC<VentanaMisionDetallesProps> = ({
                 selectedUserId={localMision.id_usuario}
                 usuarios={usuarios}
                 onSelect={(v) => saveField('id_usuario', v)}
+              />
+            </div>
+          </div>
+
+          {/* Proyecto */}
+          <div className="flex items-center py-1.5 border-b border-gray-100">
+            <span className="w-28 text-sm text-gray-500 flex-shrink-0">Proyecto</span>
+            <div className="flex-1">
+              <ProjectSelector
+                selectedProjectId={localMision.id_proyecto}
+                proyectos={proyectos}
+                onSelect={(v) => saveField('id_proyecto', v)}
               />
             </div>
           </div>

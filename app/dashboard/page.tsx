@@ -112,8 +112,7 @@ function DashboardAdmin() {
   const [misionFechaFin, setMisionFechaFin] = useState("");
   const [misionHoras, setMisionHoras] = useState("");
   const [misionEstado, setMisionEstado] = useState("pendiente");
-  const [tareasTodo, setTareasTodo] = useState<{id: string; texto: string; completada: boolean}[]>([]);
-  const [nuevaTareaTexto, setNuevaTareaTexto] = useState("");
+  const [misionProyectoId, setMisionProyectoId] = useState<number | null>(null);
   const [creandoMision, setCreandoMision] = useState(false);
 
   // Estado del formulario de proyecto
@@ -515,29 +514,6 @@ function DashboardAdmin() {
     }
   }, []);
 
-  // Funciones para manejar tareas TODO
-  const agregarTarea = () => {
-    if (nuevaTareaTexto.trim()) {
-      setTareasTodo([...tareasTodo, {
-        id: `tarea-${Date.now()}`,
-        texto: nuevaTareaTexto.trim(),
-        completada: false
-      }]);
-      setNuevaTareaTexto('');
-    }
-  };
-
-  const eliminarTarea = (tareaId: string) => {
-    setTareasTodo(tareasTodo.filter(t => t.id !== tareaId));
-  };
-
-  const handleKeyPressTarea = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      agregarTarea();
-    }
-  };
-
   // Limpiar formulario de misión
   const limpiarFormularioMision = () => {
     setMisionNombre("");
@@ -548,8 +524,7 @@ function DashboardAdmin() {
     setMisionFechaFin("");
     setMisionHoras("");
     setMisionEstado("pendiente");
-    setTareasTodo([]);
-    setNuevaTareaTexto("");
+    setMisionProyectoId(null);
     setConnectionContext(null); // Limpiar contexto de conexión
   };
 
@@ -576,9 +551,9 @@ function DashboardAdmin() {
         fecha_start: misionFechaInicio || null,
         fecha_end: misionFechaFin || null,
         id_usuario: usuarioId,
-        id_proyecto: connectionContext?.proyectoId || null, // Usar proyecto del contexto si existe
+        id_proyecto: misionProyectoId || connectionContext?.proyectoId || null,
         id_creador: usuario?.userAuth || null,
-        card_todos: [], // Array vacío, se actualizará después si se crea una lista TODO
+        card_todos: [],
         estado: misionEstado
       });
 
@@ -649,44 +624,8 @@ function DashboardAdmin() {
             }, 150);
           }
         }
-        // ✅ Crear lista TODO si hay tareas Y NO hay contexto de conexión (es decir, no viene de un TODO existente)
-        else if (tareasTodo.length > 0 && newMisionCardId && pizarraRef.current?.addTodoCard) {
-          console.log('📋 Creando lista TODO asociada a la misión con', tareasTodo.length, 'tareas...');
 
-          const todoCardId = pizarraRef.current.addTodoCard('Lista de tareas');
-          console.log('📝 Card TODO creado con ID:', todoCardId);
-
-          // Actualizar la misión con el ID del card TODO
-          if (todoCardId && nuevaMision?.id) {
-            await updateMision(nuevaMision.id, {
-              card_todos: [todoCardId]
-            });
-            console.log('✅ Misión actualizada con card_todos:', todoCardId);
-          }
-
-          // Crear conexión TODO -> Misión
-          if (todoCardId && pizarraRef.current?.addConnection) {
-            setTimeout(() => {
-              if (pizarraRef.current?.addConnection) {
-                pizarraRef.current.addConnection(
-                  todoCardId,
-                  newMisionCardId as string,
-                  true // skipValidation
-                );
-                console.log('🔗 Conexión TODO -> Misión creada');
-              }
-            }, 200);
-          }
-
-          // TODO: Agregar las tareas al TODO card
-          // Esto requeriría una función en la pizarra para agregar tareas a un TODO card específico
-          console.log('📝 Tareas a agregar al TODO:', tareasTodo);
-        }
-
-        const mensajeExito = tareasTodo.length > 0
-          ? `✅ Misión creada exitosamente con ${tareasTodo.length} tarea(s) TODO asociada(s)`
-          : "✅ Misión creada exitosamente";
-        // alert(mensajeExito);
+        console.log('✅ Misión creada exitosamente');
         limpiarFormularioMision();
         setShowMisionesModal(false);
         setConnectionContext(null); // Limpiar contexto
@@ -954,7 +893,12 @@ function DashboardAdmin() {
         {/* Botones para crear misiones/actividades - Esquina inferior derecha */}
         <div className="fixed bottom-20 right-4 z-50 pointer-events-auto flex flex-col gap-3">
           <button
-            onClick={() => setShowMisionesModal(true)}
+            onClick={() => {
+              if (proyectos.length > 0 && !misionProyectoId) {
+                setMisionProyectoId(proyectos[0].id);
+              }
+              setShowMisionesModal(true);
+            }}
             className="crear-mision-btn flex items-center gap-2 relative"
             title="Crear Ticket"
           >
@@ -1249,66 +1193,26 @@ function DashboardAdmin() {
               </div>
             </div>
 
-            {/* Sección de Tareas TODO */}
-            <div className="border-2 border-purple-300 rounded-lg p-4 bg-purple-50" data-todo-interactive="true">
-              <h4 className="text-sm font-bold mb-3" style={{ color: '#000000' }}>
-                📋 Tareas del Ticket
-                {connectionContext && tareasTodo.length > 0 && (
-                  <span className="text-xs font-normal text-purple-600 ml-2">
-                    (importadas de lista TODO)
-                  </span>
-                )}
-              </h4>
-
-              {/* Input para agregar tarea */}
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  value={nuevaTareaTexto}
-                  onChange={(e) => setNuevaTareaTexto(e.target.value)}
-                  onKeyPress={handleKeyPressTarea}
-                  className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  style={{ color: '#000000' }}
-                  placeholder="Escribe una tarea y presiona Enter..."
-                  disabled={creandoMision}
-                  data-todo-interactive="true"
-                />
-                <button
-                  onClick={agregarTarea}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-sm transition-colors disabled:opacity-50"
-                  disabled={creandoMision || !nuevaTareaTexto.trim()}
-                  data-todo-interactive="true"
-                  type="button"
-                >
-                  +
-                </button>
-              </div>
-
-              {/* Lista de tareas */}
-              {tareasTodo.length > 0 ? (
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {tareasTodo.map((tarea) => (
-                    <div
-                      key={tarea.id}
-                      className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 group"
-                    >
-                      <span className="flex-1 text-sm" style={{ color: '#000000' }}>{tarea.texto}</span>
-                      <button
-                        onClick={() => eliminarTarea(tarea.id)}
-                        className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
-                        data-todo-interactive="true"
-                        type="button"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-600 text-center py-2">
-                  No hay tareas agregadas. Agrega tareas para crear una lista TODO.
-                </p>
-              )}
+            {/* Selector de Proyecto */}
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                Proyecto
+              </label>
+              <select
+                value={misionProyectoId || ''}
+                onChange={(e) => setMisionProyectoId(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                style={{ color: '#000000' }}
+                disabled={creandoMision}
+                data-todo-interactive="true"
+              >
+                <option value="">Sin proyecto</option>
+                {proyectos.map((proyecto) => (
+                  <option key={proyecto.id} value={proyecto.id}>
+                    {proyecto.nombre || 'Sin nombre'}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex gap-3 pt-4">
@@ -1851,6 +1755,7 @@ function DashboardAdmin() {
         }}
         mision={selectedMisionDetalles}
         usuarios={usuarios}
+        proyectos={proyectos}
         currentUserId={usuario?.userAuth}
         onOpenChat={handleUserClick}
         onMisionUpdated={() => {

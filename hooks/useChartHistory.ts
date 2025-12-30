@@ -301,8 +301,11 @@ export const useChartHistory = (pizarraRef: RefObject<PizarraRef | null>, userId
               .eq('id_pizarra', snapshot.pizarraId);
 
             if (!cardsError && cardsEnBD && cardsEnBD.length > 0) {
-              // Para cards de tipo imagen, cargar la URL desde card_images
-              const cardsConImagenes = await Promise.all(cardsEnBD.map(async (cardDB: any) => {
+              // Cargar datos relacionados para cada card
+              const cardsConDatosCompletos = await Promise.all(cardsEnBD.map(async (cardDB: any) => {
+                let cardConDatos = { ...cardDB };
+
+                // Para cards de tipo imagen, cargar la URL desde card_images
                 if (cardDB.type === 'image') {
                   const { data: cardImage } = await supabase
                     .from('card_images')
@@ -311,25 +314,72 @@ export const useChartHistory = (pizarraRef: RefObject<PizarraRef | null>, userId
                     .single();
 
                   if (cardImage?.image_url) {
-                    return { ...cardDB, image_url: cardImage.image_url };
+                    cardConDatos.image_url = cardImage.image_url;
                   }
                 }
-                return cardDB;
+
+                // Para cards de tipo todo, cargar los todos desde card_todos
+                if (cardDB.type === 'todo') {
+                  const { data: cardTodos } = await supabase
+                    .from('card_todos')
+                    .select('*')
+                    .eq('id_card', cardDB.id)
+                    .order('position', { ascending: true });
+
+                  if (cardTodos && cardTodos.length > 0) {
+                    cardConDatos.todos = cardTodos.map((todo: any) => ({
+                      id: todo.todo_id,
+                      text: todo.text,
+                      completed: todo.completed
+                    }));
+                  }
+                }
+
+                // Para cards de tipo proyecto, cargar datos desde card_proyectos y proyectos
+                if (cardDB.type === 'proyecto' || cardDB.type === 'proyecto-organizacion') {
+                  const { data: cardProyecto } = await supabase
+                    .from('card_proyectos')
+                    .select('id_proyecto')
+                    .eq('id_card', cardDB.id)
+                    .single();
+
+                  if (cardProyecto?.id_proyecto) {
+                    const { data: proyecto } = await supabase
+                      .from('proyectos')
+                      .select('*')
+                      .eq('id', cardProyecto.id_proyecto)
+                      .single();
+
+                    if (proyecto) {
+                      cardConDatos.proyectoData = {
+                        id: proyecto.id,
+                        nombre: proyecto.nombre,
+                        descripcion: proyecto.descripcion,
+                        icono: proyecto.icono,
+                        id_organizacion: proyecto.id_organizacion,
+                        colors: proyecto.colors,
+                        created_at: proyecto.created_at
+                      };
+                    }
+                  }
+                }
+
+                return cardConDatos;
               }));
 
               // Convertir las cards a items del snapshot
-              const items: BoardHistoryItem[] = cardsConImagenes.map((cardDB: any) => ({
-                id: cardDB.id,
-                title: cardDB.title || 'Sin título',
-                type: getCardTypeLabel(cardDB.type),
+              const items: BoardHistoryItem[] = cardsConDatosCompletos.map((cardConDatos: any) => ({
+                id: cardConDatos.id,
+                title: cardConDatos.title || 'Sin título',
+                type: getCardTypeLabel(cardConDatos.type),
                 owner: 'Usuario',
-                summary: cardDB.content || 'Sin contenido',
-                lastUpdated: new Date(cardDB.created_at).toLocaleDateString('es-ES') + ' • ' +
-                            new Date(cardDB.created_at).toLocaleTimeString('es-ES', {
+                summary: cardConDatos.content || 'Sin contenido',
+                lastUpdated: new Date(cardConDatos.created_at).toLocaleDateString('es-ES') + ' • ' +
+                            new Date(cardConDatos.created_at).toLocaleTimeString('es-ES', {
                               hour: '2-digit',
                               minute: '2-digit'
                             }),
-                cardData: cardDB
+                cardData: cardConDatos
               }));
 
               // Contar tipos de cards
