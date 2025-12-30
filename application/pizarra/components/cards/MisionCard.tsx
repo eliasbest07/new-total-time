@@ -15,6 +15,7 @@ interface MisionCardProps {
   isCapturing: boolean;
   captureNow: () => Promise<string | null>;
   updateCard: (cardId: string, updates: Partial<Card>) => void;
+  deleteCard?: (cardId: string) => void;
 }
 
 export const MisionCard: React.FC<MisionCardProps> = ({
@@ -26,7 +27,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   screenshots,
   isCapturing,
   captureNow,
-  updateCard
+  updateCard,
+  deleteCard
 }) => {
   const [chatMessage, setChatMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
@@ -37,6 +39,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   const [showEntregarModal, setShowEntregarModal] = useState(false);
   const [entregaTexto, setEntregaTexto] = useState('');
   const [entregaImagen, setEntregaImagen] = useState<File | null>(null);
+  const [enviandoEntrega, setEnviandoEntrega] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 🔒 ESTADO LOCAL SIMPLE - Solo bloquear después de capturas
@@ -499,16 +502,21 @@ export const MisionCard: React.FC<MisionCardProps> = ({
 
   // Función para enviar la entrega
   const handleSubmitEntrega = async () => {
+    if (enviandoEntrega) return;
+
+    setEnviandoEntrega(true);
     try {
       console.log('📦 [ENTREGA] Iniciando envío de entrega...');
 
       if (!entregaTexto.trim()) {
         alert('Por favor, agrega una descripción de tu entrega');
+        setEnviandoEntrega(false);
         return;
       }
 
       if (!currentUserUuid) {
         alert('No se pudo identificar el usuario');
+        setEnviandoEntrega(false);
         return;
       }
 
@@ -566,6 +574,22 @@ export const MisionCard: React.FC<MisionCardProps> = ({
 
       if (result) {
         console.log('✅ [ENTREGA] Entrega guardada exitosamente:', result.id);
+
+        // Desasignar el usuario de la misión original
+        const misionId = card.misionData?.id;
+        if (misionId) {
+          const { error: updateError } = await supabase
+            .from('misiones')
+            .update({ id_usuario: null })
+            .eq('id', misionId);
+
+          if (updateError) {
+            console.error('⚠️ Error al desasignar usuario:', updateError);
+          } else {
+            console.log('✅ Usuario desasignado de la misión');
+          }
+        }
+
         alert('¡Entrega enviada exitosamente! 🎉');
 
         // Cerrar modal y resetear formulario
@@ -573,6 +597,12 @@ export const MisionCard: React.FC<MisionCardProps> = ({
         setEntregaTexto('');
         setEntregaImagen(null);
         setElapsedSeconds(0);
+
+        // Eliminar el card de la pizarra
+        if (deleteCard) {
+          deleteCard(card.id);
+          console.log('🗑️ Card eliminado de la pizarra');
+        }
       } else {
         console.error('❌ Error guardando entrega');
         alert('Error al guardar la entrega. Intenta de nuevo.');
@@ -580,6 +610,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     } catch (error) {
       console.error('❌ Error en handleSubmitEntrega:', error);
       alert('Error al enviar la entrega. Intenta de nuevo.');
+    } finally {
+      setEnviandoEntrega(false);
     }
   };
 
@@ -757,10 +789,15 @@ export const MisionCard: React.FC<MisionCardProps> = ({
           </button>
           <button
             onClick={handleSubmitEntrega}
-            className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+            disabled={enviandoEntrega}
+            className={`flex-1 px-4 py-2 rounded transition-colors ${
+              enviandoEntrega
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
             data-todo-interactive
           >
-            Enviar Entrega
+            {enviandoEntrega ? 'Enviando...' : 'Enviar Entrega'}
           </button>
         </div>
       </div>

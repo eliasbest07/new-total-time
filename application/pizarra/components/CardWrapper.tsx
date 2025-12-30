@@ -151,6 +151,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         cards={props.cards}
         onOpenCapturasModal={props.onOpenCapturasModal}
         idPizarra={props.idPizarra}
+        deleteCard={props.deleteCard}
       />
 
       {/* Connection point */}

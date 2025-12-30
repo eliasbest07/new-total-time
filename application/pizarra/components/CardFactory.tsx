@@ -52,6 +52,7 @@ interface CardFactoryProps {
   cards?: Card[]; // ✅ Todas las cards para buscar notas asociadas
   onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void; // ✅ Callback para abrir modal de capturas
   idPizarra?: string | null; // ✅ ID de la pizarra para sincronizar cambios en DB
+  deleteCard?: (cardId: string) => void; // ✅ Función para eliminar cards
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -110,6 +111,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           screenshots={props.screenshots}
           isCapturing={props.isCapturing}
           captureNow={props.captureNow}
+          deleteCard={props.deleteCard}
           updateCard={(cardId, updates) => {
             props.setCards((prevCards) =>
               prevCards.map((c): Card => {
