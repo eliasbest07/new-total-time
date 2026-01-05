@@ -16,6 +16,7 @@ interface MisionCardProps {
   captureNow: () => Promise<string | null>;
   updateCard: (cardId: string, updates: Partial<Card>) => void;
   deleteCard?: (cardId: string) => void;
+  readOnly?: boolean; // Si es true, oculta botones de play/pause y otras acciones
 }
 
 export const MisionCard: React.FC<MisionCardProps> = ({
@@ -28,7 +29,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   isCapturing,
   captureNow,
   updateCard,
-  deleteCard
+  deleteCard,
+  readOnly = false
 }) => {
   const [chatMessage, setChatMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
@@ -876,24 +878,26 @@ export const MisionCard: React.FC<MisionCardProps> = ({
 
       {/* Sección central con botón de play e imagen */}
       <div className="flex-1 flex flex-col justify-center items-center gap-2 data-todo-interactive">
-        {/* Botón de play/pause centrado */}
-        <button
-          className={`${bgColor} ${bgColorHover} text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors duration-200 shadow-lg hover:shadow-xl`}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handlePlayPauseClick(card.id, localIsRunning);
-          }}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          data-todo-interactive
-        >
-          <div style={{ fontSize: `${Math.max(14, (card.fontSize || 18) - 2)}px` }}>
-            {localIsRunning ? '⏸️' : '▶️'}
-          </div>
-        </button>
+        {/* Botón de play/pause centrado - Solo visible si no es readOnly */}
+        {!readOnly && (
+          <button
+            className={`${bgColor} ${bgColorHover} text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors duration-200 shadow-lg hover:shadow-xl`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handlePlayPauseClick(card.id, localIsRunning);
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            data-todo-interactive
+          >
+            <div style={{ fontSize: `${Math.max(14, (card.fontSize || 18) - 2)}px` }}>
+              {localIsRunning ? '⏸️' : '▶️'}
+            </div>
+          </button>
+        )}
 
         {/* Imagen aspecto 16x9 - Muestra última captura */}
         <div

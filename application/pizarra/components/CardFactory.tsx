@@ -53,6 +53,7 @@ interface CardFactoryProps {
   onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void; // ✅ Callback para abrir modal de capturas
   idPizarra?: string | null; // ✅ ID de la pizarra para sincronizar cambios en DB
   deleteCard?: (cardId: string) => void; // ✅ Función para eliminar cards
+  readOnly?: boolean; // ✅ Si es true, oculta botones de play/pause (para pizarras ajenas)
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -112,6 +113,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           isCapturing={props.isCapturing}
           captureNow={props.captureNow}
           deleteCard={props.deleteCard}
+          readOnly={props.readOnly}
           updateCard={(cardId, updates) => {
             props.setCards((prevCards) =>
               prevCards.map((c): Card => {

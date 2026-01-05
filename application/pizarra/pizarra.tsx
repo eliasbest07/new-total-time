@@ -3093,6 +3093,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
             cards={cards}
             onOpenCapturasModal={onOpenCapturasModal}
             idPizarra={pizarraActual?.id || null}
+            readOnly={readOnly || isViewingOtherUser}
           />
         ))}
         </div>

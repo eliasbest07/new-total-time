@@ -4,11 +4,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Pizarra, { PizarraRef } from '@/application/pizarra/pizarra';
 import { useRef } from 'react';
-import { ArrowLeft, Edit3, Clock, CheckCircle, History, Calendar } from 'lucide-react';
+import { ArrowLeft, History, Calendar, ChevronDown, Target, CalendarDays, Link2, Plus } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { usePizarraPermissions } from '@/hooks/usePizarraPermissions';
 import InputArea from '@/app/components/mainUI/InputArea';
 import Ventana from '@/app/demo/components/Ventana';
+import { useMisiones } from '@/hooks/useMisiones';
+import { useActividades } from '@/hooks/useActividades';
+import { Recurso } from '@/domain/entities/Recurso';
 
 interface PizarraHistorial {
   id: string;
@@ -22,73 +24,47 @@ export default function PizarraUsuarioPage() {
   const userId = params.userId as string;
   const pizarraRef = useRef<PizarraRef>(null);
   const [userName, setUserName] = useState<string>('Usuario');
-  const [ownerNumericId, setOwnerNumericId] = useState<number | null>(null);
+  const [userNumericId, setUserNumericId] = useState<number | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historialPizarras, setHistorialPizarras] = useState<PizarraHistorial[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const { usuario } = useAuth();
   const [mensajeEnviado, setMensajeEnviado] = useState(false);
 
-  // Debug: Verificar qué viene en los params
+  // Estados para el panel de agregar elementos
+  const [showAddPanel, setShowAddPanel] = useState(false);
+  const [activeTab, setActiveTab] = useState<'misiones' | 'actividades' | 'recursos'>('misiones');
+
+  // Estados para recursos
+  const [recursos, setRecursos] = useState<Recurso[]>([]);
+  const [loadingRecursos, setLoadingRecursos] = useState(false);
+  const [recursosPage, setRecursosPage] = useState(0);
+  const RECURSOS_PER_PAGE = 5;
+
+  // Hooks para cargar datos del usuario de la pizarra
+  const { misiones, loading: loadingMisiones } = useMisiones(userNumericId, { enableRealtime: false });
+  const { actividades, loading: loadingActividades } = useActividades(userId);
+
+  // Cargar recursos del usuario
   useEffect(() => {
-    console.log('🔍 [DEBUG] Params completos:', params);
-    console.log('🔍 [DEBUG] userId extraído:', userId);
-    console.log('🔍 [DEBUG] Tipo de userId:', typeof userId);
-    console.log('🔍 [DEBUG] userId es undefined?', userId === undefined);
-    console.log('🔍 [DEBUG] userId es null?', userId === null);
-    console.log('🔍 [DEBUG] userId length:', userId?.length);
-  }, [params, userId]);
+    const loadRecursos = async () => {
+      if (!userId) return;
 
-  // Hook para manejar permisos
-  // LOG CRÍTICO: Ver exactamente qué es usuario.id
-  console.log('🔴 [CRÍTICO] usuario completo:', {
-    id: usuario?.id,
-    idType: typeof usuario?.id,
-    userAuth: usuario?.userAuth,
-    email: usuario?.email,
-    profile: usuario?.profile
-  });
+      setLoadingRecursos(true);
+      try {
+        const { SupabaseRecursoRepository } = await import('@/infrastructure/datasource/SupabaseRecursoRepository');
+        const recursoRepo = new SupabaseRecursoRepository();
+        const recursosData = await recursoRepo.getRecursosByUsuario(userId);
+        setRecursos(recursosData);
+      } catch (error) {
+        console.error('Error cargando recursos:', error);
+      } finally {
+        setLoadingRecursos(false);
+      }
+    };
 
-  const currentEditorId = usuario?.id ? parseInt(usuario.id) : null;
-
-  console.log('🔴 [CRÍTICO] Conversión:', {
-    usuarioId: usuario?.id,
-    parseInt: parseInt(usuario?.id || '0'),
-    currentEditorId,
-    isNaN: currentEditorId ? isNaN(currentEditorId) : 'null'
-  });
-
-  const {
-    hasPermission,
-    isPending,
-    loading: permissionLoading,
-    requestPermission
-  } = usePizarraPermissions(
-    ownerNumericId,
-    currentEditorId
-  );
-
-  // Log para debugging de permisos
-  useEffect(() => {
-    console.table({
-      'Owner ID (numérico)': ownerNumericId,
-      'Owner ID Type': typeof ownerNumericId,
-      'Usuario ID (string)': usuario?.id,
-      'Usuario ID Type': typeof usuario?.id,
-      'Current Editor ID': currentEditorId,
-      'Editor ID Type': typeof currentEditorId,
-      'Has Permission': hasPermission,
-      'Is Pending': isPending,
-      'Permission Loading': permissionLoading
-    });
-
-    console.log('🔍 [Page] Valores RAW:', {
-      ownerNumericId,
-      'usuario.id': usuario?.id,
-      currentEditorId,
-      'parseInt(usuario.id)': usuario?.id ? parseInt(usuario.id) : 'N/A'
-    });
-  }, [ownerNumericId, usuario?.id, currentEditorId, hasPermission, isPending, permissionLoading]);
+    loadRecursos();
+  }, [userId]);
 
   // Cargar historial de pizarras
   const loadHistorialPizarras = async () => {
@@ -98,12 +74,10 @@ export default function PizarraUsuarioPage() {
     try {
       const { SupabasePizarraRepository } = await import('@/infrastructure/datasource/SupabasePizarraRepository');
       const pizarraRepo = new SupabasePizarraRepository();
-
-      const pizarras = await pizarraRepo.getUltimasPizarras(userId, 30); // Últimas 30 pizarras
+      const pizarras = await pizarraRepo.getUltimasPizarras(userId, 30);
       setHistorialPizarras(pizarras);
-      console.log('📊 Historial de pizarras cargado:', pizarras.length);
     } catch (error) {
-      console.error('❌ Error cargando historial:', error);
+      console.error('Error cargando historial:', error);
     } finally {
       setLoadingHistory(false);
     }
@@ -119,103 +93,128 @@ export default function PizarraUsuarioPage() {
   // Cargar información del usuario desde Supabase
   useEffect(() => {
     const loadUserInfo = async () => {
-      console.log('🔍 [Page] loadUserInfo iniciado');
-      console.log('🔍 [Page] userId antes de la query:', userId);
-      console.log('🔍 [Page] userId type:', typeof userId);
-      console.log('🔍 [Page] userId es truthy?', !!userId);
-
-      if (!userId) {
-        console.warn('⚠️ [Page] userId está vacío, no se ejecutará la query');
-        return;
-      }
+      if (!userId) return;
 
       try {
-        console.log('🔍 [Page] Buscando usuario con id_usuario:', userId);
         const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-
-        console.log('🔍 [Page] Supabase client obtenido, ejecutando query...');
         const { data, error } = await supabase
           .from('usuario')
           .select('id, nombre, username, correo, id_usuario')
           .eq('id_usuario', userId)
           .maybeSingle();
 
-        console.log('🔍 [Page] Query ejecutada. Data:', data, 'Error:', error);
-
         if (error) {
-          console.error('❌ [Page] Error cargando información del usuario:', {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            userId: userId,
-            errorCompleto: JSON.stringify(error)
-          });
+          console.error('Error cargando información del usuario:', error);
           return;
         }
 
         if (data) {
-          console.log('✅ [Page] Usuario encontrado:', {
-            id: data.id,
-            nombre: data.nombre || data.username,
-            id_usuario: data.id_usuario
-          });
           setUserName(data.nombre || data.username || data.correo || 'Usuario');
-          setOwnerNumericId(parseInt(data.id));
-        } else {
-          console.warn('⚠️ [Page] No hay error pero tampoco hay data');
+          setUserNumericId(parseInt(data.id));
         }
       } catch (error) {
-        console.error('❌ [Page] Error en loadUserInfo (catch):', error);
+        console.error('Error en loadUserInfo:', error);
       }
     };
 
-    console.log('🔍 [Page] useEffect ejecutándose con userId:', userId);
     if (userId) {
       loadUserInfo();
-    } else {
-      console.warn('⚠️ [Page] useEffect: userId es falsy, no se carga nada');
     }
   }, [userId]);
 
   // Enviar mensaje automático al entrar a la pizarra
   useEffect(() => {
     const enviarMensajeAutomatico = async () => {
-      // Verificar que tenemos todos los datos necesarios
-      if (!usuario?.userAuth || !userId || mensajeEnviado) {
-        return;
-      }
-
-      // No enviar mensaje si es el propio usuario viendo su pizarra
-      if (usuario.userAuth === userId) {
-        console.log('👤 [AUTO-MESSAGE] Usuario viendo su propia pizarra, no se envía mensaje');
-        return;
-      }
+      if (!usuario?.userAuth || !userId || mensajeEnviado) return;
+      if (usuario.userAuth === userId) return;
 
       try {
-        console.log('📤 [AUTO-MESSAGE] Enviando mensaje automático a:', userId);
         const { SupabaseMensajeRepository } = await import('@/infrastructure/datasource/SupabaseMensajeRepository');
         const mensajeRepo = new SupabaseMensajeRepository();
-
         const mensaje = await mensajeRepo.enviarMensaje(
-          usuario.userAuth, // id del emisor (visitante)
-          userId,           // id del receptor (dueño de la pizarra)
+          usuario.userAuth,
+          userId,
           '~actualizapirazza'
         );
-
         if (mensaje) {
-          console.log('✅ [AUTO-MESSAGE] Mensaje automático enviado exitosamente');
           setMensajeEnviado(true);
-        } else {
-          console.error('❌ [AUTO-MESSAGE] Error enviando mensaje automático');
         }
       } catch (error) {
-        console.error('❌ [AUTO-MESSAGE] Error en enviarMensajeAutomatico:', error);
+        console.error('Error enviando mensaje automático:', error);
       }
     };
 
     enviarMensajeAutomatico();
   }, [usuario?.userAuth, userId, mensajeEnviado]);
+
+  // Función para agregar misión a la pizarra
+  const handleAddMision = (mision: any) => {
+    if (pizarraRef.current?.addMisionCard) {
+      pizarraRef.current.addMisionCard({
+        id_mision: mision.id,
+        title: mision.nombre || 'Sin nombre',
+        description: mision.descripcion || '',
+        hours: mision.horas || 0,
+        id_usuario: mision.id_usuario,
+        id_creador: mision.id_creador
+      });
+    }
+  };
+
+  // Función para agregar actividad a la pizarra (usando restoreCard)
+  const handleAddActividad = (actividad: any) => {
+    if (pizarraRef.current?.restoreCard) {
+      const cardId = `actividad-${actividad.id}-${Date.now()}`;
+      pizarraRef.current.restoreCard({
+        id: cardId,
+        type: 'actividad',
+        title: actividad.descripcion || 'Actividad',
+        content: actividad.descripcion || '',
+        x: 200 + Math.random() * 100,
+        y: 200 + Math.random() * 100,
+        width: 280,
+        height: 180,
+        fontSize: 14,
+        zIndex: 1000,
+        activityData: {
+          id: actividad.id,
+          description: actividad.descripcion || '',
+          date: actividad.fecha,
+          time: actividad.hora_inicio,
+          hours: actividad.cant_horas || 0,
+          isRunning: false,
+          elapsedTime: actividad.tiempo_dedicado || 0
+        }
+      });
+    }
+  };
+
+  // Función para agregar recurso a la pizarra
+  const handleAddRecurso = (recurso: Recurso) => {
+    if (pizarraRef.current?.restoreCard) {
+      const cardId = `recurso-${recurso.id}-${Date.now()}`;
+      pizarraRef.current.restoreCard({
+        id: cardId,
+        type: 'resource',
+        title: recurso.nombre || 'Recurso',
+        content: recurso.link || '',
+        x: 200 + Math.random() * 100,
+        y: 200 + Math.random() * 100,
+        width: 250,
+        height: 120,
+        fontSize: 14,
+        zIndex: 1000,
+        recursoData: {
+          id: recurso.id,
+          name: recurso.nombre || 'Recurso',
+          resourceType: 'link',
+          url: recurso.link,
+          icon: recurso.icono,
+          color: 'bg-orange-500'
+        }
+      });
+    }
+  };
 
   // Si no hay usuario logueado, mostrar mensaje
   if (!usuario) {
@@ -251,7 +250,17 @@ export default function PizarraUsuarioPage() {
 
         {/* Botones de acción */}
         <div className="flex items-center gap-3">
-          {/* Botón de historial - Siempre visible */}
+          {/* Botón para agregar elementos */}
+          <button
+            onClick={() => setShowAddPanel(!showAddPanel)}
+            className={`flex items-center gap-2 px-4 py-2 ${showAddPanel ? 'bg-green-600' : 'bg-green-500 hover:bg-green-600'} text-white rounded-lg transition-all duration-200 shadow-lg font-medium`}
+          >
+            <Plus className="w-5 h-5" />
+            <span>Agregar</span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${showAddPanel ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Botón de historial */}
           <button
             onClick={() => setShowHistoryModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-200 shadow-lg font-medium"
@@ -259,55 +268,157 @@ export default function PizarraUsuarioPage() {
             <History className="w-5 h-5" />
             <span>Ver Historial</span>
           </button>
-
-          {/* Botón de solicitud de permiso */}
-          {!hasPermission && !isPending && (
-            <>
-              {!ownerNumericId || !currentEditorId ? (
-                <div className="flex items-center gap-2 px-4 py-2 bg-gray-400 text-white rounded-lg shadow-lg">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span className="font-medium">Cargando información...</span>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    console.log('🔍 [Botón] Datos al solicitar permiso:', {
-                      ownerNumericId,
-                      ownerNumericIdType: typeof ownerNumericId,
-                      usuarioId: usuario?.id,
-                      currentEditorId,
-                      currentEditorIdType: typeof currentEditorId,
-                      userId,
-                    });
-                    requestPermission();
-                  }}
-                  disabled={permissionLoading || !currentEditorId}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-all duration-200 shadow-lg font-medium"
-                >
-                  <Edit3 className="w-5 h-5" />
-                  <span>Solicitar Permiso de Edición</span>
-                </button>
-              )}
-            </>
-          )}
-
-          {isPending && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg shadow-lg">
-              <Clock className="w-5 h-5 animate-pulse" />
-              <span className="font-medium">Solicitud Pendiente</span>
-            </div>
-          )}
-
-          {hasPermission && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg">
-              <CheckCircle className="w-5 h-5" />
-              <span className="font-medium">Permiso de Edición Otorgado</span>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Pizarra del usuario - modo solo lectura */}
+      {/* Panel para agregar elementos */}
+      {showAddPanel && (
+        <div className="absolute top-20 right-4 z-50 w-80 bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden">
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('misiones')}
+              className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
+                activeTab === 'misiones' ? 'bg-green-50 text-green-700 border-b-2 border-green-500' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Target className="w-4 h-4" />
+              Misiones
+            </button>
+            <button
+              onClick={() => setActiveTab('actividades')}
+              className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
+                activeTab === 'actividades' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4" />
+              Actividades
+            </button>
+            <button
+              onClick={() => setActiveTab('recursos')}
+              className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
+                activeTab === 'recursos' ? 'bg-orange-50 text-orange-700 border-b-2 border-orange-500' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Link2 className="w-4 h-4" />
+              Recursos
+            </button>
+          </div>
+
+          {/* Contenido */}
+          <div className="max-h-80 overflow-y-auto p-3">
+            {activeTab === 'misiones' && (
+              <div className="space-y-2">
+                {loadingMisiones ? (
+                  <div className="text-center py-4 text-gray-500">Cargando misiones...</div>
+                ) : misiones.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">No hay misiones disponibles</div>
+                ) : (
+                  misiones.map((mision) => (
+                    <button
+                      key={mision.id}
+                      onClick={() => handleAddMision(mision)}
+                      className="w-full text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200"
+                    >
+                      <div className="font-medium text-green-800 text-sm">{mision.nombre || 'Sin nombre'}</div>
+                      {mision.descripcion && (
+                        <div className="text-xs text-green-600 mt-1 line-clamp-2">{mision.descripcion}</div>
+                      )}
+                      {mision.horas && (
+                        <div className="text-xs text-green-500 mt-1">{mision.horas}h estimadas</div>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'actividades' && (
+              <div className="space-y-2">
+                {loadingActividades ? (
+                  <div className="text-center py-4 text-gray-500">Cargando actividades...</div>
+                ) : actividades.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">No hay actividades disponibles</div>
+                ) : (
+                  actividades.map((actividad) => (
+                    <button
+                      key={actividad.id}
+                      onClick={() => handleAddActividad(actividad)}
+                      className="w-full text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                    >
+                      <div className="font-medium text-blue-800 text-sm">{actividad.descripcion || 'Sin descripción'}</div>
+                      {actividad.fecha && (
+                        <div className="text-xs text-blue-600 mt-1">
+                          {new Date(actividad.fecha).toLocaleDateString('es-ES')}
+                          {actividad.hora_inicio && ` - ${actividad.hora_inicio}`}
+                        </div>
+                      )}
+                      {actividad.cant_horas && (
+                        <div className="text-xs text-blue-500 mt-1">{actividad.cant_horas}h</div>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'recursos' && (
+              <div className="space-y-2">
+                {loadingRecursos ? (
+                  <div className="text-center py-4 text-gray-500">Cargando recursos...</div>
+                ) : recursos.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">No hay recursos disponibles</div>
+                ) : (
+                  <>
+                    {recursos
+                      .slice(recursosPage * RECURSOS_PER_PAGE, (recursosPage + 1) * RECURSOS_PER_PAGE)
+                      .map((recurso) => (
+                        <button
+                          key={recurso.id}
+                          onClick={() => handleAddRecurso(recurso)}
+                          className="w-full text-left p-3 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-200"
+                        >
+                          <div className="flex items-center gap-2">
+                            {recurso.icono && <span className="text-lg">{recurso.icono}</span>}
+                            <div className="font-medium text-orange-800 text-sm">{recurso.nombre || 'Sin nombre'}</div>
+                          </div>
+                          {recurso.link && (
+                            <div className="text-xs text-orange-600 mt-1 truncate">{recurso.link}</div>
+                          )}
+                        </button>
+                      ))}
+
+                    {/* Paginación */}
+                    {recursos.length > RECURSOS_PER_PAGE && (
+                      <div className="flex items-center justify-between pt-2 border-t border-orange-200 mt-2">
+                        <button
+                          onClick={() => setRecursosPage(p => Math.max(0, p - 1))}
+                          disabled={recursosPage === 0}
+                          className="px-3 py-1 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+                        >
+                          Anterior
+                        </button>
+                        <span className="text-xs text-gray-500">
+                          {recursosPage + 1} / {Math.ceil(recursos.length / RECURSOS_PER_PAGE)}
+                        </span>
+                        <button
+                          onClick={() => setRecursosPage(p => Math.min(Math.ceil(recursos.length / RECURSOS_PER_PAGE) - 1, p + 1))}
+                          disabled={recursosPage >= Math.ceil(recursos.length / RECURSOS_PER_PAGE) - 1}
+                          className="px-3 py-1 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Pizarra del usuario - permite agregar notas */}
       <div className="w-full h-full">
         <Pizarra
           fullMode={true}
@@ -315,37 +426,33 @@ export default function PizarraUsuarioPage() {
           storagePrefix={`user-${userId}`}
           viewingUserId={userId}
           onShowScreenshots={() => {}}
+          readOnly={false}
         />
       </div>
 
-      {/* InputArea - Solo si tiene permiso */}
-      {hasPermission && (
-        <InputArea
-          onCreateNote={(text) => {
-            if (pizarraRef.current) {
-              pizarraRef.current.addNoteCard(text);
-            }
-          }}
-          onCreateTodoList={(text) => {
-            if (pizarraRef.current) {
-              pizarraRef.current.addTodoCard(text);
-            }
-          }}
-          onSendToUser={(text, user) => {
-            // Implementar envío a chat si es necesario
-            console.log('Enviar a usuario:', user, text);
-          }}
-          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
-          placeholder="Escribe aquí para crear notas, tareas o enviar..."
-        />
-      )}
+      {/* InputArea - Siempre visible para agregar notas a la pizarra del compañero */}
+      <InputArea
+        onCreateNote={(text) => {
+          if (pizarraRef.current) {
+            pizarraRef.current.addNoteCard(text);
+          }
+        }}
+        onCreateTodoList={(text) => {
+          if (pizarraRef.current) {
+            pizarraRef.current.addTodoCard(text);
+          }
+        }}
+        onSendToUser={(text, user) => {
+          console.log('Enviar a usuario:', user, text);
+        }}
+        className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
+        placeholder="Escribe aquí para crear notas o tareas en esta pizarra..."
+      />
 
       {/* Info flotante */}
       <div className="absolute bottom-4 right-4 z-50 bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg shadow-lg">
         <p className="text-white text-sm">
-          {hasPermission
-            ? 'Vista de pizarra compartida - Modo edición'
-            : 'Vista de pizarra compartida - Solo lectura'}
+          Pizarra de {userName} - Puedes agregar notas y tareas
         </p>
       </div>
 
@@ -421,9 +528,8 @@ export default function PizarraUsuarioPage() {
                             try {
                               await pizarraRef.current.loadPizarraById(pizarra.id);
                               setShowHistoryModal(false);
-                              console.log('✅ Pizarra cargada:', pizarra.id);
                             } catch (error) {
-                              console.error('❌ Error cargando pizarra:', error);
+                              console.error('Error cargando pizarra:', error);
                               alert('Error al cargar la pizarra');
                             }
                           }
