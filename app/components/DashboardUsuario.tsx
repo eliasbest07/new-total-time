@@ -12,6 +12,7 @@ import { Capture } from '@/domain/entities/Capture';
 import { MisionActiva } from '@/domain/entities/MisionActiva';
 import { Target, ChevronRight, ChevronLeft, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import PizarraPermissionRequests from './PizarraPermissionRequests';
 
 /**
  * Dashboard para usuarios NO administradores
@@ -355,6 +356,9 @@ export default function DashboardUsuario() {
 
     return (
         <div className="min-h-screen p-4 sm:p-6 lg:p-8 bg-transparent">
+            {/* Componente para ver solicitudes de permiso de pizarra */}
+            <PizarraPermissionRequests />
+
             {/* Container principal con max-width */}
             <div className="max-w-7xl mx-auto relative">
 

@@ -113,12 +113,20 @@ export class SupabasePizarraPermissionRepository implements PizarraPermissionRep
    */
   async getPendingRequests(ownerId: number): Promise<PizarraPermission[]> {
     try {
+      console.log('🔍 [SupabasePizarraPermissionRepository] getPendingRequests para ownerId:', ownerId);
+      
       const { data, error } = await supabase
         .from('pizarra_permissions')
         .select('*')
         .eq('id_usuario_owner', ownerId)
         .eq('granted', false)
         .order('requested_at', { ascending: false });
+
+      console.log('📊 [SupabasePizarraPermissionRepository] Resultado query:', {
+        data: data?.length || 0,
+        error: error?.message,
+        fullData: data
+      });
 
       if (error) {
         console.error('❌ Error obteniendo solicitudes pendientes:', error);

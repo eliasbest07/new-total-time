@@ -31,6 +31,7 @@ import { autoConnectMisionToProyecto, autoConnectProyectoToMisiones } from './pi
 import { navigateToCard, bringCardToFront, findCardByMisionId } from './pizarra-functions/navigation-utils';
 import { handleActivityPlayPause, handleMisionPlayPause } from './pizarra-functions/play-pause-handlers';
 import DiagnosticoPizarra from '@/app/components/debug/DiagnosticoPizarra';
+import PizarraPermissionRequests from '@/app/components/PizarraPermissionRequests';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
   const { usuario } = useAuth();
@@ -3196,6 +3197,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
       {/* Componente de diagnóstico */}
       <DiagnosticoPizarra />
+
+      {/* Componente para ver solicitudes de permiso de pizarra */}
+      <PizarraPermissionRequests />
 
     </div>
   );

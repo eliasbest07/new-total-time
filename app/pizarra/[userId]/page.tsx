@@ -4,13 +4,14 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Pizarra, { PizarraRef } from '@/application/pizarra/pizarra';
 import { useRef } from 'react';
-import { ArrowLeft, History, Calendar, ChevronDown, Target, CalendarDays, Link2, Plus } from 'lucide-react';
+import { ArrowLeft, History, Calendar, ChevronDown, Target, CalendarDays, Link2, Plus, Lock, Send, Clock } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import InputArea from '@/app/components/mainUI/InputArea';
 import Ventana from '@/app/demo/components/Ventana';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useActividades } from '@/hooks/useActividades';
 import { Recurso } from '@/domain/entities/Recurso';
+import { usePizarraPermissions } from '@/hooks/usePizarraPermissions';
 
 interface PizarraHistorial {
   id: string;
@@ -30,6 +31,15 @@ export default function PizarraUsuarioPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const { usuario } = useAuth();
   const [mensajeEnviado, setMensajeEnviado] = useState(false);
+  const [currentUserNumericId, setCurrentUserNumericId] = useState<number | null>(null);
+
+  // Hook de permisos - usa IDs numéricos
+  const {
+    hasPermission,
+    isPending,
+    loading: loadingPermission,
+    requestPermission
+  } = usePizarraPermissions(userNumericId, currentUserNumericId);
 
   // Estados para el panel de agregar elementos
   const [showAddPanel, setShowAddPanel] = useState(false);
@@ -121,6 +131,30 @@ export default function PizarraUsuarioPage() {
       loadUserInfo();
     }
   }, [userId]);
+
+  // Cargar ID numérico del usuario actual (el logueado)
+  useEffect(() => {
+    const loadCurrentUserNumericId = async () => {
+      if (!usuario?.userAuth) return;
+
+      try {
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+        const { data, error } = await supabase
+          .from('usuario')
+          .select('id')
+          .eq('id_usuario', usuario.userAuth)
+          .maybeSingle();
+
+        if (!error && data) {
+          setCurrentUserNumericId(parseInt(data.id));
+        }
+      } catch (error) {
+        console.error('Error cargando ID numérico del usuario actual:', error);
+      }
+    };
+
+    loadCurrentUserNumericId();
+  }, [usuario?.userAuth]);
 
   // Enviar mensaje automático al entrar a la pizarra
   useEffect(() => {
@@ -216,6 +250,15 @@ export default function PizarraUsuarioPage() {
     }
   };
 
+  // Determinar si es la pizarra propia (no necesita permiso)
+  const isOwnPizarra = usuario?.userAuth === userId;
+
+  // Determinar si puede editar: es su propia pizarra O tiene permiso otorgado
+  const canEdit = isOwnPizarra || hasPermission;
+
+  // Solo lectura si no puede editar
+  const isReadOnly = !canEdit;
+
   // Si no hay usuario logueado, mostrar mensaje
   if (!usuario) {
     return (
@@ -250,15 +293,44 @@ export default function PizarraUsuarioPage() {
 
         {/* Botones de acción */}
         <div className="flex items-center gap-3">
-          {/* Botón para agregar elementos */}
-          <button
-            onClick={() => setShowAddPanel(!showAddPanel)}
-            className={`flex items-center gap-2 px-4 py-2 ${showAddPanel ? 'bg-green-600' : 'bg-green-500 hover:bg-green-600'} text-white rounded-lg transition-all duration-200 shadow-lg font-medium`}
-          >
-            <Plus className="w-5 h-5" />
-            <span>Agregar</span>
-            <ChevronDown className={`w-4 h-4 transition-transform ${showAddPanel ? 'rotate-180' : ''}`} />
-          </button>
+          {/* Mostrar controles de edición solo si puede editar */}
+          {canEdit ? (
+            <>
+              {/* Botón para agregar elementos */}
+              <button
+                onClick={() => setShowAddPanel(!showAddPanel)}
+                className={`flex items-center gap-2 px-4 py-2 ${showAddPanel ? 'bg-green-600' : 'bg-green-500 hover:bg-green-600'} text-white rounded-lg transition-all duration-200 shadow-lg font-medium`}
+              >
+                <Plus className="w-5 h-5" />
+                <span>Agregar</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showAddPanel ? 'rotate-180' : ''}`} />
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Botón de solicitar permiso o estado pendiente */}
+              {isPending ? (
+                <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/80 text-white rounded-lg shadow-lg font-medium">
+                  <Clock className="w-5 h-5" />
+                  <span>Solicitud pendiente</span>
+                </div>
+              ) : (
+                <button
+                  onClick={requestPermission}
+                  disabled={loadingPermission}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 shadow-lg font-medium disabled:opacity-50"
+                >
+                  <Send className="w-5 h-5" />
+                  <span>Solicitar permiso de edición</span>
+                </button>
+              )}
+              {/* Indicador de solo lectura */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md text-white/80 rounded-lg shadow-lg">
+                <Lock className="w-4 h-4" />
+                <span className="text-sm">Solo lectura</span>
+              </div>
+            </>
+          )}
 
           {/* Botón de historial */}
           <button
@@ -271,8 +343,8 @@ export default function PizarraUsuarioPage() {
         </div>
       </div>
 
-      {/* Panel para agregar elementos */}
-      {showAddPanel && (
+      {/* Panel para agregar elementos - solo si puede editar */}
+      {canEdit && showAddPanel && (
         <div className="absolute top-20 right-4 z-50 w-80 bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden">
           {/* Tabs */}
           <div className="flex border-b border-gray-200">
@@ -418,7 +490,7 @@ export default function PizarraUsuarioPage() {
         </div>
       )}
 
-      {/* Pizarra del usuario - permite agregar notas */}
+      {/* Pizarra del usuario */}
       <div className="w-full h-full">
         <Pizarra
           fullMode={true}
@@ -426,33 +498,38 @@ export default function PizarraUsuarioPage() {
           storagePrefix={`user-${userId}`}
           viewingUserId={userId}
           onShowScreenshots={() => {}}
-          readOnly={false}
+          readOnly={isReadOnly}
         />
       </div>
 
-      {/* InputArea - Siempre visible para agregar notas a la pizarra del compañero */}
-      <InputArea
-        onCreateNote={(text) => {
-          if (pizarraRef.current) {
-            pizarraRef.current.addNoteCard(text);
-          }
-        }}
-        onCreateTodoList={(text) => {
-          if (pizarraRef.current) {
-            pizarraRef.current.addTodoCard(text);
-          }
-        }}
-        onSendToUser={(text, user) => {
-          console.log('Enviar a usuario:', user, text);
-        }}
-        className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
-        placeholder="Escribe aquí para crear notas o tareas en esta pizarra..."
-      />
+      {/* InputArea - Solo visible si puede editar */}
+      {canEdit && (
+        <InputArea
+          onCreateNote={(text) => {
+            if (pizarraRef.current) {
+              pizarraRef.current.addNoteCard(text);
+            }
+          }}
+          onCreateTodoList={(text) => {
+            if (pizarraRef.current) {
+              pizarraRef.current.addTodoCard(text);
+            }
+          }}
+          onSendToUser={(text, user) => {
+            console.log('Enviar a usuario:', user, text);
+          }}
+          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
+          placeholder="Escribe aquí para crear notas o tareas en esta pizarra..."
+        />
+      )}
 
       {/* Info flotante */}
       <div className="absolute bottom-4 right-4 z-50 bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg shadow-lg">
         <p className="text-white text-sm">
-          Pizarra de {userName} - Puedes agregar notas y tareas
+          {canEdit
+            ? `Pizarra de ${userName} - Puedes agregar notas y tareas`
+            : `Pizarra de ${userName} - Modo solo lectura`
+          }
         </p>
       </div>
 

@@ -29,6 +29,7 @@ import { Target, Building2, X } from "lucide-react";
 import Image from "next/image";
 import CalendarioSemanalUsuario from "@/app/components/CalendarioSemanalUsuario";
 import fotoDePerfil from "../components/image.png";
+import PizarraPermissionRequests from "@/app/components/PizarraPermissionRequests";
 
 export default function DashboardPage() {
   const pizarraRef = useRef<PizarraRef>(null);
@@ -779,6 +780,9 @@ function DashboardAdmin() {
 
   return (
     <AuthWrapper>
+      {/* Componente para ver solicitudes de permiso de pizarra */}
+      <PizarraPermissionRequests />
+
       <div
         className="relative"
         style={{ height: 'calc(100vh - 4rem)' }}
