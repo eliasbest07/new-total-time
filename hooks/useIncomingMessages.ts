@@ -59,6 +59,7 @@ export const useIncomingMessages = (
         async (payload) => {
           const mensajeId = payload.new.id;
           const idEmisor = payload.new.id_emisor;
+          const texto = payload.new.texto; // El campo se llama 'texto', no 'contenido'
 
           // Evitar procesar el mismo mensaje múltiples veces
           if (processedMessagesRef.current.has(mensajeId)) {
@@ -67,6 +68,15 @@ export const useIncomingMessages = (
 
           // Marcar como procesado
           processedMessagesRef.current.add(mensajeId);
+
+          // Si el mensaje es para actualizar pizarra, recargar la página después de 2 segundos
+          if (texto === '~actualizapirazza') {
+            console.log('🔄 Recibido mensaje de actualización de pizarra. Recargando en 2 segundos...');
+            setTimeout(() => {
+              window.location.reload();
+            }, 5000);
+            return;
+          }
 
           // ✅ Obtener información del emisor usando el servicio de caché
           try {

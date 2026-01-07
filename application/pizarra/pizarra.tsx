@@ -30,7 +30,6 @@ import { loadConnectionsIfNeeded } from './pizarra-functions/connection-loader';
 import { autoConnectMisionToProyecto, autoConnectProyectoToMisiones } from './pizarra-functions/auto-connection';
 import { navigateToCard, bringCardToFront, findCardByMisionId } from './pizarra-functions/navigation-utils';
 import { handleActivityPlayPause, handleMisionPlayPause } from './pizarra-functions/play-pause-handlers';
-import DiagnosticoPizarra from '@/app/components/debug/DiagnosticoPizarra';
 import PizarraPermissionRequests from '@/app/components/PizarraPermissionRequests';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
@@ -84,20 +83,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     }
   }, [isOrganizacionPizarra, pizarraOrganizacion, pizarra, pizarraActual, effectiveUserId]);
 
-  // Debug: Verificar qué pizarra se está usando para cards
-  useEffect(() => {
-    if (pizarraActual) {
-      console.log('🃏 [PIZARRA] useCards va a cargar cards de pizarra:', {
-        pizarraId: pizarraActual.id,
-        esOrganizacion: isOrganizacionPizarra,
-        id_organizacion: pizarraActual.idOrganizacion || pizarraActual.id_organizacion
-      });
-    }
-  }, [pizarraActual, isOrganizacionPizarra]);
-
   // Usar useCards con el ID de la pizarra actual (organización o personal)
   const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB } = useCards(
-    pizarraActual?.id || null
+    pizarraActual?.id || null,
+    usuario?.userAuth || null, // Mantenido por compatibilidad
+    effectiveUserId // Mantenido por compatibilidad
   );
 
   // Hook para gestionar misiones activas
@@ -1947,12 +1937,35 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       console.log('   - ID Pizarra:', pizarraActual.id);
       console.log('   - Cards guardadas:', cards.length);
       console.log('   - Conexiones guardadas:', connections.length);
+
+      // Enviar mensaje de actualización si estamos editando la pizarra de otro usuario
+      console.log('🔍 [GUARDAR] Verificando si enviar mensaje:', {
+        isViewingOtherUser,
+        userAuth: usuario?.userAuth,
+        viewingUserId,
+        sonDiferentes: usuario.userAuth !== viewingUserId
+      });
+
+      if (isViewingOtherUser && usuario?.userAuth && viewingUserId && usuario.userAuth !== viewingUserId) {
+        try {
+          console.log('📤 [GUARDAR] Enviando mensaje de actualización al dueño de la pizarra...');
+          const { SupabaseMensajeRepository } = await import('@/infrastructure/datasource/SupabaseMensajeRepository');
+          const mensajeRepo = new SupabaseMensajeRepository();
+          await mensajeRepo.enviarMensaje(usuario.userAuth, viewingUserId, '~actualizapirazza');
+          console.log('✅ [GUARDAR] Mensaje de actualización enviado');
+        } catch (err) {
+          console.error('❌ [GUARDAR] Error enviando mensaje de actualización:', err);
+        }
+      } else {
+        console.log('⏭️ [GUARDAR] NO enviar mensaje porque no es pizarra ajena o falta info');
+      }
+
       return true;
     } catch (error) {
       console.error('❌ Error guardando en Supabase:', error);
       return false;
     }
-  }, [pizarraActual, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections, saveHistorySnapshot, pizarraOrganizacion]);
+  }, [pizarraActual, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections, saveHistorySnapshot, pizarraOrganizacion, isViewingOtherUser, viewingUserId]);
 
   // Función para guardar pizarra de organización en Supabase
   const saveToSupabaseOrganizacion = useCallback(async (pizarraOrg: any) => {
@@ -2695,7 +2708,14 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     console.log(`⏰ [AUTO-SAVE] Programando auto-guardado en 2 segundos... (${cards.length} cards)`);
     const timeoutId = setTimeout(async () => {
       try {
-        console.log('🔄 [AUTO-SAVE] Auto-guardado en Supabase iniciado...');
+        console.log('🔄 [AUTO-SAVE] Auto-guardado en Supabase iniciado...', {
+          autoSave,
+          usuario: !!usuario,
+          isInitialized,
+          isViewingOtherUser,
+          readOnly,
+          cardsCount: cards.length
+        });
         const result = await saveToSupabase();
         if (result) {
           console.log('✅ [AUTO-SAVE] Auto-guardado completado exitosamente');
@@ -3195,11 +3215,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         }
       `}</style>
 
-      {/* Componente de diagnóstico */}
-      <DiagnosticoPizarra />
-
-      {/* Componente para ver solicitudes de permiso de pizarra */}
-      <PizarraPermissionRequests />
+      {/* Componente para ver solicitudes de permiso - SOLO en dashboard (no en fullMode) */}
+      {!fullMode && <PizarraPermissionRequests />}
 
     </div>
   );

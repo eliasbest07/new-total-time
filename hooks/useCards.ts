@@ -19,13 +19,19 @@ interface UseCardsReturn {
 /**
  * Hook para cargar y gestionar las cards de una pizarra.
  * Incluye suscripción en tiempo real a cambios.
+ * @param idPizarra - ID de la pizarra
+ * @param currentUserId - ID del usuario actual (quien hace los cambios) - opcional
+ * @param pizarraOwnerId - ID del dueño de la pizarra - opcional
  */
-export const useCards = (idPizarra: string | null): UseCardsReturn => {
+export const useCards = (idPizarra: string | null, currentUserId?: string | null, pizarraOwnerId?: string | null): UseCardsReturn => {
   const [cards, setCards] = useState<CardDB[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const cardRepository = useRef(new SupabaseCardRepository());
+
+  // Nota: El envío de mensajes de actualización se maneja en saveToSupabase de pizarra.tsx
+  // Los parámetros currentUserId y pizarraOwnerId se mantienen por compatibilidad pero no se usan aquí
 
   // Función para cargar las cards
   const loadCards = useCallback(async () => {
@@ -62,10 +68,6 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
 
     try {
       const nuevaCard = await cardRepository.current.createCard(card);
-      if (nuevaCard) {
-        // La actualización se manejará via realtime
-        // console.log('✅ Card creada:', nuevaCard.card_id);
-      }
       return nuevaCard;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error creando card';
@@ -84,10 +86,6 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
 
     try {
       const cardActualizada = await cardRepository.current.updateCard(idPizarra, cardId, updates);
-      if (cardActualizada) {
-        // La actualización se manejará via realtime
-        // console.log('✅ Card actualizada:', cardId);
-      }
       return cardActualizada;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error actualizando card';
@@ -106,10 +104,6 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
 
     try {
       const eliminada = await cardRepository.current.deleteCard(idPizarra, cardId);
-      if (eliminada) {
-        // La actualización se manejará via realtime
-        // console.log('✅ Card eliminada:', cardId);
-      }
       return eliminada;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error eliminando card';
@@ -151,7 +145,6 @@ export const useCards = (idPizarra: string | null): UseCardsReturn => {
       const eliminadas = await cardRepository.current.deleteAllCards(idPizarra);
       if (eliminadas) {
         setCards([]);
-        // console.log('✅ Todas las cards eliminadas');
       }
       return eliminadas;
     } catch (err) {
