@@ -6,7 +6,7 @@ import Ventana from '../demo/components/Ventana';
 import { useRouter } from 'next/navigation';
 
 const SettingsModal = () => {
-  const { showSettingsModal, closeSettings, autoSave, setAutoSave, showMemoryMonitor, setShowMemoryMonitor } = useSettings();
+  const { showSettingsModal, closeSettings, autoSave, setAutoSave, showMemoryMonitor, setShowMemoryMonitor, theme, setTheme } = useSettings();
   const router = useRouter();
   const [viewMode, setViewMode] = useState<'full' | 'light'>('full');
 
@@ -84,7 +84,11 @@ const SettingsModal = () => {
               <h4 className="font-medium text-gray-900">Tema</h4>
               <p className="text-sm text-gray-600">Personaliza la apariencia de la aplicación</p>
             </div>
-            <select className="px-3 py-2 border border-gray-300 rounded-lg">
+            <select
+              className="px-3 py-2 border border-gray-300 rounded-lg"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'auto')}
+            >
               <option value="light">Claro</option>
               <option value="dark">Oscuro</option>
               <option value="auto">Automático</option>

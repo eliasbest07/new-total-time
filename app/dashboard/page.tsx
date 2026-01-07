@@ -255,39 +255,12 @@ function DashboardAdmin() {
       const proyectoCard = fromCard.type === 'proyecto-organizacion' ? fromCard : toCard;
 
       console.log('✅ Conexión TODO ↔ Proyecto detectada:', { todoCard, proyectoCard });
+      console.log('📋 La TODO se mostrará automáticamente en la sección TODOs del proyecto');
 
-      // Extraer datos del proyecto
-      const proyectoData = proyectoCard.proyectoData;
-      if (proyectoData && proyectoData.id) {
-        console.log('📦 Datos del proyecto:', proyectoData);
+      // La conexión ya está guardada en la BD (card_connections)
+      // El ProyectoCardOrganizacion cargará automáticamente las TODOs conectadas
+      // y las mostrará en su sección "TODOs"
 
-        // Extraer tareas del TODO card
-        const tareasDelTodo = todoCard.todos || [];
-        console.log('📋 Tareas del TODO card:', tareasDelTodo);
-
-        // Convertir las tareas del formato del TODO card al formato del modal
-        const tareasConvertidas = tareasDelTodo.map(todo => ({
-          id: `tarea-${Date.now()}-${todo.id}`,
-          texto: todo.text,
-          completada: todo.completed
-        }));
-
-        // Prellenar las tareas en el estado
-        setTareasTodo(tareasConvertidas);
-
-        // Guardar contexto de la conexión
-        setConnectionContext({
-          proyectoId: proyectoData.id,
-          proyectoNombre: proyectoData.nombre || 'Proyecto',
-          todoCardId: todoCard.id,
-          proyectoCardId: proyectoCard.id
-        });
-
-        // Abrir modal de creación de misión
-        setShowMisionesModal(true);
-      } else {
-        console.warn('⚠️ Card de proyecto sin ID, no se puede crear misión');
-      }
       return;
     }
 

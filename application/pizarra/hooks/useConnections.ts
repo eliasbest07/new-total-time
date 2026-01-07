@@ -55,6 +55,24 @@ export const useConnections = ({ cards, onConnectionCreate }: UseConnectionsProp
             const toCard = cards.find(c => c.id === cardId);
             if (fromCard && toCard) {
               onConnectionCreate(newConnection, fromCard, toCard);
+
+              // Disparar evento personalizado para actualización instantánea
+              console.log('[CONEXION] Disparando evento conexion-creada', {
+                from_card_id: connectingFrom,
+                to_card_id: cardId,
+                fromCard,
+                toCard
+              });
+
+              window.dispatchEvent(new CustomEvent('conexion-creada', {
+                detail: {
+                  connection_id: newConnection.id,
+                  from_card_id: connectingFrom,
+                  to_card_id: cardId,
+                  fromCard: fromCard,
+                  toCard: toCard
+                }
+              }));
             }
           }
         }
@@ -94,6 +112,24 @@ export const useConnections = ({ cards, onConnectionCreate }: UseConnectionsProp
             const toCard = cards.find(c => c.id === cardId);
             if (fromCard && toCard) {
               onConnectionCreate(newConnection, fromCard, toCard);
+
+              // Disparar evento personalizado para actualización instantánea
+              console.log('[CONEXION] Disparando evento conexion-creada', {
+                from_card_id: connectingFrom,
+                to_card_id: cardId,
+                fromCard,
+                toCard
+              });
+
+              window.dispatchEvent(new CustomEvent('conexion-creada', {
+                detail: {
+                  connection_id: newConnection.id,
+                  from_card_id: connectingFrom,
+                  to_card_id: cardId,
+                  fromCard: fromCard,
+                  toCard: toCard
+                }
+              }));
             }
           }
         }

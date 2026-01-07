@@ -6,10 +6,12 @@ interface SettingsContextType {
   showSettingsModal: boolean;
   autoSave: boolean;
   showMemoryMonitor: boolean;
+  theme: 'light' | 'dark' | 'auto';
   openSettings: () => void;
   closeSettings: () => void;
   setAutoSave: (value: boolean) => void;
   setShowMemoryMonitor: (value: boolean) => void;
+  setTheme: (value: 'light' | 'dark' | 'auto') => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -30,6 +32,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [autoSave, setAutoSaveState] = useState(true); // Por defecto activado
   const [showMemoryMonitor, setShowMemoryMonitorState] = useState(true); // Por defecto activado
+  const [theme, setThemeState] = useState<'light' | 'dark' | 'auto'>('light'); // Por defecto modo claro
 
   // Cargar configuraciones desde localStorage
   useEffect(() => {
@@ -42,6 +45,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
       const savedMemoryMonitor = localStorage.getItem('total-time-memory-monitor');
       if (savedMemoryMonitor !== null) {
         setShowMemoryMonitorState(savedMemoryMonitor === 'true');
+      }
+
+      const savedTheme = localStorage.getItem('total-time-theme') as 'light' | 'dark' | 'auto' | null;
+      if (savedTheme !== null) {
+        setThemeState(savedTheme);
       }
     }
   }, []);
@@ -64,6 +72,15 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     }
   };
 
+  // Función para actualizar tema
+  const setTheme = (value: 'light' | 'dark' | 'auto') => {
+    setThemeState(value);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('total-time-theme', value);
+      console.log('🎨 Tema', value === 'light' ? 'Claro' : value === 'dark' ? 'Oscuro' : 'Automático');
+    }
+  };
+
   const openSettings = () => setShowSettingsModal(true);
   const closeSettings = () => setShowSettingsModal(false);
 
@@ -73,10 +90,12 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         showSettingsModal,
         autoSave,
         showMemoryMonitor,
+        theme,
         openSettings,
         closeSettings,
         setAutoSave,
-        setShowMemoryMonitor
+        setShowMemoryMonitor,
+        setTheme
       }}
     >
       {children}

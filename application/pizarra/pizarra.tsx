@@ -347,17 +347,54 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     });
   }, [baseDeleteConnection, connections, cards]);
 
-  // Cargar conexiones desde Supabase SOLO cuando se visualiza la pizarra de otro usuario
+  // Cargar conexiones desde Supabase cuando se visualiza la pizarra de otro usuario O pizarra de organización
   useEffect(() => {
     const performLoad = async () => {
-      const connections = await loadConnectionsIfNeeded(pizarra, isViewingOtherUser);
-      if (connections) {
-        setConnections(connections);
+      // Determinar qué pizarra usar
+      const pizarraParaCargar = isOrganizacionPizarra ? pizarraOrganizacion : pizarra;
+
+      // Cargar si está viendo pizarra ajena O es pizarra de organización
+      const debeCargar = isViewingOtherUser || isOrganizacionPizarra;
+
+      if (debeCargar && pizarraParaCargar) {
+        console.log('🔗 Cargando conexiones desde BD para pizarra:', {
+          esOrganizacion: isOrganizacionPizarra,
+          esAjena: isViewingOtherUser,
+          pizarraId: pizarraParaCargar.id
+        });
+
+        try {
+          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+          console.log('🔗 Cargando conexiones de pizarra:', pizarraParaCargar.id);
+
+          const { data: connectionesEnBD, error } = await supabase
+            .from('card_connections')
+            .select('*')
+            .eq('id_pizarra', pizarraParaCargar.id);
+
+          if (error) {
+            console.error('❌ Error cargando conexiones:', error);
+          } else {
+            const mappedConnections = (connectionesEnBD || []).map((connDB: any) => ({
+              id: connDB.connection_id,
+              from: connDB.from_card_id || undefined,
+              to: connDB.to_card_id
+            }));
+
+            console.log('✅ Conexiones cargadas desde BD:', mappedConnections.length);
+            setConnections(mappedConnections);
+          }
+        } catch (error) {
+          console.error('❌ Error cargando conexiones:', error);
+        }
+      } else {
+        console.log('📦 Usando conexiones de LocalStorage (pizarra propia)');
       }
     };
 
     performLoad();
-  }, [pizarra, setConnections, isViewingOtherUser]);
+  }, [pizarra, pizarraOrganizacion, setConnections, isViewingOtherUser, isOrganizacionPizarra]);
 
   const {
     isPanning,
@@ -648,6 +685,19 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
   // Funciones para todos
   const toggleTodo = useCallback(async (cardId: string, todoId: number) => {
+    // Buscar la card y crear versión actualizada ANTES de setCards
+    const targetCard = cards.find(c => c.id === cardId);
+    let updatedCard: Card | null = null;
+
+    if (targetCard && targetCard.todos) {
+      updatedCard = {
+        ...targetCard,
+        todos: targetCard.todos.map(todo =>
+          todo.id === todoId ? { ...todo, completed: !todo.completed } : todo
+        )
+      };
+    }
+
     // Actualizar estado local inmediatamente
     setCards(prev => prev.map(card =>
       card.id === cardId && card.todos
@@ -658,6 +708,17 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         }
         : card
     ));
+
+    // Disparar evento de actualización con los datos precalculados
+    if (updatedCard) {
+      console.log('[TODO UPDATE] Disparando evento todo-actualizado (toggle)', { cardId, updatedCard });
+      window.dispatchEvent(new CustomEvent('todo-actualizado', {
+        detail: {
+          cardId,
+          card: updatedCard
+        }
+      }));
+    }
 
     // Solo guardar en Supabase si la card ya está guardada (tiene formato UUID)
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cardId);
@@ -685,8 +746,21 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, [cards]);
 
   const addTodoToCard = useCallback(async (cardId: string, text: string) => {
-    const card = cards.find(c => c.id === cardId);
-    const newTodoId = card?.todos && card.todos.length > 0 ? Math.max(...card.todos.map(t => t.id)) + 1 : 1;
+    // Buscar la card y crear versión actualizada ANTES de setCards
+    const targetCard = cards.find(c => c.id === cardId);
+    const newTodoId = targetCard?.todos && targetCard.todos.length > 0 ? Math.max(...targetCard.todos.map(t => t.id)) + 1 : 1;
+    let updatedCard: Card | null = null;
+
+    if (targetCard && targetCard.todos) {
+      updatedCard = {
+        ...targetCard,
+        todos: [...targetCard.todos, {
+          id: newTodoId,
+          text,
+          completed: false
+        }]
+      };
+    }
 
     // Actualizar estado local inmediatamente
     setCards(prev => prev.map(card =>
@@ -701,6 +775,17 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         }
         : card
     ));
+
+    // Disparar evento de actualización con los datos precalculados
+    if (updatedCard) {
+      console.log('[TODO UPDATE] Disparando evento todo-actualizado (add)', { cardId, updatedCard });
+      window.dispatchEvent(new CustomEvent('todo-actualizado', {
+        detail: {
+          cardId,
+          card: updatedCard
+        }
+      }));
+    }
 
     // Solo guardar en Supabase si la card ya está guardada (tiene formato UUID)
     // Cards con IDs como "todo-1" aún no están en Supabase
@@ -727,12 +812,34 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, [cards]);
 
   const deleteTodoFromCard = useCallback(async (cardId: string, todoId: number) => {
+    // Buscar la card y crear versión actualizada ANTES de setCards
+    const targetCard = cards.find(c => c.id === cardId);
+    let updatedCard: Card | null = null;
+
+    if (targetCard && targetCard.todos) {
+      updatedCard = {
+        ...targetCard,
+        todos: targetCard.todos.filter(todo => todo.id !== todoId)
+      };
+    }
+
     // Actualizar estado local inmediatamente
     setCards(prev => prev.map(card =>
       card.id === cardId && card.todos
         ? { ...card, todos: card.todos.filter(todo => todo.id !== todoId) }
         : card
     ));
+
+    // Disparar evento de actualización con los datos precalculados
+    if (updatedCard) {
+      console.log('[TODO UPDATE] Disparando evento todo-actualizado (delete)', { cardId, updatedCard });
+      window.dispatchEvent(new CustomEvent('todo-actualizado', {
+        detail: {
+          cardId,
+          card: updatedCard
+        }
+      }));
+    }
 
     // Solo eliminar de Supabase si la card ya está guardada (tiene formato UUID)
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cardId);
@@ -749,9 +856,22 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         console.error('❌ Error al eliminar todo de Supabase:', error);
       }
     }
-  }, []);
+  }, [cards]);
 
   const updateTodoInCard = useCallback(async (cardId: string, todoId: number, newText: string) => {
+    // Buscar la card y crear versión actualizada ANTES de setCards
+    const targetCard = cards.find(c => c.id === cardId);
+    let updatedCard: Card | null = null;
+
+    if (targetCard && targetCard.todos) {
+      updatedCard = {
+        ...targetCard,
+        todos: targetCard.todos.map(todo =>
+          todo.id === todoId ? { ...todo, text: newText } : todo
+        )
+      };
+    }
+
     // Actualizar estado local inmediatamente
     setCards(prev => prev.map(card =>
       card.id === cardId && card.todos
@@ -764,6 +884,17 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         : card
     ));
     setEditingTodo(null);
+
+    // Disparar evento de actualización con los datos precalculados
+    if (updatedCard) {
+      console.log('[TODO UPDATE] Disparando evento todo-actualizado (update text)', { cardId, updatedCard });
+      window.dispatchEvent(new CustomEvent('todo-actualizado', {
+        detail: {
+          cardId,
+          card: updatedCard
+        }
+      }));
+    }
 
     // Solo actualizar en Supabase si la card ya está guardada (tiene formato UUID)
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cardId);
@@ -783,7 +914,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         console.error('❌ Error al actualizar texto del todo en Supabase:', error);
       }
     }
-  }, []);
+  }, [cards]);
 
   // Funciones para configuración de cards
   const changeFontSize = useCallback((cardId: string, increment: number) => {
@@ -829,13 +960,35 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, []);
 
   const updateCardTitle = useCallback(async (cardId: string, newTitle: string) => {
+    // Buscar la card y crear versión actualizada ANTES de setCards
+    const targetCard = cards.find(c => c.id === cardId);
+    let updatedCard: Card | null = null;
+
+    if (targetCard) {
+      updatedCard = {
+        ...targetCard,
+        title: newTitle
+      };
+    }
+
     // Actualizar solo localmente (no guardar en Supabase automáticamente)
     setCards(prev => prev.map(card =>
       card.id === cardId ? { ...card, title: newTitle } : card
     ));
 
     setEditingTitle(null);
-  }, []);
+
+    // Disparar evento de actualización si es un TODO
+    if (updatedCard && updatedCard.type === 'todo') {
+      console.log('[TODO UPDATE] Disparando evento todo-actualizado (title)', { cardId, updatedCard });
+      window.dispatchEvent(new CustomEvent('todo-actualizado', {
+        detail: {
+          cardId,
+          card: updatedCard
+        }
+      }));
+    }
+  }, [cards]);
 
   const updateCardContent = useCallback(async (cardId: string, newContent: string) => {
     // Actualizar solo localmente (no guardar en Supabase automáticamente)
@@ -877,6 +1030,17 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     ));
 
     console.log('🗑️ Card eliminada junto con sus conexiones:', cardId);
+
+    // Disparar evento si se elimina un TODO card
+    if (cardToDelete?.type === 'todo') {
+      console.log('[TODO DELETE] Disparando evento card-eliminada para TODO:', cardId);
+      window.dispatchEvent(new CustomEvent('card-eliminada', {
+        detail: {
+          cardId,
+          cardType: 'todo'
+        }
+      }));
+    }
 
     // Eliminar solo localmente (no eliminar de Supabase automáticamente)
     setCards(prev => prev.filter(card => card.id !== cardId));
@@ -2169,7 +2333,7 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       // 5. Guardar conexiones
       console.log('   - Guardando conexiones...');
       const { error: deleteConnectionsError } = await supabase
-        .from('pizarra_connections')
+        .from('card_connections')
         .delete()
         .eq('id_pizarra', pizarraOrg.id);
 
@@ -2179,11 +2343,12 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
       for (const connection of connections) {
         const { error: insertError } = await supabase
-          .from('pizarra_connections')
+          .from('card_connections')
           .insert({
             id_pizarra: pizarraOrg.id,
-            from_card: connection.from,
-            to_card: connection.to
+            connection_id: connection.id,
+            from_card_id: connection.from || null,
+            to_card_id: connection.to
           });
 
         if (insertError) {

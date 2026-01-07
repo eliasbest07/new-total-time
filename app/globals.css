@@ -151,6 +151,22 @@ body {
   opacity: 1;
 }
 
+/* Dark mode backgrounds */
+.dark-blue-purple {
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  opacity: 1;
+}
+
+.dark-green-blue {
+  background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+  opacity: 0;
+}
+
+.dark-dashboard-gradient {
+  background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+  opacity: 1;
+}
+
 /* ===== KEYFRAME ANIMATIONS ===== */
 @keyframes fadeInOut {
   0%, 100% { opacity: 0; }

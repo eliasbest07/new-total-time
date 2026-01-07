@@ -39,13 +39,15 @@ interface ProyectoCardOrganizacionProps {
   editingTitle: string | null;
   updateCardTitle: (cardId: string, newTitle: string) => void;
   setEditingTitle: (id: string | null) => void;
+  idPizarra?: string | null;
 }
 
 export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> = ({
   card,
   editingTitle,
   updateCardTitle,
-  setEditingTitle
+  setEditingTitle,
+  idPizarra
 }) => {
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
@@ -57,12 +59,15 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   const [recursos, setRecursos] = useState<Recurso[]>([]);
   const [usuariosAsignados, setUsuariosAsignados] = useState<any[]>([]);
   const [tecnologias, setTecnologias] = useState<string[]>([]);
+  const [todosConectadas, setTodosConectadas] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingTodos, setLoadingTodos] = useState(false);
 
   // Estados de expansión
   const [expandedCapturas, setExpandedCapturas] = useState(false);
   const [expandedMisiones, setExpandedMisiones] = useState(false);
   const [expandedRecursos, setExpandedRecursos] = useState(false);
+  const [expandedTodos, setExpandedTodos] = useState(false);
 
   // Estados de modales
   const [showNuevaMisionModal, setShowNuevaMisionModal] = useState(false);
@@ -252,6 +257,91 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         setMisiones(misionesData || []);
         setRecursos(recursosData || []);
 
+        // Cargar TODOs conectadas a este proyecto
+        console.log('[BUG LINK] Buscando TODOs conectadas para cardId:', card.id, 'idPizarra:', idPizarra);
+
+        if (idPizarra) {
+          console.log('[BUG LINK] id_pizarra disponible:', idPizarra);
+
+          // Buscar conexiones donde este proyecto es el destino
+          console.log('[BUG LINK] Buscando conexiones con filtros:', {
+            id_pizarra: idPizarra,
+            to_card_id: card.id
+          });
+
+          const { data: conexiones, error: errorConexiones } = await supabase
+            .from('card_connections')
+            .select('from_card_id')
+            .eq('id_pizarra', idPizarra)
+            .eq('to_card_id', card.id);
+
+          console.log('[BUG LINK] Conexiones encontradas:', conexiones?.length || 0, 'conexiones:', conexiones, 'error:', errorConexiones);
+
+          if (conexiones && conexiones.length > 0) {
+            const todoCardIds = conexiones
+              .map(c => c.from_card_id)
+              .filter(id => id !== null);
+
+            console.log('[BUG LINK] IDs de TODOs a cargar:', todoCardIds);
+
+            if (todoCardIds.length > 0) {
+              // Cargar los datos completos de las cards TODO que coincidan
+              const { data: todoCards, error: errorTodos } = await supabase
+                .from('cards')
+                .select('*')
+                .eq('id_pizarra', idPizarra)
+                .in('card_id', todoCardIds)
+                .eq('type', 'todo');
+
+              console.log('[BUG LINK] TODOs cargadas:', todoCards?.length || 0, 'todoCards:', todoCards, 'error:', errorTodos);
+              console.log('[BUG LINK] Buscando card_ids:', todoCardIds);
+
+              if (todoCards && todoCards.length > 0) {
+                // Parsear los datos de cada TODO
+                console.log('[BUG LINK] Parseando TODOs, datos raw:', todoCards);
+
+                const todosParseadas = todoCards.map((todoCard: any) => {
+                  console.log('[BUG LINK] Parseando TODO individual:', {
+                    card_id: todoCard.card_id,
+                    title: todoCard.title,
+                    todos_raw: todoCard.todos,
+                    todos_type: typeof todoCard.todos
+                  });
+
+                  let tareasParseadas = [];
+                  try {
+                    if (typeof todoCard.todos === 'string') {
+                      tareasParseadas = JSON.parse(todoCard.todos);
+                    } else if (Array.isArray(todoCard.todos)) {
+                      tareasParseadas = todoCard.todos;
+                    }
+                  } catch (error) {
+                    console.error('[BUG LINK] Error parseando todos:', error);
+                  }
+
+                  return {
+                    id: todoCard.card_id,
+                    type: todoCard.type,
+                    title: todoCard.title || 'Lista TODO',
+                    content: todoCard.content || '',
+                    x: todoCard.x || 0,
+                    y: todoCard.y || 0,
+                    width: todoCard.width || 250,
+                    height: todoCard.height || 300,
+                    fontSize: todoCard.font_size || 14,
+                    todos: tareasParseadas
+                  };
+                });
+
+                console.log('[BUG LINK] TODOs parseadas FINAL:', todosParseadas);
+                setTodosConectadas(todosParseadas);
+              }
+            }
+          }
+        } else {
+          console.log('[BUG LINK] No hay idPizarra disponible');
+        }
+
         // Detectar tecnologías
         const techs: string[] = [];
         if (card.proyectoData?.descripcion) {
@@ -274,6 +364,308 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
     cargarDatos();
   }, [proyectoId]);
+
+  // Listener para evento personalizado de conexión creada (ACTUALIZACIÓN INSTANTÁNEA)
+  useEffect(() => {
+    if (!card.id) return;
+
+    console.log('[BUG LINK] Configurando listener de eventos para card:', card.id);
+
+    const handleConexionCreada = (event: any) => {
+      const { to_card_id, from_card_id, fromCard, toCard } = event.detail;
+
+      console.log('[BUG LINK] Evento de conexión recibido:', {
+        to_card_id,
+        from_card_id,
+        myCardId: card.id,
+        fromCard,
+        toCard
+      });
+
+      // Solo actualizar si la conexión es HACIA esta card Y el fromCard es de tipo TODO
+      if (to_card_id === card.id && fromCard?.type === 'todo') {
+        console.log('[BUG LINK] ✅ Conexión TODO → ESTA card, actualizando INSTANTÁNEAMENTE...');
+        setExpandedTodos(true); // Auto-expandir para mostrar feedback inmediato
+
+        // Usar los datos directamente del evento (sin queries a BD)
+        const nuevaTodo: Card = {
+          id: fromCard.id,
+          type: fromCard.type,
+          title: fromCard.title || 'Lista TODO',
+          content: fromCard.content || '',
+          x: fromCard.x || 0,
+          y: fromCard.y || 0,
+          width: fromCard.width || 250,
+          height: fromCard.height || 300,
+          fontSize: fromCard.fontSize || 14,
+          todos: fromCard.todos || []
+        };
+
+        // Agregar la nueva TODO a la lista sin duplicados
+        setTodosConectadas(prev => {
+          const existe = prev.some(t => t.id === nuevaTodo.id);
+          if (existe) {
+            console.log('[BUG LINK] TODO ya existe en la lista, actualizándola');
+            return prev.map(t => t.id === nuevaTodo.id ? nuevaTodo : t);
+          } else {
+            console.log('[BUG LINK] ✅ TODO agregada instantáneamente:', nuevaTodo.title);
+            return [...prev, nuevaTodo];
+          }
+        });
+      } else if (from_card_id === card.id && toCard?.type === 'todo') {
+        // Caso inverso: esta card → TODO
+        console.log('[BUG LINK] ✅ Conexión ESTA card → TODO, actualizando INSTANTÁNEAMENTE...');
+        setExpandedTodos(true);
+
+        const nuevaTodo: Card = {
+          id: toCard.id,
+          type: toCard.type,
+          title: toCard.title || 'Lista TODO',
+          content: toCard.content || '',
+          x: toCard.x || 0,
+          y: toCard.y || 0,
+          width: toCard.width || 250,
+          height: toCard.height || 300,
+          fontSize: toCard.fontSize || 14,
+          todos: toCard.todos || []
+        };
+
+        setTodosConectadas(prev => {
+          const existe = prev.some(t => t.id === nuevaTodo.id);
+          if (existe) {
+            return prev.map(t => t.id === nuevaTodo.id ? nuevaTodo : t);
+          } else {
+            console.log('[BUG LINK] ✅ TODO agregada instantáneamente:', nuevaTodo.title);
+            return [...prev, nuevaTodo];
+          }
+        });
+      }
+    };
+
+    // Listener para actualizaciones de TODOs (cuando se edita el contenido)
+    const handleTodoActualizado = (event: any) => {
+      const { cardId, card: updatedCard } = event.detail;
+
+      console.log('[BUG LINK] Evento todo-actualizado recibido:', {
+        cardId,
+        updatedCard,
+        todosConectadasActuales: todosConectadas.map(t => t.id)
+      });
+
+      // Verificar si esta TODO está en nuestra lista
+      setTodosConectadas(prev => {
+        const existe = prev.some(t => t.id === cardId);
+        if (existe) {
+          console.log('[BUG LINK] ✅ TODO actualizada instantáneamente:', updatedCard.title);
+          return prev.map(t => t.id === cardId ? updatedCard : t);
+        }
+        return prev;
+      });
+    };
+
+    // Listener para cuando se elimina un card TODO
+    const handleCardEliminada = (event: any) => {
+      const { cardId, cardType } = event.detail;
+
+      console.log('[BUG LINK] Evento card-eliminada recibido:', {
+        cardId,
+        cardType,
+        todosConectadasActuales: todosConectadas.map(t => t.id)
+      });
+
+      // Si es un TODO, eliminarlo de nuestra lista
+      if (cardType === 'todo') {
+        setTodosConectadas(prev => {
+          const existe = prev.some(t => t.id === cardId);
+          if (existe) {
+            console.log('[BUG LINK] ✅ TODO eliminada instantáneamente de la lista:', cardId);
+            return prev.filter(t => t.id !== cardId);
+          }
+          return prev;
+        });
+      }
+    };
+
+    window.addEventListener('conexion-creada', handleConexionCreada);
+    window.addEventListener('todo-actualizado', handleTodoActualizado);
+    window.addEventListener('card-eliminada', handleCardEliminada);
+
+    return () => {
+      console.log('[BUG LINK] Removiendo listener de eventos');
+      window.removeEventListener('conexion-creada', handleConexionCreada);
+      window.removeEventListener('todo-actualizado', handleTodoActualizado);
+      window.removeEventListener('card-eliminada', handleCardEliminada);
+    };
+  }, [card.id]);
+
+  // Suscripción en tiempo real para recargar TODOs cuando se crean/eliminan conexiones
+  useEffect(() => {
+    if (!card.id || !idPizarra) {
+      console.log('[BUG LINK] No se puede configurar suscripción. cardId:', card.id, 'idPizarra:', idPizarra);
+      return;
+    }
+
+    console.log('[BUG LINK] Configurando suscripción realtime para conexiones del card:', card.id, 'pizarra:', idPizarra);
+
+    let subscription: any = null;
+    let debugChannel: any = null;
+
+    const setupRealtimeSubscription = async () => {
+      try {
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+        console.log('[BUG LINK] Suscribiéndose a conexiones de pizarra:', idPizarra);
+
+        // Suscribirse a cambios en card_connections donde esta card es el destino
+        const channelName = `proyecto-connections-${card.id}`;
+        console.log('[BUG LINK] Creando canal de suscripción:', channelName);
+        console.log('[BUG LINK] Filtro de suscripción:', `to_card_id=eq.${card.id}`);
+
+        subscription = supabase
+          .channel(channelName)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'card_connections',
+              filter: `to_card_id=eq.${card.id}`
+            },
+            async (payload) => {
+              console.log('[BUG LINK] *** CAMBIO EN CONEXIONES DETECTADO ***', payload);
+              console.log('[BUG LINK] Tipo de evento:', payload.eventType);
+              console.log('[BUG LINK] Datos:', payload.new || payload.old);
+
+              setLoadingTodos(true);
+
+              // Recargar las TODOs conectadas
+              try {
+                const { data: conexiones } = await supabase
+                  .from('pizarra_connections')
+                  .select('from_card')
+                  .eq('id_pizarra', idPizarra)
+                  .eq('to_card', card.id);
+
+                console.log('[BUG LINK] Recargando TODOs, conexiones encontradas:', conexiones?.length || 0);
+
+                if (conexiones && conexiones.length > 0) {
+                  const todoCardIds = conexiones
+                    .map(c => c.from_card)
+                    .filter(id => id !== null);
+
+                  console.log('[BUG LINK] IDs de TODOs a recargar:', todoCardIds);
+
+                  if (todoCardIds.length > 0) {
+                    const { data: todoCards, error: errorTodos } = await supabase
+                      .from('cards')
+                      .select('*')
+                      .eq('id_pizarra', idPizarra)
+                      .in('card_id', todoCardIds)
+                      .eq('type', 'todo');
+
+                    console.log('[BUG LINK] TODOs recargadas desde BD:', todoCards, 'error:', errorTodos);
+                    console.log('[BUG LINK] Buscando estos IDs:', todoCardIds);
+
+                    if (todoCards && todoCards.length > 0) {
+                      console.log('[BUG LINK] Parseando TODOs (realtime), datos raw:', todoCards);
+
+                      const todosParseadas = todoCards.map((todoCard: any) => {
+                        let tareasParseadas = [];
+                        try {
+                          if (typeof todoCard.todos === 'string') {
+                            tareasParseadas = JSON.parse(todoCard.todos);
+                          } else if (Array.isArray(todoCard.todos)) {
+                            tareasParseadas = todoCard.todos;
+                          }
+                        } catch (error) {
+                          console.error('[BUG LINK] Error parseando todos (realtime):', error);
+                        }
+
+                        return {
+                          id: todoCard.card_id,
+                          type: todoCard.type,
+                          title: todoCard.title || 'Lista TODO',
+                          content: todoCard.content || '',
+                          x: todoCard.x || 0,
+                          y: todoCard.y || 0,
+                          width: todoCard.width || 250,
+                          height: todoCard.height || 300,
+                          fontSize: todoCard.font_size || 14,
+                          todos: tareasParseadas
+                        };
+                      });
+
+                      console.log('[BUG LINK] TODOs parseadas y actualizando estado:', todosParseadas);
+                      setTodosConectadas(todosParseadas);
+                    }
+                  }
+                } else {
+                  // No hay conexiones, limpiar TODOs
+                  console.log('[BUG LINK] No hay conexiones, limpiando TODOs');
+                  setTodosConectadas([]);
+                }
+              } catch (error) {
+                console.error('[BUG LINK] ERROR recargando TODOs:', error);
+              } finally {
+                setLoadingTodos(false);
+              }
+            }
+          )
+          .subscribe((status) => {
+            console.log('[BUG LINK] Estado de suscripción:', status);
+
+            if (status === 'SUBSCRIBED') {
+              console.log('[BUG LINK] ✅ Suscripción ACTIVA y esperando cambios...');
+            } else if (status === 'CHANNEL_ERROR') {
+              console.error('[BUG LINK] ❌ Error en el canal de suscripción');
+            } else if (status === 'TIMED_OUT') {
+              console.error('[BUG LINK] ❌ Timeout en suscripción');
+            } else if (status === 'CLOSED') {
+              console.log('[BUG LINK] ⚠️ Canal de suscripción cerrado');
+            }
+          });
+
+        // También suscribirse SIN filtro para debug (ver TODOS los cambios en card_connections)
+        debugChannel = supabase
+          .channel(`debug-all-connections-${Date.now()}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'card_connections'
+            },
+            (payload) => {
+              console.log('[BUG LINK] [DEBUG] Cambio en card_connections (cualquier conexión):', {
+                event: payload.eventType,
+                to_card_id: payload.new?.to_card_id || payload.old?.to_card_id,
+                from_card_id: payload.new?.from_card_id || payload.old?.from_card_id,
+                id_pizarra: payload.new?.id_pizarra || payload.old?.id_pizarra
+              });
+            }
+          )
+          .subscribe((status) => {
+            console.log('[BUG LINK] [DEBUG] Estado suscripción sin filtro:', status);
+          });
+      } catch (error) {
+        console.error('[BUG LINK] ERROR configurando suscripción:', error);
+      }
+    };
+
+    setupRealtimeSubscription();
+
+    // Cleanup
+    return () => {
+      if (subscription) {
+        console.log('[BUG LINK] Desuscribiéndose de conexiones');
+        subscription.unsubscribe();
+      }
+      if (debugChannel) {
+        console.log('[BUG LINK] Desuscribiéndose del canal debug');
+        debugChannel.unsubscribe();
+      }
+    };
+  }, [card.id, idPizarra]);
 
   const eliminarRecursoNota = async (recursoId: number) => {
     console.log('[eliminarRecurso] Iniciando, id:', recursoId);
@@ -1123,6 +1515,120 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                               </div>
                             </div>
                           </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Sección TODOs */}
+            <div className="bg-gray-700 text-white border-t border-gray-600">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedTodos(!expandedTodos);
+                }}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors"
+                data-todo-interactive
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm">TODOs ({todosConectadas.length})</span>
+                  {loadingTodos && (
+                    <svg className="animate-spin h-3 w-3 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                </div>
+                {expandedTodos ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+
+              {expandedTodos && (
+                <div className="px-4 pb-4 space-y-2">
+                  {loadingTodos ? (
+                    <div className="text-center text-gray-400 text-sm py-4 flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Cargando TODOs...
+                    </div>
+                  ) : todosConectadas.length === 0 ? (
+                    <div className="text-center text-gray-400 text-sm py-4">
+                      No hay listas TODO conectadas
+                    </div>
+                  ) : (
+                    todosConectadas.map((todoCard) => {
+                      // Calcular progreso
+                      const totalTareas = todoCard.todos?.length || 0;
+                      const tareasCompletadas = todoCard.todos?.filter(t => t.completed).length || 0;
+                      const porcentaje = totalTareas > 0 ? Math.round((tareasCompletadas / totalTareas) * 100) : 0;
+
+                      return (
+                        <div
+                          key={todoCard.id}
+                          className="bg-gray-600 rounded-lg p-3 hover:bg-gray-550 transition-colors shadow-sm"
+                        >
+                          {/* Header de la TODO */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">📝</span>
+                              <h4 className="font-medium text-white text-sm truncate">
+                                {todoCard.title}
+                              </h4>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-300">
+                                {tareasCompletadas}/{totalTareas}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Barra de progreso */}
+                          <div className="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden mb-2">
+                            <div
+                              className="h-full bg-green-500 transition-all duration-300"
+                              style={{ width: `${porcentaje}%` }}
+                            />
+                          </div>
+
+                          {/* Lista de tareas (máximo 3 primeras) */}
+                          {todoCard.todos && todoCard.todos.length > 0 && (
+                            <div className="space-y-1">
+                              {todoCard.todos.slice(0, 3).map((tarea) => (
+                                <div
+                                  key={tarea.id}
+                                  className="flex items-center gap-2 text-xs"
+                                >
+                                  <div
+                                    className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 ${
+                                      tarea.completed
+                                        ? 'bg-green-500 text-white border-green-500'
+                                        : 'border-gray-400'
+                                    }`}
+                                  >
+                                    {tarea.completed && <span className="text-[8px]">✓</span>}
+                                  </div>
+                                  <span
+                                    className={`flex-1 truncate ${
+                                      tarea.completed
+                                        ? 'line-through text-gray-400'
+                                        : 'text-gray-200'
+                                    }`}
+                                  >
+                                    {tarea.text}
+                                  </span>
+                                </div>
+                              ))}
+                              {todoCard.todos.length > 3 && (
+                                <div className="text-xs text-gray-400 text-center pt-1">
+                                  +{todoCard.todos.length - 3} más...
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })

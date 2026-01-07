@@ -250,6 +250,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           editingTitle={props.editingTitle}
           updateCardTitle={props.updateCardTitle}
           setEditingTitle={props.setEditingTitle}
+          idPizarra={props.idPizarra}
         />
       );
 
