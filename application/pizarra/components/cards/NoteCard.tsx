@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../../types';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface NoteCardProps {
   card: Card;
@@ -7,6 +8,7 @@ interface NoteCardProps {
   updateCardTitle: (cardId: string, newTitle: string) => void;
   setEditingTitle: (id: string | null) => void;
   updateCardContent: (cardId: string, newContent: string) => void;
+  idPizarra?: string | null;
 }
 
 export const NoteCard: React.FC<NoteCardProps> = ({

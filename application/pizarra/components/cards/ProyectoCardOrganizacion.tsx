@@ -60,14 +60,17 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   const [usuariosAsignados, setUsuariosAsignados] = useState<any[]>([]);
   const [tecnologias, setTecnologias] = useState<string[]>([]);
   const [todosConectadas, setTodosConectadas] = useState<Card[]>([]);
+  const [notasConectadas, setNotasConectadas] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTodos, setLoadingTodos] = useState(false);
+  const [loadingNotas, setLoadingNotas] = useState(false);
 
   // Estados de expansión
   const [expandedCapturas, setExpandedCapturas] = useState(false);
   const [expandedMisiones, setExpandedMisiones] = useState(false);
   const [expandedRecursos, setExpandedRecursos] = useState(false);
   const [expandedTodos, setExpandedTodos] = useState(false);
+  const [expandedNotas, setExpandedNotas] = useState(false);
 
   // Estados de modales
   const [showNuevaMisionModal, setShowNuevaMisionModal] = useState(false);
@@ -342,6 +345,78 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           console.log('[BUG LINK] No hay idPizarra disponible');
         }
 
+        // Cargar NOTAS conectadas a este proyecto
+        console.log('[BUG LINK NOTAS] Buscando NOTAS conectadas para cardId:', card.id, 'idPizarra:', idPizarra);
+
+        if (idPizarra) {
+          console.log('[BUG LINK NOTAS] id_pizarra disponible:', idPizarra);
+
+          // Buscar conexiones donde este proyecto es el destino
+          console.log('[BUG LINK NOTAS] Buscando conexiones con filtros:', {
+            id_pizarra: idPizarra,
+            to_card_id: card.id
+          });
+
+          const { data: conexionesNotas, error: errorConexionesNotas } = await supabase
+            .from('card_connections')
+            .select('from_card_id')
+            .eq('id_pizarra', idPizarra)
+            .eq('to_card_id', card.id);
+
+          console.log('[BUG LINK NOTAS] Conexiones encontradas:', conexionesNotas?.length || 0, 'conexiones:', conexionesNotas, 'error:', errorConexionesNotas);
+
+          if (conexionesNotas && conexionesNotas.length > 0) {
+            const noteCardIds = conexionesNotas
+              .map(c => c.from_card_id)
+              .filter(id => id !== null);
+
+            console.log('[BUG LINK NOTAS] IDs de NOTAS a cargar:', noteCardIds);
+
+            if (noteCardIds.length > 0) {
+              // Cargar los datos completos de las cards NOTE que coincidan
+              const { data: noteCards, error: errorNotas } = await supabase
+                .from('cards')
+                .select('*')
+                .eq('id_pizarra', idPizarra)
+                .in('card_id', noteCardIds)
+                .eq('type', 'text');
+
+              console.log('[BUG LINK NOTAS] NOTAS cargadas:', noteCards?.length || 0, 'noteCards:', noteCards, 'error:', errorNotas);
+              console.log('[BUG LINK NOTAS] Buscando card_ids:', noteCardIds);
+
+              if (noteCards && noteCards.length > 0) {
+                // Parsear los datos de cada NOTA
+                console.log('[BUG LINK NOTAS] Parseando NOTAS, datos raw:', noteCards);
+
+                const notasParseadas = noteCards.map((noteCard: any) => {
+                  console.log('[BUG LINK NOTAS] Parseando NOTA individual:', {
+                    card_id: noteCard.card_id,
+                    title: noteCard.title,
+                    content: noteCard.content
+                  });
+
+                  return {
+                    id: noteCard.card_id,
+                    type: noteCard.type,
+                    title: noteCard.title || 'Nota',
+                    content: noteCard.content || '',
+                    x: noteCard.x || 0,
+                    y: noteCard.y || 0,
+                    width: noteCard.width || 250,
+                    height: noteCard.height || 300,
+                    fontSize: noteCard.font_size || 14
+                  };
+                });
+
+                console.log('[BUG LINK NOTAS] NOTAS parseadas FINAL:', notasParseadas);
+                setNotasConectadas(notasParseadas);
+              }
+            }
+          }
+        } else {
+          console.log('[BUG LINK NOTAS] No hay idPizarra disponible');
+        }
+
         // Detectar tecnologías
         const techs: string[] = [];
         if (card.proyectoData?.descripcion) {
@@ -440,6 +515,63 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           }
         });
       }
+
+      // NOTAS: Solo actualizar si la conexión es HACIA esta card Y el fromCard es de tipo NOTE
+      if (to_card_id === card.id && fromCard?.type === 'text') {
+        console.log('[BUG LINK NOTAS] ✅ Conexión NOTA → ESTA card, actualizando INSTANTÁNEAMENTE...');
+        setExpandedNotas(true); // Auto-expandir para mostrar feedback inmediato
+
+        // Usar los datos directamente del evento (sin queries a BD)
+        const nuevaNota: Card = {
+          id: fromCard.id,
+          type: fromCard.type,
+          title: fromCard.title || 'Nota',
+          content: fromCard.content || '',
+          x: fromCard.x || 0,
+          y: fromCard.y || 0,
+          width: fromCard.width || 250,
+          height: fromCard.height || 300,
+          fontSize: fromCard.fontSize || 14
+        };
+
+        // Agregar la nueva NOTA a la lista sin duplicados
+        setNotasConectadas(prev => {
+          const existe = prev.some(n => n.id === nuevaNota.id);
+          if (existe) {
+            console.log('[BUG LINK NOTAS] NOTA ya existe en la lista, actualizándola');
+            return prev.map(n => n.id === nuevaNota.id ? nuevaNota : n);
+          } else {
+            console.log('[BUG LINK NOTAS] ✅ NOTA agregada instantáneamente:', nuevaNota.title);
+            return [...prev, nuevaNota];
+          }
+        });
+      } else if (from_card_id === card.id && toCard?.type === 'text') {
+        // Caso inverso: esta card → NOTA
+        console.log('[BUG LINK NOTAS] ✅ Conexión ESTA card → NOTA, actualizando INSTANTÁNEAMENTE...');
+        setExpandedNotas(true);
+
+        const nuevaNota: Card = {
+          id: toCard.id,
+          type: toCard.type,
+          title: toCard.title || 'Nota',
+          content: toCard.content || '',
+          x: toCard.x || 0,
+          y: toCard.y || 0,
+          width: toCard.width || 250,
+          height: toCard.height || 300,
+          fontSize: toCard.fontSize || 14
+        };
+
+        setNotasConectadas(prev => {
+          const existe = prev.some(n => n.id === nuevaNota.id);
+          if (existe) {
+            return prev.map(n => n.id === nuevaNota.id ? nuevaNota : n);
+          } else {
+            console.log('[BUG LINK NOTAS] ✅ NOTA agregada instantáneamente:', nuevaNota.title);
+            return [...prev, nuevaNota];
+          }
+        });
+      }
     };
 
     // Listener para actualizaciones de TODOs (cuando se edita el contenido)
@@ -463,14 +595,36 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       });
     };
 
-    // Listener para cuando se elimina un card TODO
+    // Listener para actualizaciones de NOTAS (cuando se edita el contenido)
+    const handleNotaActualizado = (event: any) => {
+      const { cardId, card: updatedCard } = event.detail;
+
+      console.log('[BUG LINK NOTAS] Evento nota-actualizado recibido:', {
+        cardId,
+        updatedCard,
+        notasConectadasActuales: notasConectadas.map(n => n.id)
+      });
+
+      // Verificar si esta NOTA está en nuestra lista
+      setNotasConectadas(prev => {
+        const existe = prev.some(n => n.id === cardId);
+        if (existe) {
+          console.log('[BUG LINK NOTAS] ✅ NOTA actualizada instantáneamente:', updatedCard.title);
+          return prev.map(n => n.id === cardId ? updatedCard : n);
+        }
+        return prev;
+      });
+    };
+
+    // Listener para cuando se elimina un card TODO o NOTA
     const handleCardEliminada = (event: any) => {
       const { cardId, cardType } = event.detail;
 
       console.log('[BUG LINK] Evento card-eliminada recibido:', {
         cardId,
         cardType,
-        todosConectadasActuales: todosConectadas.map(t => t.id)
+        todosConectadasActuales: todosConectadas.map(t => t.id),
+        notasConectadasActuales: notasConectadas.map(n => n.id)
       });
 
       // Si es un TODO, eliminarlo de nuestra lista
@@ -484,16 +638,30 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           return prev;
         });
       }
+
+      // Si es una NOTA, eliminarla de nuestra lista
+      if (cardType === 'text') {
+        setNotasConectadas(prev => {
+          const existe = prev.some(n => n.id === cardId);
+          if (existe) {
+            console.log('[BUG LINK NOTAS] ✅ NOTA eliminada instantáneamente de la lista:', cardId);
+            return prev.filter(n => n.id !== cardId);
+          }
+          return prev;
+        });
+      }
     };
 
     window.addEventListener('conexion-creada', handleConexionCreada);
     window.addEventListener('todo-actualizado', handleTodoActualizado);
+    window.addEventListener('nota-actualizado', handleNotaActualizado);
     window.addEventListener('card-eliminada', handleCardEliminada);
 
     return () => {
       console.log('[BUG LINK] Removiendo listener de eventos');
       window.removeEventListener('conexion-creada', handleConexionCreada);
       window.removeEventListener('todo-actualizado', handleTodoActualizado);
+      window.removeEventListener('nota-actualizado', handleNotaActualizado);
       window.removeEventListener('card-eliminada', handleCardEliminada);
     };
   }, [card.id]);
@@ -1627,6 +1795,78 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                                   +{todoCard.todos.length - 3} más...
                                 </div>
                               )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Sección NOTAS */}
+            <div className="bg-gray-700 text-white border-t border-gray-600">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedNotas(!expandedNotas);
+                }}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors"
+                data-todo-interactive
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm">Notas ({notasConectadas.length})</span>
+                  {loadingNotas && (
+                    <svg className="animate-spin h-3 w-3 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                </div>
+                {expandedNotas ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+
+              {expandedNotas && (
+                <div className="px-4 pb-4 space-y-2">
+                  {loadingNotas ? (
+                    <div className="text-center text-gray-400 text-sm py-4 flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Cargando Notas...
+                    </div>
+                  ) : notasConectadas.length === 0 ? (
+                    <div className="text-center text-gray-400 text-sm py-4">
+                      No hay notas conectadas
+                    </div>
+                  ) : (
+                    notasConectadas.map((noteCard) => {
+                      // Obtener preview del contenido (máximo 100 caracteres)
+                      const contentPreview = noteCard.content
+                        ? noteCard.content.length > 100
+                          ? noteCard.content.substring(0, 100) + '...'
+                          : noteCard.content
+                        : 'Sin contenido';
+
+                      return (
+                        <div
+                          key={noteCard.id}
+                          className="bg-gray-600 rounded-lg p-3 hover:bg-gray-550 transition-colors shadow-sm"
+                        >
+                          {/* Header de la NOTA */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg">📝</span>
+                            <h4 className="font-medium text-white text-sm truncate flex-1">
+                              {noteCard.title}
+                            </h4>
+                          </div>
+
+                          {/* Contenido de la nota (preview) */}
+                          {noteCard.content && (
+                            <div className="text-xs text-gray-300 whitespace-pre-wrap break-words">
+                              {contentPreview}
                             </div>
                           )}
                         </div>

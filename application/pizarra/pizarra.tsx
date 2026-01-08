@@ -988,14 +988,48 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         }
       }));
     }
+
+    // Disparar evento de actualización si es una NOTA (async para evitar conflictos de render)
+    if (updatedCard && updatedCard.type === 'text') {
+      queueMicrotask(() => {
+        console.log('[NOTA UPDATE] Disparando evento nota-actualizado (title)', { cardId, updatedCard });
+        window.dispatchEvent(new CustomEvent('nota-actualizado', {
+          detail: {
+            cardId,
+            card: updatedCard
+          }
+        }));
+      });
+    }
   }, [cards]);
 
   const updateCardContent = useCallback(async (cardId: string, newContent: string) => {
+    // Buscar la card y crear versión actualizada ANTES de setCards
+    const targetCard = cards.find(c => c.id === cardId);
+    let updatedCard: Card | null = null;
+
+    if (targetCard) {
+      updatedCard = {
+        ...targetCard,
+        content: newContent
+      };
+    }
+
     // Actualizar solo localmente (no guardar en Supabase automáticamente)
     setCards(prev => prev.map(card =>
       card.id === cardId ? { ...card, content: newContent } : card
     ));
-  }, []);
+
+    // Disparar evento si es una NOTA (async para evitar conflictos de render)
+    if (updatedCard && updatedCard.type === 'text') {
+      queueMicrotask(() => {
+        console.log('[NOTA UPDATE] Disparando evento nota-actualizado (content)', { cardId, card: updatedCard });
+        window.dispatchEvent(new CustomEvent('nota-actualizado', {
+          detail: { cardId, card: updatedCard }
+        }));
+      });
+    }
+  }, [cards]);
 
   const deleteCard = useCallback(async (cardId: string) => {
     if (pastedImages[cardId]) {
@@ -1031,15 +1065,30 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
     console.log('🗑️ Card eliminada junto con sus conexiones:', cardId);
 
-    // Disparar evento si se elimina un TODO card
+    // Disparar evento si se elimina un TODO card (async para evitar conflictos de render)
     if (cardToDelete?.type === 'todo') {
-      console.log('[TODO DELETE] Disparando evento card-eliminada para TODO:', cardId);
-      window.dispatchEvent(new CustomEvent('card-eliminada', {
-        detail: {
-          cardId,
-          cardType: 'todo'
-        }
-      }));
+      queueMicrotask(() => {
+        console.log('[TODO DELETE] Disparando evento card-eliminada para TODO:', cardId);
+        window.dispatchEvent(new CustomEvent('card-eliminada', {
+          detail: {
+            cardId,
+            cardType: 'todo'
+          }
+        }));
+      });
+    }
+
+    // Disparar evento si se elimina una NOTA card (async para evitar conflictos de render)
+    if (cardToDelete?.type === 'text') {
+      queueMicrotask(() => {
+        console.log('[NOTA DELETE] Disparando evento card-eliminada para NOTA:', cardId);
+        window.dispatchEvent(new CustomEvent('card-eliminada', {
+          detail: {
+            cardId,
+            cardType: 'text'
+          }
+        }));
+      });
     }
 
     // Eliminar solo localmente (no eliminar de Supabase automáticamente)
