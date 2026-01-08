@@ -578,7 +578,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
         console.log('✅ [ENTREGA] Entrega guardada exitosamente:', result.id);
 
         // Desasignar el usuario de la misión original
-        const misionId = card.misionData?.id;
+        const misionId = card.misionData?.id_mision;
         if (misionId) {
           const { error: updateError } = await supabase
             .from('misiones')

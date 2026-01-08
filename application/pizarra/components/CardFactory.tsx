@@ -50,7 +50,7 @@ interface CardFactoryProps {
   addMisionCard?: (misionData: any) => string | void; // ✅ Función para crear cards de misión normal
   openImageWindow?: (imageUrl: string, title: string) => void;
   cards?: Card[]; // ✅ Todas las cards para buscar notas asociadas
-  onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void; // ✅ Callback para abrir modal de capturas
+  onOpenCapturasModal?: (misionActivaId: string, misionTitle: string) => void; // ✅ Callback para abrir modal de capturas
   idPizarra?: string | null; // ✅ ID de la pizarra para sincronizar cambios en DB
   deleteCard?: (cardId: string) => void; // ✅ Función para eliminar cards
   readOnly?: boolean; // ✅ Si es true, oculta botones de play/pause (para pizarras ajenas)

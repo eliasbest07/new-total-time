@@ -806,9 +806,9 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
             (payload) => {
               console.log('[BUG LINK] [DEBUG] Cambio en card_connections (cualquier conexión):', {
                 event: payload.eventType,
-                to_card_id: payload.new?.to_card_id || payload.old?.to_card_id,
-                from_card_id: payload.new?.from_card_id || payload.old?.from_card_id,
-                id_pizarra: payload.new?.id_pizarra || payload.old?.id_pizarra
+                to_card_id: (payload.new as any)?.to_card_id || (payload.old as any)?.to_card_id,
+                from_card_id: (payload.new as any)?.from_card_id || (payload.old as any)?.from_card_id,
+                id_pizarra: (payload.new as any)?.id_pizarra || (payload.old as any)?.id_pizarra
               });
             }
           )

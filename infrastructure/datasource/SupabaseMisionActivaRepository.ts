@@ -538,12 +538,17 @@ export class SupabaseMisionActivaRepository {
         return { total: 0, desactivadas: 0, activas: 0 };
       }
 
-      const totalMisiones = misionesActivas?.length || 0;
-
-      if (!misionesActivas || misionesActivas.length === 0) {
+      if (!misionesActivas) {
         console.log('ℹ️ [VERIFICAR] No hay misiones con is_running = true');
         return { total: 0, desactivadas: 0, activas: 0 };
       }
+
+      if (misionesActivas!.length === 0) {
+        console.log('ℹ️ [VERIFICAR] No hay misiones con is_running = true');
+        return { total: 0, desactivadas: 0, activas: 0 };
+      }
+
+      const totalMisiones = misionesActivas!.length;
 
       console.log(`📊 [VERIFICAR] Encontradas ${totalMisiones} misiones con is_running = true`);
 
@@ -553,7 +558,7 @@ export class SupabaseMisionActivaRepository {
       let misionesDesactivadas = 0;
 
       // 2. Verificar cada misión
-      for (const mision of misionesActivas) {
+      for (const mision of misionesActivas!) {
         // Si no tiene fecha_ultimo_capture, verificar cuánto tiempo lleva en estado is_running
         if (!mision.fecha_ultimo_capture) {
           // Usar fecha_inicio o updated_at como referencia

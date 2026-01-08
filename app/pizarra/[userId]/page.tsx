@@ -211,13 +211,14 @@ export default function PizarraUsuarioPage() {
         fontSize: 14,
         zIndex: 1000,
         activityData: {
-          id: actividad.id,
-          description: actividad.descripcion || '',
+          id_actividad: actividad.id,
+          subject: actividad.descripcion || '',
+          participants: [],
           date: actividad.fecha,
           time: actividad.hora_inicio,
-          hours: actividad.cant_horas || 0,
+          duration: (actividad.cant_horas || 0) * 60,
           isRunning: false,
-          elapsedTime: actividad.tiempo_dedicado || 0
+          timeLeft: (actividad.tiempo_dedicado || 0)
         }
       });
     }

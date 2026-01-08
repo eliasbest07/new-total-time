@@ -311,9 +311,9 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
 
         // Parsear colors de forma segura
         let parsedColors = null;
-        if (proyecto.colors && typeof proyecto.colors === 'string' && proyecto.colors.trim()) {
+        if (proyecto.colors && typeof proyecto.colors === 'string' && (proyecto.colors as string).trim()) {
           try {
-            parsedColors = JSON.parse(proyecto.colors);
+            parsedColors = JSON.parse(proyecto.colors as string);
           } catch { /* ignorar error de parsing */ }
         }
 
@@ -365,9 +365,9 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
 
           // Parsear colors de forma segura
           let parsedColors = null;
-          if (proyecto.colors && typeof proyecto.colors === 'string' && proyecto.colors.trim()) {
+          if (proyecto.colors && typeof proyecto.colors === 'string' && (proyecto.colors as string).trim()) {
             try {
-              parsedColors = JSON.parse(proyecto.colors);
+              parsedColors = JSON.parse(proyecto.colors as string);
             } catch { /* ignorar error de parsing */ }
           }
 

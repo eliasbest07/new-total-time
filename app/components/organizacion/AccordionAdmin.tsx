@@ -777,7 +777,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                       type: 'recurso',
                                       id: recurso.id,
                                       name: recurso.nombre,
-                                      resourceType: recurso.tipo || 'document',
+                                      resourceType: 'document',
                                       url: recurso.link,
                                       icon: recurso.icono,
                                       color: 'bg-blue-500'

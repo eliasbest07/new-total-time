@@ -1,6 +1,7 @@
 export interface Pizarra {
   id: string; // uuid
   id_usuario: string; // uuid
+  id_organizacion?: string | null; // uuid opcional para pizarras de organizaciÃ³n
   pan_offset_x: number;
   pan_offset_y: number;
   created_at: string; // timestamp with time zone
@@ -8,6 +9,6 @@ export interface Pizarra {
 }
 
 export interface PizarraData {
-  cards: any[]; // Las cards se guardarán en una tabla separada
-  connections: any[]; // Las conexiones también
+  cards: any[]; // Las cards se guardarï¿½n en una tabla separada
+  connections: any[]; // Las conexiones tambiï¿½n
 }

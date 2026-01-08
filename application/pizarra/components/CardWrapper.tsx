@@ -60,7 +60,7 @@ interface CardWrapperProps {
   addMisionCardOrganizacion?: (misionData: any) => string | void;
   addMisionCard?: (misionData: any) => string | void;
   cards?: Card[];
-  onOpenCapturasModal?: (misionActivaId: number, misionTitle: string) => void;
+  onOpenCapturasModal?: (misionActivaId: string, misionTitle: string) => void;
   idPizarra?: string | null;
   readOnly?: boolean; // Si es true, oculta botones de play/pause (para pizarras ajenas)
 }
