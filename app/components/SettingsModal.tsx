@@ -6,7 +6,7 @@ import Ventana from '../demo/components/Ventana';
 import { useRouter } from 'next/navigation';
 
 const SettingsModal = () => {
-  const { showSettingsModal, closeSettings, autoSave, setAutoSave, showMemoryMonitor, setShowMemoryMonitor, theme, setTheme } = useSettings();
+  const { showSettingsModal, closeSettings, autoSave, setAutoSave, showMemoryMonitor, setShowMemoryMonitor, theme, setTheme, customColors, setCustomColors } = useSettings();
   const router = useRouter();
   const [viewMode, setViewMode] = useState<'full' | 'light'>('full');
 
@@ -79,20 +79,78 @@ const SettingsModal = () => {
           </div>
 
           {/* Tema */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div>
-              <h4 className="font-medium text-gray-900">Tema</h4>
-              <p className="text-sm text-gray-600">Personaliza la apariencia de la aplicación</p>
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="font-medium text-gray-900">Tema</h4>
+                <p className="text-sm text-gray-600">Personaliza la apariencia de la aplicación</p>
+              </div>
+              <select
+                className="px-3 py-2 border border-gray-300 rounded-lg"
+                value={theme}
+                onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'auto' | 'custom')}
+              >
+                <option value="light">Claro</option>
+                <option value="dark">Oscuro</option>
+                <option value="auto">Automático</option>
+                <option value="custom">Personalizado</option>
+              </select>
             </div>
-            <select
-              className="px-3 py-2 border border-gray-300 rounded-lg"
-              value={theme}
-              onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'auto')}
-            >
-              <option value="light">Claro</option>
-              <option value="dark">Oscuro</option>
-              <option value="auto">Automático</option>
-            </select>
+
+            {/* Selectores de color para tema personalizado */}
+            {theme === 'custom' && (
+              <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                <p className="text-sm font-medium text-gray-700 mb-3">Selecciona los colores del gradiente:</p>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <label className="block text-sm text-gray-600 mb-2">Color 1</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={customColors.color1}
+                        onChange={(e) => setCustomColors({ ...customColors, color1: e.target.value })}
+                        className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={customColors.color1}
+                        onChange={(e) => setCustomColors({ ...customColors, color1: e.target.value })}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                        placeholder="#185a9d"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm text-gray-600 mb-2">Color 2</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={customColors.color2}
+                        onChange={(e) => setCustomColors({ ...customColors, color2: e.target.value })}
+                        className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={customColors.color2}
+                        onChange={(e) => setCustomColors({ ...customColors, color2: e.target.value })}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                        placeholder="#43cea2"
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* Vista previa del gradiente */}
+                <div className="mt-3">
+                  <p className="text-sm text-gray-600 mb-2">Vista previa:</p>
+                  <div
+                    className="w-full h-16 rounded-lg border border-gray-300"
+                    style={{
+                      background: `linear-gradient(135deg, ${customColors.color1} 0%, ${customColors.color2} 100%)`
+                    }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Notificaciones */}

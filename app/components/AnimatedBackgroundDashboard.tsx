@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 const AnimatedBackgroundDashboard = () => {
   const { usuario } = useAuth();
-  const { theme } = useSettings();
+  const { theme, customColors } = useSettings();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -15,6 +15,9 @@ const AnimatedBackgroundDashboard = () => {
 
   // Determinar si estamos en modo oscuro
   const isDark = theme === 'dark' || (theme === 'auto' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  // Determinar si estamos en modo personalizado
+  const isCustom = theme === 'custom';
 
   // Durante SSR y la hidratación inicial, renderizar un fondo por defecto
   if (!mounted) {
@@ -46,8 +49,29 @@ const AnimatedBackgroundDashboard = () => {
   if (!usuario?.admin) {
     return (
       <div>
-        <div className={isDark ? "background dark-blue-purple" : "background blue-purple"}></div>
-        <div className={isDark ? "background dark-green-blue" : "background green-blue"}></div>
+        {isCustom ? (
+          <>
+            <div
+              className="background"
+              style={{
+                background: `linear-gradient(135deg, ${customColors.color1} 0%, ${customColors.color2} 100%)`,
+                opacity: 1
+              }}
+            ></div>
+            <div
+              className="background"
+              style={{
+                background: `linear-gradient(135deg, ${customColors.color2} 0%, ${customColors.color1} 100%)`,
+                opacity: 0
+              }}
+            ></div>
+          </>
+        ) : (
+          <>
+            <div className={isDark ? "background dark-blue-purple" : "background blue-purple"}></div>
+            <div className={isDark ? "background dark-green-blue" : "background green-blue"}></div>
+          </>
+        )}
 
         <div>
           <ul className="circles">
@@ -70,7 +94,17 @@ const AnimatedBackgroundDashboard = () => {
   // Si el usuario ES admin, usar el fondo del dashboard
   return (
     <div>
-      <div className={isDark ? "background dark-dashboard-gradient" : "background dashboard-gradient"}></div>
+      {isCustom ? (
+        <div
+          className="background"
+          style={{
+            background: `linear-gradient(135deg, ${customColors.color1} 0%, ${customColors.color2} 100%)`,
+            opacity: 1
+          }}
+        ></div>
+      ) : (
+        <div className={isDark ? "background dark-dashboard-gradient" : "background dashboard-gradient"}></div>
+      )}
 
       <div>
         <ul className="circles-dashboard">

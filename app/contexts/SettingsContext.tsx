@@ -6,12 +6,14 @@ interface SettingsContextType {
   showSettingsModal: boolean;
   autoSave: boolean;
   showMemoryMonitor: boolean;
-  theme: 'light' | 'dark' | 'auto';
+  theme: 'light' | 'dark' | 'auto' | 'custom';
+  customColors: { color1: string; color2: string };
   openSettings: () => void;
   closeSettings: () => void;
   setAutoSave: (value: boolean) => void;
   setShowMemoryMonitor: (value: boolean) => void;
-  setTheme: (value: 'light' | 'dark' | 'auto') => void;
+  setTheme: (value: 'light' | 'dark' | 'auto' | 'custom') => void;
+  setCustomColors: (colors: { color1: string; color2: string }) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -32,7 +34,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [autoSave, setAutoSaveState] = useState(true); // Por defecto activado
   const [showMemoryMonitor, setShowMemoryMonitorState] = useState(true); // Por defecto activado
-  const [theme, setThemeState] = useState<'light' | 'dark' | 'auto'>('light'); // Por defecto modo claro
+  const [theme, setThemeState] = useState<'light' | 'dark' | 'auto' | 'custom'>('light'); // Por defecto modo claro
+  const [customColors, setCustomColorsState] = useState<{ color1: string; color2: string }>({
+    color1: '#185a9d',
+    color2: '#43cea2'
+  });
 
   // Cargar configuraciones desde localStorage
   useEffect(() => {
@@ -47,9 +53,19 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         setShowMemoryMonitorState(savedMemoryMonitor === 'true');
       }
 
-      const savedTheme = localStorage.getItem('total-time-theme') as 'light' | 'dark' | 'auto' | null;
+      const savedTheme = localStorage.getItem('total-time-theme') as 'light' | 'dark' | 'auto' | 'custom' | null;
       if (savedTheme !== null) {
         setThemeState(savedTheme);
+      }
+
+      const savedCustomColors = localStorage.getItem('total-time-custom-colors');
+      if (savedCustomColors !== null) {
+        try {
+          const colors = JSON.parse(savedCustomColors);
+          setCustomColorsState(colors);
+        } catch (e) {
+          console.error('Error al cargar colores personalizados:', e);
+        }
       }
     }
   }, []);
@@ -73,11 +89,26 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   };
 
   // Función para actualizar tema
-  const setTheme = (value: 'light' | 'dark' | 'auto') => {
+  const setTheme = (value: 'light' | 'dark' | 'auto' | 'custom') => {
     setThemeState(value);
     if (typeof window !== 'undefined') {
       localStorage.setItem('total-time-theme', value);
-      console.log('🎨 Tema', value === 'light' ? 'Claro' : value === 'dark' ? 'Oscuro' : 'Automático');
+      const themeNames = {
+        light: 'Claro',
+        dark: 'Oscuro',
+        auto: 'Automático',
+        custom: 'Personalizado'
+      };
+      console.log('🎨 Tema', themeNames[value]);
+    }
+  };
+
+  // Función para actualizar colores personalizados
+  const setCustomColors = (colors: { color1: string; color2: string }) => {
+    setCustomColorsState(colors);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('total-time-custom-colors', JSON.stringify(colors));
+      console.log('🎨 Colores personalizados actualizados:', colors);
     }
   };
 
@@ -91,11 +122,13 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         autoSave,
         showMemoryMonitor,
         theme,
+        customColors,
         openSettings,
         closeSettings,
         setAutoSave,
         setShowMemoryMonitor,
-        setTheme
+        setTheme,
+        setCustomColors
       }}
     >
       {children}
