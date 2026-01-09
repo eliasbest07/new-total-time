@@ -8,10 +8,17 @@ export const usePasteImage = (
   setCards: React.Dispatch<React.SetStateAction<Card[]>>,
   panOffset: { x: number; y: number },
   canvasRef: RefObject<HTMLDivElement | null>,
-  setPastedImages: React.Dispatch<React.SetStateAction<{ [key: string]: string }>>
+  setPastedImages: React.Dispatch<React.SetStateAction<{ [key: string]: string }>>,
+  readOnly: boolean = false
 ) => {
 
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    // Ignorar paste si está en modo solo lectura
+    if (readOnly) {
+      console.log('📋 [PIZARRA PASTE] Modo solo lectura, pegado deshabilitado');
+      return;
+    }
+
     // Ignorar paste si el usuario está en un input, textarea o elemento editable
     const target = e.target as HTMLElement;
     if (
@@ -139,7 +146,7 @@ export const usePasteImage = (
         }
       }
     }
-  }, [cards, setCards, setPastedImages, panOffset, canvasRef]); // ✅ FIX MEMORY LEAK: Agregar setPastedImages a las dependencias
+  }, [cards, setCards, setPastedImages, panOffset, canvasRef, readOnly]); // ✅ FIX MEMORY LEAK: Agregar setPastedImages a las dependencias
 
   useEffect(() => {
     // ✅ FIX MEMORY LEAK: El event listener se registra solo una vez

@@ -435,7 +435,8 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, [setCanvasRef]);
 
   // Hook para pegar imágenes - ahora usa panOffset y canvasRef para centrar
-  usePasteImage(cards, setCards, panOffset, canvasRef, setPastedImages);
+  // El prop readOnly ya tiene en cuenta si puede editar o no (incluyendo permisos)
+  usePasteImage(cards, setCards, panOffset, canvasRef, setPastedImages, readOnly);
 
   // Función para auto-conectar una misión a su proyecto (llamada desde drop)
   const autoConnectMisionToProyectoWrapper = useCallback(async (misionCardId: string, misionId: number) => {
