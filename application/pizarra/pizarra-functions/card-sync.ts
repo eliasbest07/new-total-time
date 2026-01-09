@@ -221,19 +221,41 @@ async function loadUsuarioData(cardDB: CardDB, card: Card): Promise<void> {
  */
 async function loadTodoData(cardDB: CardDB, card: Card): Promise<void> {
   try {
+    console.log('🔍 DEBUG TD [loadTodoData] INICIO - Cargando todos para card:', {
+      card_id_frontend: cardDB.card_id,
+      uuid_bd: cardDB.id,
+      card_type: cardDB.type,
+      card_title: cardDB.title,
+      card_todos_antes: card.todos
+    });
+
     const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
     const cardTodoRepo = new SupabaseCardTodoRepository();
 
+    console.log('🔍 DEBUG TD [loadTodoData] Llamando a getByCardId con UUID:', cardDB.id);
     const cardTodos = await cardTodoRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
+
+    console.log('🔍 DEBUG TD [loadTodoData] Respuesta de getByCardId:', {
+      todosEncontrados: cardTodos?.length || 0,
+      todos: cardTodos
+    });
+
     if (cardTodos && cardTodos.length > 0) {
       card.todos = cardTodos.map(todo => ({
         id: todo.todo_id,
         text: todo.text,
         completed: todo.completed
       }));
+      console.log('✅ DEBUG TD [loadTodoData] Todos asignados a card.todos:', {
+        cantidad: card.todos.length,
+        todos: card.todos
+      });
+    } else {
+      console.warn('⚠️ DEBUG TD [loadTodoData] NO se encontraron todos en la BD para esta card');
+      console.log('🔍 DEBUG TD [loadTodoData] card.todos después:', card.todos);
     }
   } catch (error) {
-    console.error('Error cargando todos:', error);
+    console.error('❌ DEBUG TD [loadTodoData] Error cargando todos:', error);
   }
 }
 
@@ -444,11 +466,13 @@ export async function syncCardsFromDB(params: SyncCardsParams): Promise<Card[]> 
   const mappedCards: Card[] = [];
 
   console.log('🔄 [CARD-SYNC] Procesando', cardsDB.length, 'cards desde Supabase');
+  console.log('🔍 DEBUG TD [syncCardsFromDB] Cards de tipo TODO:', cardsDB.filter(c => c.type === 'todo').length);
 
   for (const cardDB of cardsDB) {
     console.log(`📝 [CARD-SYNC] Procesando card tipo="${cardDB.type}" id="${cardDB.id}" card_id="${cardDB.card_id}"`);
 
     const card = mapCardDBToCard(cardDB);
+    console.log('🔍 DEBUG TD [syncCardsFromDB] Después de mapCardDBToCard, card.todos:', card.todos);
 
     // Cargar datos específicos según el tipo de card
     switch (cardDB.type) {
@@ -471,7 +495,9 @@ export async function syncCardsFromDB(params: SyncCardsParams): Promise<Card[]> 
         break;
 
       case 'todo':
+        console.log('🎯 DEBUG TD [syncCardsFromDB] Entrando a case "todo" para card:', cardDB.card_id);
         await loadTodoData(cardDB, card);
+        console.log('🎯 DEBUG TD [syncCardsFromDB] Después de loadTodoData, card.todos:', card.todos);
         break;
 
       case 'image':
@@ -484,7 +510,44 @@ export async function syncCardsFromDB(params: SyncCardsParams): Promise<Card[]> 
         break;
     }
 
-    mappedCards.push(card);
+    // BUGFIX (debug recarga): Clonar el objeto card para forzar que React detecte cambios
+    // Esto es especialmente importante para cards tipo 'todo' donde card.todos se modifica después de mapCardDBToCard
+    const clonedCard = { ...card };
+    if (card.todos) {
+      clonedCard.todos = [...card.todos];
+      console.log('🔍 DEBUG TD [syncCardsFromDB] Clonando card.todos:', {
+        cardId: card.id,
+        originalLength: card.todos.length,
+        clonedLength: clonedCard.todos.length
+      });
+    }
+    if (card.misionData) {
+      clonedCard.misionData = { ...card.misionData };
+    }
+    if (card.activityData) {
+      clonedCard.activityData = { ...card.activityData };
+    }
+    if (card.usuarioData) {
+      clonedCard.usuarioData = { ...card.usuarioData };
+      if (card.usuarioData.messages) {
+        clonedCard.usuarioData.messages = [...card.usuarioData.messages];
+      }
+    }
+    if (card.proyectoData) {
+      clonedCard.proyectoData = { ...card.proyectoData };
+      if (card.proyectoData.notas) {
+        clonedCard.proyectoData.notas = [...card.proyectoData.notas];
+      }
+    }
+
+    console.log('🔍 DEBUG TD [syncCardsFromDB] Card antes de push a mappedCards:', {
+      cardId: clonedCard.id,
+      type: clonedCard.type,
+      hasTodos: !!clonedCard.todos,
+      todosLength: clonedCard.todos?.length || 0
+    });
+
+    mappedCards.push(clonedCard);
   }
 
   console.log('✅ [CARD-SYNC] Total cards mapeadas:', mappedCards.length);

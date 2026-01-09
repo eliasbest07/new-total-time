@@ -6,7 +6,7 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
 
   async getByCardId(idCard: string): Promise<CardTodo[]> {
     try {
-      // console.log('📋 Obteniendo todos de la card:', idCard);
+      console.log('🔍 DEBUG TD [getByCardId] INICIO - Buscando todos para id_card:', idCard);
 
       const { data, error } = await supabase
         .from('card_todos')
@@ -15,14 +15,18 @@ export class SupabaseCardTodoRepository implements CardTodoRepository {
         .order('position', { ascending: true });
 
       if (error) {
-        console.error('❌ Error al obtener todos:', error);
+        console.error('❌ DEBUG TD [getByCardId] Error en query:', error);
         throw error;
       }
 
-      // console.log('✅ Todos obtenidos:', data?.length || 0);
+      console.log('✅ DEBUG TD [getByCardId] Query exitoso:', {
+        todosEncontrados: data?.length || 0,
+        primeraFila: data && data.length > 0 ? data[0] : null
+      });
+
       return data as CardTodo[] || [];
     } catch (error) {
-      console.error('❌ Error en getByCardId:', error);
+      console.error('❌ DEBUG TD [getByCardId] Error en getByCardId:', error);
       return [];
     }
   }

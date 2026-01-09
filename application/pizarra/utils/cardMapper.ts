@@ -17,6 +17,12 @@ export function mapCardDBToCard(cardDB: CardDB): Card {
     fontSize: cardDB.font_size
   };
 
+  // BUGFIX (debug recarga): Inicializar todos como array vacío para cards de tipo 'todo'
+  // Esto asegura que React detecte cambios cuando loadTodoData asigne los todos desde la BD
+  if (cardDB.type === 'todo') {
+    baseCard.todos = [];
+  }
+
   // Los datos adicionales (misionData, usuarioData, imageUrl, etc.) se cargan por separado
   // y se agregan después mediante otras funciones
 

@@ -300,26 +300,36 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
               console.log('[BUG LINK] Buscando card_ids:', todoCardIds);
 
               if (todoCards && todoCards.length > 0) {
-                // Parsear los datos de cada TODO
-                console.log('[BUG LINK] Parseando TODOs, datos raw:', todoCards);
+                // BUGFIX (debug recarga): Cargar los todos desde card_todos en lugar de parsear desde cards
+                console.log('[BUG LINK] Cargando TODOs con sus items desde card_todos, cards encontradas:', todoCards.length);
 
-                const todosParseadas = todoCards.map((todoCard: any) => {
-                  console.log('[BUG LINK] Parseando TODO individual:', {
+                const todosParseadas = await Promise.all(todoCards.map(async (todoCard: any) => {
+                  console.log('[BUG LINK] Procesando TODO card:', {
                     card_id: todoCard.card_id,
-                    title: todoCard.title,
-                    todos_raw: todoCard.todos,
-                    todos_type: typeof todoCard.todos
+                    uuid: todoCard.id,
+                    title: todoCard.title
+                  });
+
+                  // Cargar los items de esta TODO desde card_todos usando el UUID
+                  const { data: cardTodos, error: errorCardTodos } = await supabase
+                    .from('card_todos')
+                    .select('*')
+                    .eq('id_card', todoCard.id)
+                    .order('position', { ascending: true });
+
+                  console.log('[BUG LINK] Items cargados desde card_todos:', {
+                    card_uuid: todoCard.id,
+                    items_encontrados: cardTodos?.length || 0,
+                    items: cardTodos
                   });
 
                   let tareasParseadas = [];
-                  try {
-                    if (typeof todoCard.todos === 'string') {
-                      tareasParseadas = JSON.parse(todoCard.todos);
-                    } else if (Array.isArray(todoCard.todos)) {
-                      tareasParseadas = todoCard.todos;
-                    }
-                  } catch (error) {
-                    console.error('[BUG LINK] Error parseando todos:', error);
+                  if (cardTodos && cardTodos.length > 0) {
+                    tareasParseadas = cardTodos.map((todo: any) => ({
+                      id: todo.todo_id,
+                      text: todo.text,
+                      completed: todo.completed
+                    }));
                   }
 
                   return {
@@ -334,9 +344,9 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                     fontSize: todoCard.font_size || 14,
                     todos: tareasParseadas
                   };
-                });
+                }));
 
-                console.log('[BUG LINK] TODOs parseadas FINAL:', todosParseadas);
+                console.log('[BUG LINK] TODOs parseadas FINAL con items cargados:', todosParseadas);
                 setTodosConectadas(todosParseadas);
               }
             }
