@@ -138,12 +138,17 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     return null;
   }, [card.proyectoData?.id, card.content]);
 
-  // Cargar datos básicos del proyecto (icono, descripción) si no están en proyectoData
+  // Cargar datos básicos del proyecto (icono, descripción) desde props o BD
   useEffect(() => {
     const cargarDatosProyecto = async () => {
-      // Si ya tenemos los datos del proyecto en props, no necesitamos cargar
+      // Si ya tenemos los datos del proyecto en props, usarlos para inicializar el estado local
       if (card.proyectoData?.icono !== undefined || card.proyectoData?.descripcion !== undefined) {
-        console.log('✅ [ProyectoCardOrganizacion] Datos del proyecto ya disponibles en props');
+        console.log('✅ [ProyectoCardOrganizacion] Inicializando estado local con datos de props');
+        setProyectoDataLocal({
+          icono: card.proyectoData?.icono || null,
+          descripcion: card.proyectoData?.descripcion || null,
+          nombre: card.proyectoData?.nombre || null
+        });
         return;
       }
 
@@ -1075,16 +1080,48 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       // Eliminar imagen anterior si existe
       if (cleanIcono && cleanIcono.startsWith('http')) {
         try {
-          const oldPath = cleanIcono.split('/').slice(-2).join('/');
-          await supabase.storage.from('imagenes').remove([oldPath]);
+          console.log('DEBUG PP 🔍 URL completa de imagen anterior:', cleanIcono);
+          const urlParts = cleanIcono.split('/');
+          console.log('DEBUG PP 🔍 Partes de la URL:', urlParts);
+          const oldPath = urlParts.slice(-2).join('/');
+          console.log('DEBUG PP 🗑️ Intentando eliminar imagen anterior con path:', oldPath);
+
+          // Primero verificar si el archivo existe listando la carpeta
+          const folder = urlParts.slice(-2, -1)[0]; // proyecto-28
+          const { data: listData, error: listError } = await supabase.storage
+            .from('imagenes-proyectos')
+            .list(folder);
+
+          if (listError) {
+            console.error('DEBUG PP ❌ Error al listar archivos en la carpeta:', listError);
+          } else {
+            console.log('DEBUG PP 📁 Archivos encontrados en la carpeta:', listData);
+          }
+
+          const { data: deleteData, error: deleteError } = await supabase.storage
+            .from('imagenes-proyectos')
+            .remove([oldPath]);
+
+          if (deleteError) {
+            console.error('DEBUG PP ❌ Error al eliminar imagen anterior:', deleteError);
+            console.log('DEBUG PP 💡 Posible problema de permisos en el bucket. Verifica las políticas de Storage en Supabase.');
+          } else {
+            console.log('DEBUG PP ✅ Imagen anterior eliminada exitosamente:', deleteData);
+            if (deleteData && deleteData.length === 0) {
+              console.warn('DEBUG PP ⚠️ El archivo no se encontró en el bucket (array vacío). Esto indica un problema de PERMISOS.');
+              console.log('DEBUG PP 💡 Ve a Supabase Dashboard > Storage > imagenes-proyectos > Policies y asegúrate de tener una política de DELETE.');
+            }
+          }
         } catch (error) {
-          console.log('No se pudo eliminar imagen anterior:', error);
+          console.error('DEBUG PP ❌ Excepción al eliminar imagen anterior:', error);
         }
+      } else {
+        console.log('DEBUG PP ℹ️ No hay imagen anterior para eliminar o no es una URL válida');
       }
 
       // Subir nueva imagen al bucket (igual que uploadImage en useScreenshots)
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('imagenes')
+        .from('imagenes-proyectos')
         .upload(filePath, archivoSeleccionado, {
           contentType: archivoSeleccionado.type,
           cacheControl: '3600',
@@ -1099,7 +1136,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
       // Obtener URL pública de la imagen (igual que en useScreenshots)
       const { data: urlData } = supabase.storage
-        .from('imagenes')
+        .from('imagenes-proyectos')
         .getPublicUrl(uploadData.path);
 
       const publicUrl = urlData.publicUrl;
@@ -1120,14 +1157,18 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
       console.log('✅ Imagen actualizada:', data);
 
+      // Actualizar el estado local en lugar de recargar la página
+      setProyectoDataLocal(prev => ({
+        ...prev,
+        icono: publicUrl
+      }));
+
       setArchivoSeleccionado(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
       setShowImageMenu(false);
       alert('✅ Imagen actualizada exitosamente');
-
-      window.location.reload();
     } catch (error) {
       console.error('Error cambiando imagen:', error);
       alert('Error al cambiar la imagen');
@@ -1155,11 +1196,21 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       if (cleanIcono && cleanIcono.startsWith('http')) {
         try {
           const oldPath = cleanIcono.split('/').slice(-2).join('/');
-          await supabase.storage.from('imagenes').remove([oldPath]);
-          console.log('✅ Imagen eliminada del storage');
+          console.log('DEBUG PP 🗑️ Intentando eliminar imagen del storage:', oldPath);
+          const { data: deleteData, error: deleteError } = await supabase.storage
+            .from('imagenes-proyectos')
+            .remove([oldPath]);
+
+          if (deleteError) {
+            console.error('DEBUG PP ❌ Error al eliminar imagen del storage:', deleteError);
+          } else {
+            console.log('DEBUG PP ✅ Imagen eliminada del storage exitosamente:', deleteData);
+          }
         } catch (error) {
-          console.log('No se pudo eliminar imagen del storage:', error);
+          console.error('DEBUG PP ❌ Excepción al eliminar imagen del storage:', error);
         }
+      } else {
+        console.log('DEBUG PP ℹ️ No hay imagen para eliminar del storage');
       }
 
       // Actualizar la tabla proyecto
@@ -1178,10 +1229,14 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
       console.log('✅ Registro de proyecto actualizado:', data);
 
+      // Actualizar el estado local en lugar de recargar la página
+      setProyectoDataLocal(prev => ({
+        ...prev,
+        icono: null
+      }));
+
       setShowImageMenu(false);
       alert('✅ Imagen eliminada exitosamente');
-
-      window.location.reload();
     } catch (error) {
       console.error('Error eliminando imagen:', error);
       alert('Error al eliminar la imagen');
@@ -1200,8 +1255,8 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     return url;
   };
 
-  // Usar icono de proyectoData o del estado local cargado desde BD
-  const iconoSource = card.proyectoData?.icono || proyectoDataLocal?.icono;
+  // Usar icono del estado local (que se inicializa con proyectoData o se carga desde BD)
+  const iconoSource = proyectoDataLocal?.icono;
   const cleanIcono = iconoSource ? sanitizeIconUrl(iconoSource) : null;
 
   // Separar recursos en notas y recursos normales

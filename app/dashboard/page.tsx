@@ -139,6 +139,7 @@ function DashboardAdmin() {
   const [showAgregarRecursoModal, setShowAgregarRecursoModal] = useState(false);
   const [showMisionDetalles, setShowMisionDetalles] = useState(false);
   const [selectedMisionDetalles, setSelectedMisionDetalles] = useState<Mision | null>(null);
+  const [orgImageError, setOrgImageError] = useState(false);
 
   // Handler para cuando se hace click en un usuario
   const handleUserClick = (userData: {
@@ -810,7 +811,7 @@ function DashboardAdmin() {
               className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg p-3 shadow-lg transition-all hover:scale-105 flex flex-col items-center justify-center gap-2"
               title="Información de la Organización"
             >
-              {organizacion?.img_profile ? (
+              {organizacion?.img_profile && !orgImageError ? (
                 <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/20 flex items-center justify-center">
                   <Image
                     src={organizacion.img_profile}
@@ -818,17 +819,12 @@ function DashboardAdmin() {
                     width={48}
                     height={48}
                     className="object-cover"
+                    onError={() => setOrgImageError(true)}
                   />
                 </div>
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-white/20 flex items-center justify-center">
-                  <Image
-                    src= {fotoDePerfil} // Replace with the actual path to the pasted image
-                    alt="Organization Image"
-                    width={48}
-                    height={48}
-                    className="object-cover"
-                  />
+                  <Building2 className="w-6 h-6 text-white" />
                 </div>
               )}
               <span className="text-xs font-semibold text-center line-clamp-2 leading-tight">

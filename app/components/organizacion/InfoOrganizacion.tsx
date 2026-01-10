@@ -10,7 +10,17 @@ import { Usuario } from "@/domain/entities/Usuario";
 import { SupabaseUsuarioRepository } from "@/infrastructure/datasource/SupabaseUsuarioRepository";
 import { useUserTracking } from "@/hooks/useUserTracking";
 // Componente para mostrar las estadísticas de un usuario
-const UserStatsRow = ({ usuario, onClick }: { usuario: Usuario; onClick?: () => void }) => {
+const UserStatsRow = ({
+  usuario,
+  onClick,
+  imageError,
+  onImageError
+}: {
+  usuario: Usuario;
+  onClick?: () => void;
+  imageError?: boolean;
+  onImageError?: () => void;
+}) => {
   const { estadisticas, isLoading } = useUserTracking(usuario.userAuth);
 
   return (
@@ -20,12 +30,13 @@ const UserStatsRow = ({ usuario, onClick }: { usuario: Usuario; onClick?: () => 
     >
       {/* Avatar del usuario */}
       <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-        {usuario.profile.avatar ? (
+        {usuario.profile.avatar && !imageError ? (
           <Image
             src={usuario.profile.avatar}
             alt={usuario.getNombreCompleto()}
             fill
             className="object-cover"
+            onError={() => onImageError?.()}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-white font-semibold text-sm">
@@ -72,6 +83,9 @@ export default function InfoOrganizacion({ onUsuarioClick }: InfoOrganizacionPro
   const { usuarios: usuariosOrganizacion } = useUsuariosOrganizacionContext();
   const [adminUsuario, setAdminUsuario] = useState<Usuario | null>(null);
   const [loadingAdmin, setLoadingAdmin] = useState(false);
+  const [orgImageError, setOrgImageError] = useState(false);
+  const [adminImageError, setAdminImageError] = useState(false);
+  const [userImageErrors, setUserImageErrors] = useState<Record<string, boolean>>({});
 
   // Cargar información del administrador
   useEffect(() => {
@@ -124,12 +138,13 @@ export default function InfoOrganizacion({ onUsuarioClick }: InfoOrganizacionPro
         {/* Avatar de la organización */}
         <div className="relative flex-shrink-0">
           <div className="w-20 h-20 rounded-xl overflow-hidden bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center shadow-lg">
-            {organizacion.img_profile ? (
+            {organizacion.img_profile && !orgImageError ? (
               <Image
                 src={organizacion.img_profile}
                 alt={organizacion.nombre}
                 fill
                 className="object-cover"
+                onError={() => setOrgImageError(true)}
               />
             ) : (
               <Building2 className="w-10 h-10 text-white" />
@@ -186,12 +201,13 @@ export default function InfoOrganizacion({ onUsuarioClick }: InfoOrganizacionPro
           <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
             {/* Avatar del admin */}
             <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-              {adminUsuario.profile.avatar ? (
+              {adminUsuario.profile.avatar && !adminImageError ? (
                 <Image
                   src={adminUsuario.profile.avatar}
                   alt={adminUsuario.getNombreCompleto()}
                   fill
                   className="object-cover"
+                  onError={() => setAdminImageError(true)}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-white font-semibold">
@@ -270,6 +286,8 @@ export default function InfoOrganizacion({ onUsuarioClick }: InfoOrganizacionPro
               <UserStatsRow
                 key={usr.id}
                 usuario={usr}
+                imageError={userImageErrors[usr.userAuth]}
+                onImageError={() => setUserImageErrors(prev => ({ ...prev, [usr.userAuth]: true }))}
                 onClick={() => {
                   if (onUsuarioClick) {
                     onUsuarioClick(usr.userAuth, usr.getNombreCompleto());

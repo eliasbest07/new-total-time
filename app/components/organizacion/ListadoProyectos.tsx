@@ -16,6 +16,7 @@ export default function ListadoProyectos({
 }: ListadoProyectosProps) {
   const { proyectos, loading, error, refetch, lastUpdated } = useProyectos();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -95,7 +96,10 @@ export default function ListadoProyectos({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3">
-          {proyectos.map((proyecto) => (
+          {proyectos.map((proyecto) => {
+            const showFallback = !proyecto.icono || imageErrors[proyecto.id];
+
+            return (
             <div
               key={proyecto.id}
               onClick={() => onProyectoClick?.(proyecto.id)}
@@ -114,18 +118,19 @@ export default function ListadoProyectos({
             >
               {/* Icono del proyecto */}
               <div className="relative">
-                {proyecto.icono ? (
+                {showFallback ? (
+                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center hover:scale-110 transition-transform shadow-lg">
+                    <Folder className="w-8 h-8 text-white" />
+                  </div>
+                ) : (
                   <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white/10 backdrop-blur-sm hover:scale-110 transition-transform shadow-lg">
                     <Image
-                      src={proyecto.icono}
+                      src={proyecto.icono!}
                       alt={proyecto.nombre || 'Proyecto'}
                       fill
                       className="object-cover"
+                      onError={() => setImageErrors(prev => ({ ...prev, [proyecto.id]: true }))}
                     />
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center hover:scale-110 transition-transform shadow-lg">
-                    <Folder className="w-8 h-8 text-white" />
                   </div>
                 )}
 
@@ -150,7 +155,8 @@ export default function ListadoProyectos({
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

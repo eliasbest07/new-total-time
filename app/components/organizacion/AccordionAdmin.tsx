@@ -101,6 +101,9 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
   // Estado para misiones activas (desde misiones_activas)
   const [misionesActivas, setMisionesActivas] = useState<Record<number, { estado: string; isRunning: boolean }>>({});
 
+  // Estado para errores de carga de imagen de usuarios
+  const [userImageErrors, setUserImageErrors] = useState<Record<string, boolean>>({});
+
   // Cargar y escuchar estado de misiones activas
   useEffect(() => {
     if (misiones.length === 0) return;
@@ -658,26 +661,20 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                   >
                                     {/* Avatar interno */}
                                     <div className={`w-10 h-10 rounded-full ${typeof user.color === 'string' && user.color.startsWith('#') ? 'bg-gray-500' : user.color} flex items-center justify-center text-white text-sm font-semibold overflow-hidden`}>
-                                      {user.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) ? (
+                                      {user.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) && !userImageErrors[user.userAuth] ? (
                                         <img
                                           src={user.avatar}
                                           alt={user.name}
                                           className="w-full h-full object-cover"
-                                          onError={(e) => {
-                                            const target = e.target as HTMLImageElement;
-                                            target.style.display = 'none';
-                                            if (target.nextSibling) {
-                                              (target.nextSibling as HTMLElement).style.display = 'flex';
-                                            }
+                                          onError={() => {
+                                            setUserImageErrors(prev => ({ ...prev, [user.userAuth]: true }));
                                           }}
                                         />
-                                      ) : null}
-                                      <span
-                                        className="w-full h-full flex items-center justify-center"
-                                        style={{ display: (user.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://'))) ? 'none' : 'flex' }}
-                                      >
-                                        {user.avatar && !(user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) ? user.avatar : getAvatarFromName(user.name)}
-                                      </span>
+                                      ) : (
+                                        <span className="w-full h-full flex items-center justify-center text-2xl">
+                                          {user.avatar && !(user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) ? user.avatar : '👤'}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                   {user.online && (
