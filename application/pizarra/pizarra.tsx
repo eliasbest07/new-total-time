@@ -31,6 +31,7 @@ import { autoConnectMisionToProyecto, autoConnectProyectoToMisiones } from './pi
 import { navigateToCard, bringCardToFront, findCardByMisionId } from './pizarra-functions/navigation-utils';
 import { handleActivityPlayPause, handleMisionPlayPause } from './pizarra-functions/play-pause-handlers';
 import PizarraPermissionRequests from '@/app/components/PizarraPermissionRequests';
+import { ToastProvider } from './contexts/ToastContext';
 
 const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
   const { usuario } = useAuth();
@@ -1305,6 +1306,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     id_organizacion?: number | null;
     colors?: any;
     created_at?: string;
+    github_url?: string | null;
+    sitio_web_url?: string | null;
+    tecnologias?: string[] | null;
   }, isOrganizacion: boolean = false) => {
     console.log('🔵 addProyectoCard llamado:', proyectoData.nombre, proyectoData.id);
     console.log('🔵 Ref actual antes de verificar:', Array.from(addedProyectosRef.current));
@@ -1379,7 +1383,10 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
           icono: proyectoData.icono || null,
           id_organizacion: proyectoData.id_organizacion || null,
           colors: proyectoData.colors || null,
-          created_at: proyectoData.created_at
+          created_at: proyectoData.created_at,
+          github_url: proyectoData.github_url || null,
+          sitio_web_url: proyectoData.sitio_web_url || null,
+          tecnologias: proyectoData.tecnologias || null
         }
       };
 
@@ -1681,7 +1688,10 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         icono: cardData.proyectoData.icono,
         id_organizacion: cardData.proyectoData.id_organizacion,
         colors: cardData.proyectoData.colors,
-        created_at: cardData.proyectoData.created_at
+        created_at: cardData.proyectoData.created_at,
+        github_url: cardData.proyectoData.github_url,
+        sitio_web_url: cardData.proyectoData.sitio_web_url,
+        tecnologias: cardData.proyectoData.tecnologias
       };
     }
 
@@ -3151,25 +3161,26 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
 
   return (
-    <div
-      className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}
-      data-pizarra-cards={cards.length}
-    >
+    <ToastProvider>
       <div
-        ref={canvasRef}
-        className={`
-          relative ${fullMode ? 'w-full h-full' : 'w-4/5 h-4/5'}
-          ${fullMode ? ' border-4 border-dashed rounded-3xl' : 'border-4 border-dashed rounded-3xl'}
-          transition-colors duration-300 ease-in-out overflow-hidden
-          ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-transparent'}
-          ${isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'}
-        `}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        onMouseDown={handleCanvasMouseDown}
+        className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}
+        data-pizarra-cards={cards.length}
       >
+        <div
+          ref={canvasRef}
+          className={`
+            relative ${fullMode ? 'w-full h-full' : 'w-4/5 h-4/5'}
+            ${fullMode ? ' border-4 border-dashed rounded-3xl' : 'border-4 border-dashed rounded-3xl'}
+            transition-colors duration-300 ease-in-out overflow-hidden
+            ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-transparent'}
+            ${isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'}
+          `}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onMouseDown={handleCanvasMouseDown}
+        >
         {/* Controles de navegación y zoom */}
         <div
           className={`absolute z-[999] flex items-center gap-2 ${
@@ -3430,10 +3441,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         }
       `}</style>
 
-      {/* Componente para ver solicitudes de permiso - SOLO en dashboard (no en fullMode) */}
-      {!fullMode && <PizarraPermissionRequests />}
+        {/* Componente para ver solicitudes de permiso - SOLO en dashboard (no en fullMode) */}
+        {!fullMode && <PizarraPermissionRequests />}
 
-    </div>
+      </div>
+    </ToastProvider>
   );
 });
 

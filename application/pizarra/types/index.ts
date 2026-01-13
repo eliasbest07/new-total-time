@@ -75,6 +75,9 @@ export interface ProyectoData {
   id_organizacion?: string | number | null; // UUID de la organización (string) o ID numérico
   colors: string[] | null;
   created_at?: string;
+  github_url?: string | null; // URL del repositorio de GitHub
+  sitio_web_url?: string | null; // URL del sitio web del proyecto
+  tecnologias?: string[] | null; // Array de tecnologías usadas (ej: ['Flutter', 'Firebase', 'Figma'])
   notas?: string[]; // IDs de cards de tipo 'text' asociadas como notas
 }
 

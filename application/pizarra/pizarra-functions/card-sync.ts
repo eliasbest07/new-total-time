@@ -348,6 +348,9 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
           id_organizacion: proyecto.id_organizacion || null,
           colors: parsedColors,
           created_at: proyecto.created_at,
+          github_url: proyecto.github_url || null,
+          sitio_web_url: proyecto.sitio_web_url || null,
+          tecnologias: proyecto.tecnologias || null,
           notas: notasIds
         };
         console.log('✅ [CARD-SYNC] proyectoData cargado exitosamente:', {
@@ -401,6 +404,9 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
             id_organizacion: proyecto.id_organizacion || null,
             colors: parsedColors,
             created_at: proyecto.created_at,
+            github_url: proyecto.github_url || null,
+            sitio_web_url: proyecto.sitio_web_url || null,
+            tecnologias: proyecto.tecnologias || null,
             notas: notasIds
           };
           console.log('✅ [CARD-SYNC] proyectoData cargado desde content:', {

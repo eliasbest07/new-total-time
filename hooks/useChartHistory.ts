@@ -345,7 +345,7 @@ export const useChartHistory = (pizarraRef: RefObject<PizarraRef | null>, userId
 
                   if (cardProyecto?.id_proyecto) {
                     const { data: proyecto } = await supabase
-                      .from('proyectos')
+                      .from('proyecto')
                       .select('*')
                       .eq('id', cardProyecto.id_proyecto)
                       .single();
@@ -358,7 +358,10 @@ export const useChartHistory = (pizarraRef: RefObject<PizarraRef | null>, userId
                         icono: proyecto.icono,
                         id_organizacion: proyecto.id_organizacion,
                         colors: proyecto.colors,
-                        created_at: proyecto.created_at
+                        created_at: proyecto.created_at,
+                        github_url: proyecto.github_url,
+                        sitio_web_url: proyecto.sitio_web_url,
+                        tecnologias: proyecto.tecnologias
                       };
                     }
                   }

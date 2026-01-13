@@ -8,6 +8,8 @@ import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Ventana from '@/app/demo/components/Ventana';
+import { EditarProyectoModal } from '../ui/EditarProyectoModal';
+import { useToastContext } from '../../contexts/ToastContext';
 
 // Helper para convertir iconos de texto a emojis
 const getIconEmoji = (icono: string | null): string => {
@@ -65,6 +67,9 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   const [loadingTodos, setLoadingTodos] = useState(false);
   const [loadingNotas, setLoadingNotas] = useState(false);
 
+  // Hook de notificaciones
+  const { success, error: showError } = useToastContext();
+
   // Estados de expansión
   const [expandedCapturas, setExpandedCapturas] = useState(false);
   const [expandedMisiones, setExpandedMisiones] = useState(false);
@@ -74,6 +79,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
   // Estados de modales
   const [showNuevaMisionModal, setShowNuevaMisionModal] = useState(false);
+  const [showEditarProyectoModal, setShowEditarProyectoModal] = useState(false);
   const [recursoModalAbierto, setRecursoModalAbierto] = useState<{
     isOpen: boolean;
     recurso: Recurso | null;
@@ -106,19 +112,15 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     icono: string | null;
     descripcion: string | null;
     nombre: string | null;
+    github_url: string | null;
+    sitio_web_url: string | null;
+    tecnologias: string[] | null;
   } | null>(null);
 
   // Extraer ID del proyecto (puede venir de diferentes campos según la implementación)
   // Fallback: si proyectoData no está disponible, intentar leer del content (donde se guarda como JSON)
   const proyectoId = React.useMemo(() => {
-    console.log('🔍 [ProyectoCardOrganizacion] Calculando proyectoId:', {
-      cardId: card.id,
-      proyectoDataId: card.proyectoData?.id,
-      content: card.content?.substring?.(0, 100)
-    });
-
     if (card.proyectoData?.id) {
-      console.log('✅ [ProyectoCardOrganizacion] proyectoId desde proyectoData:', card.proyectoData.id);
       return card.proyectoData.id;
     }
     // Fallback: intentar leer del content
@@ -126,15 +128,12 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       try {
         const contentData = JSON.parse(card.content);
         if (contentData.proyectoId) {
-          console.log('✅ [ProyectoCardOrganizacion] proyectoId desde content (fallback):', contentData.proyectoId);
           return contentData.proyectoId;
         }
       } catch {
         // No es JSON válido, ignorar
-        console.log('⚠️ [ProyectoCardOrganizacion] Content no es JSON válido');
       }
     }
-    console.log('❌ [ProyectoCardOrganizacion] No se encontró proyectoId');
     return null;
   }, [card.proyectoData?.id, card.content]);
 
@@ -143,28 +142,28 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     const cargarDatosProyecto = async () => {
       // Si ya tenemos los datos del proyecto en props, usarlos para inicializar el estado local
       if (card.proyectoData?.icono !== undefined || card.proyectoData?.descripcion !== undefined) {
-        console.log('✅ [ProyectoCardOrganizacion] Inicializando estado local con datos de props');
         setProyectoDataLocal({
           icono: card.proyectoData?.icono || null,
           descripcion: card.proyectoData?.descripcion || null,
-          nombre: card.proyectoData?.nombre || null
+          nombre: card.proyectoData?.nombre || null,
+          github_url: card.proyectoData?.github_url || null,
+          sitio_web_url: card.proyectoData?.sitio_web_url || null,
+          tecnologias: card.proyectoData?.tecnologias || null
         });
         return;
       }
 
       // Si no tenemos proyectoId, no podemos cargar
       if (!proyectoId) {
-        console.log('⚠️ [ProyectoCardOrganizacion] No hay proyectoId para cargar datos del proyecto');
         return;
       }
 
       try {
-        console.log('🔄 [ProyectoCardOrganizacion] Cargando datos del proyecto desde BD, proyectoId:', proyectoId);
         const { supabase } = await import('@/infrastructure/services/SupabaseClient');
 
         const { data: proyecto, error } = await supabase
           .from('proyecto')
-          .select('nombre, descripcion, icono')
+          .select('nombre, descripcion, icono, github_url, sitio_web_url, tecnologias')
           .eq('id', proyectoId)
           .single();
 
@@ -174,11 +173,13 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         }
 
         if (proyecto) {
-          console.log('✅ [ProyectoCardOrganizacion] Datos del proyecto cargados:', proyecto);
           setProyectoDataLocal({
             icono: proyecto.icono,
             descripcion: proyecto.descripcion,
-            nombre: proyecto.nombre
+            nombre: proyecto.nombre,
+            github_url: proyecto.github_url,
+            sitio_web_url: proyecto.sitio_web_url,
+            tecnologias: proyecto.tecnologias
           });
         }
       } catch (error) {
@@ -208,17 +209,13 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
   useEffect(() => {
     const cargarDatos = async () => {
-      console.log('🔄 [ProyectoCardOrganizacion] cargarDatos llamado con proyectoId:', proyectoId, 'cardId:', card.id);
-
       // Si no hay proyectoId, no hay datos que cargar - terminar loading
       if (!proyectoId) {
-        console.log('⚠️ [ProyectoCardOrganizacion] No hay proyectoId, terminando loading');
         setLoading(false);
         return;
       }
 
       try {
-        console.log('✅ [ProyectoCardOrganizacion] Iniciando carga de datos para proyectoId:', proyectoId);
         setLoading(true);
         const { supabase } = await import('@/infrastructure/services/SupabaseClient');
 
@@ -432,9 +429,19 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           console.log('[BUG LINK NOTAS] No hay idPizarra disponible');
         }
 
-        // Detectar tecnologías
-        const techs: string[] = [];
-        if (card.proyectoData?.descripcion) {
+        // Usar tecnologías desde BD si están disponibles, sino detectar automáticamente
+        let techs: string[] = [];
+
+        // Prioridad 1: Usar tecnologías desde props
+        if (card.proyectoData?.tecnologias && card.proyectoData.tecnologias.length > 0) {
+          techs = card.proyectoData.tecnologias;
+        }
+        // Prioridad 2: Usar tecnologías desde estado local (cargadas desde BD)
+        else if (proyectoDataLocal?.tecnologias && proyectoDataLocal.tecnologias.length > 0) {
+          techs = proyectoDataLocal.tecnologias;
+        }
+        // Fallback: Detectar automáticamente desde descripción
+        else if (card.proyectoData?.descripcion) {
           const descripcionLower = card.proyectoData.descripcion.toLowerCase();
           if (descripcionLower.includes('flutter')) techs.push('Flutter');
           if (descripcionLower.includes('firebase')) techs.push('Firebase');
@@ -443,7 +450,8 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           if (descripcionLower.includes('next')) techs.push('Next.js');
           if (descripcionLower.includes('typescript')) techs.push('TypeScript');
         }
-        setTecnologias(techs.length > 0 ? techs : ['Flutter', 'Firebase', 'Figma']);
+
+        setTecnologias(techs.length > 0 ? techs : []);
 
       } catch (error) {
         console.error('Error cargando datos del proyecto:', error);
@@ -988,7 +996,6 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         // TODO: Aquí se debería crear la card TODO con las tareas si hay tareas en tareasTodo
         // Esto requeriría acceso a la pizarra ref o una función callback
         if (tareasTodo.length > 0) {
-          console.log('📋 Tareas TODO a crear:', tareasTodo);
           alert(`✅ Misión creada con ${tareasTodo.length} tarea(s) TODO`);
         }
       } else {
@@ -1035,7 +1042,6 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       const success = await deleteMision(misionId);
 
       if (success) {
-        console.log('✅ Misión eliminada:', misionId);
         // Actualizar la lista de misiones localmente
         setMisiones(prev => prev.filter(m => m.id !== misionId));
         alert('✅ Misión eliminada exitosamente');
@@ -1080,43 +1086,19 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       // Eliminar imagen anterior si existe
       if (cleanIcono && cleanIcono.startsWith('http')) {
         try {
-          console.log('DEBUG PP 🔍 URL completa de imagen anterior:', cleanIcono);
           const urlParts = cleanIcono.split('/');
-          console.log('DEBUG PP 🔍 Partes de la URL:', urlParts);
           const oldPath = urlParts.slice(-2).join('/');
-          console.log('DEBUG PP 🗑️ Intentando eliminar imagen anterior con path:', oldPath);
-
-          // Primero verificar si el archivo existe listando la carpeta
-          const folder = urlParts.slice(-2, -1)[0]; // proyecto-28
-          const { data: listData, error: listError } = await supabase.storage
-            .from('imagenes-proyectos')
-            .list(folder);
-
-          if (listError) {
-            console.error('DEBUG PP ❌ Error al listar archivos en la carpeta:', listError);
-          } else {
-            console.log('DEBUG PP 📁 Archivos encontrados en la carpeta:', listData);
-          }
 
           const { data: deleteData, error: deleteError } = await supabase.storage
             .from('imagenes-proyectos')
             .remove([oldPath]);
 
           if (deleteError) {
-            console.error('DEBUG PP ❌ Error al eliminar imagen anterior:', deleteError);
-            console.log('DEBUG PP 💡 Posible problema de permisos en el bucket. Verifica las políticas de Storage en Supabase.');
-          } else {
-            console.log('DEBUG PP ✅ Imagen anterior eliminada exitosamente:', deleteData);
-            if (deleteData && deleteData.length === 0) {
-              console.warn('DEBUG PP ⚠️ El archivo no se encontró en el bucket (array vacío). Esto indica un problema de PERMISOS.');
-              console.log('DEBUG PP 💡 Ve a Supabase Dashboard > Storage > imagenes-proyectos > Policies y asegúrate de tener una política de DELETE.');
-            }
+            console.error('Error al eliminar imagen anterior:', deleteError);
           }
         } catch (error) {
-          console.error('DEBUG PP ❌ Excepción al eliminar imagen anterior:', error);
+          console.error('Excepción al eliminar imagen anterior:', error);
         }
-      } else {
-        console.log('DEBUG PP ℹ️ No hay imagen anterior para eliminar o no es una URL válida');
       }
 
       // Subir nueva imagen al bucket (igual que uploadImage en useScreenshots)
@@ -1154,8 +1136,6 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         alert('Error al actualizar el proyecto');
         return;
       }
-
-      console.log('✅ Imagen actualizada:', data);
 
       // Actualizar el estado local en lugar de recargar la página
       setProyectoDataLocal(prev => ({
@@ -1196,21 +1176,16 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       if (cleanIcono && cleanIcono.startsWith('http')) {
         try {
           const oldPath = cleanIcono.split('/').slice(-2).join('/');
-          console.log('DEBUG PP 🗑️ Intentando eliminar imagen del storage:', oldPath);
           const { data: deleteData, error: deleteError } = await supabase.storage
             .from('imagenes-proyectos')
             .remove([oldPath]);
 
           if (deleteError) {
-            console.error('DEBUG PP ❌ Error al eliminar imagen del storage:', deleteError);
-          } else {
-            console.log('DEBUG PP ✅ Imagen eliminada del storage exitosamente:', deleteData);
+            console.error('Error al eliminar imagen del storage:', deleteError);
           }
         } catch (error) {
-          console.error('DEBUG PP ❌ Excepción al eliminar imagen del storage:', error);
+          console.error('Excepción al eliminar imagen del storage:', error);
         }
-      } else {
-        console.log('DEBUG PP ℹ️ No hay imagen para eliminar del storage');
       }
 
       // Actualizar la tabla proyecto
@@ -1227,8 +1202,6 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         return;
       }
 
-      console.log('✅ Registro de proyecto actualizado:', data);
-
       // Actualizar el estado local en lugar de recargar la página
       setProyectoDataLocal(prev => ({
         ...prev,
@@ -1243,6 +1216,58 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     } finally {
       setActualizandoImagen(false);
     }
+  };
+
+  // Función para guardar cambios del proyecto
+  const handleGuardarProyecto = async (data: {
+    github_url: string;
+    sitio_web_url: string;
+    tecnologias: string[];
+  }) => {
+    console.log('🔵 handleGuardarProyecto recibió:', data);
+    console.log('🔵 proyectoId:', proyectoId);
+
+    if (!proyectoId) {
+      throw new Error('No se pudo identificar el proyecto');
+    }
+
+    const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+    const updateData = {
+      github_url: data.github_url || null,
+      sitio_web_url: data.sitio_web_url || null,
+      tecnologias: data.tecnologias.length > 0 ? data.tecnologias : null
+    };
+
+    console.log('🔵 Datos a actualizar en BD:', updateData);
+
+    // Actualizar la tabla proyecto
+    const { data: result, error } = await supabase
+      .from('proyecto')
+      .update(updateData)
+      .eq('id', proyectoId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error actualizando proyecto:', error);
+      throw error;
+    }
+
+    console.log('✅ Proyecto actualizado en BD:', result);
+
+    // Actualizar el estado local
+    setProyectoDataLocal(prev => ({
+      ...prev,
+      github_url: data.github_url || null,
+      sitio_web_url: data.sitio_web_url || null,
+      tecnologias: data.tecnologias.length > 0 ? data.tecnologias : null
+    }));
+
+    // Actualizar tecnologías mostradas
+    setTecnologias(data.tecnologias.length > 0 ? data.tecnologias : []);
+
+    console.log('✅ Estado local actualizado');
   };
 
   const sanitizeIconUrl = (url: string | null): string | null => {
@@ -1425,22 +1450,37 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         </div>
 
         {/* Botones de Acción */}
-        <div className="flex gap-2 mb-3">
-          <button
-            className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
-            data-todo-interactive
-            onClick={(e) => e.stopPropagation()}
-          >
-            Página
-          </button>
-          <button
-            className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
-            data-todo-interactive
-            onClick={(e) => e.stopPropagation()}
-          >
-            GitHub
-          </button>
-        </div>
+        {(proyectoDataLocal?.sitio_web_url || proyectoDataLocal?.github_url ||
+          card.proyectoData?.sitio_web_url || card.proyectoData?.github_url) && (
+          <div className="flex gap-2 mb-3">
+            {(proyectoDataLocal?.sitio_web_url || card.proyectoData?.sitio_web_url) && (
+              <button
+                className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+                data-todo-interactive
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const url = proyectoDataLocal?.sitio_web_url || card.proyectoData?.sitio_web_url;
+                  if (url) window.open(url, '_blank');
+                }}
+              >
+                Página
+              </button>
+            )}
+            {(proyectoDataLocal?.github_url || card.proyectoData?.github_url) && (
+              <button
+                className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+                data-todo-interactive
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const url = proyectoDataLocal?.github_url || card.proyectoData?.github_url;
+                  if (url) window.open(url, '_blank');
+                }}
+              >
+                GitHub
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Tecnologías */}
         {tecnologias.length > 0 && (
@@ -1455,6 +1495,24 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
             ))}
           </div>
         )}
+
+        {/* Botón Editar Proyecto */}
+        <div className="mb-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowEditarProyectoModal(true);
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+            data-todo-interactive
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+            Editar Proyecto
+          </button>
+        </div>
 
         {/* Usuarios Asignados */}
         {usuariosAsignados.length > 0 && (
@@ -2147,6 +2205,21 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           </div>
         </div>
       )}
+
+      {/* Modal para editar proyecto */}
+      <EditarProyectoModal
+        isOpen={showEditarProyectoModal}
+        onClose={() => setShowEditarProyectoModal(false)}
+        proyectoId={proyectoId}
+        initialData={{
+          github_url: proyectoDataLocal?.github_url || card.proyectoData?.github_url || '',
+          sitio_web_url: proyectoDataLocal?.sitio_web_url || card.proyectoData?.sitio_web_url || '',
+          tecnologias: proyectoDataLocal?.tecnologias || card.proyectoData?.tecnologias || tecnologias || []
+        }}
+        onSave={handleGuardarProyecto}
+        onSuccess={success}
+        onError={showError}
+      />
 
       {/* Ventana para mostrar contenido de nota */}
       <Ventana

@@ -13,7 +13,7 @@ export const useDropHandler = (
   centerOnCard?: (cardId: string) => void,
   findCardByMisionId?: (misionId: number) => string | null,
   addUsuarioCard?: (userData: { userId: string; name: string; avatar?: string; color?: string; online?: boolean }) => void,
-  addProyectoCard?: (proyectoData: { id: number; nombre: string; descripcion?: string | null; icono?: string | null; id_organizacion?: number | null; colors?: any; created_at?: string }, isOrganizacion: boolean) => void,
+  addProyectoCard?: (proyectoData: { id: number; nombre: string; descripcion?: string | null; icono?: string | null; id_organizacion?: number | null; colors?: any; created_at?: string; github_url?: string | null; sitio_web_url?: string | null; tecnologias?: string[] | null }, isOrganizacion: boolean) => void,
   addRecursoCard?: (recursoData: { id: number; name: string; resourceType: string; url?: string | null; icon?: string | null; color?: string }) => void
 ) => {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -115,7 +115,10 @@ export const useDropHandler = (
               icono: resource.icono || null,
               id_organizacion: resource.id_organizacion || null,
               colors: resource.colors || null,
-              created_at: resource.created_at
+              created_at: resource.created_at,
+              github_url: resource.github_url || null,
+              sitio_web_url: resource.sitio_web_url || null,
+              tecnologias: resource.tecnologias || null
             }, isOrganizacion);
           } else {
             // Fallback: crear directamente (sin validación)
@@ -139,7 +142,10 @@ export const useDropHandler = (
                 icono: resource.icono || null,
                 id_organizacion: resource.id_organizacion || null,
                 colors: resource.colors || null,
-                created_at: resource.created_at
+                created_at: resource.created_at,
+                github_url: resource.github_url || null,
+                sitio_web_url: resource.sitio_web_url || null,
+                tecnologias: resource.tecnologias || null
               }
             }]);
 
