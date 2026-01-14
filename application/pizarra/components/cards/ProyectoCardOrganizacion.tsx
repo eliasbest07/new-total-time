@@ -943,6 +943,10 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       if (esRecursoAProyecto) {
         console.log('✅ [ProyectoCard] Conexión recurso-proyecto detectada, recargando recursos...');
 
+        // Obtener el nombre del recurso
+        const recursoCard = fromCard?.type === 'resource' ? fromCard : toCard;
+        const recursoNombre = recursoCard?.title || 'Recurso';
+
         // Recargar recursos inmediatamente
         try {
           const { supabase } = await import('@/infrastructure/services/SupabaseClient');
@@ -959,8 +963,12 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           if (!expandedRecursos) {
             setExpandedRecursos(true);
           }
+
+          // Mostrar toast de éxito
+          success(`📎 ${recursoNombre} vinculado al proyecto`, 3000);
         } catch (error) {
           console.error('❌ [ProyectoCard] Error recargando recursos:', error);
+          showError('Error al vincular el recurso al proyecto');
         }
       }
     };

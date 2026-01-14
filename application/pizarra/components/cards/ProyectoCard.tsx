@@ -8,6 +8,7 @@ import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Image from 'next/image';
 import Ventana from '@/app/demo/components/Ventana';
+import { useToastContext } from '../../contexts/ToastContext';
 
 interface ProyectoCardProps {
   card: Card;
@@ -37,6 +38,7 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
   const { createMision, deleteMision } = useMisiones(usuarioId);
+  const { success, error: showError } = useToastContext();
 
   const [actividades, setActividades] = useState<Actividad[]>([]);
   const [misiones, setMisiones] = useState<Mision[]>([]);
@@ -188,6 +190,10 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
       if (esRecursoAProyecto) {
         console.log('✅ [ProyectoCard] Conexión recurso-proyecto detectada, recargando recursos...');
 
+        // Obtener el nombre del recurso
+        const recursoCard = fromCard?.type === 'resource' ? fromCard : toCard;
+        const recursoNombre = recursoCard?.title || 'Recurso';
+
         // Recargar recursos inmediatamente
         try {
           const { supabase } = await import('@/infrastructure/services/SupabaseClient');
@@ -200,8 +206,12 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
 
           console.log('✅ [ProyectoCard] Recursos recargados:', recursosData?.length);
           setRecursosNota(recursosData || []);
+
+          // Mostrar toast de éxito
+          success(`📎 ${recursoNombre} vinculado al proyecto`, 3000);
         } catch (error) {
           console.error('❌ [ProyectoCard] Error recargando recursos:', error);
+          showError('Error al vincular el recurso al proyecto');
         }
       }
     };
