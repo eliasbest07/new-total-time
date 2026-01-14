@@ -23,6 +23,20 @@ export function mapCardDBToCard(cardDB: CardDB): Card {
     baseCard.todos = [];
   }
 
+  // Para cards de tipo recurso, cargar recursoData desde content
+  if (cardDB.type === 'resource' && cardDB.content) {
+    try {
+      const parsed = JSON.parse(cardDB.content);
+      if (parsed.recursoData) {
+        baseCard.recursoData = parsed.recursoData;
+        // Restaurar el content original (descripción del recurso)
+        baseCard.content = `Tipo: ${parsed.recursoData.resourceType}`;
+      }
+    } catch (error) {
+      console.error('Error parseando recursoData desde content:', error);
+    }
+  }
+
   // Los datos adicionales (misionData, usuarioData, imageUrl, etc.) se cargan por separado
   // y se agregan después mediante otras funciones
 
@@ -37,6 +51,20 @@ export function mapCardToCardDB(card: Card, idPizarra: string) {
   let content = card.content;
   if ((card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.id) {
     content = JSON.stringify({ proyectoId: card.proyectoData.id });
+  }
+
+  // Para cards de tipo recurso, guardar recursoData en content como JSON
+  if (card.type === 'resource' && card.recursoData) {
+    content = JSON.stringify({
+      recursoData: {
+        id: card.recursoData.id,
+        name: card.recursoData.name,
+        resourceType: card.recursoData.resourceType,
+        url: card.recursoData.url,
+        icon: card.recursoData.icon,
+        color: card.recursoData.color
+      }
+    });
   }
 
   return {
