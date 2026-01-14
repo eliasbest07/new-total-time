@@ -22,6 +22,37 @@ export function isNoteToProjectConnection(fromCard: Card, toCard: Card): boolean
 }
 
 /**
+ * Detecta si una conexión es entre un recurso y un proyecto
+ *
+ * @param fromCard - Tarjeta de origen
+ * @param toCard - Tarjeta de destino
+ * @returns true si es una conexión recurso-proyecto
+ */
+export function isResourceToProjectConnection(fromCard: Card, toCard: Card): boolean {
+  return (
+    (fromCard.type === 'resource' && (toCard.type === 'proyecto' || toCard.type === 'proyecto-organizacion')) ||
+    ((fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') && toCard.type === 'resource')
+  );
+}
+
+/**
+ * Identifica cuál tarjeta es el recurso y cuál es el proyecto
+ *
+ * @param fromCard - Tarjeta de origen
+ * @param toCard - Tarjeta de destino
+ * @returns Objeto con recursoCard y proyectoCard identificados
+ */
+export function identifyResourceAndProject(fromCard: Card, toCard: Card): {
+  recursoCard: Card;
+  proyectoCard: Card;
+} {
+  const recursoCard = fromCard.type === 'resource' ? fromCard : toCard;
+  const proyectoCard = (fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') ? fromCard : toCard;
+
+  return { recursoCard, proyectoCard };
+}
+
+/**
  * Identifica cuál tarjeta es la nota y cuál es el proyecto
  *
  * @param fromCard - Tarjeta de origen
@@ -50,7 +81,7 @@ export interface HandleConnectionCreateParams {
 
 /**
  * Maneja la creación de una nueva conexión entre tarjetas
- * Detecta conexiones especiales (nota-proyecto) y ejecuta lógica adicional
+ * Detecta conexiones especiales (nota-proyecto, recurso-proyecto) y ejecuta lógica adicional
  *
  * @param params - Parámetros de la conexión
  *
@@ -64,14 +95,17 @@ export interface HandleConnectionCreateParams {
  *
  * Proceso:
  * 1. Log de la nueva conexión
- * 2. Detecta si es conexión nota-proyecto
+ * 2. Detecta si es conexión nota-proyecto o recurso-proyecto
  * 3. Si es nota-proyecto:
  *    - Identifica cuál es la nota y cuál el proyecto
  *    - Log específico para esta conexión
  *    - (TODO) Agregar nota a lista del proyecto
- * 4. Llama al callback externo si existe
+ * 4. Si es recurso-proyecto:
+ *    - Identifica cuál es el recurso y cuál el proyecto
+ *    - Actualiza el recurso en Supabase con el proyecto_id
+ * 5. Llama al callback externo si existe
  */
-export function handleConnectionCreate(params: HandleConnectionCreateParams): void {
+export async function handleConnectionCreate(params: HandleConnectionCreateParams): Promise<void> {
   const { connection, fromCard, toCard, onConnectionCreate } = params;
 
   console.log('🔗 Nueva conexión creada:', {
@@ -128,6 +162,46 @@ export function handleConnectionCreate(params: HandleConnectionCreateParams): vo
     }
   }
 
+  // Detectar si se conectó un recurso con un proyecto
+  if (isResourceToProjectConnection(fromCard, toCard)) {
+    const { recursoCard, proyectoCard } = identifyResourceAndProject(fromCard, toCard);
+
+    console.log('📎 ✅ Detectada conexión Recurso ↔️ Proyecto:', {
+      recurso: recursoCard.title,
+      recursoId: recursoCard.recursoData?.id,
+      proyecto: proyectoCard.proyectoData?.nombre,
+      proyectoId: proyectoCard.proyectoData?.id
+    });
+
+    // Actualizar el recurso en Supabase con el proyecto_id
+    if (recursoCard.recursoData?.id && proyectoCard.proyectoData?.id) {
+      try {
+        console.log('📎 Actualizando recurso en Supabase con proyecto_id...');
+
+        const { SupabaseRecursoRepository } = await import('@/infrastructure/datasource/SupabaseRecursoRepository');
+        const recursoRepo = new SupabaseRecursoRepository();
+
+        const recursoActualizado = await recursoRepo.updateRecurso(
+          recursoCard.recursoData.id,
+          { proyecto_id: proyectoCard.proyectoData.id }
+        );
+
+        if (recursoActualizado) {
+          console.log('✅ Recurso actualizado con proyecto_id:', proyectoCard.proyectoData.id);
+        } else {
+          console.error('❌ No se pudo actualizar el recurso en Supabase');
+        }
+      } catch (error) {
+        console.error('❌ Error actualizando recurso con proyecto_id:', error);
+      }
+    } else {
+      console.warn('⚠️ No se puede actualizar recurso: faltan IDs', {
+        recursoId: recursoCard.recursoData?.id,
+        proyectoId: proyectoCard.proyectoData?.id
+      });
+    }
+  }
+
   // Llamar al callback externo si existe
   if (onConnectionCreate) {
     onConnectionCreate(connection, fromCard, toCard);
@@ -151,7 +225,9 @@ export interface HandleConnectionDeleteParams {
 export interface ConnectionDeleteResult {
   shouldCleanupAutoConnection: boolean;
   isNoteToProject: boolean;
+  isResourceToProject: boolean;
   notaCard?: Card;
+  recursoCard?: Card;
   proyectoCard?: Card;
 }
 
@@ -164,15 +240,16 @@ export interface ConnectionDeleteResult {
  * Proceso:
  * 1. Busca la conexión por ID
  * 2. Encuentra las tarjetas involucradas
- * 3. Determina si es nota-proyecto
+ * 3. Determina si es nota-proyecto o recurso-proyecto
  * 4. Retorna información para que el componente haga la limpieza
  */
-export function processConnectionDelete(params: Omit<HandleConnectionDeleteParams, 'baseDeleteConnection'>): ConnectionDeleteResult {
+export async function processConnectionDelete(params: Omit<HandleConnectionDeleteParams, 'baseDeleteConnection'>): Promise<ConnectionDeleteResult> {
   const { connectionId, connections, cards } = params;
 
   const result: ConnectionDeleteResult = {
     shouldCleanupAutoConnection: connectionId.startsWith('auto-'),
-    isNoteToProject: false
+    isNoteToProject: false,
+    isResourceToProject: false
   };
 
   // Buscar la conexión que se va a eliminar
@@ -223,6 +300,45 @@ export function processConnectionDelete(params: Omit<HandleConnectionDeleteParam
     console.log('✅ Nota removida de la lista del proyecto');
   }
 
+  // Detectar si es una conexión recurso-proyecto
+  if (isResourceToProjectConnection(fromCard, toCard)) {
+    const { recursoCard, proyectoCard } = identifyResourceAndProject(fromCard, toCard);
+
+    console.log('🗑️ Eliminando proyecto_id del recurso:', {
+      recursoId: recursoCard.recursoData?.id,
+      proyectoId: proyectoCard.proyectoData?.id
+    });
+
+    result.isResourceToProject = true;
+    result.recursoCard = recursoCard;
+    result.proyectoCard = proyectoCard;
+
+    // Limpiar proyecto_id del recurso en Supabase
+    if (recursoCard.recursoData?.id) {
+      try {
+        console.log('📎 Limpiando proyecto_id del recurso en Supabase...');
+
+        const { SupabaseRecursoRepository } = await import('@/infrastructure/datasource/SupabaseRecursoRepository');
+        const recursoRepo = new SupabaseRecursoRepository();
+
+        const recursoActualizado = await recursoRepo.updateRecurso(
+          recursoCard.recursoData.id,
+          { proyecto_id: null }
+        );
+
+        if (recursoActualizado) {
+          console.log('✅ proyecto_id limpiado del recurso');
+        } else {
+          console.error('❌ No se pudo limpiar proyecto_id del recurso');
+        }
+      } catch (error) {
+        console.error('❌ Error limpiando proyecto_id del recurso:', error);
+      }
+    }
+
+    console.log('✅ Recurso desvinculado del proyecto');
+  }
+
   return result;
 }
 
@@ -244,13 +360,14 @@ export function processConnectionDelete(params: Omit<HandleConnectionDeleteParam
  * 1. Procesa la información de la conexión
  * 2. Si es auto-creada, la elimina del tracking
  * 3. Si es nota-proyecto, limpia la referencia (TODO)
- * 4. Llama a la función base de eliminación
+ * 4. Si es recurso-proyecto, limpia proyecto_id del recurso en Supabase
+ * 5. Llama a la función base de eliminación
  */
-export function handleConnectionDelete(params: HandleConnectionDeleteParams): void {
+export async function handleConnectionDelete(params: HandleConnectionDeleteParams): Promise<void> {
   const { connectionId, connections, cards, autoConnectionsRef, baseDeleteConnection } = params;
 
-  // Procesar información de la conexión
-  const deleteResult = processConnectionDelete({
+  // Procesar información de la conexión (ahora es async)
+  const deleteResult = await processConnectionDelete({
     connectionId,
     connections,
     cards,

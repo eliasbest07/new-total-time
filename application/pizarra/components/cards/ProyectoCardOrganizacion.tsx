@@ -921,6 +921,62 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     return () => clearInterval(interval);
   }, [expandedRecursos, proyectoId]);
 
+  // Listener para recargar recursos cuando se crea una conexión recurso-proyecto
+  useEffect(() => {
+    if (!proyectoId) return;
+
+    const handleConexionCreada = async (event: CustomEvent) => {
+      const { fromCard, toCard } = event.detail;
+
+      console.log('📎 [ProyectoCard] Evento conexion-creada detectado:', {
+        fromCard: fromCard?.type,
+        toCard: toCard?.type,
+        proyectoCardId: card.id,
+        proyectoId
+      });
+
+      // Verificar si esta conexión involucra un recurso y este proyecto
+      const esRecursoAProyecto =
+        (fromCard?.type === 'resource' && toCard?.id === card.id) ||
+        (toCard?.type === 'resource' && fromCard?.id === card.id);
+
+      if (esRecursoAProyecto) {
+        console.log('✅ [ProyectoCard] Conexión recurso-proyecto detectada, recargando recursos...');
+
+        // Recargar recursos inmediatamente
+        try {
+          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+          const { data: recursosData } = await supabase
+            .from('recursos')
+            .select('*')
+            .eq('proyecto_id', proyectoId)
+            .order('created_at', { ascending: false });
+
+          console.log('✅ [ProyectoCard] Recursos recargados:', recursosData?.length);
+          setRecursos(recursosData || []);
+
+          // Si la sección de recursos no está expandida, expandirla automáticamente
+          if (!expandedRecursos) {
+            setExpandedRecursos(true);
+          }
+        } catch (error) {
+          console.error('❌ [ProyectoCard] Error recargando recursos:', error);
+        }
+      }
+    };
+
+    // Agregar listener
+    window.addEventListener('conexion-creada', handleConexionCreada as EventListener);
+
+    console.log('📎 [ProyectoCard] Listener de conexion-creada agregado para proyecto:', proyectoId);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('conexion-creada', handleConexionCreada as EventListener);
+      console.log('📎 [ProyectoCard] Listener de conexion-creada removido');
+    };
+  }, [proyectoId, card.id, expandedRecursos]);
+
   const recargarDatos = async () => {
     if (!proyectoId) return;
 

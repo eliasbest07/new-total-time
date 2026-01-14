@@ -165,6 +165,59 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
     cargarDatos();
   }, [card.proyectoData?.id]);
 
+  // Listener para recargar recursos cuando se crea una conexión recurso-proyecto
+  useEffect(() => {
+    const proyectoId = card.proyectoData?.id;
+    if (!proyectoId) return;
+
+    const handleConexionCreada = async (event: CustomEvent) => {
+      const { fromCard, toCard } = event.detail;
+
+      console.log('📎 [ProyectoCard] Evento conexion-creada detectado:', {
+        fromCard: fromCard?.type,
+        toCard: toCard?.type,
+        proyectoCardId: card.id,
+        proyectoId
+      });
+
+      // Verificar si esta conexión involucra un recurso y este proyecto
+      const esRecursoAProyecto =
+        (fromCard?.type === 'resource' && toCard?.id === card.id) ||
+        (toCard?.type === 'resource' && fromCard?.id === card.id);
+
+      if (esRecursoAProyecto) {
+        console.log('✅ [ProyectoCard] Conexión recurso-proyecto detectada, recargando recursos...');
+
+        // Recargar recursos inmediatamente
+        try {
+          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+          const { data: recursosData } = await supabase
+            .from('recursos')
+            .select('*')
+            .eq('proyecto_id', proyectoId)
+            .like('link', 'nota://%')
+            .order('created_at', { ascending: false });
+
+          console.log('✅ [ProyectoCard] Recursos recargados:', recursosData?.length);
+          setRecursosNota(recursosData || []);
+        } catch (error) {
+          console.error('❌ [ProyectoCard] Error recargando recursos:', error);
+        }
+      }
+    };
+
+    // Agregar listener
+    window.addEventListener('conexion-creada', handleConexionCreada as EventListener);
+
+    console.log('📎 [ProyectoCard] Listener de conexion-creada agregado para proyecto:', proyectoId);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('conexion-creada', handleConexionCreada as EventListener);
+      console.log('📎 [ProyectoCard] Listener de conexion-creada removido');
+    };
+  }, [card.proyectoData?.id, card.id]);
+
   // Función para recargar datos
   const eliminarRecursoNota = async (recursoId: number) => {
     try {

@@ -314,9 +314,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     addedRecursosRef.current = currentRecursoIds;
   }, [cards]);
 
-  // Callback personalizado para detectar conexión nota-proyecto
-  const handleInternalConnectionCreate = useCallback((connection: Connection, fromCard: Card, toCard: Card) => {
-    handleConnectionCreate({
+  // Callback personalizado para detectar conexión nota-proyecto y recurso-proyecto
+  const handleInternalConnectionCreate = useCallback(async (connection: Connection, fromCard: Card, toCard: Card) => {
+    await handleConnectionCreate({
       connection,
       fromCard,
       toCard,
@@ -337,9 +337,9 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     deleteConnection: baseDeleteConnection
   } = useConnections({ cards, onConnectionCreate: handleInternalConnectionCreate });
 
-  // Wrapper para deleteConnection que también limpia el tracking y actualiza notas del proyecto
-  const deleteConnection = useCallback((connectionId: string) => {
-    handleConnectionDelete({
+  // Wrapper para deleteConnection que también limpia el tracking, actualiza notas del proyecto y recursos
+  const deleteConnection = useCallback(async (connectionId: string) => {
+    await handleConnectionDelete({
       connectionId,
       connections,
       cards,

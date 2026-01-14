@@ -54,7 +54,15 @@ export const useConnections = ({ cards, onConnectionCreate }: UseConnectionsProp
             const fromCard = cards.find(c => c.id === connectingFrom);
             const toCard = cards.find(c => c.id === cardId);
             if (fromCard && toCard) {
-              onConnectionCreate(newConnection, fromCard, toCard);
+              // Llamar al callback (puede ser async)
+              const result = onConnectionCreate(newConnection, fromCard, toCard);
+
+              // Si retorna una promesa, manejarla silenciosamente
+              if (result && typeof result === 'object' && 'then' in result) {
+                result.catch((error: any) => {
+                  console.error('❌ Error en onConnectionCreate callback:', error);
+                });
+              }
 
               // Disparar evento personalizado para actualización instantánea
               console.log('[CONEXION] Disparando evento conexion-creada', {
@@ -111,7 +119,15 @@ export const useConnections = ({ cards, onConnectionCreate }: UseConnectionsProp
             const fromCard = cards.find(c => c.id === connectingFrom);
             const toCard = cards.find(c => c.id === cardId);
             if (fromCard && toCard) {
-              onConnectionCreate(newConnection, fromCard, toCard);
+              // Llamar al callback (puede ser async)
+              const result = onConnectionCreate(newConnection, fromCard, toCard);
+
+              // Si retorna una promesa, manejarla silenciosamente
+              if (result && typeof result === 'object' && 'then' in result) {
+                result.catch((error: any) => {
+                  console.error('❌ Error en onConnectionCreate callback:', error);
+                });
+              }
 
               // Disparar evento personalizado para actualización instantánea
               console.log('[CONEXION] Disparando evento conexion-creada', {
