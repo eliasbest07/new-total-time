@@ -1334,6 +1334,41 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     console.log('✅ Estado local actualizado');
   };
 
+  // Función para desconectar una lista TODO del proyecto
+  const handleDesconectarTodo = async (todoCardId: string) => {
+    if (!idPizarra) {
+      showError('Error: no se pudo identificar la pizarra');
+      return;
+    }
+
+    try {
+      const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+
+      // Eliminar la conexión de card_connections
+      const { error } = await supabase
+        .from('card_connections')
+        .delete()
+        .eq('id_pizarra', idPizarra)
+        .eq('from_card_id', todoCardId)
+        .eq('to_card_id', card.id);
+
+      if (error) {
+        console.error('❌ Error eliminando conexión:', error);
+        showError('Error al desconectar la lista TODO');
+        return;
+      }
+
+      // Actualizar estado local
+      setTodosConectadas(prev => prev.filter(t => t.id !== todoCardId));
+      showSuccess('Lista TODO desconectada');
+
+      console.log('✅ TODO desconectada:', todoCardId);
+    } catch (error) {
+      console.error('❌ Error desconectando TODO:', error);
+      showError('Error al desconectar la lista TODO');
+    }
+  };
+
   const sanitizeIconUrl = (url: string | null): string | null => {
     if (!url) return null;
     const httpCount = (url.match(/https?:\/\//g) || []).length;
@@ -1984,6 +2019,19 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                               )}
                             </div>
                           )}
+
+                          {/* Botón para desconectar TODO */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDesconectarTodo(todoCard.id);
+                            }}
+                            className="mt-2 w-full px-2 py-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-colors flex items-center justify-center gap-1"
+                            data-todo-interactive
+                          >
+                            <X size={12} />
+                            Desconectar lista
+                          </button>
                         </div>
                       );
                     })

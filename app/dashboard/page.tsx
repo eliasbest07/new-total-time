@@ -423,7 +423,7 @@ function DashboardAdmin() {
             // que usa useMisionCardTodos y se actualizará automáticamente via realtime
           }
 
-          alert('✅ Lista de tareas vinculada exitosamente a la misión');
+         
         } else {
           console.log('ℹ️ El card TODO ya está vinculado a esta misión');
         }

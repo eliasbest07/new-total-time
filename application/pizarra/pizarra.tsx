@@ -31,11 +31,13 @@ import { autoConnectMisionToProyecto, autoConnectProyectoToMisiones } from './pi
 import { navigateToCard, bringCardToFront, findCardByMisionId } from './pizarra-functions/navigation-utils';
 import { handleActivityPlayPause, handleMisionPlayPause } from './pizarra-functions/play-pause-handlers';
 import PizarraPermissionRequests from '@/app/components/PizarraPermissionRequests';
-import { ToastProvider } from './contexts/ToastContext';
+import { ToastProvider, useToastContext } from './contexts/ToastContext';
 
-const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
+// Componente interno que usa el ToastContext
+const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
+  const { success: showSuccess, error: showError } = useToastContext();
 
   // Estado para almacenar el ID numérico del usuario que se está viendo
   const [viewingUserNumericId, setViewingUserNumericId] = useState<number | null>(null);
@@ -314,15 +316,18 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     addedRecursosRef.current = currentRecursoIds;
   }, [cards]);
 
-  // Callback personalizado para detectar conexión nota-proyecto y recurso-proyecto
+  // Callback personalizado para detectar conexión nota-proyecto, recurso-proyecto y todo-misión
   const handleInternalConnectionCreate = useCallback(async (connection: Connection, fromCard: Card, toCard: Card) => {
     await handleConnectionCreate({
       connection,
       fromCard,
       toCard,
-      onConnectionCreate
+      onConnectionCreate,
+      showSuccess,
+      showError,
+      pizarraId: pizarraActual?.id
     });
-  }, [onConnectionCreate]);
+  }, [onConnectionCreate, showSuccess, showError, pizarraActual?.id]);
 
 
   const {
@@ -344,9 +349,11 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       connections,
       cards,
       autoConnectionsRef,
-      baseDeleteConnection
+      baseDeleteConnection,
+      showSuccess,
+      showError
     });
-  }, [baseDeleteConnection, connections, cards]);
+  }, [baseDeleteConnection, connections, cards, showSuccess, showError]);
 
   // Cargar conexiones desde Supabase cuando se visualiza la pizarra de otro usuario O pizarra de organización
   useEffect(() => {
@@ -582,6 +589,181 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
     };
   }, [handleWheel]);
 
+  // Escuchar eventos de toggle/delete desde MisionCardOrganizacion para sincronizar TodoCard
+  useEffect(() => {
+    const handleMisionTodoToggle = async (event: CustomEvent) => {
+      const { misionCardId, todoId, completed } = event.detail;
+
+      // Buscar el TodoCard conectado a través de las conexiones
+      const conexion = connections.find(conn =>
+        (conn.from === misionCardId || conn.to === misionCardId)
+      );
+
+      if (!conexion) return;
+
+      // Identificar el TodoCard (el otro extremo de la conexión)
+      const todoCardId = conexion.from === misionCardId ? conexion.to : conexion.from;
+      const todoCard = cards.find(c => c.id === todoCardId && c.type === 'todo');
+
+      if (!todoCard) return;
+
+      // Actualizar estado local
+      setCards(prev => prev.map(card => {
+        if (card.id === todoCardId && card.todos) {
+          return {
+            ...card,
+            todos: card.todos.map(todo =>
+              todo.id === todoId ? { ...todo, completed } : todo
+            )
+          };
+        }
+        return card;
+      }));
+
+      // Persistir en BD si el TodoCard está guardado
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(todoCardId);
+      if (isUUID) {
+        try {
+          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+          await supabase
+            .from('card_todos')
+            .update({ completed })
+            .eq('id_card', todoCardId)
+            .eq('todo_id', todoId);
+        } catch (error) {
+          console.error('Error actualizando todo en BD:', error);
+        }
+      }
+    };
+
+    const handleMisionTodoDelete = async (event: CustomEvent) => {
+      const { misionCardId, todoId } = event.detail;
+
+      // Buscar el TodoCard conectado a través de las conexiones
+      const conexion = connections.find(conn =>
+        (conn.from === misionCardId || conn.to === misionCardId)
+      );
+
+      if (!conexion) return;
+
+      const todoCardId = conexion.from === misionCardId ? conexion.to : conexion.from;
+      const todoCard = cards.find(c => c.id === todoCardId && c.type === 'todo');
+
+      if (!todoCard) return;
+
+      // Actualizar estado local
+      setCards(prev => prev.map(card => {
+        if (card.id === todoCardId && card.todos) {
+          return {
+            ...card,
+            todos: card.todos.filter(todo => todo.id !== todoId)
+          };
+        }
+        return card;
+      }));
+
+      // Persistir en BD si el TodoCard está guardado
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(todoCardId);
+      if (isUUID) {
+        try {
+          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+          await supabase
+            .from('card_todos')
+            .delete()
+            .eq('id_card', todoCardId)
+            .eq('todo_id', todoId);
+        } catch (error) {
+          console.error('Error eliminando todo de BD:', error);
+        }
+      }
+    };
+
+    // Escuchar cambios en TodoCard para sincronizar con MisionCard conectado
+    const handleTodoActualizado = (event: CustomEvent) => {
+      const { cardId: todoCardId, card: updatedTodoCard } = event.detail;
+
+      console.log('🔄 [Pizarra] Evento todo-actualizado recibido:', { todoCardId, updatedTodoCard });
+
+      // Buscar si este TodoCard está conectado a un MisionCard
+      const conexion = connections.find(conn =>
+        conn.from === todoCardId || conn.to === todoCardId
+      );
+
+      if (!conexion) {
+        console.log('ℹ️ TodoCard no está conectado a ningún MisionCard');
+        return;
+      }
+
+      // Identificar el MisionCard conectado
+      const misionCardId = conexion.from === todoCardId ? conexion.to : conexion.from;
+      const misionCard = cards.find(c => c.id === misionCardId && (c.type === 'mision' || c.type === 'mision-organizacion'));
+
+      if (!misionCard) {
+        console.log('ℹ️ No se encontró MisionCard conectado');
+        return;
+      }
+
+      console.log('✅ Sincronizando MisionCard con TodoCard actualizado:', {
+        misionCardId,
+        misionTitle: misionCard.title,
+        todos: updatedTodoCard.todos
+      });
+
+      // Actualizar el MisionCard con los todos del TodoCard (convertidos a subtareas)
+      const subtareasActualizadas = (updatedTodoCard.todos || []).map((todo: { id: number; text: string; completed: boolean }) => ({
+        id: todo.id.toString(),
+        text: todo.text,
+        completed: todo.completed
+      }));
+
+      setCards(prev => prev.map(card => {
+        if (card.id === misionCardId && card.misionData) {
+          return {
+            ...card,
+            misionData: {
+              ...card.misionData,
+              subtareas: subtareasActualizadas
+            }
+          };
+        }
+        return card;
+      }));
+    };
+
+    // Escuchar cuando se desconecta un TodoCard de un MisionCard (backup, el componente también escucha)
+    const handleConexionEliminada = (event: CustomEvent) => {
+      const { type, misionCard } = event.detail;
+
+      if (type === 'todo-mision' && misionCard) {
+        setCards(prev => prev.map(card => {
+          if (card.id === misionCard.id && card.misionData) {
+            return {
+              ...card,
+              misionData: {
+                ...card.misionData,
+                subtareas: [],
+                card_todos: []
+              }
+            };
+          }
+          return card;
+        }));
+      }
+    };
+
+    window.addEventListener('mision-todo-toggle', handleMisionTodoToggle as EventListener);
+    window.addEventListener('mision-todo-delete', handleMisionTodoDelete as EventListener);
+    window.addEventListener('todo-actualizado', handleTodoActualizado as EventListener);
+    window.addEventListener('conexion-eliminada', handleConexionEliminada as EventListener);
+
+    return () => {
+      window.removeEventListener('mision-todo-toggle', handleMisionTodoToggle as EventListener);
+      window.removeEventListener('mision-todo-delete', handleMisionTodoDelete as EventListener);
+      window.removeEventListener('todo-actualizado', handleTodoActualizado as EventListener);
+      window.removeEventListener('conexion-eliminada', handleConexionEliminada as EventListener);
+    };
+  }, [connections, cards]);
+
   const {
     draggedCard,
     draggedMisionId,
@@ -748,9 +930,40 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
   }, [cards]);
 
   const addTodoToCard = useCallback(async (cardId: string, text: string) => {
-    // Buscar la card y crear versión actualizada ANTES de setCards
+    // Solo guardar en Supabase si la card ya está guardada (tiene formato UUID)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cardId);
+
+    let newTodoId: number;
+
+    if (isUUID) {
+      // Si la card está en Supabase, obtener el siguiente todo_id desde la BD
+      try {
+        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
+        const { data: existingTodos, error } = await supabase
+          .from('card_todos')
+          .select('todo_id')
+          .eq('id_card', cardId)
+          .order('todo_id', { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error('❌ Error obteniendo último todo_id:', error);
+          newTodoId = 1;
+        } else {
+          newTodoId = existingTodos && existingTodos.length > 0 ? existingTodos[0].todo_id + 1 : 1;
+        }
+      } catch (error) {
+        console.error('❌ Error consultando todos:', error);
+        newTodoId = 1;
+      }
+    } else {
+      // Si la card no está en Supabase, calcular localmente
+      const targetCard = cards.find(c => c.id === cardId);
+      newTodoId = targetCard?.todos && targetCard.todos.length > 0 ? Math.max(...targetCard.todos.map(t => t.id)) + 1 : 1;
+    }
+
+    // Buscar la card y crear versión actualizada
     const targetCard = cards.find(c => c.id === cardId);
-    const newTodoId = targetCard?.todos && targetCard.todos.length > 0 ? Math.max(...targetCard.todos.map(t => t.id)) + 1 : 1;
     let updatedCard: Card | null = null;
 
     if (targetCard && targetCard.todos) {
@@ -789,22 +1002,22 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
       }));
     }
 
-    // Solo guardar en Supabase si la card ya está guardada (tiene formato UUID)
-    // Cards con IDs como "todo-1" aún no están en Supabase
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cardId);
-
     if (isUUID) {
       try {
         const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
         const cardTodoRepo = new SupabaseCardTodoRepository();
 
-        await cardTodoRepo.create({
+        const createdTodo = await cardTodoRepo.create({
           id_card: cardId,
           todo_id: newTodoId,
           text,
           completed: false,
           position: newTodoId - 1
         });
+
+        if (createdTodo) {
+          console.log('✅ TODO creado en Supabase:', createdTodo.id);
+        }
       } catch (error) {
         console.error('❌ Error al crear todo en Supabase:', error);
       }
@@ -3161,7 +3374,6 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
 
 
   return (
-    <ToastProvider>
       <div
         className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}
         data-pizarra-cards={cards.length}
@@ -3445,6 +3657,16 @@ const TestPizarra = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, s
         {!fullMode && <PizarraPermissionRequests />}
 
       </div>
+  );
+});
+
+PizarraContent.displayName = 'PizarraContent';
+
+// Componente principal que envuelve con ToastProvider
+const TestPizarra = forwardRef<PizarraRef, PizarraProps>((props, ref) => {
+  return (
+    <ToastProvider>
+      <PizarraContent {...props} ref={ref} />
     </ToastProvider>
   );
 });
