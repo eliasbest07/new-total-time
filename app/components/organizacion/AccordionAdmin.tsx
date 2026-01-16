@@ -53,6 +53,8 @@ interface AccordionAdminProps {
   }) => void;
   onMisionClick?: (mision: Mision) => void;
   onActividadClick?: (actividad: Actividad) => void;
+  defaultCollapsed?: boolean;
+  onCollapseChange?: (isCollapsed: boolean) => void;
 }
 
 // Función helper para obtener el ícono de Lucide a partir del nombre
@@ -83,10 +85,30 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
   onAddResource,
   onUserClick,
   onMisionClick,
-  onActividadClick
+  onActividadClick,
+  defaultCollapsed = false,
+  onCollapseChange
 }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(defaultCollapsed);
   const [hoveredRecurso, setHoveredRecurso] = useState<{ name: string; url?: string; x: number; y: number } | null>(null);
+  const [hoveredIcon, setHoveredIcon] = useState<{ title: string; x: number; y: number } | null>(null);
+  const [tooltipsEnabled, setTooltipsEnabled] = useState<boolean>(false);
+
+  // Notificar al padre cuando cambia el estado de colapso
+  const handleCollapse = (collapsed: boolean) => {
+    setIsCollapsed(collapsed);
+    setHoveredIcon(null);
+    setTooltipsEnabled(false); // Deshabilitar tooltips inmediatamente
+    onCollapseChange?.(collapsed);
+
+    // Habilitar tooltips 1000ms después de colapsar
+    if (collapsed) {
+      setTimeout(() => {
+        setTooltipsEnabled(true);
+      }, 1000);
+    }
+  };
 
   // Estados de paginación
   const [currentMisionPage, setCurrentMisionPage] = useState<number>(1);
@@ -325,66 +347,163 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
       .join(' ');
   };
 
+  // Función para expandir desde modo colapsado
+  const handleExpandFromCollapsed = (sectionId: string) => {
+    handleCollapse(false);
+    setActiveSection(sectionId);
+  };
+
   return (
     <>
-      <div className="w-full bg-[#001f3f] rounded-lg overflow-hidden shadow-lg pointer-events-auto">
-        {sections.map((section) => {
-          const Icon = section.icon;
-          const isActive = activeSection === section.id;
-          const isExpanded = isActive;
-
-          return (
-            <div key={section.id} className="border-b border-white/20 last:border-b-0">
-              {/* Header */}
-              <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${
-                isActive ? section.color : 'bg-transparent'
-              }`}>
+      <div
+        className={`
+          pointer-events-auto transition-all duration-300 ease-in-out
+          ${isCollapsed
+            ? 'w-auto'
+            : 'w-full'
+          }
+        `}
+      >
+        {/* Vista Colapsada - Solo iconos verticales */}
+        <div
+          className={`
+            bg-[#001f3f] rounded-xl shadow-2xl overflow-hidden
+            transition-all duration-300 ease-in-out origin-top-right
+            ${isCollapsed
+              ? 'opacity-100 scale-100 p-1.5'
+              : 'opacity-0 scale-95 w-0 h-0 p-0 absolute pointer-events-none'
+            }
+          `}
+        >
+          <div className="flex flex-col gap-1">
+            {/* Iconos de secciones */}
+            {sections.map((section, index) => {
+              const Icon = section.icon;
+              return (
                 <button
-                  onClick={() => toggleSection(section.id)}
-                  className="flex items-center space-x-3 flex-1"
+                  key={section.id}
+                  onClick={() => handleExpandFromCollapsed(section.id)}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredIcon({
+                      title: section.title,
+                      x: rect.left - 8,
+                      y: rect.top + rect.height / 2
+                    });
+                  }}
+                  onMouseLeave={() => setHoveredIcon(null)}
+                  className={`
+                    p-2 rounded-lg transition-all duration-200
+                    hover:scale-110 hover:shadow-lg
+                    ${section.color}
+                    animate-in fade-in slide-in-from-right-2
+                  `}
+                  style={{
+                    animationDelay: `${index * 50}ms`,
+                    animationFillMode: 'both'
+                  }}
                 >
-                  <Icon
-                    size={20}
-                    className={`transition-colors duration-300 ${
-                      isActive ? 'text-white' : 'text-white/70'
-                    }`}
-                  />
-                  <span className={`font-medium transition-colors duration-300 ${
-                    isActive ? 'text-white' : 'text-white/90'
-                  }`}>
-                    {section.title}
-                  </span>
+                  <Icon size={16} className="text-white" />
                 </button>
-                <div className="flex items-center space-x-2">
-                  {/* Botón + para agregar recursos */}
-                  {section.id === 'recursos' && onAddResource && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddResource();
-                      }}
-                      className="p-1.5 bg-white/20 hover:bg-white/30 rounded-full transition-colors duration-200"
-                      title="Agregar recurso"
-                    >
-                      <Plus
-                        size={14}
-                        className="text-white"
-                      />
-                    </button>
-                  )}
+              );
+            })}
+
+            {/* Separador */}
+            <div className="h-px bg-white/20 mx-1 my-0.5" />
+
+            {/* Botón para expandir */}
+            <button
+              onClick={() => handleCollapse(false)}
+              className="p-2 hover:bg-white/20 rounded-lg transition-all duration-200 group"
+              title="Expandir panel"
+            >
+              <ChevronRight size={16} className="text-white/60 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+            </button>
+          </div>
+        </div>
+
+        {/* Vista Expandida - Accordion completo */}
+        <div
+          className={`
+            bg-[#001f3f] rounded-lg shadow-lg overflow-hidden
+            transition-all duration-300 ease-in-out origin-top-right
+            ${!isCollapsed
+              ? 'opacity-100 scale-100'
+              : 'opacity-0 scale-95 w-0 h-0 absolute pointer-events-none'
+            }
+          `}
+        >
+          {/* Botón para colapsar en la parte superior */}
+          <div className="flex justify-end px-2 py-1.5 border-b border-white/10 bg-white/5">
+            <button
+              onClick={() => {
+                handleCollapse(true);
+                setActiveSection(null);
+              }}
+              className="p-1 hover:bg-white/10 rounded transition-all duration-200 group"
+              title="Minimizar panel"
+            >
+              <ChevronLeft size={14} className="text-white/50 group-hover:text-white group-hover:-translate-x-0.5 transition-all" />
+            </button>
+          </div>
+
+          {sections.map((section) => {
+            const Icon = section.icon;
+            const isActive = activeSection === section.id;
+            const isExpanded = isActive;
+
+            return (
+              <div key={section.id} className="border-b border-white/20 last:border-b-0">
+                {/* Header */}
+                <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${
+                  isActive ? section.color : 'bg-transparent'
+                }`}>
                   <button
                     onClick={() => toggleSection(section.id)}
-                    className="p-1"
+                    className="flex items-center space-x-3 flex-1"
                   >
-                    <ChevronDown
-                      size={16}
-                      className={`transition-all duration-300 ${
-                        isActive ? 'text-white rotate-180' : 'text-white/70'
+                    <Icon
+                      size={20}
+                      className={`transition-colors duration-300 ${
+                        isActive ? 'text-white' : 'text-white/70'
                       }`}
                     />
+                    <span className={`font-medium transition-colors duration-300 ${
+                      isActive ? 'text-white' : 'text-white/90'
+                    }`}>
+                      {section.title}
+                    </span>
                   </button>
+                  <div className="flex items-center space-x-2">
+                    {/* Botón + para agregar recursos */}
+                    {section.id === 'recursos' && onAddResource && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddResource();
+                        }}
+                        className="p-1.5 bg-white/20 hover:bg-white/30 rounded-full transition-colors duration-200"
+                        title="Agregar recurso"
+                      >
+                        <Plus
+                          size={14}
+                          className="text-white"
+                        />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => toggleSection(section.id)}
+                      className="p-1"
+                    >
+                      <ChevronDown
+                        size={16}
+                        className={`transition-all duration-300 ${
+                          isActive ? 'text-white rotate-180' : 'text-white/70'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
               {/* Expandable Content */}
               <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
@@ -821,7 +940,23 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
             </div>
           );
         })}
+        </div>
       </div>
+
+      {/* Tooltip flotante para iconos en modo colapsado */}
+      {hoveredIcon && isCollapsed && tooltipsEnabled && (
+        <div
+          className="fixed bg-black/90 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg shadow-2xl border border-white/20 pointer-events-none whitespace-nowrap"
+          style={{
+            left: `${hoveredIcon.x}px`,
+            top: `${hoveredIcon.y}px`,
+            transform: 'translate(-100%, -50%)',
+            zIndex: 99999
+          }}
+        >
+          {hoveredIcon.title}
+        </div>
+      )}
 
       {/* Tooltip flotante para recursos */}
       {hoveredRecurso && (

@@ -140,6 +140,7 @@ function DashboardAdmin() {
   const [showMisionDetalles, setShowMisionDetalles] = useState(false);
   const [selectedMisionDetalles, setSelectedMisionDetalles] = useState<Mision | null>(null);
   const [orgImageError, setOrgImageError] = useState(false);
+  const [accordionCollapsed, setAccordionCollapsed] = useState(false);
 
   // Handler para cuando se hace click en un usuario
   const handleUserClick = (userData: {
@@ -843,7 +844,13 @@ function DashboardAdmin() {
         </div>
 
         {/* AccordionAdmin - Esquina superior derecha */}
-        <div className="fixed top-20 right-4 z-50 pointer-events-auto" style={{ width: '350px' }}>
+        <div
+          className="fixed top-20 right-4 z-50 pointer-events-auto"
+          style={{
+            width: accordionCollapsed ? '44px' : '350px',
+            transition: 'width 300ms ease-in-out'
+          }}
+        >
           <AccordionAdmin
             misiones={misionesOrg}
             actividades={actividadesOrg}
@@ -860,6 +867,7 @@ function DashboardAdmin() {
               console.log('Actividad seleccionada:', actividad);
               // TODO: Implementar modal de detalles de actividad si es necesario
             }}
+            onCollapseChange={setAccordionCollapsed}
           />
         </div>
 
