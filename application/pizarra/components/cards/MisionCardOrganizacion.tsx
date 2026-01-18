@@ -7,6 +7,7 @@ import { useCardTodos } from '@/hooks/useCardTodos';
 import { misionActivaRepository } from '@/infrastructure/datasource/SupabaseMisionActivaRepository';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 import { useToastContext } from '../../contexts/ToastContext';
+import { useMisionSubtareas } from '../../hooks/useMisionSubtareas';
 
 interface MisionCardOrganizacionProps {
   card: Card;
@@ -44,7 +45,6 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   const [showEntregas, setShowEntregas] = useState(false);
   const [newSubtareaText, setNewSubtareaText] = useState('');
   const [lastCaptureUrl, setLastCaptureUrl] = useState<string | null>(null);
-  const ignorarRealtimeHasta = useRef<number>(0);
 
   const { info: showInfo, error: showError } = useToastContext();
 
@@ -74,6 +74,25 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     ? misionData.card_todos[0]
     : null;
   const { todos: tareasBD, loading: loadingCardTodos, createTodo, toggleCompleted, deleteTodo: deleteTodoFromBD } = useCardTodos(cardTodoId);
+
+  // Hook para manejar subtareas usando la entidad Todo
+  const {
+    subtareas,
+    handleToggle: handleToggleSubtarea,
+    handleDelete: handleDeleteSubtarea,
+    handleAdd: handleAddSubtareaInternal,
+    blockSync,
+    unblockSync,
+    clearSubtareas
+  } = useMisionSubtareas({
+    cardId: card.id,
+    misionData,
+    tareasBD,
+    updateCard,
+    toggleCompletedBD: toggleCompleted,
+    deleteTodoBD: deleteTodoFromBD,
+    createTodoBD: createTodo
+  });
 
   // Log del estado actual (solo en desarrollo)
   useEffect(() => {
@@ -151,32 +170,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     }
   }, [usuarios.length, card.id]);
 
-  // Sincronizar tareas de la BD con subtareas locales
-  useEffect(() => {
-    // No sincronizar si está en período de ignorar (después de desconectar)
-    if (Date.now() < ignorarRealtimeHasta.current) return;
-
-    // Solo sincronizar si hay card_todos configurados Y hay tareas en BD
-    if (tareasBD && tareasBD.length > 0 && misionData.card_todos && misionData.card_todos.length > 0) {
-      const subtareasDesdeDB: SubtareaMision[] = tareasBD.map(tarea => ({
-        id: tarea.todo_id.toString(),
-        text: tarea.text,
-        completed: tarea.completed
-      }));
-
-      const subtareasActuales = misionData.subtareas || [];
-      const sonDiferentes = JSON.stringify(subtareasActuales) !== JSON.stringify(subtareasDesdeDB);
-
-      if (sonDiferentes) {
-        updateCard(card.id, {
-          misionData: {
-            ...misionData,
-            subtareas: subtareasDesdeDB
-          }
-        });
-      }
-    }
-  }, [tareasBD, misionData.card_todos]);
+  // La sincronización de tareas BD ↔ subtareas ahora se maneja en useMisionSubtareas
 
   // Cargar card_todos inicial desde Supabase
   useEffect(() => {
@@ -319,15 +313,9 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       const { type, misionCard } = event.detail;
 
       if (type === 'todo-mision' && misionCard?.id === cardId) {
-        // Ignorar realtime y sincronización por 5 segundos después de desconectar
-        ignorarRealtimeHasta.current = Date.now() + 5000;
-
-        updateCard(cardId, {
-          misionData: {
-            subtareas: [],
-            card_todos: []
-          }
-        });
+        // Usar funciones del hook para bloquear sync y limpiar
+        blockSync(5000);
+        clearSubtareas();
       }
     };
 
@@ -335,10 +323,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       const { type, misionCard, todoCardUUID } = event.detail;
 
       if (type === 'todo-mision' && misionCard?.id === cardId && todoCardUUID) {
-        // Resetear el bloqueo de realtime para permitir actualizaciones
-        ignorarRealtimeHasta.current = 0;
-
-        // Actualizar card_todos con el nuevo UUID
+        // Desbloquear sync y actualizar card_todos
+        unblockSync();
         updateCard(cardId, {
           misionData: {
             card_todos: [todoCardUUID]
@@ -353,7 +339,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       window.removeEventListener('conexion-eliminada', handleConexionEliminada as EventListener);
       window.removeEventListener('conexion-creada', handleConexionCreada as EventListener);
     };
-  }, [card.id, updateCard]);
+  }, [card.id, updateCard, blockSync, unblockSync, clearSubtareas]);
 
   // Cargar estado inicial y suscribirse a cambios (restaurado)
   useEffect(() => {
@@ -635,114 +621,14 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
     }
   };
 
-  // Agregar subtarea
+  // Wrapper para agregar subtarea y limpiar input
   const handleAddSubtarea = async () => {
     if (!newSubtareaText.trim()) return;
-
-    // Si hay card_todos, crear en la BD
-    if (misionData.card_todos && misionData.card_todos.length > 0) {
-      const cardTodoId = misionData.card_todos[0]; // Obtener el primer UUID del array
-      const nuevaTarea = await createTodo({
-        id_card: cardTodoId,
-        todo_id: (tareasBD?.length || 0) + 1,
-        text: newSubtareaText.trim(),
-        completed: false,
-        position: (tareasBD?.length || 0) + 1
-      });
-
-      if (nuevaTarea) {
-        console.log('✅ Tarea creada en BD:', nuevaTarea);
-      }
-    } else {
-      // Si no hay card_todos, usar el método local
-      const nuevaSubtarea: SubtareaMision = {
-        id: `subtarea-${Date.now()}`,
-        text: newSubtareaText.trim(),
-        completed: false
-      };
-
-      const subtareasActuales = misionData.subtareas || [];
-      updateCard(card.id, {
-        misionData: {
-          ...misionData,
-          subtareas: [...subtareasActuales, nuevaSubtarea]
-        }
-      });
-    }
+    await handleAddSubtareaInternal(newSubtareaText);
     setNewSubtareaText('');
   };
 
-  // Toggle subtarea completada
-  const handleToggleSubtarea = async (subtareaId: string) => {
-    // Buscar el estado actual de la subtarea en misionData.subtareas
-    const subtareasActuales = misionData.subtareas || [];
-    const subtareaLocal = subtareasActuales.find(st => st.id === subtareaId);
-
-    if (!subtareaLocal) {
-      showError(`No se encontró subtarea ID=${subtareaId}`);
-      return;
-    }
-
-    const nuevoCompleted = !subtareaLocal.completed;
-
-    // Actualizar UI inmediatamente
-    const subtareasActualizadas = subtareasActuales.map(st =>
-      st.id === subtareaId ? { ...st, completed: nuevoCompleted } : st
-    );
-    updateCard(card.id, {
-      misionData: {
-        ...misionData,
-        subtareas: subtareasActualizadas
-      }
-    });
-
-    // Emitir evento para sincronizar con TodoCard conectado
-    window.dispatchEvent(new CustomEvent('mision-todo-toggle', {
-      detail: {
-        misionCardId: card.id,
-        todoId: parseInt(subtareaId),
-        completed: nuevoCompleted
-      }
-    }));
-
-    // Si hay card_todos y tareasBD, también persistir en la BD
-    if (misionData.card_todos && misionData.card_todos.length > 0 && tareasBD && tareasBD.length > 0) {
-      const tareaActual = tareasBD.find(t => t.id === subtareaId || t.todo_id.toString() === subtareaId);
-      if (tareaActual) {
-        await toggleCompleted(tareaActual.id, nuevoCompleted);
-      }
-    }
-  };
-
-  // Eliminar subtarea
-  const handleDeleteSubtarea = async (subtareaId: string) => {
-    // Actualizar UI inmediatamente
-    const subtareasActuales = misionData.subtareas || [];
-    const subtareasActualizadas = subtareasActuales.filter(st => st.id !== subtareaId);
-
-    updateCard(card.id, {
-      misionData: {
-        ...misionData,
-        subtareas: subtareasActualizadas
-      }
-    });
-
-    // Emitir evento para sincronizar con TodoCard conectado
-    window.dispatchEvent(new CustomEvent('mision-todo-delete', {
-      detail: {
-        misionCardId: card.id,
-        todoId: parseInt(subtareaId)
-      }
-    }));
-
-    // Si hay card_todos y tareasBD, también eliminar de la BD
-    if (misionData.card_todos && misionData.card_todos.length > 0 && tareasBD && tareasBD.length > 0) {
-      const tareaActual = tareasBD.find(t => t.id === subtareaId || t.todo_id.toString() === subtareaId);
-      if (tareaActual) {
-        await deleteTodoFromBD(tareaActual.id);
-      }
-    }
-  };
+  // handleToggleSubtarea y handleDeleteSubtarea vienen del hook useMisionSubtareas
 
   // Colores según estado
   const getEstadoColor = () => {
@@ -1020,8 +906,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
             <div className="flex-1 overflow-y-auto mb-2 space-y-1">
               {loadingCardTodos ? (
                 <div className="text-xs text-gray-400 italic">Cargando tareas...</div>
-              ) : misionData.subtareas && misionData.subtareas.length > 0 ? (
-                misionData.subtareas.map((subtarea) => (
+              ) : subtareas && subtareas.length > 0 ? (
+                subtareas.map((subtarea) => (
                   <div
                     key={subtarea.id}
                     className="flex items-center gap-2 bg-gray-50 rounded px-2 py-1 group"

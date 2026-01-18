@@ -32,6 +32,7 @@ import { navigateToCard, bringCardToFront, findCardByMisionId } from './pizarra-
 import { handleActivityPlayPause, handleMisionPlayPause } from './pizarra-functions/play-pause-handlers';
 import PizarraPermissionRequests from '@/app/components/PizarraPermissionRequests';
 import { ToastProvider, useToastContext } from './contexts/ToastContext';
+import { useTodoMisionSync, emitTodoActualizado } from './hooks/useTodoMisionSync';
 
 // Componente interno que usa el ToastContext
 const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
@@ -589,180 +590,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     };
   }, [handleWheel]);
 
-  // Escuchar eventos de toggle/delete desde MisionCardOrganizacion para sincronizar TodoCard
-  useEffect(() => {
-    const handleMisionTodoToggle = async (event: CustomEvent) => {
-      const { misionCardId, todoId, completed } = event.detail;
-
-      // Buscar el TodoCard conectado a través de las conexiones
-      const conexion = connections.find(conn =>
-        (conn.from === misionCardId || conn.to === misionCardId)
-      );
-
-      if (!conexion) return;
-
-      // Identificar el TodoCard (el otro extremo de la conexión)
-      const todoCardId = conexion.from === misionCardId ? conexion.to : conexion.from;
-      const todoCard = cards.find(c => c.id === todoCardId && c.type === 'todo');
-
-      if (!todoCard) return;
-
-      // Actualizar estado local
-      setCards(prev => prev.map(card => {
-        if (card.id === todoCardId && card.todos) {
-          return {
-            ...card,
-            todos: card.todos.map(todo =>
-              todo.id === todoId ? { ...todo, completed } : todo
-            )
-          };
-        }
-        return card;
-      }));
-
-      // Persistir en BD si el TodoCard está guardado
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(todoCardId);
-      if (isUUID) {
-        try {
-          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-          await supabase
-            .from('card_todos')
-            .update({ completed })
-            .eq('id_card', todoCardId)
-            .eq('todo_id', todoId);
-        } catch (error) {
-          console.error('Error actualizando todo en BD:', error);
-        }
-      }
-    };
-
-    const handleMisionTodoDelete = async (event: CustomEvent) => {
-      const { misionCardId, todoId } = event.detail;
-
-      // Buscar el TodoCard conectado a través de las conexiones
-      const conexion = connections.find(conn =>
-        (conn.from === misionCardId || conn.to === misionCardId)
-      );
-
-      if (!conexion) return;
-
-      const todoCardId = conexion.from === misionCardId ? conexion.to : conexion.from;
-      const todoCard = cards.find(c => c.id === todoCardId && c.type === 'todo');
-
-      if (!todoCard) return;
-
-      // Actualizar estado local
-      setCards(prev => prev.map(card => {
-        if (card.id === todoCardId && card.todos) {
-          return {
-            ...card,
-            todos: card.todos.filter(todo => todo.id !== todoId)
-          };
-        }
-        return card;
-      }));
-
-      // Persistir en BD si el TodoCard está guardado
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(todoCardId);
-      if (isUUID) {
-        try {
-          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-          await supabase
-            .from('card_todos')
-            .delete()
-            .eq('id_card', todoCardId)
-            .eq('todo_id', todoId);
-        } catch (error) {
-          console.error('Error eliminando todo de BD:', error);
-        }
-      }
-    };
-
-    // Escuchar cambios en TodoCard para sincronizar con MisionCard conectado
-    const handleTodoActualizado = (event: CustomEvent) => {
-      const { cardId: todoCardId, card: updatedTodoCard } = event.detail;
-
-      console.log('🔄 [Pizarra] Evento todo-actualizado recibido:', { todoCardId, updatedTodoCard });
-
-      // Buscar si este TodoCard está conectado a un MisionCard
-      const conexion = connections.find(conn =>
-        conn.from === todoCardId || conn.to === todoCardId
-      );
-
-      if (!conexion) {
-        console.log('ℹ️ TodoCard no está conectado a ningún MisionCard');
-        return;
-      }
-
-      // Identificar el MisionCard conectado
-      const misionCardId = conexion.from === todoCardId ? conexion.to : conexion.from;
-      const misionCard = cards.find(c => c.id === misionCardId && (c.type === 'mision' || c.type === 'mision-organizacion'));
-
-      if (!misionCard) {
-        console.log('ℹ️ No se encontró MisionCard conectado');
-        return;
-      }
-
-      console.log('✅ Sincronizando MisionCard con TodoCard actualizado:', {
-        misionCardId,
-        misionTitle: misionCard.title,
-        todos: updatedTodoCard.todos
-      });
-
-      // Actualizar el MisionCard con los todos del TodoCard (convertidos a subtareas)
-      const subtareasActualizadas = (updatedTodoCard.todos || []).map((todo: { id: number; text: string; completed: boolean }) => ({
-        id: todo.id.toString(),
-        text: todo.text,
-        completed: todo.completed
-      }));
-
-      setCards(prev => prev.map(card => {
-        if (card.id === misionCardId && card.misionData) {
-          return {
-            ...card,
-            misionData: {
-              ...card.misionData,
-              subtareas: subtareasActualizadas
-            }
-          };
-        }
-        return card;
-      }));
-    };
-
-    // Escuchar cuando se desconecta un TodoCard de un MisionCard (backup, el componente también escucha)
-    const handleConexionEliminada = (event: CustomEvent) => {
-      const { type, misionCard } = event.detail;
-
-      if (type === 'todo-mision' && misionCard) {
-        setCards(prev => prev.map(card => {
-          if (card.id === misionCard.id && card.misionData) {
-            return {
-              ...card,
-              misionData: {
-                ...card.misionData,
-                subtareas: [],
-                card_todos: []
-              }
-            };
-          }
-          return card;
-        }));
-      }
-    };
-
-    window.addEventListener('mision-todo-toggle', handleMisionTodoToggle as EventListener);
-    window.addEventListener('mision-todo-delete', handleMisionTodoDelete as EventListener);
-    window.addEventListener('todo-actualizado', handleTodoActualizado as EventListener);
-    window.addEventListener('conexion-eliminada', handleConexionEliminada as EventListener);
-
-    return () => {
-      window.removeEventListener('mision-todo-toggle', handleMisionTodoToggle as EventListener);
-      window.removeEventListener('mision-todo-delete', handleMisionTodoDelete as EventListener);
-      window.removeEventListener('todo-actualizado', handleTodoActualizado as EventListener);
-      window.removeEventListener('conexion-eliminada', handleConexionEliminada as EventListener);
-    };
-  }, [connections, cards]);
+  // Hook para sincronizar eventos entre TodoCard y MisionCard
+  // Maneja: mision-todo-toggle, mision-todo-delete, todo-actualizado, conexion-eliminada
+  useTodoMisionSync({ cards, connections, setCards });
 
   const {
     draggedCard,
@@ -896,12 +726,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Disparar evento de actualización con los datos precalculados
     if (updatedCard) {
       console.log('[TODO UPDATE] Disparando evento todo-actualizado (toggle)', { cardId, updatedCard });
-      window.dispatchEvent(new CustomEvent('todo-actualizado', {
-        detail: {
-          cardId,
-          card: updatedCard
-        }
-      }));
+      emitTodoActualizado({ cardId, card: updatedCard });
     }
 
     // Solo guardar en Supabase si la card ya está guardada (tiene formato UUID)
@@ -994,12 +819,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Disparar evento de actualización con los datos precalculados
     if (updatedCard) {
       console.log('[TODO UPDATE] Disparando evento todo-actualizado (add)', { cardId, updatedCard });
-      window.dispatchEvent(new CustomEvent('todo-actualizado', {
-        detail: {
-          cardId,
-          card: updatedCard
-        }
-      }));
+      emitTodoActualizado({ cardId, card: updatedCard });
     }
 
     if (isUUID) {
@@ -1048,12 +868,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Disparar evento de actualización con los datos precalculados
     if (updatedCard) {
       console.log('[TODO UPDATE] Disparando evento todo-actualizado (delete)', { cardId, updatedCard });
-      window.dispatchEvent(new CustomEvent('todo-actualizado', {
-        detail: {
-          cardId,
-          card: updatedCard
-        }
-      }));
+      emitTodoActualizado({ cardId, card: updatedCard });
     }
 
     // Solo eliminar de Supabase si la card ya está guardada (tiene formato UUID)
@@ -1103,12 +918,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Disparar evento de actualización con los datos precalculados
     if (updatedCard) {
       console.log('[TODO UPDATE] Disparando evento todo-actualizado (update text)', { cardId, updatedCard });
-      window.dispatchEvent(new CustomEvent('todo-actualizado', {
-        detail: {
-          cardId,
-          card: updatedCard
-        }
-      }));
+      emitTodoActualizado({ cardId, card: updatedCard });
     }
 
     // Solo actualizar en Supabase si la card ya está guardada (tiene formato UUID)
@@ -1196,12 +1006,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Disparar evento de actualización si es un TODO
     if (updatedCard && updatedCard.type === 'todo') {
       console.log('[TODO UPDATE] Disparando evento todo-actualizado (title)', { cardId, updatedCard });
-      window.dispatchEvent(new CustomEvent('todo-actualizado', {
-        detail: {
-          cardId,
-          card: updatedCard
-        }
-      }));
+      emitTodoActualizado({ cardId, card: updatedCard });
     }
 
     // Disparar evento de actualización si es una NOTA (async para evitar conflictos de render)

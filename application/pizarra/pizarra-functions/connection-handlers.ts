@@ -2,17 +2,22 @@
  * connection-handlers.ts
  *
  * Funciones para manejar la creación y eliminación de conexiones entre tarjetas.
- * Incluye lógica específica para conexiones nota-proyecto.
+ * Incluye lógica específica para conexiones nota-proyecto, recurso-proyecto y todo-mision.
  */
 
 import { Card, Connection } from '../types';
+import {
+  isTodoToMisionConnection,
+  identifyTodoAndMision,
+  handleTodoMisionConnect,
+  handleTodoMisionDisconnect
+} from './todo-mision-handlers';
+
+// Re-exportar para mantener compatibilidad
+export { isTodoToMisionConnection, identifyTodoAndMision };
 
 /**
  * Detecta si una conexión es entre una nota (text) y un proyecto
- *
- * @param fromCard - Tarjeta de origen
- * @param toCard - Tarjeta de destino
- * @returns true si es una conexión nota-proyecto
  */
 export function isNoteToProjectConnection(fromCard: Card, toCard: Card): boolean {
   return (
@@ -23,10 +28,6 @@ export function isNoteToProjectConnection(fromCard: Card, toCard: Card): boolean
 
 /**
  * Detecta si una conexión es entre un recurso y un proyecto
- *
- * @param fromCard - Tarjeta de origen
- * @param toCard - Tarjeta de destino
- * @returns true si es una conexión recurso-proyecto
  */
 export function isResourceToProjectConnection(fromCard: Card, toCard: Card): boolean {
   return (
@@ -37,10 +38,6 @@ export function isResourceToProjectConnection(fromCard: Card, toCard: Card): boo
 
 /**
  * Identifica cuál tarjeta es el recurso y cuál es el proyecto
- *
- * @param fromCard - Tarjeta de origen
- * @param toCard - Tarjeta de destino
- * @returns Objeto con recursoCard y proyectoCard identificados
  */
 export function identifyResourceAndProject(fromCard: Card, toCard: Card): {
   recursoCard: Card;
@@ -48,39 +45,7 @@ export function identifyResourceAndProject(fromCard: Card, toCard: Card): {
 } {
   const recursoCard = fromCard.type === 'resource' ? fromCard : toCard;
   const proyectoCard = (fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') ? fromCard : toCard;
-
   return { recursoCard, proyectoCard };
-}
-
-/**
- * Detecta si una conexión es entre un TODO y una misión
- *
- * @param fromCard - Tarjeta de origen
- * @param toCard - Tarjeta de destino
- * @returns true si es una conexión todo-misión
- */
-export function isTodoToMisionConnection(fromCard: Card, toCard: Card): boolean {
-  return (
-    (fromCard.type === 'todo' && (toCard.type === 'mision-organizacion' || toCard.type === 'mision')) ||
-    ((fromCard.type === 'mision-organizacion' || fromCard.type === 'mision') && toCard.type === 'todo')
-  );
-}
-
-/**
- * Identifica cuál tarjeta es el TODO y cuál es la misión
- *
- * @param fromCard - Tarjeta de origen
- * @param toCard - Tarjeta de destino
- * @returns Objeto con todoCard y misionCard identificados
- */
-export function identifyTodoAndMision(fromCard: Card, toCard: Card): {
-  todoCard: Card;
-  misionCard: Card;
-} {
-  const todoCard = fromCard.type === 'todo' ? fromCard : toCard;
-  const misionCard = (fromCard.type === 'mision-organizacion' || fromCard.type === 'mision') ? fromCard : toCard;
-
-  return { todoCard, misionCard };
 }
 
 /**
@@ -236,108 +201,19 @@ export async function handleConnectionCreate(params: HandleConnectionCreateParam
   if (isTodoToMisionConnection(fromCard, toCard)) {
     const { todoCard, misionCard } = identifyTodoAndMision(fromCard, toCard);
 
-    console.log('✅ ✅ Detectada conexión TODO ↔️ Misión:', {
+    console.log('✅ Detectada conexión TODO ↔️ Misión:', {
       todo: todoCard.title,
-      todoId: todoCard.id,
-      mision: misionCard.title,
-      misionId: misionCard.misionData?.id_mision
+      mision: misionCard.title
     });
 
-    // Actualizar la misión en Supabase agregando el TODO al array card_todos
-    if (misionCard.misionData?.id_mision) {
-      try {
-        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-        const { mapCardToCardDB } = await import('../utils/cardMapper');
-
-        // Primero obtener el UUID real de la card TODO desde la tabla cards
-        let { data: cardData, error: cardError } = await supabase
-          .from('cards')
-          .select('id')
-          .eq('card_id', todoCard.id)
-          .single();
-
-        // Si la card no existe y tenemos pizarraId, crearla primero
-        if ((cardError || !cardData) && pizarraId) {
-          console.log('📋 Card TODO no existe en BD, creándola...');
-          const cardDataToInsert = mapCardToCardDB(todoCard, pizarraId);
-
-          const { data: newCard, error: insertError } = await supabase
-            .from('cards')
-            .insert([cardDataToInsert])
-            .select('id')
-            .single();
-
-          if (insertError || !newCard) {
-            console.error('❌ Error creando card TODO en BD:', insertError);
-            if (showError) showError('Error: no se pudo guardar la card en la base de datos');
-            return;
-          }
-
-          cardData = newCard;
-          console.log('✅ Card TODO creada con UUID:', cardData.id);
-        } else if (cardError || !cardData) {
-          console.error('❌ Error obteniendo UUID de la card TODO:', cardError);
-          if (showError) showError('Error: no se encontró la card en la base de datos');
-          return;
-        }
-
-        const todoCardUUID = cardData.id;
-        console.log('📋 UUID de la card TODO:', todoCardUUID);
-
-        // Obtener el array actual de card_todos
-        const { data: misionActual, error: errorFetch } = await supabase
-          .from('misiones')
-          .select('card_todos')
-          .eq('id', misionCard.misionData.id_mision)
-          .single();
-
-        if (errorFetch) {
-          console.error('❌ Error obteniendo misión:', errorFetch);
-          if (showError) showError('Error al conectar la lista de tareas');
-          return;
-        }
-
-        // Agregar el nuevo TODO al array (evitar duplicados) usando el UUID real
-        const cardTodosActual = misionActual?.card_todos || [];
-        if (!cardTodosActual.includes(todoCardUUID)) {
-          const nuevoCardTodos = [...cardTodosActual, todoCardUUID];
-
-          // Actualizar en Supabase
-          const { error: errorUpdate } = await supabase
-            .from('misiones')
-            .update({ card_todos: nuevoCardTodos })
-            .eq('id', misionCard.misionData.id_mision);
-
-          if (errorUpdate) {
-            console.error('❌ Error actualizando card_todos:', errorUpdate);
-            if (showError) showError('Error al conectar la lista de tareas');
-          } else {
-            console.log('✅ card_todos actualizado:', nuevoCardTodos);
-            if (showSuccess) showSuccess(`✅ Lista "${todoCard.title}" conectada a la misión`, 3000);
-
-            // Emitir evento para que MisionCard actualice su estado
-            window.dispatchEvent(new CustomEvent('conexion-creada', {
-              detail: {
-                type: 'todo-mision',
-                todoCard,
-                misionCard,
-                todoCardUUID,
-                misionId: misionCard.misionData?.id_mision
-              }
-            }));
-          }
-        } else {
-          console.log('ℹ️ El TODO ya está en la lista de card_todos');
-          if (showSuccess) showSuccess('La lista ya está conectada a esta misión', 2000);
-        }
-      } catch (error) {
-        console.error('❌ Error actualizando misión con card_todos:', error);
-        if (showError) showError('Error al conectar la lista de tareas');
-      }
-    } else {
-      console.warn('⚠️ No se puede actualizar misión: falta id_mision');
-      if (showError) showError('Error: la misión no tiene ID');
-    }
+    // Usar el handler modularizado
+    await handleTodoMisionConnect({
+      todoCard,
+      misionCard,
+      pizarraId,
+      showSuccess,
+      showError
+    });
   }
 
   // Llamar al callback externo si existe
@@ -491,72 +367,13 @@ export async function processConnectionDelete(params: Omit<HandleConnectionDelet
     result.todoCard = todoCard;
     result.misionCard = misionCard;
 
-    // Limpiar el TODO del array card_todos en Supabase
-    if (misionCard.misionData?.id_mision) {
-      try {
-        const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-
-        // Buscar el UUID de la card en la tabla cards (puede estar por id o card_id)
-        let todoCardUUID: string | null = null;
-
-        const { data: cardByCardId } = await supabase
-          .from('cards')
-          .select('id')
-          .eq('card_id', todoCard.id)
-          .single();
-
-        if (cardByCardId) {
-          todoCardUUID = cardByCardId.id;
-        } else {
-          const { data: cardById } = await supabase
-            .from('cards')
-            .select('id')
-            .eq('id', todoCard.id)
-            .single();
-
-          if (cardById) {
-            todoCardUUID = cardById.id;
-          }
-        }
-
-        if (!todoCardUUID) {
-          if (showError) showError('Error: card no encontrada');
-          return result;
-        }
-
-        // Obtener el array actual de card_todos
-        const { data: misionActual, error: errorFetch } = await supabase
-          .from('misiones')
-          .select('card_todos')
-          .eq('id', misionCard.misionData.id_mision)
-          .single();
-
-        if (!errorFetch) {
-          const cardTodosActual = misionActual?.card_todos || [];
-          const nuevoCardTodos = cardTodosActual.filter((id: string) => id !== todoCardUUID);
-
-          const { error: errorUpdate } = await supabase
-            .from('misiones')
-            .update({ card_todos: nuevoCardTodos })
-            .eq('id', misionCard.misionData.id_mision);
-
-          if (!errorUpdate) {
-            if (showSuccess) showSuccess('Lista desconectada');
-
-            window.dispatchEvent(new CustomEvent('conexion-eliminada', {
-              detail: {
-                type: 'todo-mision',
-                todoCard,
-                misionCard,
-                misionId: misionCard.misionData?.id_mision
-              }
-            }));
-          }
-        }
-      } catch (error) {
-        if (showError) showError('Error al desconectar');
-      }
-    }
+    // Usar el handler modularizado
+    await handleTodoMisionDisconnect({
+      todoCard,
+      misionCard,
+      showSuccess,
+      showError
+    });
   }
 
   return result;
