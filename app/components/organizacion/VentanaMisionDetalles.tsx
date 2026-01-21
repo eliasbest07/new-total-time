@@ -557,8 +557,42 @@ const VentanaMisionDetalles: React.FC<VentanaMisionDetallesProps> = ({
         .eq('id', mision.id);
 
       if (error) {
-        console.error('Error guardando:', error);
+        console.error('[VentanaMisionDetalles] Error guardando:', error);
         return;
+      }
+
+      // Si se cambió el estado, también actualizar misiones_activas
+      if (field === 'estado') {
+        console.log(`[VentanaMisionDetalles] Actualizando estado a "${value}" - sincronizando misiones_activas`);
+
+        // Mapear estados de misiones a estados válidos de misiones_activas
+        // misiones_activas acepta: 'pendiente' | 'en_progreso' | 'pausada' | 'entregada' | 'aprobada' | 'rechazada' | 'cancelada'
+        const estadoMisionActivaMap: Record<string, string> = {
+          'pendiente': 'pendiente',
+          'en_progreso': 'en_progreso',
+          'completada': 'entregada',  // completada -> entregada
+          'entregada': 'entregada',
+          'revisada': 'aprobada',     // revisada -> aprobada
+          'cancelada': 'cancelada'
+        };
+
+        const estadoMisionActiva = estadoMisionActivaMap[value] || 'pendiente';
+        const isRunning = value === 'en_progreso';
+
+        const { error: errorMisionActiva } = await supabase
+          .from('misiones_activas')
+          .update({
+            estado: estadoMisionActiva,
+            is_running: isRunning
+          })
+          .eq('id_referencia', mision.id)
+          .eq('tipo', 'mision');
+
+        if (errorMisionActiva) {
+          console.error('[VentanaMisionDetalles] Error actualizando misiones_activas:', errorMisionActiva);
+        } else {
+          console.log(`[VentanaMisionDetalles] misiones_activas actualizado: estado="${estadoMisionActiva}", is_running=${isRunning}`);
+        }
       }
 
       // Actualizar estado local
@@ -569,7 +603,7 @@ const VentanaMisionDetalles: React.FC<VentanaMisionDetallesProps> = ({
         onMisionUpdated();
       }
     } catch (error) {
-      console.error('Error guardando campo:', error);
+      console.error('[VentanaMisionDetalles] Error guardando campo:', error);
     } finally {
       setSaving(false);
     }

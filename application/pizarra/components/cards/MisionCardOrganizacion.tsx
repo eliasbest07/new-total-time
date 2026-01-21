@@ -46,6 +46,9 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   const [newSubtareaText, setNewSubtareaText] = useState('');
   const [lastCaptureUrl, setLastCaptureUrl] = useState<string | null>(null);
 
+  // Ref para ignorar eventos realtime temporalmente después de cambios locales
+  const ignorarRealtimeHasta = useRef<number>(0);
+
   const { info: showInfo, error: showError } = useToastContext();
 
   const {

@@ -1924,7 +1924,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                 data-todo-interactive
               >
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm">TODOs ({todosConectadas.length})</span>
+                  <span className="font-semibold text-sm">Listas de tareas ({todosConectadas.length})</span>
                   {loadingTodos && (
                     <svg className="animate-spin h-3 w-3 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

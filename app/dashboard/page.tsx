@@ -847,7 +847,7 @@ function DashboardAdmin() {
         <div
           className="fixed top-20 right-4 z-50 pointer-events-auto"
           style={{
-            width: accordionCollapsed ? '44px' : '350px',
+            width: accordionCollapsed ? 'auto' : '350px',
             transition: 'width 300ms ease-in-out'
           }}
         >

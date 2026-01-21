@@ -95,6 +95,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
   const [hoveredIcon, setHoveredIcon] = useState<{ title: string; x: number; y: number } | null>(null);
   const [tooltipsEnabled, setTooltipsEnabled] = useState<boolean>(false);
 
+
   // Notificar al padre cuando cambia el estado de colapso
   const handleCollapse = (collapsed: boolean) => {
     setIsCollapsed(collapsed);
@@ -131,6 +132,8 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
     if (misiones.length === 0) return;
 
     const loadMisionesActivas = async () => {
+      console.log('[ACCORDIONADMIN] Cargando misiones activas para IDs:', misiones.map(m => m.id));
+
       const { data, error } = await supabase
         .from('misiones_activas')
         .select('id_referencia, estado, is_running')
@@ -138,12 +141,19 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
         .in('id_referencia', misiones.map(m => m.id));
 
       if (error) {
-        console.error('❌ [AccordionAdmin] Error cargando misiones activas:', error);
+        console.error('[ACCORDIONADMIN] Error cargando misiones activas:', error);
         return;
       }
 
+      console.log('[ACCORDIONADMIN] Datos RAW de misiones_activas:', data);
+
       const estadoMisiones: Record<number, { estado: string; isRunning: boolean }> = {};
+      const debugInfo: string[] = [];
+
       data?.forEach(ma => {
+        const info = `ID:${ma.id_referencia} estado:"${ma.estado}" is_running:${ma.is_running}`;
+        console.log(`[ACCORDIONADMIN] ${info}`);
+        debugInfo.push(info);
         estadoMisiones[ma.id_referencia] = {
           estado: ma.estado || 'pendiente',
           isRunning: ma.is_running || false
@@ -151,7 +161,11 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
       });
 
       setMisionesActivas(estadoMisiones);
-      console.log('✅ [AccordionAdmin] Misiones activas cargadas:', estadoMisiones);
+
+      // Log resumen
+      const runningCount = Object.values(estadoMisiones).filter(m => m.isRunning).length;
+      console.log(`[ACCORDIONADMIN] RESUMEN: Misiones activas: ${data?.length || 0}, Running: ${runningCount}`);
+      console.log('[ACCORDIONADMIN] Misiones activas procesadas:', estadoMisiones);
     };
 
     loadMisionesActivas();
@@ -168,12 +182,13 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
           filter: 'tipo=eq.mision'
         },
         (payload) => {
-          console.log('📡 [AccordionAdmin] Cambio en misiones_activas:', payload);
+          console.log('[ACCORDIONADMIN] Realtime cambio en misiones_activas:', payload);
           const updatedMision = payload.new as any;
           if (!updatedMision) return;
 
           const idReferencia = updatedMision.id_referencia;
           if (misiones.some(m => m.id === idReferencia)) {
+            console.log(`[ACCORDIONADMIN] Realtime: ID:${idReferencia} is_running:${updatedMision.is_running} estado:${updatedMision.estado}`);
             setMisionesActivas(prev => ({
               ...prev,
               [idReferencia]: {
@@ -364,19 +379,26 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
           }
         `}
       >
-        {/* Vista Colapsada - Solo iconos verticales */}
+        {/* Vista Colapsada - Iconos horizontales (navbar) */}
         <div
           className={`
-            bg-[#001f3f] rounded-xl shadow-2xl overflow-hidden
-            transition-all duration-300 ease-in-out origin-top-right
+            flex flex-row items-center gap-2
+            transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
             ${isCollapsed
-              ? 'opacity-100 scale-100 p-1.5'
-              : 'opacity-0 scale-95 w-0 h-0 p-0 absolute pointer-events-none'
+              ? 'opacity-100 translate-x-0 translate-y-0 scale-100'
+              : 'opacity-0 -translate-x-4 translate-y-8 scale-90 h-0 w-0 absolute pointer-events-none'
             }
           `}
+          style={{ transformOrigin: 'bottom left' }}
         >
-          <div className="flex flex-col gap-1">
-            {/* Iconos de secciones */}
+          {/* Contenedor de iconos */}
+          <div
+            className={`
+              bg-[#001f3f] rounded-xl shadow-2xl p-1.5 flex flex-row items-center gap-1
+              transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+              ${isCollapsed ? 'scale-100' : 'scale-75'}
+            `}
+          >
             {sections.map((section, index) => {
               const Icon = section.icon;
               return (
@@ -387,8 +409,8 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                     const rect = e.currentTarget.getBoundingClientRect();
                     setHoveredIcon({
                       title: section.title,
-                      x: rect.left - 8,
-                      y: rect.top + rect.height / 2
+                      x: rect.left + rect.width / 2,
+                      y: rect.bottom + 8
                     });
                   }}
                   onMouseLeave={() => setHoveredIcon(null)}
@@ -396,58 +418,64 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                     p-2 rounded-lg transition-all duration-200
                     hover:scale-110 hover:shadow-lg
                     ${section.color}
-                    animate-in fade-in slide-in-from-right-2
                   `}
                   style={{
-                    animationDelay: `${index * 50}ms`,
-                    animationFillMode: 'both'
+                    animation: isCollapsed ? `iconPopIn 0.4s ease-out ${index * 60}ms both` : 'none'
                   }}
                 >
                   <Icon size={16} className="text-white" />
                 </button>
               );
             })}
-
-            {/* Separador */}
-            <div className="h-px bg-white/20 mx-1 my-0.5" />
-
-            {/* Botón para expandir */}
-            <button
-              onClick={() => handleCollapse(false)}
-              className="p-2 hover:bg-white/20 rounded-lg transition-all duration-200 group"
-              title="Expandir panel"
-            >
-              <ChevronRight size={16} className="text-white/60 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-            </button>
           </div>
+
+          {/* Botón para expandir - FUERA del contenedor */}
+          <button
+            onClick={() => handleCollapse(false)}
+            className={`
+              p-2 bg-[#001f3f] hover:bg-[#003366] rounded-xl shadow-2xl
+              transition-all duration-300 ease-out group
+              ${isCollapsed ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'}
+            `}
+            style={{ transitionDelay: isCollapsed ? '200ms' : '0ms' }}
+            title="Expandir panel"
+          >
+            <ChevronRight size={16} className="text-white/60 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+          </button>
         </div>
 
         {/* Vista Expandida - Accordion completo */}
         <div
           className={`
-            bg-[#001f3f] rounded-lg shadow-lg overflow-hidden
-            transition-all duration-300 ease-in-out origin-top-right
+            flex flex-row items-start gap-2
+            transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
             ${!isCollapsed
-              ? 'opacity-100 scale-100'
-              : 'opacity-0 scale-95 w-0 h-0 absolute pointer-events-none'
+              ? 'opacity-100 translate-x-0 translate-y-0 scale-100'
+              : 'opacity-0 translate-x-4 -translate-y-8 scale-90 w-0 h-0 absolute pointer-events-none'
             }
           `}
+          style={{ transformOrigin: 'top right' }}
         >
-          {/* Botón para colapsar en la parte superior */}
-          <div className="flex justify-end px-2 py-1.5 border-b border-white/10 bg-white/5">
-            <button
-              onClick={() => {
-                handleCollapse(true);
-                setActiveSection(null);
-              }}
-              className="p-1 hover:bg-white/10 rounded transition-all duration-200 group"
-              title="Minimizar panel"
-            >
-              <ChevronLeft size={14} className="text-white/50 group-hover:text-white group-hover:-translate-x-0.5 transition-all" />
-            </button>
-          </div>
+          {/* Botón para colapsar - FUERA del contenedor */}
+          <button
+            onClick={() => {
+              handleCollapse(true);
+              setActiveSection(null);
+            }}
+            className={`
+              p-2 bg-[#001f3f] hover:bg-[#003366] rounded-xl shadow-2xl
+              transition-all duration-300 ease-out group mt-2
+              ${!isCollapsed ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2'}
+            `}
+            style={{ transitionDelay: !isCollapsed ? '200ms' : '0ms' }}
+            title="Minimizar panel"
+          >
+            <ChevronLeft size={16} className="text-white/60 group-hover:text-white group-hover:-translate-x-0.5 transition-all" />
+          </button>
 
-          {sections.map((section) => {
+          {/* Contenedor del Accordion */}
+          <div className="bg-[#001f3f] rounded-lg shadow-lg overflow-hidden flex-1">
+            {sections.map((section) => {
             const Icon = section.icon;
             const isActive = activeSection === section.id;
             const isExpanded = isActive;
@@ -520,22 +548,29 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                       ) : (
                         <div>
                           <div className="space-y-3 mb-3">
-                            {currentMisiones.map((mision) => {
+                            {currentMisiones.map((mision, idx) => {
                               const estadoActivo = misionesActivas[mision.id];
-                              const isEnProgreso = estadoActivo?.estado === 'en_progreso' || estadoActivo?.isRunning;
-                              // Usar estado de misiones_activas si existe, sino usar el de la tabla misiones
-                              const estadoFinal = isEnProgreso ? 'en_progreso' : (estadoActivo?.estado || mision.estado);
+                              // isRunning indica si la misión está siendo trabajada activamente (timer corriendo)
+                              const isEnProgreso = estadoActivo?.isRunning === true;
+                              // Siempre usar mision.estado (tabla misiones) como fuente principal
+                              // Solo mostrar "en_progreso" si isRunning está activo
+                              const estadoFinal = isEnProgreso ? 'en_progreso' : mision.estado;
+
+                              // DEBUG: Log para cada misión
+                              console.log(`[ACCORDIONADMIN] Mision[${idx}] ID:${mision.id} "${mision.nombre}" | estado:"${mision.estado}" | isRunning:${estadoActivo?.isRunning} | isEnProgreso:${isEnProgreso}`);
 
                               return (
                               <div
                                 key={mision.id}
                                 draggable
+                                title={`[ACCORDIONADMIN] estado="${mision.estado}" | isRunning=${estadoActivo?.isRunning} | isEnProgreso=${isEnProgreso}`}
                                 className={`p-3 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none ${
                                   isEnProgreso
                                     ? 'bg-green-500/30 hover:bg-green-500/40 border border-green-400/50'
                                     : 'bg-white/10 hover:bg-white/20'
                                 }`}
                                 onClick={() => {
+                                  console.log(`[ACCORDIONADMIN] CLICK en mision ID:${mision.id} estado:"${mision.estado}" isRunning:${estadoActivo?.isRunning}`);
                                   if (onMisionClick) {
                                     onMisionClick(mision);
                                   }
@@ -940,6 +975,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
             </div>
           );
         })}
+          </div>
         </div>
       </div>
 
@@ -950,7 +986,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
           style={{
             left: `${hoveredIcon.x}px`,
             top: `${hoveredIcon.y}px`,
-            transform: 'translate(-100%, -50%)',
+            transform: 'translateX(-50%)',
             zIndex: 99999
           }}
         >
@@ -973,6 +1009,47 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
           {hoveredRecurso.url && <div className="text-xs text-white/70 mt-1">Click para abrir</div>}
         </div>
       )}
+
+
+      {/* Estilos de animación */}
+      <style jsx>{`
+        @keyframes iconPopIn {
+          0% {
+            opacity: 0;
+            transform: scale(0.5) translateY(10px);
+          }
+          60% {
+            opacity: 1;
+            transform: scale(1.1) translateY(-2px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        @keyframes accordionExpand {
+          0% {
+            opacity: 0;
+            transform: scaleY(0) scaleX(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: scaleY(1) scaleX(1);
+          }
+        }
+
+        @keyframes accordionCollapse {
+          0% {
+            opacity: 1;
+            transform: scaleY(1) scaleX(1);
+          }
+          100% {
+            opacity: 0;
+            transform: scaleY(0) scaleX(0.8);
+          }
+        }
+      `}</style>
     </>
   );
 };
