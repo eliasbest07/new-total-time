@@ -70,25 +70,11 @@ interface AccordionProps {
     online?: boolean;
   }) => void;
   onProyectoClick?: (proyecto: import('@/domain/entities/Proyecto').Proyecto) => void;
-  defaultCollapsed?: boolean;
-  onCollapseChange?: (isCollapsed: boolean) => void;
 }
 
 // Componente Principal
-const Accordion: React.FC<AccordionProps> = ({
-  recursos,
-  proyectos = [],
-  usuarios = [],
-  onAddResource,
-  onUserClick,
-  onProyectoClick,
-  defaultCollapsed = false,
-  onCollapseChange
-}) => {
+const Accordion: React.FC<AccordionProps> = ({ recursos, proyectos = [], usuarios = [], onAddResource, onUserClick, onProyectoClick }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(defaultCollapsed);
-  const [hoveredIcon, setHoveredIcon] = useState<{ title: string; x: number; y: number } | null>(null);
-  const [tooltipsEnabled, setTooltipsEnabled] = useState<boolean>(false);
   const [showAllUsers, setShowAllUsers] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [showProyectoDetails, setShowProyectoDetails] = useState(false);
@@ -347,143 +333,64 @@ const Accordion: React.FC<AccordionProps> = ({
     }
   };
 
-  // Función para manejar el colapso
-  const handleCollapse = (collapsed: boolean) => {
-    setIsCollapsed(collapsed);
-    setHoveredIcon(null);
-    setTooltipsEnabled(false);
-    onCollapseChange?.(collapsed);
-
-    if (collapsed) {
-      setTimeout(() => {
-        setTooltipsEnabled(true);
-      }, 1000);
-    }
-  };
-
-  // Función para expandir desde modo colapsado
-  const handleExpandFromCollapsed = (sectionId: string) => {
-    handleCollapse(false);
-    setActiveSection(sectionId);
-  };
-
   return (
     <>
-      <div
-        className="pointer-events-auto transition-all duration-300 ease-in-out"
-        style={{ width: isCollapsed ? '44px' : '100%' }}
-      >
-        {/* Vista Colapsada - Solo iconos verticales */}
-        {isCollapsed && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden p-1.5">
-            <div className="flex flex-col gap-1">
-              {sections.map((section) => {
-                const Icon = section.icon;
-                return (
-                  <button
-                    key={section.id}
-                    onClick={() => handleExpandFromCollapsed(section.id)}
-                    onMouseEnter={(e) => {
-                      if (tooltipsEnabled) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setHoveredIcon({
-                          title: section.title,
-                          x: rect.left - 8,
-                          y: rect.top + rect.height / 2
-                        });
-                      }
-                    }}
-                    onMouseLeave={() => setHoveredIcon(null)}
-                    className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 hover:shadow-lg ${section.color}`}
-                  >
-                    <Icon size={16} className="text-white" />
-                  </button>
-                );
-              })}
-              <div className="h-px bg-white/20 mx-1 my-0.5" />
-              <button
-                onClick={() => handleCollapse(false)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-all duration-200 group"
-                title="Expandir panel"
-              >
-                <ChevronRightIcon size={16} className="text-white/60 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-              </button>
-            </div>
-          </div>
-        )}
+      <div className="w-full bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg pointer-events-auto">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          const isActive = activeSection === section.id;
+          const isExpanded = isActive;
 
-        {/* Vista Expandida - Accordion completo */}
-        {!isCollapsed && (
-          <div className="w-full bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg">
-            {/* Botón para colapsar */}
-            <div className="flex justify-end px-2 py-1.5 border-b border-white/10 bg-white/5">
-              <button
-                onClick={() => {
-                  handleCollapse(true);
-                  setActiveSection(null);
-                }}
-                className="p-1 hover:bg-white/10 rounded transition-all duration-200 group"
-                title="Minimizar panel"
-              >
-                <ChevronLeftIcon size={14} className="text-white/50 group-hover:text-white group-hover:-translate-x-0.5 transition-all" />
-              </button>
-            </div>
-
-            {sections.map((section) => {
-              const Icon = section.icon;
-              const isActive = activeSection === section.id;
-              const isExpanded = isActive;
-
-              return (
-                <div key={section.id} className="border-b border-white/10 last:border-b-0">
-                  {/* Header */}
-                  <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${
-                    isActive ? section.color : 'bg-transparent'
+          return (
+            <div key={section.id} className="border-b border-white/10 last:border-b-0">
+              {/* Header */}
+              <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${
+                isActive ? section.color : 'bg-transparent'
+              }`}>
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  className="flex items-center space-x-3 flex-1"
+                >
+                  <Icon
+                    size={20}
+                    className={`transition-colors duration-300 ${
+                      isActive ? 'text-white' : 'text-white/70'
+                    }`}
+                  />
+                  <span className={`font-medium transition-colors duration-300 ${
+                    isActive ? 'text-white' : 'text-white/90'
                   }`}>
+                    {section.title}
+                  </span>
+                </button>
+                <div className="flex items-center space-x-2">
+                  {section.id === 'recursos' && (
                     <button
-                      onClick={() => toggleSection(section.id)}
-                      className="flex items-center space-x-3 flex-1"
+                      onClick={handleAddResource}
+                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 opacity-80 hover:opacity-100"
                     >
-                      <Icon
-                        size={20}
-                        className={`transition-colors duration-300 ${
-                          isActive ? 'text-white' : 'text-white/70'
-                        }`}
-                      />
-                      <span className={`font-medium transition-colors duration-300 ${
-                        isActive ? 'text-white' : 'text-white/90'
-                      }`}>
-                        {section.title}
-                      </span>
+                      <Plus size={14} className="text-white" />
                     </button>
-                    <div className="flex items-center space-x-2">
-                      {section.id === 'recursos' && (
-                        <button
-                          onClick={handleAddResource}
-                          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 opacity-80 hover:opacity-100"
-                        >
-                          <Plus size={14} className="text-white" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => toggleSection(section.id)}
-                        className="p-1"
-                      >
-                        <ChevronDown
-                          size={16}
-                          className={`transition-all duration-300 ${
-                            isActive ? 'text-white rotate-180' : 'text-white/70'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
+                  )}
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="p-1"
+                  >
+                    <ChevronDown
+                      size={16}
+                      className={`transition-all duration-300 ${
+                        isActive ? 'text-white rotate-180' : 'text-white/70'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
 
-                  {/* Expandable Content */}
-                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                    isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
-                  }`}>
-                    <div className="bg-white/5 backdrop-blur-sm px-4 py-3">
+              {/* Expandable Content */}
+              <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+              }`}>
+                <div className="bg-white/5 backdrop-blur-sm px-4 py-3">
                   {section.content === 'users' ? (
                     // Sección especial para usuarios
                     <div>
@@ -784,38 +691,21 @@ const Accordion: React.FC<AccordionProps> = ({
                       ))}
                     </ul>
                   )}
-                    </div>
-                  </div>
                 </div>
-              );
-            })}
-
-            {/* Imagen de drag personalizada (invisible) */}
-            <div
-              ref={dragImageRef}
-              className="fixed -top-96 -left-96 w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold pointer-events-none z-[9999]"
-              style={{ opacity: isDragging ? 1 : 0 }}
-            >
-              📦
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          );
+        })}
 
-      {/* Tooltip flotante para iconos en modo colapsado */}
-      {hoveredIcon && isCollapsed && tooltipsEnabled && (
+        {/* Imagen de drag personalizada (invisible) */}
         <div
-          className="fixed bg-black/90 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg shadow-2xl border border-white/20 pointer-events-none whitespace-nowrap"
-          style={{
-            left: `${hoveredIcon.x}px`,
-            top: `${hoveredIcon.y}px`,
-            transform: 'translate(-100%, -50%)',
-            zIndex: 99999
-          }}
+          ref={dragImageRef}
+          className="fixed -top-96 -left-96 w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold pointer-events-none z-[9999]"
+          style={{ opacity: isDragging ? 1 : 0 }}
         >
-          {hoveredIcon.title}
+          📦
         </div>
-      )}
+      </div>
 
       {/* Ventana de detalles del proyecto */}
       <Ventana

@@ -36,7 +36,6 @@ const captureRepository = new CaptureRepositorySupabase();
 export default function MainScreen() {
   const pizarraRef = useRef<PizarraRef>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-  const [accordionCollapsed, setAccordionCollapsed] = useState(false);
   const [recursos, setRecursos] = useState<Resource[]>([]);
   const [showActividadDetails, setShowActividadDetails] = useState(false);
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
@@ -416,23 +415,59 @@ export default function MainScreen() {
 
       <Salas />
 
-      {/* Accordion con colapso interno */}
-      <div
-        className="fixed top-20 right-4 z-50 pointer-events-auto"
-        style={{
-          width: accordionCollapsed ? '44px' : '320px',
-          transition: 'width 300ms ease-in-out'
-        }}
+      <div className="fixed top-18 z-30 flex items-center transition-all duration-300">
+        {/* Botón expandir o contraer*/}
+        <button
+          onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+          className={`p-1 py-4 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-lg 
+            transition-all duration-300 text-white fixed top-18
+            ${rightPanelCollapsed ? 'right-38' : 'right-78'}`}
+        >
+          <ChevronRight
+            className={`w-4 h-4 transition-transform duration-300 ${rightPanelCollapsed ? 'rotate-180' : ''
+              }`}
+          />
+        </button>
+
+        {/* Cubo */}
+        {rightPanelCollapsed && (
+          <div className="fixed top-18 right-0">
+            <Cube
+              usuarios={usuariosFiltrados.map(u => {
+                // IMPORTANTE: Usar userAuth (UUID de Supabase) para verificar presencia
+                const online = isUserOnline(u.userAuth);
+                console.log(`🔍 [MainScreen] Usuario ${u.getNombreCompleto()} (userAuth: ${u.userAuth}) -> Online: ${online}`);
+
+                return {
+                  id: u.id,
+                  nombre: u.profile.nombre,
+                  username: u.profile.username,
+                  avatar: u.getNombreCompleto().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+                  avatarUrl: u.profile.avatar,
+                  color: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  online: online
+                };
+              })}
+              proyectos={proyectosSupabase}
+            />
+          </div>
+        )}
+      </div>
+
+      <div className={`fixed top-0 right-0 h-auto flex flex-col transition-all duration-300 z-30 ${rightPanelCollapsed ? "w-0" : "w-80"
+        }`}
       >
-        <Accordion
-          recursos={recursos}
-          proyectos={proyectosSupabase}
-          usuarios={usuariosFiltrados}
-          onAddResource={handleAddResource}
-          onUserClick={handleUserClick}
-          defaultCollapsed={accordionCollapsed}
-          onCollapseChange={setAccordionCollapsed}
-        />
+        {!rightPanelCollapsed && (
+          <div className="p-4 pt-16 z-10">
+            <Accordion
+              recursos={recursos}
+              proyectos={proyectosSupabase}
+              usuarios={usuariosFiltrados}
+              onAddResource={handleAddResource}
+              onUserClick={handleUserClick}
+            />
+          </div>
+        )}
       </div>
 
       {/* Activities positioned at fixed location */}
