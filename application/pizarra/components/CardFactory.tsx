@@ -54,6 +54,11 @@ interface CardFactoryProps {
   idPizarra?: string | null; // ✅ ID de la pizarra para sincronizar cambios en DB
   deleteCard?: (cardId: string) => void; // ✅ Función para eliminar cards
   readOnly?: boolean; // ✅ Si es true, oculta botones de play/pause (para pizarras ajenas)
+  openEditarProyecto?: (
+    proyectoId: number,
+    initialData: { nombre: string; descripcion: string; icono: string | null; github_url: string; sitio_web_url: string; tecnologias: string[] },
+    onRefresh?: () => void
+  ) => void;
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -251,6 +256,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
           updateCardTitle={props.updateCardTitle}
           setEditingTitle={props.setEditingTitle}
           idPizarra={props.idPizarra}
+          openEditarProyecto={props.openEditarProyecto}
         />
       );
 

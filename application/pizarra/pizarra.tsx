@@ -35,7 +35,7 @@ import { ToastProvider, useToastContext } from './contexts/ToastContext';
 import { useTodoMisionSync, emitTodoActualizado } from './hooks/useTodoMisionSync';
 
 // Componente interno que usa el ToastContext
-const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
+const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, onOpenEditarProyecto, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
   const { success: showSuccess, error: showError } = useToastContext();
@@ -3358,6 +3358,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
             onOpenCapturasModal={onOpenCapturasModal}
             idPizarra={pizarraActual?.id || null}
             readOnly={readOnly || isViewingOtherUser}
+            openEditarProyecto={onOpenEditarProyecto}
           />
         ))}
         </div>

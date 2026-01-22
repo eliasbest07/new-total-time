@@ -13,7 +13,10 @@ import InfoOrganizacion from "@/app/components/organizacion/InfoOrganizacion";
 import DashboardUsuario from "@/app/components/DashboardUsuario";
 import AgregarRecursoModal from "@/app/components/modals/AgregarRecursoModal";
 import VentanaMisionDetalles from "@/app/components/organizacion/VentanaMisionDetalles";
+import VentanaActividadDetalles from "@/app/components/organizacion/VentanaActividadDetalles";
+import VentanaEditarProyecto from "@/app/components/organizacion/VentanaEditarProyecto";
 import { Mision } from "@/domain/entities/Mision";
+import { Actividad } from "@/domain/entities/Actividad";
 import { useIncomingMessages } from "@/hooks/useIncomingMessages";
 import { useMisiones } from "@/hooks/useMisiones";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
@@ -63,7 +66,7 @@ function DashboardAdmin() {
 
   // Hooks para AccordionAdmin
   const { misiones: misionesOrg, refetch: refetchMisiones } = useMisionesOrganizacion(usuarios);
-  const { actividades: actividadesOrg } = useActividadesOrganizacion(usuarios);
+  const { actividades: actividadesOrg, refetch: refetchActividades } = useActividadesOrganizacion(usuarios);
   const { recursos } = useRecursos(usuario?.userAuth || null);
 
   // Hook para pizarra de organización
@@ -139,6 +142,28 @@ function DashboardAdmin() {
   const [showAgregarRecursoModal, setShowAgregarRecursoModal] = useState(false);
   const [showMisionDetalles, setShowMisionDetalles] = useState(false);
   const [selectedMisionDetalles, setSelectedMisionDetalles] = useState<Mision | null>(null);
+
+  // Estado para ventana de editar proyecto (a nivel de página)
+  const [editarProyectoData, setEditarProyectoData] = useState<{
+    isOpen: boolean;
+    proyectoId: number | null;
+    initialData: {
+      nombre: string;
+      descripcion: string;
+      icono: string | null;
+      github_url: string;
+      sitio_web_url: string;
+      tecnologias: string[];
+    };
+  }>({
+    isOpen: false,
+    proyectoId: null,
+    initialData: { nombre: '', descripcion: '', icono: null, github_url: '', sitio_web_url: '', tecnologias: [] }
+  });
+  // Usar ref para el callback para evitar problemas de closure
+  const editarProyectoRefreshRef = useRef<(() => void) | null>(null);
+  const [showActividadDetalles, setShowActividadDetalles] = useState(false);
+  const [selectedActividadDetalles, setSelectedActividadDetalles] = useState<Actividad | null>(null);
   const [orgImageError, setOrgImageError] = useState(false);
   const [accordionCollapsed, setAccordionCollapsed] = useState(false);
 
@@ -211,6 +236,26 @@ function DashboardAdmin() {
       setLoadingCapturas(false);
     }
   };
+
+  // Handler para abrir ventana de editar proyecto
+  const handleOpenEditarProyecto = useCallback((
+    proyectoId: number,
+    initialData: { nombre: string; descripcion: string; icono: string | null; github_url: string; sitio_web_url: string; tecnologias: string[] },
+    onRefresh?: () => void
+  ) => {
+    editarProyectoRefreshRef.current = onRefresh || null;
+    setEditarProyectoData({
+      isOpen: true,
+      proyectoId,
+      initialData
+    });
+  }, []);
+
+  // Handler para cerrar ventana de editar proyecto
+  const handleCloseEditarProyecto = useCallback(() => {
+    setEditarProyectoData(prev => ({ ...prev, isOpen: false }));
+    editarProyectoRefreshRef.current = null;
+  }, []);
 
   // Handler para mensajes entrantes
   const handleIncomingMessage = useCallback((userData: {
@@ -777,6 +822,7 @@ function DashboardAdmin() {
             currentUserId={usuario?.userAuth}
             onConnectionCreate={handleConnectionCreate}
             onOpenCapturasModal={handleOpenCapturasModal}
+            onOpenEditarProyecto={handleOpenEditarProyecto}
           />
         </div>
 
@@ -865,7 +911,8 @@ function DashboardAdmin() {
             }}
             onActividadClick={(actividad) => {
               console.log('Actividad seleccionada:', actividad);
-              // TODO: Implementar modal de detalles de actividad si es necesario
+              setSelectedActividadDetalles(actividad);
+              setShowActividadDetalles(true);
             }}
             onCollapseChange={setAccordionCollapsed}
           />
@@ -1741,6 +1788,36 @@ function DashboardAdmin() {
         onOpenChat={handleUserClick}
         onMisionUpdated={() => {
           refetchMisiones();
+        }}
+      />
+
+      {/* Ventana de detalles de actividad */}
+      <VentanaActividadDetalles
+        isOpen={showActividadDetalles}
+        onClose={() => {
+          setShowActividadDetalles(false);
+          setSelectedActividadDetalles(null);
+        }}
+        actividad={selectedActividadDetalles}
+        usuarios={usuarios}
+        proyectos={proyectos}
+        currentUserId={usuario?.userAuth}
+        onOpenChat={handleUserClick}
+        onActividadUpdated={() => {
+          refetchActividades();
+        }}
+      />
+
+      {/* Ventana para editar proyecto (a nivel de página) */}
+      <VentanaEditarProyecto
+        isOpen={editarProyectoData.isOpen}
+        onClose={handleCloseEditarProyecto}
+        proyectoId={editarProyectoData.proyectoId}
+        initialData={editarProyectoData.initialData}
+        onProyectoUpdated={() => {
+          if (editarProyectoRefreshRef.current) {
+            editarProyectoRefreshRef.current();
+          }
         }}
       />
     </AuthWrapper>

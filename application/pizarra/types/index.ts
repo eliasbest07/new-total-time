@@ -164,4 +164,9 @@ export interface PizarraProps {
   currentUserId?: string;
   onConnectionCreate?: (connection: Connection, fromCard: Card, toCard: Card) => void;
   onOpenCapturasModal?: (misionActivaId: string, misionTitle: string) => void;
+  onOpenEditarProyecto?: (
+    proyectoId: number,
+    initialData: { nombre: string; descripcion: string; icono: string | null; github_url: string; sitio_web_url: string; tecnologias: string[] },
+    onRefresh?: () => void
+  ) => void;
 }

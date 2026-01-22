@@ -8,7 +8,7 @@ import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Ventana from '@/app/demo/components/Ventana';
-import { EditarProyectoModal } from '../ui/EditarProyectoModal';
+import VentanaActividadDetalles from '@/app/components/organizacion/VentanaActividadDetalles';
 import { useToastContext } from '../../contexts/ToastContext';
 
 // Helper para convertir iconos de texto a emojis
@@ -42,6 +42,11 @@ interface ProyectoCardOrganizacionProps {
   updateCardTitle: (cardId: string, newTitle: string) => void;
   setEditingTitle: (id: string | null) => void;
   idPizarra?: string | null;
+  openEditarProyecto?: (
+    proyectoId: number,
+    initialData: { nombre: string; descripcion: string; icono: string | null; github_url: string; sitio_web_url: string; tecnologias: string[] },
+    onRefresh?: () => void
+  ) => void;
 }
 
 export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> = ({
@@ -49,7 +54,8 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   editingTitle,
   updateCardTitle,
   setEditingTitle,
-  idPizarra
+  idPizarra,
+  openEditarProyecto
 }) => {
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
@@ -73,13 +79,16 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   // Estados de expansión
   const [expandedCapturas, setExpandedCapturas] = useState(false);
   const [expandedMisiones, setExpandedMisiones] = useState(false);
+  const [expandedActividades, setExpandedActividades] = useState(false);
   const [expandedRecursos, setExpandedRecursos] = useState(false);
   const [expandedTodos, setExpandedTodos] = useState(false);
   const [expandedNotas, setExpandedNotas] = useState(false);
 
+  // Estado para ventana de actividad
+  const [actividadSeleccionada, setActividadSeleccionada] = useState<Actividad | null>(null);
+
   // Estados de modales
   const [showNuevaMisionModal, setShowNuevaMisionModal] = useState(false);
-  const [showEditarProyectoModal, setShowEditarProyectoModal] = useState(false);
   const [recursoModalAbierto, setRecursoModalAbierto] = useState<{
     isOpen: boolean;
     recurso: Recurso | null;
@@ -675,10 +684,28 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       }
     };
 
+    // Listener para cuando se desconecta una TODO del proyecto desde la línea de conexión
+    const handleTodoProyectoDesconectado = (event: any) => {
+      const { todoCardId, proyectoCardId } = event.detail;
+
+      console.log('[BUG LINK] Evento todo-proyecto-desconectado recibido:', {
+        todoCardId,
+        proyectoCardId,
+        myCardId: card.id
+      });
+
+      // Solo actualizar si esta es la card del proyecto afectada
+      if (proyectoCardId === card.id) {
+        console.log('[BUG LINK] ✅ Actualizando lista de TODOs conectadas');
+        setTodosConectadas(prev => prev.filter(t => t.id !== todoCardId));
+      }
+    };
+
     window.addEventListener('conexion-creada', handleConexionCreada);
     window.addEventListener('todo-actualizado', handleTodoActualizado);
     window.addEventListener('nota-actualizado', handleNotaActualizado);
     window.addEventListener('card-eliminada', handleCardEliminada);
+    window.addEventListener('todo-proyecto-desconectado', handleTodoProyectoDesconectado);
 
     return () => {
       console.log('[BUG LINK] Removiendo listener de eventos');
@@ -686,6 +713,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       window.removeEventListener('todo-actualizado', handleTodoActualizado);
       window.removeEventListener('nota-actualizado', handleNotaActualizado);
       window.removeEventListener('card-eliminada', handleCardEliminada);
+      window.removeEventListener('todo-proyecto-desconectado', handleTodoProyectoDesconectado);
     };
   }, [card.id]);
 
@@ -991,6 +1019,29 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     try {
       const { supabase } = await import('@/infrastructure/services/SupabaseClient');
 
+      // Recargar datos del proyecto (nombre, icono, urls, tecnologías)
+      const { data: proyectoData } = await supabase
+        .from('proyecto')
+        .select('nombre, descripcion, icono, github_url, sitio_web_url, tecnologias')
+        .eq('id', proyectoId)
+        .single();
+
+      if (proyectoData) {
+        setProyectoDataLocal({
+          nombre: proyectoData.nombre,
+          descripcion: proyectoData.descripcion,
+          icono: proyectoData.icono,
+          github_url: proyectoData.github_url,
+          sitio_web_url: proyectoData.sitio_web_url,
+          tecnologias: proyectoData.tecnologias
+        });
+
+        // Actualizar tecnologías mostradas
+        if (proyectoData.tecnologias && proyectoData.tecnologias.length > 0) {
+          setTecnologias(proyectoData.tecnologias);
+        }
+      }
+
       const { data: actividadesData } = await supabase
         .from('actividades')
         .select('*')
@@ -1282,58 +1333,6 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     }
   };
 
-  // Función para guardar cambios del proyecto
-  const handleGuardarProyecto = async (data: {
-    github_url: string;
-    sitio_web_url: string;
-    tecnologias: string[];
-  }) => {
-    console.log('🔵 handleGuardarProyecto recibió:', data);
-    console.log('🔵 proyectoId:', proyectoId);
-
-    if (!proyectoId) {
-      throw new Error('No se pudo identificar el proyecto');
-    }
-
-    const { supabase } = await import('@/infrastructure/services/SupabaseClient');
-
-    const updateData = {
-      github_url: data.github_url || null,
-      sitio_web_url: data.sitio_web_url || null,
-      tecnologias: data.tecnologias.length > 0 ? data.tecnologias : null
-    };
-
-    console.log('🔵 Datos a actualizar en BD:', updateData);
-
-    // Actualizar la tabla proyecto
-    const { data: result, error } = await supabase
-      .from('proyecto')
-      .update(updateData)
-      .eq('id', proyectoId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('❌ Error actualizando proyecto:', error);
-      throw error;
-    }
-
-    console.log('✅ Proyecto actualizado en BD:', result);
-
-    // Actualizar el estado local
-    setProyectoDataLocal(prev => ({
-      ...prev,
-      github_url: data.github_url || null,
-      sitio_web_url: data.sitio_web_url || null,
-      tecnologias: data.tecnologias.length > 0 ? data.tecnologias : null
-    }));
-
-    // Actualizar tecnologías mostradas
-    setTecnologias(data.tecnologias.length > 0 ? data.tecnologias : []);
-
-    console.log('✅ Estado local actualizado');
-  };
-
   // Función para desconectar una lista TODO del proyecto
   const handleDesconectarTodo = async (todoCardId: string) => {
     if (!idPizarra) {
@@ -1360,7 +1359,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
       // Actualizar estado local
       setTodosConectadas(prev => prev.filter(t => t.id !== todoCardId));
-      showSuccess('Lista TODO desconectada');
+      success('Lista TODO desconectada');
 
       console.log('✅ TODO desconectada:', todoCardId);
     } catch (error) {
@@ -1526,7 +1525,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
             {editingTitle === card.id ? (
               <input
                 type="text"
-                defaultValue={card.title}
+                defaultValue={proyectoDataLocal?.nombre || card.proyectoData?.nombre || card.title}
                 onBlur={(e) => updateCardTitle(card.id, e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -1542,7 +1541,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
               />
             ) : (
               <h3 className="font-bold text-gray-900 text-lg leading-tight">
-                {card.title}
+                {proyectoDataLocal?.nombre || card.proyectoData?.nombre || card.title}
               </h3>
             )}
           </div>
@@ -1600,7 +1599,20 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setShowEditarProyectoModal(true);
+              if (openEditarProyecto && proyectoId) {
+                openEditarProyecto(
+                  proyectoId,
+                  {
+                    nombre: proyectoDataLocal?.nombre || card.proyectoData?.nombre || card.title || '',
+                    descripcion: proyectoDataLocal?.descripcion || card.proyectoData?.descripcion || '',
+                    icono: proyectoDataLocal?.icono || card.proyectoData?.icono || null,
+                    github_url: proyectoDataLocal?.github_url || card.proyectoData?.github_url || '',
+                    sitio_web_url: proyectoDataLocal?.sitio_web_url || card.proyectoData?.sitio_web_url || '',
+                    tecnologias: proyectoDataLocal?.tecnologias || card.proyectoData?.tecnologias || tecnologias || []
+                  },
+                  recargarDatos
+                );
+              }
             }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
             data-todo-interactive
@@ -1782,6 +1794,61 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                     <Plus size={16} />
                     Nuevo Ticket
                   </button>
+                </div>
+              )}
+            </div>
+
+            {/* Sección Actividades */}
+            <div className="bg-gray-700 text-white border-b border-gray-600">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedActividades(!expandedActividades);
+                }}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-600 transition-colors"
+                data-todo-interactive
+              >
+                <span className="font-semibold text-sm">Actividades ({actividades.length})</span>
+                {expandedActividades ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+
+              {expandedActividades && (
+                <div className="px-4 pb-4 space-y-2">
+                  {actividades.length === 0 ? (
+                    <div className="text-center text-gray-400 text-sm py-4">
+                      No hay actividades disponibles
+                    </div>
+                  ) : (
+                    actividades.map((actividad) => (
+                      <div
+                        key={actividad.id}
+                        className="w-full bg-orange-600 hover:bg-orange-500 rounded-lg p-3 cursor-pointer transition-all shadow-sm hover:scale-[1.02]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActividadSeleccionada(actividad);
+                        }}
+                        data-todo-interactive
+                      >
+                        <div className="font-medium text-white truncate mb-1 text-sm">
+                          {actividad.descripcion || 'Sin descripción'}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-orange-200">
+                          {actividad.cant_horas && <span>⏱️ {actividad.cant_horas}h</span>}
+                          {actividad.fecha && (
+                            <span>
+                              📅 {new Date(actividad.fecha).toLocaleDateString('es-ES', {
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </span>
+                          )}
+                          {actividad.tiempo_dedicado && (
+                            <span>✅ {actividad.tiempo_dedicado}h dedicadas</span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -2318,19 +2385,13 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         </div>
       )}
 
-      {/* Modal para editar proyecto */}
-      <EditarProyectoModal
-        isOpen={showEditarProyectoModal}
-        onClose={() => setShowEditarProyectoModal(false)}
-        proyectoId={proyectoId}
-        initialData={{
-          github_url: proyectoDataLocal?.github_url || card.proyectoData?.github_url || '',
-          sitio_web_url: proyectoDataLocal?.sitio_web_url || card.proyectoData?.sitio_web_url || '',
-          tecnologias: proyectoDataLocal?.tecnologias || card.proyectoData?.tecnologias || tecnologias || []
-        }}
-        onSave={handleGuardarProyecto}
-        onSuccess={success}
-        onError={showError}
+      {/* Ventana para ver/editar actividad */}
+      <VentanaActividadDetalles
+        isOpen={actividadSeleccionada !== null}
+        onClose={() => setActividadSeleccionada(null)}
+        actividad={actividadSeleccionada}
+        currentUserId={usuario?.userAuth}
+        onActividadUpdated={recargarDatos}
       />
 
       {/* Ventana para mostrar contenido de nota */}

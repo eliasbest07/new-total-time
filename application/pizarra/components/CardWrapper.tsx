@@ -63,6 +63,11 @@ interface CardWrapperProps {
   onOpenCapturasModal?: (misionActivaId: string, misionTitle: string) => void;
   idPizarra?: string | null;
   readOnly?: boolean; // Si es true, oculta botones de play/pause (para pizarras ajenas)
+  openEditarProyecto?: (
+    proyectoId: number,
+    initialData: { nombre: string; descripcion: string; icono: string | null; github_url: string; sitio_web_url: string; tecnologias: string[] },
+    onRefresh?: () => void
+  ) => void;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -154,6 +159,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         idPizarra={props.idPizarra}
         deleteCard={props.deleteCard}
         readOnly={props.readOnly}
+        openEditarProyecto={props.openEditarProyecto}
       />
 
       {/* Connection point */}

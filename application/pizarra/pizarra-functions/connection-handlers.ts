@@ -27,6 +27,28 @@ export function isNoteToProjectConnection(fromCard: Card, toCard: Card): boolean
 }
 
 /**
+ * Detecta si una conexión es entre un TODO y un proyecto
+ */
+export function isTodoToProjectConnection(fromCard: Card, toCard: Card): boolean {
+  return (
+    (fromCard.type === 'todo' && (toCard.type === 'proyecto' || toCard.type === 'proyecto-organizacion')) ||
+    ((fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') && toCard.type === 'todo')
+  );
+}
+
+/**
+ * Identifica cuál tarjeta es el TODO y cuál es el proyecto
+ */
+export function identifyTodoAndProject(fromCard: Card, toCard: Card): {
+  todoCard: Card;
+  proyectoCard: Card;
+} {
+  const todoCard = fromCard.type === 'todo' ? fromCard : toCard;
+  const proyectoCard = (fromCard.type === 'proyecto' || fromCard.type === 'proyecto-organizacion') ? fromCard : toCard;
+  return { todoCard, proyectoCard };
+}
+
+/**
  * Detecta si una conexión es entre un recurso y un proyecto
  */
 export function isResourceToProjectConnection(fromCard: Card, toCard: Card): boolean {
@@ -243,6 +265,7 @@ export interface ConnectionDeleteResult {
   isNoteToProject: boolean;
   isResourceToProject: boolean;
   isTodoToMision: boolean;
+  isTodoToProject: boolean;
   notaCard?: Card;
   recursoCard?: Card;
   todoCard?: Card;
@@ -269,7 +292,8 @@ export async function processConnectionDelete(params: Omit<HandleConnectionDelet
     shouldCleanupAutoConnection: connectionId.startsWith('auto-'),
     isNoteToProject: false,
     isResourceToProject: false,
-    isTodoToMision: false
+    isTodoToMision: false,
+    isTodoToProject: false
   };
 
   // Buscar la conexión que se va a eliminar
@@ -374,6 +398,31 @@ export async function processConnectionDelete(params: Omit<HandleConnectionDelet
       showSuccess,
       showError
     });
+  }
+
+  // Detectar si es una conexión todo-proyecto
+  if (isTodoToProjectConnection(fromCard, toCard)) {
+    const { todoCard, proyectoCard } = identifyTodoAndProject(fromCard, toCard);
+
+    console.log('🗑️ Eliminando conexión TODO-Proyecto:', {
+      todoId: todoCard.id,
+      proyectoId: proyectoCard.id
+    });
+
+    result.isTodoToProject = true;
+    result.todoCard = todoCard;
+    result.proyectoCard = proyectoCard;
+
+    // Emitir evento para que ProyectoCardOrganizacion actualice su lista
+    window.dispatchEvent(new CustomEvent('todo-proyecto-desconectado', {
+      detail: {
+        todoCardId: todoCard.id,
+        proyectoCardId: proyectoCard.id
+      }
+    }));
+
+    showSuccess?.('Lista TODO desconectada del proyecto');
+    console.log('✅ TODO desconectada del proyecto');
   }
 
   return result;
