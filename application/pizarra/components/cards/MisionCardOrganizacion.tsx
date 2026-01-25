@@ -673,42 +673,47 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full w-full p-3 bg-white rounded-lg">
-      {/* Header con título editable y estado */}
-      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-        <div className="text-2xl">🎯</div>
-        <div className="flex-1 min-w-0">
-          {isEditingTitle ? (
-            <input
-              type="text"
-              defaultValue={misionData.title}
-              onBlur={(e) => handleTitleChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleTitleChange(e.currentTarget.value);
-                }
-                if (e.key === 'Escape') {
-                  setIsEditingTitle(false);
-                }
-              }}
-              className="w-full font-bold text-gray-800 bg-transparent border-b border-blue-400 focus:outline-none text-sm"
-              autoFocus
-              data-todo-interactive
-            />
-          ) : (
-            <h3
-              className="font-bold text-gray-800 truncate text-sm cursor-pointer hover:text-blue-600"
-              onClick={() => setIsEditingTitle(true)}
-              data-todo-interactive
-            >
-              {misionData.title}
-            </h3>
-          )}
-        </div>
-        <div className={`${getEstadoColor()} text-white rounded-full px-2 py-1 text-xs font-semibold`}>
-          {misionData.hours}h
+    <div className="flex flex-col h-full w-full bg-white rounded-lg overflow-hidden">
+      {/* Header con fondo verde */}
+      <div className="bg-green-500 text-white px-3 py-2">
+        <div className="flex items-center gap-2">
+          <div className="text-lg">🎯</div>
+          <div className="flex-1 min-w-0">
+            {isEditingTitle ? (
+              <input
+                type="text"
+                defaultValue={misionData.title}
+                onBlur={(e) => handleTitleChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleTitleChange(e.currentTarget.value);
+                  }
+                  if (e.key === 'Escape') {
+                    setIsEditingTitle(false);
+                  }
+                }}
+                className="w-full font-bold text-white bg-transparent border-b border-white/50 focus:outline-none text-sm placeholder-white/70"
+                autoFocus
+                data-todo-interactive
+              />
+            ) : (
+              <h3
+                className="font-bold text-white truncate text-sm cursor-pointer hover:text-green-100"
+                onClick={() => setIsEditingTitle(true)}
+                data-todo-interactive
+              >
+                {misionData.title}
+              </h3>
+            )}
+          </div>
+          <div className="bg-white/20 text-white rounded-full px-2 py-0.5 text-xs font-semibold">
+            {misionData.hours}h
+          </div>
         </div>
       </div>
+
+      {/* Contenido */}
+      <div className="flex-1 flex flex-col p-3 overflow-hidden">
 
       {/* Descripción editable */}
       <div className="mb-2">
@@ -721,14 +726,14 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
                 setIsEditingDescription(false);
               }
             }}
-            className="w-full text-xs text-gray-600 bg-transparent border border-blue-400 rounded px-2 py-1 focus:outline-none resize-none"
+            className="w-full text-xs text-gray-600 bg-transparent border border-green-400 rounded px-2 py-1 focus:outline-none resize-none"
             rows={2}
             autoFocus
             data-todo-interactive
           />
         ) : (
           <p
-            className="text-xs text-gray-600 cursor-pointer hover:text-blue-600 line-clamp-2"
+            className="text-xs text-gray-600 cursor-pointer hover:text-green-600 line-clamp-2"
             onClick={() => setIsEditingDescription(true)}
             data-todo-interactive
           >
@@ -771,7 +776,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           ) : (
             <button
               onClick={() => setShowUsuarioSelector(!showUsuarioSelector)}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+              className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700"
               data-todo-interactive
             >
               <User size={14} />
@@ -831,7 +836,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
             onClick={handleRequestCapture}
             className={`${
               misionData.misionActivaId
-                ? 'bg-blue-500 hover:bg-blue-600'
+                ? 'bg-green-500 hover:bg-green-600'
                 : 'bg-gray-400 hover:bg-gray-500'
             } text-white rounded-full p-2 transition-all relative`}
             data-todo-interactive
@@ -895,7 +900,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
                 e.stopPropagation();
                 handleShowTodoCard();
               }}
-              className="text-blue-500 hover:text-blue-700 transition-colors"
+              className="text-green-500 hover:text-green-700 transition-colors"
               data-todo-interactive
               title="Mostrar card de tareas"
             >
@@ -919,7 +924,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
                       type="checkbox"
                       checked={subtarea.completed}
                       onChange={() => handleToggleSubtarea(subtarea.id)}
-                      className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-3 h-3 text-green-600 border-gray-300 rounded focus:ring-green-500"
                       data-todo-interactive
                     />
                     <span
@@ -955,13 +960,13 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
                   }
                 }}
                 placeholder="Nueva tarea..."
-                className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-green-500"
                 data-todo-interactive
                 disabled={!misionData.id_pizarra || !misionData.id_mision}
               />
               <button
                 onClick={handleAddSubtarea}
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded p-1 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="bg-green-500 hover:bg-green-600 text-white rounded p-1 disabled:bg-gray-300 disabled:cursor-not-allowed"
                 data-todo-interactive
                 disabled={!misionData.id_pizarra || !misionData.id_mision}
                 title={!misionData.id_pizarra || !misionData.id_mision ? 'Se necesita una pizarra y misión activa' : 'Agregar tarea'}
@@ -1020,7 +1025,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           </div>
         )}
       </div>
-
+      </div>
     </div>
   );
 };

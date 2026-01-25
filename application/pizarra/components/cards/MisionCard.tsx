@@ -253,7 +253,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
              
                 } else {
                   console.error('❌ [DEBUG NORMAL] Error al tomar la captura');
-                  alert('❌ Error al tomar la captura');       }
+                  alert('❌ Error al tomar la captura');
+                }
               } catch (error) {
                 console.error('❌ [DEBUG NORMAL] Error en captura automática:', error);
               } finally {

@@ -29,6 +29,7 @@ export const getCardIcon = (type: string): string => {
 
 export const getCardStyle = (type: string): string => {
   const baseStyle = "absolute rounded-lg shadow-lg border-2 p-2 cursor-move transition-colors duration-200 select-none";
+  const baseStyleNoPadding = "absolute rounded-lg shadow-lg cursor-move transition-colors duration-200 select-none overflow-hidden";
 
   switch (type) {
     case 'file':
@@ -51,6 +52,10 @@ export const getCardStyle = (type: string): string => {
       return `${baseStyle} bg-blue-50 border-blue-300`;
     case 'mision':
       return `${baseStyle} bg-green-50 border-green-300`;
+    case 'mision-organizacion':
+      return `${baseStyleNoPadding} bg-white`;
+    case 'actividad-organizacion':
+      return `${baseStyleNoPadding} bg-white`;
     case 'usuario':
       return `${baseStyle} bg-purple-50 border-purple-300`;
     case 'proyecto':

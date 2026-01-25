@@ -256,8 +256,62 @@ export class SupabaseMisionRepository implements MisionRepository {
 
   async deleteMision(id: number): Promise<boolean> {
     try {
-      // console.log('🗑️ Eliminando misión:', id);
+      console.log('🗑️ Eliminando misión:', id);
 
+      // 0. Verificar cuántas misiones activas existen para este id_referencia
+      const { data: existingActivas, error: checkError } = await supabase
+        .from('misiones_activas')
+        .select('id, tipo, id_referencia, id_usuario_asignado')
+        .eq('tipo', 'mision')
+        .eq('id_referencia', id);
+
+      if (checkError) {
+        console.error('❌ Error verificando misiones activas:', checkError);
+      } else {
+        console.log('📋 Misiones activas encontradas para eliminar:', existingActivas?.length || 0, existingActivas);
+      }
+
+      // 1. Primero eliminar las misiones activas relacionadas usando sus IDs específicos
+      if (existingActivas && existingActivas.length > 0) {
+        const idsToDelete = existingActivas.map(ma => ma.id);
+        console.log('🗑️ Paso 1: Eliminando misiones activas con IDs:', idsToDelete);
+
+        // Eliminar una por una para mayor control
+        for (const misionActivaId of idsToDelete) {
+          console.log('🗑️ Eliminando mision_activa:', misionActivaId);
+          const { error: deleteError, count } = await supabase
+            .from('misiones_activas')
+            .delete()
+            .eq('id', misionActivaId)
+            .select();
+
+          if (deleteError) {
+            console.error('❌ Error eliminando mision_activa', misionActivaId, ':', deleteError);
+            // Intentar con RPC si el delete directo falla
+          } else {
+            console.log('✅ Mision_activa eliminada:', misionActivaId);
+          }
+        }
+
+        // Verificar si realmente se eliminaron
+        const { data: remaining, error: verifyError } = await supabase
+          .from('misiones_activas')
+          .select('id')
+          .eq('tipo', 'mision')
+          .eq('id_referencia', id);
+
+        if (remaining && remaining.length > 0) {
+          console.error('❌ Aún quedan', remaining.length, 'misiones_activas sin eliminar. RLS puede estar bloqueando.');
+          console.error('💡 Verifica las políticas RLS de la tabla misiones_activas en Supabase');
+          return false;
+        }
+        console.log('✅ Todas las misiones activas eliminadas correctamente');
+      } else {
+        console.log('ℹ️ No hay misiones activas que eliminar');
+      }
+
+      // 2. Ahora eliminar la misión
+      console.log('🗑️ Paso 2: Eliminando misión de tabla misiones');
       const { error } = await supabase
         .from('misiones')
         .delete()
@@ -268,7 +322,7 @@ export class SupabaseMisionRepository implements MisionRepository {
         return false;
       }
 
-      // console.log('✅ Misión eliminada exitosamente');
+      console.log('✅ Misión eliminada exitosamente');
       return true;
     } catch (error) {
       console.error('❌ Error en deleteMision:', error);

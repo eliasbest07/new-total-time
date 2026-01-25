@@ -121,8 +121,10 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
       {/* Resize handles */}
       <ResizeHandles cardId={card.id} onResizeStart={props.handleResizeStart} />
 
-      {/* Top border line */}
-      <div className={`absolute top-0 left-0 right-0 h-2 rounded-t-lg ${getTopBarColor()}`}></div>
+      {/* Top border line - ocultar para cards de organización que tienen su propio header */}
+      {card.type !== 'mision-organizacion' && card.type !== 'actividad-organizacion' && (
+        <div className={`absolute top-0 left-0 right-0 h-2 rounded-t-lg ${getTopBarColor()}`}></div>
+      )}
 
       {/* Card content using factory */}
       <CardFactory

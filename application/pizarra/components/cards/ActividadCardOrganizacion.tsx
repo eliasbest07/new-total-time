@@ -86,21 +86,26 @@ export const ActividadCardOrganizacion: React.FC<ActividadCardOrganizacionProps>
   };
 
   return (
-    <div className="flex flex-col h-full w-full p-3 bg-white rounded-lg">
-      {/* Header con emoji y horas */}
-      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-        <div className="text-2xl">📅</div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-gray-800 text-sm">
-            Actividad
-          </h3>
-        </div>
-        {actividadData.cant_horas && actividadData.cant_horas > 0 && (
-          <div className="bg-orange-500 text-white rounded-full px-2 py-1 text-xs font-semibold">
-            {actividadData.cant_horas}h
+    <div className="flex flex-col h-full w-full bg-white rounded-lg overflow-hidden">
+      {/* Header con fondo azul */}
+      <div className="bg-blue-500 text-white px-3 py-2">
+        <div className="flex items-center gap-2">
+          <div className="text-lg">📅</div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-white text-sm">
+              Actividad
+            </h3>
           </div>
-        )}
+          {actividadData.cant_horas && actividadData.cant_horas > 0 && (
+            <div className="bg-white/20 text-white rounded-full px-2 py-0.5 text-xs font-semibold">
+              {actividadData.cant_horas}h
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Contenido */}
+      <div className="flex-1 flex flex-col p-3 overflow-hidden">
 
       {/* Descripción editable */}
       <div className="mb-2">
@@ -113,14 +118,14 @@ export const ActividadCardOrganizacion: React.FC<ActividadCardOrganizacionProps>
                 setIsEditingDescription(false);
               }
             }}
-            className="w-full text-xs text-gray-600 bg-transparent border border-orange-400 rounded px-2 py-1 focus:outline-none resize-none"
+            className="w-full text-xs text-gray-600 bg-transparent border border-blue-400 rounded px-2 py-1 focus:outline-none resize-none"
             rows={3}
             autoFocus
             data-todo-interactive
           />
         ) : (
           <p
-            className="text-xs text-gray-600 cursor-pointer hover:text-orange-600 line-clamp-3"
+            className="text-xs text-gray-600 cursor-pointer hover:text-blue-600 line-clamp-3"
             onClick={() => setIsEditingDescription(true)}
             data-todo-interactive
           >
@@ -145,7 +150,7 @@ export const ActividadCardOrganizacion: React.FC<ActividadCardOrganizacionProps>
                   className="w-5 h-5 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs">
+                <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">
                   {usuarioAsignado.profile.nombre.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -156,7 +161,7 @@ export const ActividadCardOrganizacion: React.FC<ActividadCardOrganizacionProps>
           ) : (
             <button
               onClick={() => setShowUsuarioSelector(!showUsuarioSelector)}
-              className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700"
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
               data-todo-interactive
             >
               <User size={14} />
@@ -183,7 +188,7 @@ export const ActividadCardOrganizacion: React.FC<ActividadCardOrganizacionProps>
                         className="w-6 h-6 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs">
+                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">
                         {usuario.profile.nombre.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -202,13 +207,13 @@ export const ActividadCardOrganizacion: React.FC<ActividadCardOrganizacionProps>
       <div className="space-y-1 mb-3">
         {actividadData.fecha && (
           <div className="flex items-center gap-2 text-xs text-gray-600">
-            <Calendar size={12} className="text-orange-500" />
+            <Calendar size={12} className="text-blue-500" />
             <span>{formatDate(actividadData.fecha)}</span>
           </div>
         )}
         {actividadData.hora_inicio && (
           <div className="flex items-center gap-2 text-xs text-gray-600">
-            <Clock size={12} className="text-orange-500" />
+            <Clock size={12} className="text-blue-500" />
             <span>{formatTime(actividadData.hora_inicio)}</span>
           </div>
         )}
@@ -244,6 +249,7 @@ export const ActividadCardOrganizacion: React.FC<ActividadCardOrganizacionProps>
         <p className="text-[10px] text-gray-400 truncate">
           ID: {actividadData.id_actividad}
         </p>
+      </div>
       </div>
     </div>
   );
