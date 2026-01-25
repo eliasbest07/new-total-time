@@ -60,7 +60,8 @@ export class SupabasePizarraRepository implements PizarraRepository {
    */
   async updatePanOffset(id: string, panOffsetX: number, panOffsetY: number): Promise<Pizarra | null> {
     try {
-      // ✅ FIX: Usar maybeSingle() en lugar de single() para evitar error cuando no existe
+      console.log('🗺️ [PAN OFFSET] Repository: Actualizando...', { id, panOffsetX, panOffsetY });
+
       const { data, error } = await supabase
         .from('pizarras')
         .update({
@@ -70,22 +71,25 @@ export class SupabasePizarraRepository implements PizarraRepository {
         })
         .eq('id', id)
         .select()
-        .maybeSingle();
+        .single(); // ✅ Cambiado de maybeSingle() a single() para forzar retorno de datos
+
+      console.log('🗺️ [PAN OFFSET] Repository: Respuesta de Supabase:', { data, error, hasData: !!data });
 
       if (error) {
-        console.error('❌ Error actualizando pan offset:', error);
+        console.error('❌ [PAN OFFSET] Repository: Error de Supabase:', error);
         return null;
       }
 
       // Si no hay data, significa que la pizarra no existe
       if (!data) {
-        // No mostrar error, simplemente retornar null silenciosamente
+        console.warn('⚠️ [PAN OFFSET] Repository: Supabase no retornó datos (pizarra no encontrada?)');
         return null;
       }
 
+      console.log('✅ [PAN OFFSET] Repository: Datos actualizados correctamente');
       return data;
     } catch (error) {
-      console.error('❌ Error en updatePanOffset:', error);
+      console.error('❌ [PAN OFFSET] Repository: Excepción:', error);
       return null;
     }
   }

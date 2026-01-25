@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useSettings } from '@/app/contexts/SettingsContext';
@@ -18,6 +18,7 @@ import { useCardResize } from './hooks/useCardResize';
 import { usePasteImage } from './hooks/usePasteImage';
 import { useDropHandler } from './hooks/useDropHandler';
 import { usePizarraLocalStorage } from './hooks/usePizarraLocalStorage';
+import { useAutoSave } from './hooks/useAutoSave';
 import { ConnectionLines } from './components/ui/ConnectionLines';
 import { CardWrapperComponent } from './components/CardWrapper';
 import Ventana from '@/app/demo/components/Ventana';
@@ -100,6 +101,12 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
   // Estado de inicialización
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Estado para mostrar toast de "Sincronizado" después de cargar
+  const [showSyncedToast, setShowSyncedToast] = useState(false);
+
+  // Estado para mostrar toast cuando se carga pan offset desde localStorage
+  const [showPanOffsetLoadedToast, setShowPanOffsetLoadedToast] = useState(false);
 
   // Estado para trackear misiones ya verificadas (evitar queries repetidas)
   const verifiedMisionesRef = useRef<Set<string>>(new Set());
@@ -287,6 +294,24 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     performSync();
   }, [cardsDB, pizarraActual, usuario, isViewingOtherUser, isInitialized, isOrganizacionPizarra]);
 
+  // Mostrar toast de "Sincronizado" brevemente después de cargar
+  useEffect(() => {
+    // Solo mostrar cuando termina de cargar Y ya está inicializado
+    if (!loadingPizarra && !loadingCards && isInitialized && !isViewingOtherUser) {
+      setShowSyncedToast(true);
+
+      // Ocultar después de 1.5 segundos
+      const timeout = setTimeout(() => {
+        setShowSyncedToast(false);
+      }, 1500);
+
+      return () => clearTimeout(timeout);
+    } else if (loadingPizarra || loadingCards) {
+      // Resetear cuando empieza a cargar de nuevo
+      setShowSyncedToast(false);
+    }
+  }, [loadingPizarra, loadingCards, isInitialized, isViewingOtherUser]);
+
   // Sincronizar ref de usuarios agregados con el estado de cards
   useEffect(() => {
     const currentUserIds = new Set(
@@ -415,7 +440,38 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     setCanvasRef
   } = useCanvasPan(isConnecting, zoomLevel);
 
-  // Sincronizar panOffset SOLO cuando se carga la pizarra de otro usuario
+  // Cargar pan offset desde localStorage después de que la pizarra esté inicializada
+  useEffect(() => {
+    // Solo cargar si ya está inicializado y NO es pizarra de otro usuario
+    if (!isInitialized || isViewingOtherUser || isOrganizacionPizarra) {
+      return;
+    }
+
+    try {
+      const storageKey = `pizarra-${storagePrefix}-pan-offset-v1`;
+      const savedPanOffset = localStorage.getItem(storageKey);
+
+      if (savedPanOffset) {
+        const parsed = JSON.parse(savedPanOffset);
+        if (parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          console.log('🗺️ [PAN OFFSET] Cargando desde localStorage:', parsed);
+          setPanOffset(parsed);
+
+          // Mostrar toast brevemente
+          setShowPanOffsetLoadedToast(true);
+          setTimeout(() => {
+            setShowPanOffsetLoadedToast(false);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [PAN OFFSET] Error cargando desde localStorage:', error);
+    }
+  }, [isInitialized, isViewingOtherUser, isOrganizacionPizarra, storagePrefix, setPanOffset]);
+
+  // ❌ DESHABILITADO: PanOffset ya NO se carga desde Supabase, solo desde localStorage
+  // Esto incluye pizarras compartidas - cada usuario tiene su propio pan en localStorage
+  /*
   useEffect(() => {
     // IMPORTANTE: Solo sincronizar cuando estamos viendo la pizarra de OTRO usuario
     if (!isViewingOtherUser) {
@@ -435,6 +491,37 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       }
     }
   }, [pizarra, isViewingOtherUser]); // No incluir panOffset ni setPanOffset para evitar loops
+  */
+
+  // ❌ DESHABILITADO: Pan offset ya NO se guarda en Supabase para evitar llamadas excesivas
+  // Solo se guarda en localStorage a través de usePizarraLocalStorage
+  /*
+  useEffect(() => {
+    // Solo persistir para pizarras personales (no organizaciones ni compartidas)
+    if (isViewingOtherUser || isOrganizacionPizarra || !pizarra) {
+      return;
+    }
+
+    // Debounce para evitar actualizaciones excesivas
+    const timeoutId = setTimeout(async () => {
+      console.log('🗺️ [PAN OFFSET] Iniciando guardado...', {
+        panOffset,
+        pizarraId: pizarra?.id,
+        isViewingOtherUser,
+        isOrganizacionPizarra
+      });
+      
+      try {
+        await updatePanOffset(panOffset.x, panOffset.y);
+        console.log('✅ [PAN OFFSET] Guardado exitoso a Supabase');
+      } catch (error) {
+        console.error('❌ [PAN OFFSET] Error guardando:', error);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [panOffset, updatePanOffset, isViewingOtherUser, isOrganizacionPizarra, pizarra]);
+  */
 
   // Connect canvas ref to edge panning hook
   useEffect(() => {
@@ -614,9 +701,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     isViewingOtherUser ? [] : cards, // No guardar cards de otros usuarios
     isViewingOtherUser ? [] : connections, // No guardar conexiones de otros usuarios
     isViewingOtherUser ? { x: 0, y: 0 } : panOffset, // No guardar panOffset de otros usuarios
-    isViewingOtherUser ? () => {} : setCards, // No setear cards si es otro usuario
-    isViewingOtherUser ? () => {} : setConnections, // No setear conexiones si es otro usuario
-    isViewingOtherUser ? () => {} : setPanOffset, // No setear panOffset si es otro usuario
+    isViewingOtherUser ? () => { } : setCards, // No setear cards si es otro usuario
+    isViewingOtherUser ? () => { } : setConnections, // No setear conexiones si es otro usuario
+    isViewingOtherUser ? () => { } : setPanOffset, // No setear panOffset si es otro usuario
     storagePrefix,
     isOrganizacionPizarra, // Pasar la prop para pizarras de organización
     isInitialized // Pasar estado de inicialización
@@ -1238,12 +1325,12 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }) => {
     console.log('🔵 addUsuarioCard llamado:', userData.name, userData.userId);
     console.log('🔵 Ref actual antes de verificar:', Array.from(addedUsersRef.current));
-    
+
     // Verificar primero en el ref (para llamadas rápidas)
     if (addedUsersRef.current.has(userData.userId)) {
       console.log('⚠️ Usuario ya está siendo agregado (ref):', userData.name, userData.userId);
       // Buscar el card existente y navegar a él
-      const existingUserCard = cards.find(card => 
+      const existingUserCard = cards.find(card =>
         card.type === 'usuario' && card.usuarioData?.userId === userData.userId
       );
       if (existingUserCard) {
@@ -1261,7 +1348,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Usar setCards con función updater para tener el estado más reciente
     setCards(prevCards => {
       // Verificar si ya existe en el estado actual
-      const existingUserCard = prevCards.find(card => 
+      const existingUserCard = prevCards.find(card =>
         card.type === 'usuario' && card.usuarioData?.userId === userData.userId
       );
 
@@ -1330,13 +1417,13 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }, isOrganizacion: boolean = false) => {
     console.log('🔵 addProyectoCard llamado:', proyectoData.nombre, proyectoData.id);
     console.log('🔵 Ref actual antes de verificar:', Array.from(addedProyectosRef.current));
-    
+
     // Verificar primero en el ref (para llamadas rápidas)
     if (addedProyectosRef.current.has(proyectoData.id)) {
       console.log('⚠️ Proyecto ya está siendo agregado (ref):', proyectoData.nombre, proyectoData.id);
       // Buscar el card existente y navegar a él
-      const existingProyectoCard = cards.find(card => 
-        (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && 
+      const existingProyectoCard = cards.find(card =>
+        (card.type === 'proyecto' || card.type === 'proyecto-organizacion') &&
         card.proyectoData?.id === proyectoData.id
       );
       if (existingProyectoCard) {
@@ -1354,8 +1441,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Usar setCards con función updater para tener el estado más reciente
     setCards(prevCards => {
       // Verificar si ya existe en el estado actual
-      const existingProyectoCard = prevCards.find(card => 
-        (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && 
+      const existingProyectoCard = prevCards.find(card =>
+        (card.type === 'proyecto' || card.type === 'proyecto-organizacion') &&
         card.proyectoData?.id === proyectoData.id
       );
 
@@ -1431,12 +1518,12 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }) => {
     console.log('🔵 addRecursoCard llamado:', recursoData.name, recursoData.id);
     console.log('🔵 Ref actual antes de verificar:', Array.from(addedRecursosRef.current));
-    
+
     // Verificar primero en el ref (para llamadas rápidas)
     if (addedRecursosRef.current.has(recursoData.id)) {
       console.log('⚠️ Recurso ya está siendo agregado (ref):', recursoData.name, recursoData.id);
       // Buscar el card existente y navegar a él
-      const existingRecursoCard = cards.find(card => 
+      const existingRecursoCard = cards.find(card =>
         card.type === 'resource' && card.recursoData?.id === recursoData.id
       );
       if (existingRecursoCard) {
@@ -1454,7 +1541,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Usar setCards con función updater para tener el estado más reciente
     setCards(prevCards => {
       // Verificar si ya existe en el estado actual
-      const existingRecursoCard = prevCards.find(card => 
+      const existingRecursoCard = prevCards.find(card =>
         card.type === 'resource' && card.recursoData?.id === recursoData.id
       );
 
@@ -1790,9 +1877,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         id_usuario: pizarraActual.id_usuario
       });
 
-      // 2. Actualizar panOffset
-      console.log('   - Actualizando panOffset:', panOffset);
-      await pizarraRepo.updatePanOffset(pizarraActual.id, panOffset.x, panOffset.y);
+      // ❌ DESHABILITADO: Pan offset NO se guarda en Supabase, solo localStorage
+      // await pizarraRepo.updatePanOffset(pizarraActual.id, panOffset.x, panOffset.y);
 
       // 3. Obtener las cards actuales de Supabase para esta pizarra
       const { data: cardsEnBD, error: cardsError } = await supabase
@@ -2209,6 +2295,33 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     }
   }, [pizarraActual, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections, saveHistorySnapshot, pizarraOrganizacion, isViewingOtherUser, viewingUserId]);
 
+  // Auto-save hook - detecta cambios y guarda automáticamente
+  // Solo se activa si: autoSave está habilitado, NO es pizarra ajena, NO es read-only, y está inicializado
+  // IMPORTANTE: Pasamos cards y connections directamente - el hook calcula el hash
+  const { hasUnsavedChanges, isSaving, lastSaved } = useAutoSave({
+    enabled: autoSave && !isViewingOtherUser && !readOnly && !isOrganizacionPizarra && isInitialized,
+    data: { cards, connections }, // El hook stringify esto internamente
+    onSave: saveToSupabase,
+    debounceMs: 2000 // 2 segundos de debounce
+  });
+
+  // Advertir antes de recargar/cerrar si hay cambios sin guardar
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = ''; // Chrome requiere esto
+      return '¿Seguro que quieres salir? Hay cambios sin guardar.';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
+
   // Función para guardar pizarra de organización en Supabase
   const saveToSupabaseOrganizacion = useCallback(async (pizarraOrg: any) => {
     if (!usuario) {
@@ -2230,9 +2343,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       const { SupabasePizarraOrganizacionRepository } = await import('@/infrastructure/datasource/SupabasePizarraOrganizacionRepository');
       const pizarraOrgRepo = new SupabasePizarraOrganizacionRepository();
 
-      // 1. Actualizar panOffset de la pizarra de organización
-      console.log('   - Actualizando panOffset:', panOffset);
-      await pizarraOrgRepo.updatePanOffset(pizarraOrg.id, panOffset.x, panOffset.y);
+      // ❌ DESHABILITADO: Pan offset NO se guarda en Supabase, solo localStorage
+      // await pizarraOrgRepo.updatePanOffset(pizarraOrg.id, panOffset.x, panOffset.y);
 
       // 2. Obtener las cards actuales de Supabase para esta pizarra
       const { data: cardsEnBD, error: cardsError } = await supabase
@@ -3122,6 +3234,72 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     updateCard: updateCardFromRef
   }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, addMisionCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCardWrapper, findCardByMisionIdWrapper, updateCardId, updateCardFromRef]);
 
+  // Renderizar indicador de guardado
+  const renderSaveIndicator = () => {
+    // Solo mostrar el indicador si NO es pizarra de otro usuario y NO es read-only
+    if (isViewingOtherUser || readOnly || isOrganizacionPizarra) {
+      return null;
+    }
+
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          fontSize: '13px',
+          fontWeight: '500',
+          zIndex: 9999,
+          backgroundColor: isSaving
+            ? '#FEF3C7'
+            : hasUnsavedChanges
+              ? '#FEE2E2'
+              : '#D1FAE5',
+          color: isSaving
+            ? '#92400E'
+            : hasUnsavedChanges
+              ? '#991B1B'
+              : '#065F46',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          transition: 'all 0.2s ease',
+          backdropFilter: 'blur(8px)',
+          border: `1px solid ${isSaving ? '#FCD34D' : hasUnsavedChanges ? '#FCA5A5' : '#6EE7B7'}`
+        }}
+      >
+        {isSaving ? (
+          <>
+            <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>🔄</span>
+            <span>Guardando...</span>
+          </>
+        ) : hasUnsavedChanges ? (
+          <>
+            <span>⚠️</span>
+            <span>Cambios sin guardar</span>
+          </>
+        ) : (
+          <>
+            <span>✅</span>
+            <span>
+              Guardado
+              {lastSaved && ` • ${lastSaved.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`}
+            </span>
+          </>
+        )}
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  };
+
   // Wrapper para handleConnectionPointClick con canvasRef
   const handleConnectionPointClick = useCallback((e: React.MouseEvent<HTMLDivElement>, cardId: string) => {
     baseHandleConnectionPointClick(e, cardId, canvasRef);
@@ -3179,30 +3357,29 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
 
   return (
+    <div
+      className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}
+      data-pizarra-cards={cards.length}
+    >
       <div
-        className={`w-screen h-screen bg-transparent flex flex-col items-center justify-center p-8 ${isReceivingDrag ? 'z-50' : ''}`}
-        data-pizarra-cards={cards.length}
-      >
-        <div
-          ref={canvasRef}
-          className={`
+        ref={canvasRef}
+        className={`
             relative ${fullMode ? 'w-full h-full' : 'w-4/5 h-4/5'}
             ${fullMode ? ' border-4 border-dashed rounded-3xl' : 'border-4 border-dashed rounded-3xl'}
             transition-colors duration-300 ease-in-out overflow-hidden
             ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-transparent'}
             ${isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'}
           `}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          onMouseDown={handleCanvasMouseDown}
-        >
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onMouseDown={handleCanvasMouseDown}
+      >
         {/* Controles de navegación y zoom */}
         <div
-          className={`absolute z-[999] flex items-center gap-2 ${
-            fullMode ? 'bottom-4 left-4' : 'top-4 left-4'
-          }`}
+          className={`absolute z-[999] flex items-center gap-2 ${fullMode ? 'bottom-4 left-4' : 'top-4 left-4'
+            }`}
           style={{ pointerEvents: 'auto' }}
         >
           {/* Botón ir al origen */}
@@ -3284,83 +3461,83 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
           />
 
           {cards.length === 0 && (
-          <div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px)` }}
-          >
-            <div className="text-center">
-              <div className={`text-6xl mb-4 transition-colors duration-300 ${isDragOver ? 'text-blue-500' : 'text-gray-400'}`}>
-                💼
+            <div
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px)` }}
+            >
+              <div className="text-center">
+                <div className={`text-6xl mb-4 transition-colors duration-300 ${isDragOver ? 'text-blue-500' : 'text-gray-400'}`}>
+                  💼
+                </div>
+                <p className={`text-lg font-medium transition-colors duration-300 ${isDragOver ? 'text-blue-600' : 'text-white'}`}>
+                  {isDragOver ? 'Suelta aquí para crear una card' : 'Arrastra archivos o texto a la pizarra'}
+                </p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Click y arrastra para navegar por la pizarra
+                </p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Hover sobre las cards y click en la tachuela 📌 para conectar
+                </p>
               </div>
-              <p className={`text-lg font-medium transition-colors duration-300 ${isDragOver ? 'text-blue-600' : 'text-white'}`}>
-                {isDragOver ? 'Suelta aquí para crear una card' : 'Arrastra archivos o texto a la pizarra'}
-              </p>
-              <p className="text-sm text-gray-400 mt-2">
-                Click y arrastra para navegar por la pizarra
-              </p>
-              <p className="text-sm text-gray-400 mt-1">
-                Hover sobre las cards y click en la tachuela 📌 para conectar
-              </p>
             </div>
-          </div>
-        )}
+          )}
 
-        {cards.map(card => (
-          <CardWrapperComponent
-            key={card.id}
-            card={card}
-            draggedCard={draggedCard}
-            isConnecting={isConnecting}
-            connectingFrom={connectingFrom}
-            hoveredCard={hoveredCard}
-            panOffset={panOffset}
-            editingTitle={editingTitle}
-            editingTodo={editingTodo}
-            configOpenCard={configOpenCard}
-            confirmDelete={confirmDelete}
-            cardZIndex={cardZIndices[card.id] || 1}
-            handleCardMouseDown={handleCardMouseDown}
-            setHoveredCard={setHoveredCard}
-            handleCardClick={handleCardClick}
-            handleResizeStart={handleResizeStart}
-            handleConnectionPointClick={handleConnectionPointClick}
-            setConfigOpenCard={setConfigOpenCard}
-            changeFontSize={changeFontSize}
-            setEditingTitle={setEditingTitle}
-            setConfirmDelete={setConfirmDelete}
-            deleteCard={deleteCard}
-            updateCardTitle={updateCardTitle}
-            updateCardContent={updateCardContent}
-            setEditingTodo={setEditingTodo}
-            toggleTodo={toggleTodo}
-            addTodoToCard={addTodoToCard}
-            deleteTodoFromCard={deleteTodoFromCard}
-            updateTodoInCard={updateTodoInCard}
-            handleActivityPlayPause={handleActivityPlayPauseWrapper}
-            handleMisionPlayPause={handleMisionPlayPauseWrapper}
-            onShowScreenshots={onShowScreenshots}
-            screenshots={screenshots}
-            isCapturing={isCapturing}
-            captureNow={captureNow}
-            setCards={setCards}
-            pastedImages={pastedImages}
-            bringCardToFront={bringCardToFrontWrapper}
-            onOpenUserChat={handleOpenUserChat}
-            usuarios={usuarios}
-            currentUserId={currentUserId}
-            openImageWindow={openImageWindow}
-            addTodoCard={addTodoCard}
-            addNoteCard={addNoteCard}
-            addConnection={addConnection}
-            addMisionCardOrganizacion={addMisionCardOrganizacion}
-            addMisionCard={addMisionCard}
-            cards={cards}
-            onOpenCapturasModal={onOpenCapturasModal}
-            idPizarra={pizarraActual?.id || null}
-            readOnly={readOnly || isViewingOtherUser}
-            openEditarProyecto={onOpenEditarProyecto}
-          />
-        ))}
+          {cards.map(card => (
+            <CardWrapperComponent
+              key={card.id}
+              card={card}
+              draggedCard={draggedCard}
+              isConnecting={isConnecting}
+              connectingFrom={connectingFrom}
+              hoveredCard={hoveredCard}
+              panOffset={panOffset}
+              editingTitle={editingTitle}
+              editingTodo={editingTodo}
+              configOpenCard={configOpenCard}
+              confirmDelete={confirmDelete}
+              cardZIndex={cardZIndices[card.id] || 1}
+              handleCardMouseDown={handleCardMouseDown}
+              setHoveredCard={setHoveredCard}
+              handleCardClick={handleCardClick}
+              handleResizeStart={handleResizeStart}
+              handleConnectionPointClick={handleConnectionPointClick}
+              setConfigOpenCard={setConfigOpenCard}
+              changeFontSize={changeFontSize}
+              setEditingTitle={setEditingTitle}
+              setConfirmDelete={setConfirmDelete}
+              deleteCard={deleteCard}
+              updateCardTitle={updateCardTitle}
+              updateCardContent={updateCardContent}
+              setEditingTodo={setEditingTodo}
+              toggleTodo={toggleTodo}
+              addTodoToCard={addTodoToCard}
+              deleteTodoFromCard={deleteTodoFromCard}
+              updateTodoInCard={updateTodoInCard}
+              handleActivityPlayPause={handleActivityPlayPauseWrapper}
+              handleMisionPlayPause={handleMisionPlayPauseWrapper}
+              onShowScreenshots={onShowScreenshots}
+              screenshots={screenshots}
+              isCapturing={isCapturing}
+              captureNow={captureNow}
+              setCards={setCards}
+              pastedImages={pastedImages}
+              bringCardToFront={bringCardToFrontWrapper}
+              onOpenUserChat={handleOpenUserChat}
+              usuarios={usuarios}
+              currentUserId={currentUserId}
+              openImageWindow={openImageWindow}
+              addTodoCard={addTodoCard}
+              addNoteCard={addNoteCard}
+              addConnection={addConnection}
+              addMisionCardOrganizacion={addMisionCardOrganizacion}
+              addMisionCard={addMisionCard}
+              cards={cards}
+              onOpenCapturasModal={onOpenCapturasModal}
+              idPizarra={pizarraActual?.id || null}
+              readOnly={readOnly || isViewingOtherUser}
+              openEditarProyecto={onOpenEditarProyecto}
+            />
+          ))}
         </div>
         {/* Fin del contenedor con zoom */}
 
@@ -3459,10 +3636,100 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         }
       `}</style>
 
-        {/* Componente para ver solicitudes de permiso - SOLO en dashboard (no en fullMode) */}
-        {!fullMode && <PizarraPermissionRequests />}
+      {/* Toast cuando se carga pan offset desde localStorage */}
+      {showPanOffsetLoadedToast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: fullMode ? '20px' : '160px', // Más arriba que el toast de sincronización
+            right: '20px',
+            padding: '6px 12px',
+            borderRadius: '12px',
+            fontSize: '11px',
+            fontWeight: '500',
+            zIndex: 9999,
+            backgroundColor: 'rgba(59, 130, 246, 0.9)',
+            color: 'white',
+            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            backdropFilter: 'blur(4px)',
+            animation: 'slideUp 0.2s ease-out',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+          }}
+        >
+          <span style={{ fontSize: '12px' }}>🗺️</span>
+          <span>Posición restaurada</span>
+        </div>
+      )}
 
-      </div>
+      {/* Toast de estado de carga - discreto encima de permisos */}
+      {!fullMode && ((loadingPizarra || loadingCards) || showSyncedToast) && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '130px', // Justo encima del botón de permisos
+            right: '20px', // Inferior derecha para alinearse con Permisos
+            padding: '6px 12px',
+            borderRadius: '12px',
+            fontSize: '11px',
+            fontWeight: '500',
+            zIndex: 9998,
+            backgroundColor: (loadingPizarra || loadingCards)
+              ? 'rgba(99, 102, 241, 0.9)'
+              : 'rgba(16, 185, 129, 0.9)',
+            color: 'white',
+            boxShadow: (loadingPizarra || loadingCards)
+              ? '0 2px 8px rgba(99, 102, 241, 0.2)'
+              : '0 2px 8px rgba(16, 185, 129, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            backdropFilter: 'blur(4px)',
+            animation: 'slideUp 0.2s ease-out',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+          }}
+        >
+          {(loadingPizarra || loadingCards) ? (
+            <>
+              <span style={{
+                animation: 'spin 1s linear infinite',
+                display: 'inline-block',
+                fontSize: '12px'
+              }}>
+                ⚡
+              </span>
+              <span>Sincronizando...</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: '12px' }}>✓</span>
+              <span>Sincronizado</span>
+            </>
+          )}
+          <style>{`
+            @keyframes slideUp {
+              from {
+                opacity: 0;
+                transform: translateY(5px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* Componente para ver solicitudes de permiso - SOLO en dashboard (no en fullMode) */}
+      {!fullMode && <PizarraPermissionRequests />}
+
+      {/* Indicador de estado de guardado */}
+      {renderSaveIndicator()}
+
+    </div>
   );
 });
 

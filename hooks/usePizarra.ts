@@ -100,9 +100,11 @@ export const usePizarra = (idUsuario: string | null): UsePizarraReturn => {
   // Funcion para actualizar el pan offset
   const updatePanOffset = useCallback(async (panOffsetX: number, panOffsetY: number) => {
     if (!pizarra) {
-      console.error('No hay pizarra para actualizar');
+      console.error('❌ [PAN OFFSET] No hay pizarra para actualizar');
       return;
     }
+
+    console.log('🗺️ [PAN OFFSET] Actualizando en Supabase:', { pizarraId: pizarra.id, panOffsetX, panOffsetY });
 
     try {
       const pizarraActualizada = await pizarraRepository.current.updatePanOffset(
@@ -113,10 +115,13 @@ export const usePizarra = (idUsuario: string | null): UsePizarraReturn => {
 
       if (pizarraActualizada) {
         setPizarra(pizarraActualizada);
+        console.log('✅ [PAN OFFSET] Actualizado correctamente en Supabase');
+      } else {
+        console.warn('⚠️ [PAN OFFSET] updatePanOffset no retornó datos');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error actualizando pan offset';
-      console.error('Error actualizando pan offset:', errorMessage);
+      console.error('❌ [PAN OFFSET] Error:', errorMessage);
       setError(errorMessage);
     }
   }, [pizarra]);

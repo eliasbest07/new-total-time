@@ -262,12 +262,12 @@ export const usePizarraLocalStorage = (
         console.error('❌ [PIZARRA STORAGE] Cards no es un array válido');
         return;
       }
-      
+
       if (!Array.isArray(connections)) {
         console.error('❌ [PIZARRA STORAGE] Connections no es un array válido');
         return;
       }
-      
+
       if (!panOffset || typeof panOffset.x !== 'number' || typeof panOffset.y !== 'number') {
         console.error('❌ [PIZARRA STORAGE] PanOffset no es un objeto válido');
         return;
@@ -293,15 +293,15 @@ export const usePizarraLocalStorage = (
       localStorage.setItem(PAN_OFFSET_STORAGE_KEY, panOffsetJson);
       localStorage.setItem(DATE_STORAGE_KEY, todayDate);
 
-      // console.log('💾 [PIZARRA STORAGE] Datos guardados en localStorage:', {
-      //   cards: cards.length,
-      //   connections: connections.length,
-      //   panOffset,
-      //   date: todayDate
-      // });
+      console.log('💾 [PIZARRA STORAGE] Datos guardados en localStorage:', {
+        cards: cards.length,
+        connections: connections.length,
+        panOffset,
+        date: todayDate
+      });
     } catch (error) {
       console.error('❌ [PIZARRA STORAGE] Error guardando en localStorage:', error);
-      
+
       // Si hay error por memoria llena, intentar limpiar y guardar solo lo esencial
       if (error instanceof Error && error.name === 'QuotaExceededError') {
         console.warn('⚠️ [PIZARRA STORAGE] Cuota de localStorage excedida, limpiando datos antiguos');
@@ -313,7 +313,7 @@ export const usePizarraLocalStorage = (
               localStorage.removeItem(key);
             }
           });
-          
+
           // Intentar guardar de nuevo
           localStorage.setItem(PIZARRA_STORAGE_KEY, JSON.stringify(cards));
           localStorage.setItem(CONNECTIONS_STORAGE_KEY, JSON.stringify(connections));
@@ -363,7 +363,7 @@ export const usePizarraLocalStorage = (
     };
 
     const dataStr = JSON.stringify(data, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
 
     const exportFileDefaultName = `pizarra-backup-${new Date().toISOString().split('T')[0]}.json`;
 
@@ -379,7 +379,7 @@ export const usePizarraLocalStorage = (
   const importFromJSON = useCallback((jsonString: string) => {
     try {
       const data = safeJsonParse(jsonString, null) as PizarraStorageData;
-      
+
       if (!data) {
         throw new Error('JSON no válido o vacío');
       }
@@ -456,9 +456,9 @@ export const usePizarraLocalStorage = (
   useEffect(() => {
     // No guardar si el localStorage fue limpiado recientemente
     const wasCleared = !localStorage.getItem(PIZARRA_STORAGE_KEY) &&
-                       !localStorage.getItem(CONNECTIONS_STORAGE_KEY) &&
-                       cards.length === 0 &&
-                       connections.length === 0;
+      !localStorage.getItem(CONNECTIONS_STORAGE_KEY) &&
+      cards.length === 0 &&
+      connections.length === 0;
 
     if (wasCleared) {
       console.log('🚫 [AUTO-SAVE] localStorage fue limpiado, NO auto-guardar');
