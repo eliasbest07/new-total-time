@@ -170,6 +170,15 @@ function DashboardAdmin() {
   const [orgImageError, setOrgImageError] = useState(false);
   const [accordionCollapsed, setAccordionCollapsed] = useState(false);
 
+  // Estado para toast
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Función para mostrar toast
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
   // Handler para cuando se hace click en un usuario
   const handleUserClick = (userData: {
     userId: string;
@@ -787,15 +796,15 @@ function DashboardAdmin() {
 
       if (nuevaActividad) {
         console.log('✅ Actividad creada exitosamente:', nuevaActividad);
-        alert("✅ Actividad creada exitosamente");
+        showToast("Actividad creada exitosamente", "success");
         limpiarFormularioActividad();
         setShowActividadModal(false);
       } else {
-        alert("❌ Error al crear la actividad");
+        showToast("Error al crear la actividad", "error");
       }
     } catch (error) {
       console.error("Error creando actividad:", error);
-      alert("❌ Error al crear la actividad");
+      showToast("Error al crear la actividad", "error");
     } finally {
       setCreandoActividad(false);
     }
@@ -1891,6 +1900,49 @@ function DashboardAdmin() {
           }
         }}
       />
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] animate-toast-slide-down">
+          <div
+            className={`border-2 rounded-xl shadow-2xl px-4 py-3 flex items-center gap-3 min-w-[300px] max-w-[500px] ${
+              toast.type === 'success' ? 'bg-green-50 border-green-200' :
+              toast.type === 'error' ? 'bg-red-50 border-red-200' :
+              'bg-blue-50 border-blue-200'
+            }`}
+          >
+            <span className={`text-lg ${
+              toast.type === 'success' ? 'text-green-600' :
+              toast.type === 'error' ? 'text-red-600' :
+              'text-blue-600'
+            }`}>
+              {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : 'ℹ'}
+            </span>
+            <span className="flex-1 text-sm text-gray-800 font-semibold">{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+          <style jsx>{`
+            @keyframes toast-slide-down {
+              0% {
+                transform: translate(-50%, -100%);
+                opacity: 0;
+              }
+              100% {
+                transform: translate(-50%, 0);
+                opacity: 1;
+              }
+            }
+            .animate-toast-slide-down {
+              animation: toast-slide-down 0.3s ease-out forwards;
+            }
+          `}</style>
+        </div>
+      )}
     </AuthWrapper>
   );
 }
