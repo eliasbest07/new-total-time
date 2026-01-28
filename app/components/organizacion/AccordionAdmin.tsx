@@ -332,23 +332,26 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
 
   const getEstadoColor = (estado: string) => {
     switch (estado?.toLowerCase()) {
-      case 'completado':
-      case 'completada':
-      case 'finalizado':
-        return 'bg-green-100 text-green-800';
-      case 'en progreso':
-      case 'en_progreso':
-      case 'activo':
-        return 'bg-green-100 text-green-800';
-      case 'entregada':
-        return 'bg-blue-100 text-blue-800';
-      case 'revisada':
-        return 'bg-purple-100 text-purple-800';
       case 'pendiente':
         return 'bg-yellow-100 text-yellow-800';
+      case 'en progreso':
+      case 'en_progreso':
+        return 'bg-blue-100 text-blue-800';
+      case 'completado':
+      case 'completada':
+        return 'bg-green-100 text-green-800';
+      case 'entregada':
+        return 'bg-purple-100 text-purple-800';
+      case 'revisada':
+      case 'aprobada':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'pausada':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'rechazada':
+        return 'bg-red-100 text-red-800';
       case 'cancelado':
       case 'cancelada':
-        return 'bg-red-100 text-red-800';
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -356,6 +359,8 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
 
   const formatEstado = (estado: string | null) => {
     if (!estado) return '';
+    // Mapear 'aprobada' a 'Revisada'
+    if (estado.toLowerCase() === 'aprobada') return 'Revisada';
     // Reemplazar guiones bajos con espacios y capitalizar primera letra
     return estado
       .replace(/_/g, ' ')
@@ -549,7 +554,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                         </div>
                       ) : (
                         <div>
-                          <div className="space-y-3 mb-3">
+                          <div className="space-y-1.5 mb-2">
                             {currentMisiones.map((mision, idx) => {
                               const estadoActivo = misionesActivas[mision.id];
                               // isRunning indica si la misión está siendo trabajada activamente (timer corriendo)
@@ -565,8 +570,8 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                               <div
                                 key={mision.id}
                                 draggable
-                                title={`[ACCORDIONADMIN] estado="${mision.estado}" | isRunning=${estadoActivo?.isRunning} | isEnProgreso=${isEnProgreso}`}
-                                className={`p-3 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none ${
+                                title={mision.nombre || 'Sin nombre'}
+                                className={`p-2 rounded-md transition-colors duration-200 cursor-grab active:cursor-grabbing select-none ${
                                   isEnProgreso
                                     ? 'bg-green-500/30 hover:bg-green-500/40 border border-green-400/50'
                                     : 'bg-white/10 hover:bg-white/20'
@@ -585,6 +590,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                     title: mision.nombre,
                                     description: mision.descripcion,
                                     hours: mision.horas,
+                                    estado: estadoFinal || mision.estado || 'pendiente',
                                     fecha_start: mision.fecha_start,
                                     fecha_end: mision.fecha_end,
                                     id_usuario: mision.id_usuario,
@@ -596,17 +602,17 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                   e.currentTarget.style.opacity = '1';
                                 }}
                               >
-                                <div className="flex items-start justify-between mb-2">
-                                  <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                     {isEnProgreso && (
-                                      <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" title="En progreso"></span>
+                                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse flex-shrink-0" title="En progreso"></span>
                                     )}
-                                    <h4 className="font-semibold text-white truncate">
+                                    <h4 className="text-xs font-medium text-white truncate">
                                       {mision.nombre || 'Sin nombre'}
                                     </h4>
                                   </div>
                                   {mision.horas && (
-                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ml-2 ${
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
                                       isEnProgreso
                                         ? 'bg-green-200 text-green-800'
                                         : 'bg-orange-100 text-orange-700'
@@ -616,37 +622,21 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                   )}
                                 </div>
                                 {mision.descripcion && (
-                                  <div className="mb-2">
-                                    <p className="text-sm text-white/70 line-clamp-1">
-                                      {mision.descripcion}
-                                    </p>
-                                    {mision.descripcion.length > 150 && (
-                                      <button
-                                        className="text-xs text-blue-300 hover:text-blue-200 mt-1"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (onMisionClick) {
-                                            onMisionClick(mision);
-                                          }
-                                        }}
-                                      >
-                                        ... ver más
-                                      </button>
+                                  <p className="text-[10px] text-white/60 line-clamp-1 mb-1">
+                                    {mision.descripcion}
+                                  </p>
+                                )}
+                                <div className="flex items-center justify-between gap-2">
+                                  {estadoFinal && (
+                                    <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded ${getEstadoColor(estadoFinal)}`}>
+                                      {formatEstado(estadoFinal)}
+                                    </span>
+                                  )}
+                                  <div className="flex gap-2 text-[10px] text-white/50">
+                                    {mision.fecha_end && (
+                                      <span>🏁 {new Date(mision.fecha_end).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
                                     )}
                                   </div>
-                                )}
-                                {estadoFinal && (
-                                  <span className={`inline-block text-xs px-2 py-1 rounded ${getEstadoColor(estadoFinal)}`}>
-                                    {formatEstado(estadoFinal)}
-                                  </span>
-                                )}
-                                <div className="flex gap-3 text-xs text-white/60 mt-2">
-                                  {mision.fecha_start && (
-                                    <span>🚀 {new Date(mision.fecha_start).toLocaleDateString('es-ES')}</span>
-                                  )}
-                                  {mision.fecha_end && (
-                                    <span>🏁 {new Date(mision.fecha_end).toLocaleDateString('es-ES')}</span>
-                                  )}
                                 </div>
                               </div>
                               );

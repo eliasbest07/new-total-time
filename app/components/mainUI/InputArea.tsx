@@ -6,6 +6,8 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { useUsuariosOrganizacionContext } from '@/app/contexts/UsuariosOrganizacionContext';
 import Image from 'next/image';
 
+type CreateMode = 'note' | 'todo';
+
 interface InputAreaProps {
   onCreateNote?: (text: string) => void;
   onCreateTodoList?: (text: string) => void;
@@ -30,6 +32,7 @@ export default function InputArea({
   const [inputText, setInputText] = useState('');
   const [showButtons, setShowButtons] = useState(false);
   const [userScrollIndex, setUserScrollIndex] = useState(0);
+  const [createMode, setCreateMode] = useState<CreateMode>('note');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const { usuario } = useAuth();
@@ -81,6 +84,14 @@ export default function InputArea({
       setInputText('');
       setShowButtons(false);
       resetTextareaHeight();
+    }
+  };
+
+  const handleCreate = (): void => {
+    if (createMode === 'note') {
+      handleCreateNote();
+    } else {
+      handleCreateTodoList();
     }
   };
 
@@ -212,11 +223,41 @@ export default function InputArea({
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
-              // Prevenir envío en Enter, solo crear nota/tarea con botones o seleccionar usuario
               e.preventDefault();
+              if (inputText.trim()) {
+                handleCreate();
+              }
             }
           }}
         />
+      </div>
+
+      {/* Selector de tipo: Nota o Tarea */}
+      <div className="mt-2 flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-full p-1">
+        <button
+          onClick={() => setCreateMode('note')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
+            createMode === 'note'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-white/70 hover:text-white hover:bg-white/10'
+          }`}
+          title="Crear Nota (Enter)"
+        >
+          <StickyNote size={14} />
+          <span>Nota</span>
+        </button>
+        <button
+          onClick={() => setCreateMode('todo')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
+            createMode === 'todo'
+              ? 'bg-green-600 text-white shadow-md'
+              : 'text-white/70 hover:text-white hover:bg-white/10'
+          }`}
+          title="Crear Lista de Tareas (Enter)"
+        >
+          <CheckSquare size={14} />
+          <span>Tarea</span>
+        </button>
       </div>
     </div>
   );

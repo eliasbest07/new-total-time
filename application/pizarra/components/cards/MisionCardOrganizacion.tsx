@@ -633,36 +633,71 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
   // handleToggleSubtarea y handleDeleteSubtarea vienen del hook useMisionSubtareas
 
-  // Colores según estado
-  const getEstadoColor = () => {
+  // Colores según estado para el header del card
+  const getHeaderColor = () => {
     switch (misionData.estado) {
+      case 'pendiente':
+        return 'bg-yellow-500';
       case 'en_progreso':
         return 'bg-blue-500';
+      case 'completada':
+        return 'bg-green-500';
+      case 'entregada':
+        return 'bg-purple-500';
+      case 'revisada':
+      case 'aprobada':
+        return 'bg-indigo-500';
       case 'pausada':
         return 'bg-yellow-500';
-      case 'entregada':
-        return 'bg-green-500';
-      case 'aprobada':
-        return 'bg-emerald-600';
       case 'rechazada':
         return 'bg-red-500';
       case 'cancelada':
         return 'bg-gray-500';
       default:
-        return 'bg-purple-500';
+        return 'bg-green-500';
+    }
+  };
+
+  // Colores según estado para el badge
+  const getEstadoColor = () => {
+    switch (misionData.estado) {
+      case 'pendiente':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'en_progreso':
+        return 'bg-blue-100 text-blue-800';
+      case 'completada':
+        return 'bg-green-100 text-green-800';
+      case 'entregada':
+        return 'bg-purple-100 text-purple-800';
+      case 'revisada':
+      case 'aprobada':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'pausada':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'rechazada':
+        return 'bg-red-100 text-red-800';
+      case 'cancelada':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getEstadoText = () => {
     switch (misionData.estado) {
+      case 'pendiente':
+        return 'Pendiente';
       case 'en_progreso':
         return 'En Progreso';
-      case 'pausada':
-        return 'Pausada';
+      case 'completada':
+        return 'Completada';
       case 'entregada':
         return 'Entregada';
+      case 'revisada':
       case 'aprobada':
-        return 'Aprobada';
+        return 'Revisada';
+      case 'pausada':
+        return 'Pausada';
       case 'rechazada':
         return 'Rechazada';
       case 'cancelada':
@@ -674,8 +709,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
   return (
     <div className="flex flex-col h-full w-full bg-white rounded-lg overflow-hidden">
-      {/* Header con fondo verde */}
-      <div className="bg-green-500 text-white px-3 py-2">
+      {/* Header con color según estado */}
+      <div className={`${getHeaderColor()} text-white px-3 py-2`}>
         <div className="flex items-center gap-2">
           <div className="text-lg">🎯</div>
           <div className="flex-1 min-w-0">
@@ -836,7 +871,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
             onClick={handleRequestCapture}
             className={`${
               misionData.misionActivaId
-                ? 'bg-green-500 hover:bg-green-600'
+                ? 'bg-blue-500 hover:bg-blue-600'
                 : 'bg-gray-400 hover:bg-gray-500'
             } text-white rounded-full p-2 transition-all relative`}
             data-todo-interactive
@@ -877,7 +912,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
       {/* Badge de estado */}
       <div className="mb-3">
-        <span className={`${getEstadoColor()} text-white rounded px-2 py-1 text-xs font-medium`}>
+        <span className={`${getEstadoColor()} rounded px-2 py-1 text-xs font-medium`}>
           {getEstadoText()}
         </span>
       </div>

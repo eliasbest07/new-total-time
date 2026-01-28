@@ -243,7 +243,7 @@ export const useDropHandler = (
               title: resource.title || 'Nueva Misión',
               hours: resource.hours || 1,
               description: resource.description || '',
-              estado: 'pendiente',
+              estado: resource.estado || 'pendiente',
               subtareas: [],
               entregas: [],
               id_usuario_asignado: resource.id_usuario || null,
