@@ -537,7 +537,7 @@ const VentanaActividadDetalles: React.FC<VentanaActividadDetallesProps> = ({
     <Ventana
       isOpen={isOpen}
       onClose={onClose}
-      title=""
+      title={`📋 ${actividad.descripcion || 'Actividad'}`}
       initialWidth={580}
       initialHeight={650}
       minWidth={480}

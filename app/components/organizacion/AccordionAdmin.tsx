@@ -53,6 +53,7 @@ interface AccordionAdminProps {
   }) => void;
   onMisionClick?: (mision: Mision) => void;
   onActividadClick?: (actividad: Actividad) => void;
+  onRecursoClick?: (recurso: Recurso) => void;
   defaultCollapsed?: boolean;
   onCollapseChange?: (isCollapsed: boolean) => void;
 }
@@ -86,6 +87,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
   onUserClick,
   onMisionClick,
   onActividadClick,
+  onRecursoClick,
   defaultCollapsed = false,
   onCollapseChange
 }) => {
@@ -939,9 +941,8 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                     e.currentTarget.style.opacity = '1';
                                   }}
                                   onClick={() => {
-                                    // Si tiene URL, abrir en nueva pestaña
-                                    if (recurso.link) {
-                                      window.open(recurso.link, '_blank');
+                                    if (onRecursoClick) {
+                                      onRecursoClick(recurso);
                                     }
                                   }}
                                 >

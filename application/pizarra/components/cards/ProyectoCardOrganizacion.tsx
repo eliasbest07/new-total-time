@@ -1149,23 +1149,31 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
 
   // ✅ Función para eliminar misión
   const handleDeleteMision = async (misionId: number, misionNombre: string) => {
+    console.log('[DEBUG TICKETS] handleDeleteMision llamado:', { misionId, misionNombre });
+
     const confirmacion = confirm(`¿Estás seguro de que deseas eliminar la misión "${misionNombre}"?`);
 
-    if (!confirmacion) return;
+    if (!confirmacion) {
+      console.log('[DEBUG TICKETS] Usuario canceló la confirmación');
+      return;
+    }
+
+    console.log('[DEBUG TICKETS] Llamando a deleteMision...');
 
     try {
-      const success = await deleteMision(misionId);
+      const resultado = await deleteMision(misionId);
+      console.log('[DEBUG TICKETS] Resultado de deleteMision:', resultado);
 
-      if (success) {
+      if (resultado) {
         // Actualizar la lista de misiones localmente
         setMisiones(prev => prev.filter(m => m.id !== misionId));
-        alert('✅ Misión eliminada exitosamente');
+        success('Misión eliminada exitosamente');
       } else {
-        alert('❌ Error al eliminar la misión');
+        showError('Error al eliminar la misión');
       }
     } catch (error) {
-      console.error('Error eliminando misión:', error);
-      alert('❌ Error al eliminar la misión');
+      console.error('[DEBUG TICKETS] Error eliminando misión:', error);
+      showError('Error al eliminar la misión');
     }
   };
 
@@ -1883,20 +1891,9 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                           key={recurso.id}
                           className={`w-full bg-gray-600 rounded-lg p-3 transition-all shadow-sm border-2 relative group select-none ${
                             esNota
-                              ? 'hover:bg-blue-600 hover:border-blue-400 cursor-pointer hover:scale-[1.02] border-transparent'
+                              ? 'hover:bg-gray-550 border-transparent'
                               : 'hover:bg-gray-550 border-transparent cursor-grab active:cursor-grabbing'
                           }`}
-                          style={{ cursor: esNota ? 'pointer' : 'grab' }}
-                          onClick={(e) => {
-                            if (esNota) {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setRecursoModalAbierto({
-                                isOpen: true,
-                                recurso
-                              });
-                            }
-                          }}
                           onDragStart={(e) => {
                             if (!esNota) {
                               e.dataTransfer.setData('text/plain', `Recurso: ${recurso.nombre}`);
@@ -1958,9 +1955,8 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                                 </a>
                               )}
                               {esNota && (
-                                <div className="text-xs text-blue-300 mt-1 font-semibold flex items-center gap-1">
-                                  <span>👆</span>
-                                  <span>Click para ver contenido completo</span>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  📝 Nota
                                 </div>
                               )}
                               <div className="text-xs text-gray-400 mt-1">
@@ -2394,44 +2390,6 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         onActividadUpdated={recargarDatos}
       />
 
-      {/* Ventana para mostrar contenido de nota */}
-      <Ventana
-        isOpen={recursoModalAbierto.isOpen}
-        onClose={() => setRecursoModalAbierto({ isOpen: false, recurso: null })}
-        title={`📝 ${recursoModalAbierto.recurso?.nombre || 'Nota'}`}
-        initialWidth={600}
-        initialHeight={500}
-        minWidth={500}
-        minHeight={400}
-        showOverlay={false}
-      >
-        {recursoModalAbierto.recurso && (
-          <div className="text-black space-y-6 p-4">
-            {/* Contenido de la nota */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Contenido</h3>
-              <div className="bg-gray-100 p-3 rounded-lg">
-                <p className="text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
-                  {recursoModalAbierto.recurso.link?.replace('nota://', '') || 'Sin contenido'}
-                </p>
-              </div>
-            </div>
-
-            {/* Información técnica */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Información</h3>
-              <div className="bg-gray-100 p-3 rounded-lg">
-                <p className="text-gray-600 text-sm">
-                  <strong>Creado:</strong> {new Date(recursoModalAbierto.recurso.created_at).toLocaleString('es-ES')}
-                </p>
-                <p className="text-gray-600 text-sm mt-1">
-                  <strong>ID:</strong> {recursoModalAbierto.recurso.id}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </Ventana>
     </div>
   );
 };

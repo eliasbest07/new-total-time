@@ -641,7 +641,7 @@ const VentanaMisionDetalles: React.FC<VentanaMisionDetallesProps> = ({
     <Ventana
       isOpen={isOpen}
       onClose={onClose}
-      title=""
+      title={`🎯 ${mision.nombre || 'Ticket'}`}
       initialWidth={580}
       initialHeight={700}
       minWidth={480}

@@ -17,6 +17,7 @@ import VentanaActividadDetalles from "@/app/components/organizacion/VentanaActiv
 import VentanaEditarProyecto from "@/app/components/organizacion/VentanaEditarProyecto";
 import { Mision } from "@/domain/entities/Mision";
 import { Actividad } from "@/domain/entities/Actividad";
+import { Recurso } from "@/domain/entities/Recurso";
 import { useIncomingMessages } from "@/hooks/useIncomingMessages";
 import { useMisiones } from "@/hooks/useMisiones";
 import { useUsuarioId } from "@/hooks/useUsuarioId";
@@ -142,6 +143,8 @@ function DashboardAdmin() {
   const [showAgregarRecursoModal, setShowAgregarRecursoModal] = useState(false);
   const [showMisionDetalles, setShowMisionDetalles] = useState(false);
   const [selectedMisionDetalles, setSelectedMisionDetalles] = useState<Mision | null>(null);
+  const [showRecursoDetalles, setShowRecursoDetalles] = useState(false);
+  const [selectedRecursoDetalles, setSelectedRecursoDetalles] = useState<Recurso | null>(null);
 
   // Estado para ventana de editar proyecto (a nivel de página)
   const [editarProyectoData, setEditarProyectoData] = useState<{
@@ -913,6 +916,11 @@ function DashboardAdmin() {
               console.log('Actividad seleccionada:', actividad);
               setSelectedActividadDetalles(actividad);
               setShowActividadDetalles(true);
+            }}
+            onRecursoClick={(recurso) => {
+              console.log('Recurso seleccionado:', recurso);
+              setSelectedRecursoDetalles(recurso);
+              setShowRecursoDetalles(true);
             }}
             onCollapseChange={setAccordionCollapsed}
           />
@@ -1807,6 +1815,69 @@ function DashboardAdmin() {
           refetchActividades();
         }}
       />
+
+      {/* Ventana de detalles de recurso */}
+      <Ventana
+        isOpen={showRecursoDetalles}
+        onClose={() => {
+          setShowRecursoDetalles(false);
+          setSelectedRecursoDetalles(null);
+        }}
+        title={`${selectedRecursoDetalles?.icono || '📄'} ${selectedRecursoDetalles?.nombre || 'Recurso'}`}
+        initialWidth={500}
+        initialHeight={350}
+        minWidth={400}
+        minHeight={300}
+        showOverlay={false}
+      >
+        {selectedRecursoDetalles && (
+          <div className="text-black space-y-4 p-4">
+            {/* Contenido según tipo */}
+            {selectedRecursoDetalles.link?.startsWith('nota://') ? (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Contenido</h3>
+                <div className="bg-gray-100 p-3 rounded-lg">
+                  <p className="text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
+                    {selectedRecursoDetalles.link.replace('nota://', '')}
+                  </p>
+                </div>
+              </div>
+            ) : selectedRecursoDetalles.link ? (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Enlace</h3>
+                <div className="bg-gray-100 p-3 rounded-lg">
+                  <a
+                    href={selectedRecursoDetalles.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline break-all"
+                  >
+                    {selectedRecursoDetalles.link}
+                  </a>
+                </div>
+                <button
+                  onClick={() => window.open(selectedRecursoDetalles?.link || '', '_blank')}
+                  className="mt-3 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                >
+                  🔗 Abrir enlace
+                </button>
+              </div>
+            ) : (
+              <div className="text-gray-500">Sin contenido</div>
+            )}
+
+            {/* Información */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Información</h3>
+              <div className="bg-gray-100 p-3 rounded-lg space-y-1">
+                <p className="text-gray-600 text-sm">
+                  <strong>Creado:</strong> {new Date(selectedRecursoDetalles.created_at).toLocaleString('es-ES')}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Ventana>
 
       {/* Ventana para editar proyecto (a nivel de página) */}
       <VentanaEditarProyecto
