@@ -29,6 +29,7 @@ export interface SyncCardsParams {
   usuario: Usuario | null;
   isViewingOtherUser: boolean;
   onUpdatePastedImages?: (cardId: string, imageUrl: string) => void;
+  onCardReady?: (card: Card) => void; // Callback para carga progresiva
 }
 
 /**
@@ -467,97 +468,102 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
  * 4. Retorna array completo de cards enriquecidas
  */
 export async function syncCardsFromDB(params: SyncCardsParams): Promise<Card[]> {
-  const { cardsDB, usuario, onUpdatePastedImages } = params;
+  const { cardsDB, usuario, onUpdatePastedImages, onCardReady } = params;
 
-  const mappedCards: Card[] = [];
+  console.log('🔄 [CARD-SYNC] Procesando', cardsDB.length, 'cards desde Supabase (carga progresiva)');
 
-  console.log('🔄 [CARD-SYNC] Procesando', cardsDB.length, 'cards desde Supabase');
-  console.log('🔍 DEBUG TD [syncCardsFromDB] Cards de tipo TODO:', cardsDB.filter(c => c.type === 'todo').length);
+  // FASE 1: Mapear todos los cards básicos inmediatamente
+  const basicCards: Card[] = cardsDB.map(cardDB => mapCardDBToCard(cardDB));
 
-  for (const cardDB of cardsDB) {
-    console.log(`📝 [CARD-SYNC] Procesando card tipo="${cardDB.type}" id="${cardDB.id}" card_id="${cardDB.card_id}"`);
-
-    const card = mapCardDBToCard(cardDB);
-    console.log('🔍 DEBUG TD [syncCardsFromDB] Después de mapCardDBToCard, card.todos:', card.todos);
-
-    // Cargar datos específicos según el tipo de card
-    switch (cardDB.type) {
-      case 'mision':
-        console.log('🎯 [CARD-SYNC] Entrando a case mision para card:', cardDB.card_id);
-        await loadMisionData(cardDB, card);
-        break;
-
-      case 'mision-organizacion':
-        console.log('🏢 [CARD-SYNC] Entrando a case mision-organizacion para card:', cardDB.card_id);
-        await loadMisionData(cardDB, card);
-        break;
-
-      case 'actividad':
-        await loadActividadData(cardDB, card, usuario);
-        break;
-
-      case 'usuario':
-        await loadUsuarioData(cardDB, card);
-        break;
-
-      case 'todo':
-        console.log('🎯 DEBUG TD [syncCardsFromDB] Entrando a case "todo" para card:', cardDB.card_id);
-        await loadTodoData(cardDB, card);
-        console.log('🎯 DEBUG TD [syncCardsFromDB] Después de loadTodoData, card.todos:', card.todos);
-        break;
-
-      case 'image':
-        await loadImageData(cardDB, card, onUpdatePastedImages);
-        break;
-
-      case 'proyecto':
-      case 'proyecto-organizacion':
-        await loadProyectoData(cardDB, card);
-        break;
-    }
-
-    // BUGFIX (debug recarga): Clonar el objeto card para forzar que React detecte cambios
-    // Esto es especialmente importante para cards tipo 'todo' donde card.todos se modifica después de mapCardDBToCard
-    const clonedCard = { ...card };
-    if (card.todos) {
-      clonedCard.todos = [...card.todos];
-      console.log('🔍 DEBUG TD [syncCardsFromDB] Clonando card.todos:', {
-        cardId: card.id,
-        originalLength: card.todos.length,
-        clonedLength: clonedCard.todos.length
-      });
-    }
-    if (card.misionData) {
-      clonedCard.misionData = { ...card.misionData };
-    }
-    if (card.activityData) {
-      clonedCard.activityData = { ...card.activityData };
-    }
-    if (card.usuarioData) {
-      clonedCard.usuarioData = { ...card.usuarioData };
-      if (card.usuarioData.messages) {
-        clonedCard.usuarioData.messages = [...card.usuarioData.messages];
-      }
-    }
-    if (card.proyectoData) {
-      clonedCard.proyectoData = { ...card.proyectoData };
-      if (card.proyectoData.notas) {
-        clonedCard.proyectoData.notas = [...card.proyectoData.notas];
-      }
-    }
-
-    console.log('🔍 DEBUG TD [syncCardsFromDB] Card antes de push a mappedCards:', {
-      cardId: clonedCard.id,
-      type: clonedCard.type,
-      hasTodos: !!clonedCard.todos,
-      todosLength: clonedCard.todos?.length || 0
-    });
-
-    mappedCards.push(clonedCard);
+  // Si hay callback de carga progresiva, notificar todos los cards básicos
+  if (onCardReady) {
+    basicCards.forEach(card => onCardReady(card));
   }
 
-  console.log('✅ [CARD-SYNC] Total cards mapeadas:', mappedCards.length);
-  return mappedCards;
+  // FASE 2: Cargar datos específicos en paralelo (en background)
+  const loadPromises = cardsDB.map(async (cardDB, index) => {
+    const card = basicCards[index];
+
+    try {
+      // Cargar datos específicos según el tipo de card
+      switch (cardDB.type) {
+        case 'mision':
+        case 'mision-organizacion':
+          await loadMisionData(cardDB, card);
+          break;
+
+        case 'actividad':
+          await loadActividadData(cardDB, card, usuario);
+          break;
+
+        case 'usuario':
+          await loadUsuarioData(cardDB, card);
+          break;
+
+        case 'todo':
+          await loadTodoData(cardDB, card);
+          break;
+
+        case 'image':
+          await loadImageData(cardDB, card, onUpdatePastedImages);
+          break;
+
+        case 'proyecto':
+        case 'proyecto-organizacion':
+          await loadProyectoData(cardDB, card);
+          break;
+      }
+
+      // Notificar card actualizado con datos completos
+      if (onCardReady) {
+        const clonedCard = cloneCard(card);
+        onCardReady(clonedCard);
+      }
+    } catch (error) {
+      console.error(`❌ [CARD-SYNC] Error cargando datos de card ${cardDB.card_id}:`, error);
+    }
+
+    return card;
+  });
+
+  // Esperar a que todas las cargas terminen
+  await Promise.all(loadPromises);
+
+  // Retornar cards con datos completos (clonados para React)
+  const finalCards = basicCards.map(card => cloneCard(card));
+  console.log('✅ [CARD-SYNC] Total cards cargadas:', finalCards.length);
+  return finalCards;
+}
+
+/**
+ * Clona un card para forzar que React detecte cambios
+ */
+function cloneCard(card: Card): Card {
+  const clonedCard = { ...card };
+
+  if (card.todos) {
+    clonedCard.todos = [...card.todos];
+  }
+  if (card.misionData) {
+    clonedCard.misionData = { ...card.misionData };
+  }
+  if (card.activityData) {
+    clonedCard.activityData = { ...card.activityData };
+  }
+  if (card.usuarioData) {
+    clonedCard.usuarioData = { ...card.usuarioData };
+    if (card.usuarioData.messages) {
+      clonedCard.usuarioData.messages = [...card.usuarioData.messages];
+    }
+  }
+  if (card.proyectoData) {
+    clonedCard.proyectoData = { ...card.proyectoData };
+    if (card.proyectoData.notas) {
+      clonedCard.proyectoData.notas = [...card.proyectoData.notas];
+    }
+  }
+
+  return clonedCard;
 }
 
 /**

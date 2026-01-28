@@ -34,6 +34,7 @@ import { handleActivityPlayPause, handleMisionPlayPause } from './pizarra-functi
 import PizarraPermissionRequests from '@/app/components/PizarraPermissionRequests';
 import { ToastProvider, useToastContext } from './contexts/ToastContext';
 import { useTodoMisionSync, emitTodoActualizado } from './hooks/useTodoMisionSync';
+import { useVisibleCards } from './hooks/useVisibleCards';
 
 // Componente interno que usa el ToastContext
 const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, onOpenEditarProyecto, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
@@ -260,9 +261,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         return;
       }
 
-      console.log('🔄 [PIZARRA] Iniciando sincronización de cards desde Supabase...');
+      console.log('🔄 [PIZARRA] Iniciando sincronización progresiva de cards desde Supabase...');
 
-      // Sincronizar cards desde DB
+      // Sincronizar cards desde DB con carga progresiva
       const mappedCards = await syncCardsFromDB({
         cardsDB: cardsDB!,
         usuario,
@@ -272,17 +273,26 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
             ...prev,
             [cardId]: imageUrl
           }));
+        },
+        // Callback para carga progresiva - actualiza cards a medida que se cargan
+        onCardReady: (card) => {
+          setCards(prevCards => {
+            const existingIndex = prevCards.findIndex(c => c.id === card.id);
+            if (existingIndex >= 0) {
+              // Actualizar card existente con datos completos
+              const newCards = [...prevCards];
+              newCards[existingIndex] = card;
+              return newCards;
+            } else {
+              // Agregar nuevo card
+              return [...prevCards, card];
+            }
+          });
         }
       });
 
       const logPrefix = isViewingOtherUser ? '[PIZARRA COMPARTIDA]' : '[PIZARRA SYNC]';
       console.log(`✅ ${logPrefix} ${mappedCards.length} cards sincronizadas desde Supabase`);
-      console.log(`🔄 [PIZARRA] Cards ANTES de setCards:`, cards.length);
-      console.log(`🔄 [PIZARRA] Cards DESPUÉS de syncCardsFromDB:`, mappedCards.length);
-
-      setCards(mappedCards);
-
-      console.log(`✅ [PIZARRA] setCards() ejecutado con ${mappedCards.length} cards`);
 
       // Marcar como inicializado después de la primera sincronización
       if (!isInitialized) {
@@ -439,6 +449,15 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     handleMouseUp: panHandleMouseUp,
     setCanvasRef
   } = useCanvasPan(isConnecting, zoomLevel);
+
+  // Hook para lazy loading de cards - solo renderiza cards visibles en el viewport
+  const { visibleCards, visibleCount, totalCards } = useVisibleCards(
+    cards,
+    panOffset,
+    zoomLevel,
+    canvasRef,
+    { bufferMargin: 400 } // Margen de 400px para pre-cargar cards cercanos
+  );
 
   // Cargar pan offset desde localStorage después de que la pizarra esté inicializada
   useEffect(() => {
@@ -3482,7 +3501,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
             </div>
           )}
 
-          {cards.map(card => (
+          {/* Lazy loading: solo renderiza cards visibles en el viewport */}
+          {visibleCards.map(card => (
             <CardWrapperComponent
               key={card.id}
               card={card}
