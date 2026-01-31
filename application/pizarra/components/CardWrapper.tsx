@@ -68,6 +68,7 @@ interface CardWrapperProps {
     initialData: { nombre: string; descripcion: string; icono: string | null; github_url: string; sitio_web_url: string; tecnologias: string[] },
     onRefresh?: () => void
   ) => void;
+  onTogglePersistent?: (cardId: string, isPersistent: boolean) => void;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -164,6 +165,16 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         openEditarProyecto={props.openEditarProyecto}
       />
 
+      {/* Indicador de card persistente */}
+      {card.isPersistent && (
+        <div
+          className="absolute -top-2 left-1/2 transform -translate-x-1/2 px-2 py-0.5 bg-amber-500 rounded-full shadow-md z-20"
+          title="Esta card aparece en todas tus pizarras"
+        >
+          <span className="text-xs text-white">📌</span>
+        </div>
+      )}
+
       {/* Connection point */}
       {(props.hoveredCard === card.id || props.isConnecting) && (
         <div
@@ -200,6 +211,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
           onChangeFontSize={props.changeFontSize}
           onEditTitle={props.setEditingTitle}
           onDeleteCard={() => props.setConfirmDelete(card.id)}
+          onTogglePersistent={props.onTogglePersistent}
         />
       )}
 

@@ -47,35 +47,29 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
         const fromEdge = getCardEdgePoint(fromCard, toCenterX, toCenterY);
         const toEdge = getCardEdgePoint(toCard, fromEdge.x, fromEdge.y);
 
-        // Position delete button at arrow start point
-        const deleteX = fromEdge.x;
-        const deleteY = fromEdge.y;
-
-        // Detectar la dirección de la flecha para posicionar el botón correctamente
+        // Calcular la longitud y dirección de la línea
         const deltaX = toEdge.x - fromEdge.x;
         const deltaY = toEdge.y - fromEdge.y;
-        const isPointingLeft = deltaX < 0; // Flecha apunta hacia la izquierda
-        const isPointingUp = deltaY < 0; // Flecha apunta hacia arriba
+        const lineLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-        // Calcular el ángulo de la flecha para determinar la dirección predominante
-        const angle = Math.atan2(Math.abs(deltaY), Math.abs(deltaX)) * (180 / Math.PI);
-        const isMoreVertical = angle > 45; // Si el ángulo es > 45°, la flecha es más vertical que horizontal
+        // Vector unitario de la dirección
+        const unitX = deltaX / lineLength;
+        const unitY = deltaY / lineLength;
 
-        // Calcular el ángulo desde el destino hacia el origen (para rotar la flecha del botón)
+        // Calcular ángulos para rotar las flechas de navegación
         const angleToOrigin = Math.atan2(fromEdge.y - toEdge.y, fromEdge.x - toEdge.x) * (180 / Math.PI);
+        const angleToDestination = Math.atan2(toEdge.y - fromEdge.y, toEdge.x - fromEdge.x) * (180 / Math.PI);
 
-        // Ajustar posición del botón según la dirección
-        let navButtonX, navButtonY;
+        // Posicionar botones a lo largo de la línea, un poco adentro desde cada extremo
+        const offsetFromEdge = 25; // Distancia desde el borde hacia el centro de la línea
 
-        if (isMoreVertical) {
-          // Flecha principalmente vertical - colocar botón a un lado
-          navButtonX = toEdge.x + (isPointingLeft ? 5 : -22);
-          navButtonY = isPointingUp ? toEdge.y + 5 : toEdge.y - 22;
-        } else {
-          // Flecha principalmente horizontal
-          navButtonX = isPointingLeft ? toEdge.x + 5 : toEdge.x - 22;
-          navButtonY = toEdge.y - 10; // Centrado verticalmente
-        }
+        // Botones en el ORIGEN: un poco adentro desde fromEdge hacia toEdge
+        const originButtonsX = fromEdge.x + (unitX * offsetFromEdge) - 22;
+        const originButtonsY = fromEdge.y + (unitY * offsetFromEdge) - 10;
+
+        // Botón en el DESTINO: un poco adentro desde toEdge hacia fromEdge
+        const destButtonX = toEdge.x - (unitX * offsetFromEdge) - 10;
+        const destButtonY = toEdge.y - (unitY * offsetFromEdge) - 10;
 
         return (
           <g
@@ -114,30 +108,50 @@ export const ConnectionLines: React.FC<ConnectionLinesProps> = ({
             {/* Buttons - only visible on hover */}
             {hoveredConnection === connection.id && (
               <>
-                {/* Delete button at arrow start */}
+                {/* Grupo de botones en el ORIGEN: eliminar + navegar al destino */}
                 <foreignObject
-                  x={deleteX - 5}
-                  y={deleteY - 7}
-                  width="20"
+                  x={originButtonsX}
+                  y={originButtonsY}
+                  width="45"
                   height="20"
                   className="pointer-events-auto"
                 >
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      deleteConnection(connection.id);
-                    }}
-                    className="w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs transition-colors shadow-lg"
-                    title="Eliminar conexión"
-                  >
-                    ×
-                  </button>
+                  <div className="flex gap-1">
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteConnection(connection.id);
+                      }}
+                      className="w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs transition-colors shadow-lg"
+                      title="Eliminar conexión"
+                    >
+                      ×
+                    </button>
+                    {/* Navigate to destination button */}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (navigateToCard && connection.to) {
+                          navigateToCard(connection.to);
+                        }
+                      }}
+                      className="w-5 h-5 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-xs transition-colors shadow-lg"
+                      style={{
+                        transform: `rotate(${angleToDestination}deg)`
+                      }}
+                      title="Navegar al destino"
+                    >
+                      →
+                    </button>
+                  </div>
                 </foreignObject>
-                {/* Navigate button to origin - at destination point */}
+                {/* Botón en el DESTINO: navegar al origen */}
                 <foreignObject
-                  x={navButtonX}
-                  y={navButtonY}
+                  x={destButtonX}
+                  y={destButtonY}
                   width="20"
                   height="20"
                   className="pointer-events-auto"

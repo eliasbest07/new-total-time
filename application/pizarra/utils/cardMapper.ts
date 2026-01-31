@@ -14,7 +14,8 @@ export function mapCardDBToCard(cardDB: CardDB): Card {
     y: Number(cardDB.y),
     width: Number(cardDB.width),
     height: Number(cardDB.height),
-    fontSize: cardDB.font_size
+    fontSize: cardDB.font_size,
+    isPersistent: cardDB.is_persistent || false
   };
 
   // BUGFIX (debug recarga): Inicializar todos como array vacío para cards de tipo 'todo'

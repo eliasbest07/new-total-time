@@ -107,6 +107,7 @@ export interface Card {
   proyectoData?: ProyectoData;
   recursoData?: RecursoData;
   imageUrl?: string; // URL de la imagen guardada en Supabase Storage
+  isPersistent?: boolean; // Si es true, aparece en todas las pizarras del usuario
 }
 
 export interface Connection {

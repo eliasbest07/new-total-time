@@ -90,7 +90,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }, [isOrganizacionPizarra, pizarraOrganizacion, pizarra, pizarraActual, effectiveUserId]);
 
   // Usar useCards con el ID de la pizarra actual (organización o personal)
-  const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB } = useCards(
+  const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB, togglePersistent } = useCards(
     pizarraActual?.id || null,
     usuario?.userAuth || null, // Mantenido por compatibilidad
     effectiveUserId // Mantenido por compatibilidad
@@ -1236,6 +1236,18 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       onOpenUserChat(userData);
     }
   }, [onOpenUserChat]);
+
+  // Función para toggle persistencia de una card
+  const handleTogglePersistent = useCallback(async (cardId: string, isPersistent: boolean) => {
+    const resultado = await togglePersistent(cardId, isPersistent);
+    if (resultado) {
+      // Actualizar el estado local de cards
+      setCards(prev => prev.map(c =>
+        c.id === cardId ? { ...c, isPersistent } : c
+      ));
+      console.log(`📌 Card ${cardId} ${isPersistent ? 'persistida' : 'despersistida'}`);
+    }
+  }, [togglePersistent]);
 
   // Helper: Calcular el siguiente z-index para que el nuevo card aparezca encima de todos
   const getNextZIndex = useCallback(() => {
@@ -3556,6 +3568,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
               idPizarra={pizarraActual?.id || null}
               readOnly={readOnly || isViewingOtherUser}
               openEditarProyecto={onOpenEditarProyecto}
+              onTogglePersistent={handleTogglePersistent}
             />
           ))}
         </div>

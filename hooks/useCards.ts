@@ -13,12 +13,14 @@ interface UseCardsReturn {
   updateCardPosition: (cardId: string, x: number, y: number) => Promise<CardDB | null>;
   updateCardSize: (cardId: string, width: number, height: number) => Promise<CardDB | null>;
   deleteAllCards: () => Promise<boolean>;
+  togglePersistent: (cardId: string, isPersistent: boolean) => Promise<boolean>;
   refetch: () => Promise<void>;
 }
 
 /**
  * Hook para cargar y gestionar las cards de una pizarra.
  * Incluye suscripción en tiempo real a cambios.
+ * También carga cards persistentes del usuario de otras pizarras.
  * @param idPizarra - ID de la pizarra
  * @param currentUserId - ID del usuario actual (quien hace los cambios) - opcional
  * @param pizarraOwnerId - ID del dueño de la pizarra - opcional
@@ -33,7 +35,7 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
   // Nota: El envío de mensajes de actualización se maneja en saveToSupabase de pizarra.tsx
   // Los parámetros currentUserId y pizarraOwnerId se mantienen por compatibilidad pero no se usan aquí
 
-  // Función para cargar las cards
+  // Función para cargar las cards (incluye persistentes de otras pizarras)
   const loadCards = useCallback(async () => {
     if (!idPizarra) {
       // console.log('⚠️ Sin ID de pizarra, no se pueden cargar cards');
@@ -46,10 +48,28 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
     setError(null);
 
     try {
-      // console.log('🃏 Cargando cards de pizarra:', idPizarra);
+      // Cargar cards de la pizarra actual
       const cardsData = await cardRepository.current.getCardsByPizarra(idPizarra);
-      setCards(cardsData);
-      // console.log('✅ Cards cargadas exitosamente:', cardsData.length);
+      console.log(`🃏 Cards de pizarra actual: ${cardsData.length}`);
+
+      // Cargar cards persistentes de otras pizarras del usuario
+      let allCards = cardsData;
+      console.log(`🔍 currentUserId para buscar persistentes: ${currentUserId}`);
+      if (currentUserId) {
+        const persistentCards = await cardRepository.current.getPersistentCardsByUser(currentUserId, idPizarra);
+        console.log(`📌 Cards persistentes encontradas: ${persistentCards.length}`);
+        if (persistentCards.length > 0) {
+          // Combinar cards, evitando duplicados por card_id
+          const existingCardIds = new Set(cardsData.map(c => c.card_id));
+          const uniquePersistentCards = persistentCards.filter(c => !existingCardIds.has(c.card_id));
+          allCards = [...cardsData, ...uniquePersistentCards];
+          console.log(`📌 Cargadas ${uniquePersistentCards.length} cards persistentes de otras pizarras`);
+        }
+      } else {
+        console.log('⚠️ No hay currentUserId, no se buscan cards persistentes');
+      }
+
+      setCards(allCards);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar cards';
       console.error('❌ Error cargando cards:', errorMessage);
@@ -57,7 +77,7 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
     } finally {
       setLoading(false);
     }
-  }, [idPizarra]);
+  }, [idPizarra, currentUserId]);
 
   // Función para crear una card
   const createCard = useCallback(async (card: CreateCardDTO): Promise<CardDB | null> => {
@@ -153,6 +173,30 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
     }
   }, [idPizarra]);
 
+  // Función para toggle persistencia de una card
+  const togglePersistent = useCallback(async (cardId: string, isPersistent: boolean): Promise<boolean> => {
+    if (!idPizarra) {
+      console.log('⚠️ No hay idPizarra para toggle persistent');
+      return false;
+    }
+
+    try {
+      console.log(`📌 Intentando ${isPersistent ? 'persistir' : 'despersistir'} card: ${cardId} en pizarra: ${idPizarra}`);
+      const resultado = await cardRepository.current.togglePersistent(idPizarra, cardId, isPersistent);
+      console.log(`📌 Resultado de togglePersistent: ${resultado}`);
+      if (resultado) {
+        // Actualizar el estado local
+        setCards(prev => prev.map(c =>
+          c.card_id === cardId ? { ...c, is_persistent: isPersistent } : c
+        ));
+      }
+      return resultado;
+    } catch (err) {
+      console.error('❌ Error actualizando persistencia:', err);
+      return false;
+    }
+  }, [idPizarra]);
+
   // Cargar cards inicialmente
   useEffect(() => {
     loadCards();
@@ -213,6 +257,7 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
     updateCardPosition,
     updateCardSize,
     deleteAllCards,
+    togglePersistent,
     refetch: loadCards
   };
 };

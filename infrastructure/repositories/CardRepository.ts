@@ -24,4 +24,10 @@ export interface CardRepository {
 
   // Eliminar todas las cards de una pizarra
   deleteAllCards(idPizarra: string): Promise<boolean>;
+
+  // Toggle persistencia de una card
+  togglePersistent(idPizarra: string, cardId: string, isPersistent: boolean): Promise<boolean>;
+
+  // Obtener cards persistentes de un usuario (excluyendo la pizarra actual)
+  getPersistentCardsByUser(userId: string, excludePizarraId: string): Promise<CardDB[]>;
 }

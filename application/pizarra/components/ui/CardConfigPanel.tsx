@@ -9,6 +9,7 @@ interface CardConfigPanelProps {
   onChangeFontSize: (cardId: string, increment: number) => void;
   onEditTitle: (cardId: string) => void;
   onDeleteCard: (cardId: string) => void;
+  onTogglePersistent?: (cardId: string, isPersistent: boolean) => void;
 }
 
 export const CardConfigPanel: React.FC<CardConfigPanelProps> = ({
@@ -18,7 +19,8 @@ export const CardConfigPanel: React.FC<CardConfigPanelProps> = ({
   onOpenConfig,
   onChangeFontSize,
   onEditTitle,
-  onDeleteCard
+  onDeleteCard,
+  onTogglePersistent
 }) => {
   return (
     <div
@@ -83,6 +85,24 @@ export const CardConfigPanel: React.FC<CardConfigPanelProps> = ({
           >
             ✏️ Editar título
           </button>
+
+          {/* Botón persistir */}
+          {onTogglePersistent && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onTogglePersistent(card.id, !card.isPersistent);
+              }}
+              className={`w-full px-2 py-1 rounded text-xs mb-2 ${
+                card.isPersistent
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500 text-white'
+              }`}
+            >
+              {card.isPersistent ? '📌 Quitar persistencia' : '📌 Persistir'}
+            </button>
+          )}
 
           {/* Botón eliminar */}
           <button

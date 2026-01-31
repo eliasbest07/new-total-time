@@ -222,4 +222,84 @@ export class SupabaseCardRepository implements CardRepository {
       return false;
     }
   }
+
+  /**
+   * Toggle persistencia de una card
+   */
+  async togglePersistent(idPizarra: string, cardId: string, isPersistent: boolean): Promise<boolean> {
+    try {
+      console.log(`📌 [Repo] Toggle persistent: pizarra=${idPizarra}, card=${cardId}, persistent=${isPersistent}`);
+      const { data, error } = await supabase
+        .from('cards')
+        .update({
+          is_persistent: isPersistent,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id_pizarra', idPizarra)
+        .eq('card_id', cardId)
+        .select();
+
+      if (error) {
+        console.error('❌ Error actualizando persistencia:', error);
+        return false;
+      }
+
+      console.log(`📌 [Repo] Resultado update:`, data);
+      return true;
+    } catch (error) {
+      console.error('❌ Error en togglePersistent:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Obtener cards persistentes de un usuario (excluyendo la pizarra actual)
+   */
+  async getPersistentCardsByUser(userId: string, excludePizarraId: string): Promise<CardDB[]> {
+    try {
+      console.log(`🔍 Buscando pizarras del usuario: ${userId}`);
+      // Primero obtener las pizarras del usuario
+      const { data: pizarras, error: pizarrasError } = await supabase
+        .from('pizarras')
+        .select('id')
+        .eq('id_usuario', userId);
+
+      if (pizarrasError || !pizarras) {
+        console.error('❌ Error obteniendo pizarras del usuario:', pizarrasError);
+        return [];
+      }
+
+      console.log(`🔍 Pizarras encontradas: ${pizarras.length}`, pizarras.map(p => p.id));
+
+      // Obtener IDs de pizarras excluyendo la actual
+      const pizarraIds = pizarras
+        .map(p => p.id)
+        .filter(id => id !== excludePizarraId);
+
+      console.log(`🔍 Pizarras (excluyendo actual ${excludePizarraId}): ${pizarraIds.length}`);
+
+      if (pizarraIds.length === 0) {
+        console.log('⚠️ No hay otras pizarras para buscar cards persistentes');
+        return [];
+      }
+
+      // Obtener cards persistentes de esas pizarras
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .in('id_pizarra', pizarraIds)
+        .eq('is_persistent', true);
+
+      if (error) {
+        console.error('❌ Error obteniendo cards persistentes:', error);
+        return [];
+      }
+
+      console.log(`📌 Cards persistentes encontradas en BD: ${data?.length || 0}`);
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error en getPersistentCardsByUser:', error);
+      return [];
+    }
+  }
 }

@@ -15,6 +15,7 @@ export interface CardDB {
   height: number;
   font_size: number;
   z_index: number;
+  is_persistent: boolean; // Si es true, aparece en todas las pizarras del usuario
   created_at: string; // timestamp
   updated_at: string; // timestamp
 }
