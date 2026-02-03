@@ -29,7 +29,7 @@ export const getCardIcon = (type: string): string => {
 
 export const getCardStyle = (type: string): string => {
   const baseStyle = "absolute rounded-lg shadow-lg border-2 p-2 cursor-move transition-colors duration-200 select-none";
-  const baseStyleNoPadding = "absolute rounded-lg shadow-lg cursor-move transition-colors duration-200 select-none overflow-hidden";
+  const baseStyleNoPadding = "absolute rounded-lg shadow-lg cursor-move transition-colors duration-200 select-none";
 
   switch (type) {
     case 'file':

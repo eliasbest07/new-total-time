@@ -30,7 +30,6 @@ export const ImageCard: React.FC<ImageCardProps> = ({
   };
 
   return (
-    <>
     <div className="flex flex-col h-full w-full p-2">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2 flex-shrink-0">
@@ -62,12 +61,11 @@ export const ImageCard: React.FC<ImageCardProps> = ({
         )}
       </div>
 
-      {/* Imagen */}
+      {/* Imagen - ocupa el espacio restante */}
       <div
-        className="flex-1 rounded-lg overflow-hidden border-2 border-pink-200 bg-pink-50 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+        className="flex-1 rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
         onClick={handleImageClick}
         onMouseDown={(e) => {
-          // Prevenir completamente que el card se mueva
           e.stopPropagation();
           e.preventDefault();
         }}
@@ -84,10 +82,12 @@ export const ImageCard: React.FC<ImageCardProps> = ({
           <img
             src={imageUrl}
             alt={card.title}
-            className="w-full h-full object-contain pointer-events-none"
+            className="w-full h-full object-fill pointer-events-none"
           />
         ) : (
-          <div className="text-pink-400 text-4xl">🖼️</div>
+          <div className="h-full w-full bg-pink-50 flex items-center justify-center">
+            <div className="text-pink-400 text-4xl">🖼️</div>
+          </div>
         )}
       </div>
 
@@ -96,6 +96,5 @@ export const ImageCard: React.FC<ImageCardProps> = ({
         {card.content}
       </div>
     </div>
-    </>
   );
 };

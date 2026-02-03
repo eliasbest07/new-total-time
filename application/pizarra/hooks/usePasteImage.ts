@@ -52,6 +52,74 @@ export const usePasteImage = (
           console.log('✅ [PIZARRA PASTE] Blob obtenido, creando URL temporal');
           const imageUrl = URL.createObjectURL(blob);
 
+          // Cargar la imagen para obtener sus dimensiones reales
+          const img = new Image();
+
+          const dimensions = await new Promise<{width: number, height: number}>((resolve) => {
+            img.onload = () => {
+              console.log('🖼️ [PASTE] Imagen cargada:', {
+                naturalWidth: img.naturalWidth,
+                naturalHeight: img.naturalHeight,
+                width: img.width,
+                height: img.height
+              });
+              resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            };
+            img.onerror = () => {
+              console.log('❌ [PASTE] Error cargando imagen');
+              resolve({ width: 300, height: 200 });
+            };
+            img.src = imageUrl;
+          });
+
+          console.log('📐 [PASTE] Dimensiones obtenidas:', dimensions);
+
+          // Calcular dimensiones manteniendo aspect ratio
+          const MAX_WIDTH = 500;
+          const MAX_HEIGHT = 400;
+          const MIN_WIDTH = 150;
+          const MIN_HEIGHT = 120;
+
+          const naturalWidth = dimensions.width;
+          const naturalHeight = dimensions.height;
+
+          console.log('📐 [PASTE] Usando dimensiones:', { naturalWidth, naturalHeight, aspectRatio: naturalWidth / naturalHeight });
+          const aspectRatio = naturalWidth / naturalHeight;
+
+          // Calcular tamaño base de la imagen
+          let imageWidth = naturalWidth;
+          let imageHeight = naturalHeight;
+
+          // Escalar si es muy grande
+          if (imageWidth > MAX_WIDTH || imageHeight > MAX_HEIGHT) {
+            const scaleW = MAX_WIDTH / imageWidth;
+            const scaleH = MAX_HEIGHT / imageHeight;
+            const scale = Math.min(scaleW, scaleH);
+            imageWidth = Math.round(imageWidth * scale);
+            imageHeight = Math.round(imageHeight * scale);
+          }
+
+          // Asegurar tamaño mínimo
+          if (imageWidth < MIN_WIDTH) {
+            imageWidth = MIN_WIDTH;
+            imageHeight = Math.round(imageWidth / aspectRatio);
+          }
+          if (imageHeight < MIN_HEIGHT) {
+            imageHeight = MIN_HEIGHT;
+            imageWidth = Math.round(imageHeight * aspectRatio);
+          }
+
+          // Card = imagen + espacio para header/footer/padding
+          // Header (~30px) + timestamp (~20px) + padding vertical (16px) + barra superior (8px)
+          const EXTRA_HEIGHT = 74;
+          // Padding horizontal del card (16px)
+          const EXTRA_WIDTH = 16;
+
+          const cardWidth = imageWidth + EXTRA_WIDTH;
+          const cardHeight = imageHeight + EXTRA_HEIGHT;
+
+          console.log('📐 [PASTE] Cálculo final:', { imageWidth, imageHeight, cardWidth, cardHeight });
+
           // Calcular el siguiente z-index para que aparezca encima de todos
           const maxZIndex = cards.length === 0 ? 0 : Math.max(...cards.map(card => card.zIndex || 0));
           const nextZIndex = maxZIndex + 1;
@@ -62,8 +130,8 @@ export const usePasteImage = (
           // Calcular el centro de la vista actual
           const canvasWidth = canvasRef.current?.clientWidth || window.innerWidth;
           const canvasHeight = canvasRef.current?.clientHeight || window.innerHeight;
-          const centerX = -panOffset.x + (canvasWidth / 2) - 150; // -150 para centrar el card de 300px de ancho
-          const centerY = -panOffset.y + (canvasHeight / 2) - 100; // -100 para centrar el card de 200px de alto
+          const centerX = -panOffset.x + (canvasWidth / 2) - (cardWidth / 2);
+          const centerY = -panOffset.y + (canvasHeight / 2) - (cardHeight / 2);
 
           const newCard: Card = {
             id: generateUniqueId('image', existingIds),
@@ -72,13 +140,16 @@ export const usePasteImage = (
             content: `Pegada: ${new Date().toLocaleTimeString()}`,
             x: centerX,
             y: centerY,
-            width: 300,
-            height: 200,
+            width: cardWidth,
+            height: cardHeight,
             fontSize: 14,
             zIndex: nextZIndex
           };
 
-          console.log('🖼️ [PIZARRA PASTE] Card creada:', newCard);
+          console.log('🖼️ [PIZARRA PASTE] Card creada con aspect ratio:', {
+            original: `${img.naturalWidth}x${img.naturalHeight}`,
+            card: `${cardWidth}x${cardHeight}`
+          });
 
           // Mostrar la imagen inmediatamente con la URL temporal
           setPastedImages(prev => ({
