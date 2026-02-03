@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useScreenshots } from '@/hooks/useScreenshots';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useSettings } from '@/app/contexts/SettingsContext';
@@ -157,6 +158,19 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
   // Estado para ventanas de imágenes independientes
   const [imageWindows, setImageWindows] = useState<ImageWindow[]>([]);
+
+  // Estado para modal de descripción completa
+  const [descriptionModal, setDescriptionModal] = useState<{ title: string; description: string } | null>(null);
+
+  // Función para abrir modal de descripción
+  const openDescriptionModal = useCallback((title: string, description: string) => {
+    setDescriptionModal({ title, description });
+  }, []);
+
+  // Función para cerrar modal de descripción
+  const closeDescriptionModal = useCallback(() => {
+    setDescriptionModal(null);
+  }, []);
 
   // Función para abrir una ventana de imagen
   const openImageWindow = useCallback(async (imageUrl: string, title: string) => {
@@ -1267,6 +1281,40 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   const addNoteCard = useCallback((text: string, position?: { x: number; y: number }) => {
     const existingIds = cards.map(card => card.id);
 
+    // Calcular tamaño basado en el texto
+    const textLength = text.length;
+    const lines = text.split('\n');
+    const numLines = lines.length;
+    const longestLine = Math.max(...lines.map(l => l.length));
+
+    let cardWidth: number;
+    let cardHeight: number;
+
+    if (textLength <= 30) {
+      // Texto muy corto
+      cardWidth = 120;
+      cardHeight = 80;
+    } else if (textLength <= 80) {
+      // Texto corto
+      cardWidth = Math.min(180, longestLine * 7 + 30);
+      cardHeight = 90;
+    } else if (textLength <= 200) {
+      // Texto mediano
+      cardWidth = Math.min(250, Math.max(150, longestLine * 6 + 30));
+      const estLines = Math.ceil(textLength / 30) + numLines - 1;
+      cardHeight = Math.min(300, 60 + estLines * 20);
+    } else {
+      // Texto largo
+      cardWidth = Math.min(350, Math.max(200, longestLine * 5 + 30));
+      const charsPerLine = Math.floor((cardWidth - 30) / 7);
+      const estLines = lines.reduce((total, line) => {
+        return total + Math.max(1, Math.ceil(line.length / charsPerLine));
+      }, 0);
+      cardHeight = Math.min(450, 60 + estLines * 18);
+    }
+
+
+
     let cardX, cardY;
 
     if (position) {
@@ -1283,8 +1331,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       // Agregar un pequeño offset aleatorio para que no se superpongan
       const randomOffset = () => (Math.random() - 0.5) * 100;
 
-      cardX = centerX + randomOffset() - 100; // -100 para centrar la card (width/2)
-      cardY = centerY + randomOffset() - 60;  // -60 para centrar la card (height/2)
+      cardX = centerX + randomOffset() - (cardWidth / 2);
+      cardY = centerY + randomOffset() - (cardHeight / 2);
     }
 
     const nextZIndex = getNextZIndex();
@@ -1297,9 +1345,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       content: text, // Guardar todo el texto sin cortar
       x: cardX,
       y: cardY,
-      width: 200,
-      height: 120,
-      fontSize: 18,
+      width: cardWidth,
+      height: cardHeight,
+      fontSize: 14,
       zIndex: nextZIndex // Nuevo card aparece encima de todos
     };
 
@@ -1313,6 +1361,18 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
   const addTodoCard = useCallback((text?: string) => {
     const existingIds = cards.map(card => card.id);
+
+    // Calcular tamaño basado en el texto inicial
+    let cardWidth = 280;
+    let cardHeight = 250;
+
+    if (text) {
+      const textLength = text.length;
+      if (textLength > 30) {
+        cardWidth = Math.min(350, 280 + textLength * 1.5);
+        cardHeight = Math.min(350, 250 + Math.ceil(textLength / 25) * 20);
+      }
+    }
 
     // Calcular el centro visible de la pizarra
     const canvasWidth = canvasRef.current?.clientWidth || 1000;
@@ -1331,11 +1391,11 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       type: 'todo',
       title: 'Lista de Tareas',
       content: text ? `Iniciado con: ${text}` : '',
-      x: centerX + randomOffset() - 125, // -125 para centrar la card (width/2)
-      y: centerY + randomOffset() - 100, // -100 para centrar la card (height/2)
-      width: 250,
-      height: 200,
-      fontSize: 18,
+      x: centerX + randomOffset() - (cardWidth / 2),
+      y: centerY + randomOffset() - (cardHeight / 2),
+      width: cardWidth,
+      height: cardHeight,
+      fontSize: 14,
       zIndex: nextZIndex, // Nuevo card aparece encima de todos
       todos: text ? [{ id: 1, text: text, completed: false }] : []
     };
@@ -1406,16 +1466,21 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       const nextZIndex = getNextZIndex();
       const cardId = generateUniqueId('usuario', existingIds);
 
+      // Calcular tamaño basado en el nombre
+      const nameLength = (userData.name || '').length;
+      let cardWidth = Math.max(220, Math.min(300, nameLength * 10 + 100));
+      let cardHeight = 350;
+
       const newCard = {
         id: cardId,
         type: 'usuario',
         title: userData.name || 'Usuario',
         content: `Usuario: ${userData.name}`,
-        x: centerX + randomOffset() - 140,
-        y: centerY + randomOffset() - 200,
-        width: 280,
-        height: 400,
-        fontSize: 18,
+        x: centerX + randomOffset() - (cardWidth / 2),
+        y: centerY + randomOffset() - (cardHeight / 2),
+        width: cardWidth,
+        height: cardHeight,
+        fontSize: 14,
         zIndex: nextZIndex,
         usuarioData: {
           userId: userData.userId,
@@ -1501,15 +1566,34 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       const cardType = isOrganizacion ? 'proyecto-organizacion' : 'proyecto';
       const cardId = generateUniqueId(cardType, existingIds);
 
+      // Calcular tamaño basado en la descripción y tecnologías
+      const desc = proyectoData.descripcion || '';
+      const techs = proyectoData.tecnologias?.length || 0;
+      const descLength = desc.length;
+
+      let cardWidth: number;
+      let cardHeight: number;
+
+      if (descLength <= 50 && techs <= 3) {
+        cardWidth = 280;
+        cardHeight = 350;
+      } else if (descLength <= 150) {
+        cardWidth = 320;
+        cardHeight = 400;
+      } else {
+        cardWidth = 350;
+        cardHeight = Math.min(500, 350 + Math.ceil(descLength / 50) * 20);
+      }
+
       const newCard = {
         id: cardId,
         type: cardType,
         title: proyectoData.nombre || 'Proyecto',
         content: proyectoData.descripcion || `Proyecto: ${proyectoData.nombre}`,
-        x: centerX + randomOffset() - 175,
-        y: centerY + randomOffset() - 250,
-        width: 350,
-        height: 500,
+        x: centerX + randomOffset() - (cardWidth / 2),
+        y: centerY + randomOffset() - (cardHeight / 2),
+        width: cardWidth,
+        height: cardHeight,
         fontSize: 14,
         zIndex: nextZIndex,
         proyectoData: {
@@ -1599,16 +1683,21 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       const nextZIndex = getNextZIndex();
       const cardId = generateUniqueId('resource', existingIds);
 
+      // Calcular tamaño basado en el nombre
+      const nameLength = recursoData.name.length;
+      let cardWidth = Math.max(200, Math.min(320, nameLength * 8 + 80));
+      let cardHeight = 180;
+
       const newCard = {
         id: cardId,
         type: 'resource',
         title: recursoData.name,
         content: `Tipo: ${recursoData.resourceType}`,
-        x: centerX + randomOffset() - 140,
-        y: centerY + randomOffset() - 110,
-        width: 280,
-        height: 220,
-        fontSize: 18,
+        x: centerX + randomOffset() - (cardWidth / 2),
+        y: centerY + randomOffset() - (cardHeight / 2),
+        width: cardWidth,
+        height: cardHeight,
+        fontSize: 14,
         zIndex: nextZIndex,
         recursoData: {
           id: recursoData.id,
@@ -1673,15 +1762,33 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     const nextZIndex = getNextZIndex();
     const newCardId = generateUniqueId('mision-org', existingIds);
 
+    // Calcular tamaño basado en título y descripción
+    const titleLength = (misionData.title || '').length;
+    const descLength = (misionData.description || '').length;
+
+    let cardWidth: number;
+    let cardHeight: number;
+
+    if (descLength <= 50) {
+      cardWidth = 280;
+      cardHeight = 380;
+    } else if (descLength <= 150) {
+      cardWidth = 320;
+      cardHeight = 420;
+    } else {
+      cardWidth = 350;
+      cardHeight = Math.min(500, 380 + Math.ceil(descLength / 50) * 20);
+    }
+
     const newCard = {
       id: newCardId,
       type: 'mision-organizacion',
       title: misionData.title || 'Nuevo Ticket',
       content: misionData.description || '',
-      x: centerX + randomOffset() - 175, // -175 para centrar la card (width/2)
-      y: centerY + randomOffset() - 250, // -250 para centrar la card (height/2)
-      width: 350,
-      height: 500,
+      x: centerX + randomOffset() - (cardWidth / 2),
+      y: centerY + randomOffset() - (cardHeight / 2),
+      width: cardWidth,
+      height: cardHeight,
       fontSize: 14,
       zIndex: nextZIndex, // Nuevo card aparece encima de todos
       misionData: {
@@ -1748,6 +1855,29 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     const newCardId = generateUniqueId('mision', existingIds);
     console.log('🎯 [addMisionCard] Nuevo ID generado:', newCardId, 'zIndex:', nextZIndex);
 
+    // Calcular tamaño basado en título y descripción
+    const descLength = (misionData.description || misionData.title || '').length;
+
+    let cardWidth: number;
+    let cardHeight: number;
+
+    if (descLength <= 50) {
+      cardWidth = 250;
+      cardHeight = 320;
+    } else if (descLength <= 150) {
+      cardWidth = 280;
+      cardHeight = 360;
+    } else {
+      cardWidth = 300;
+      cardHeight = Math.min(450, 320 + Math.ceil(descLength / 50) * 20);
+    }
+
+    // Ajustar posición si no se proporcionó
+    if (!misionData.position) {
+      cardX = cardX - (cardWidth / 2) + 140; // Reajustar al centro
+      cardY = cardY - (cardHeight / 2) + 200;
+    }
+
     const newCard = {
       id: newCardId,
       type: 'mision' as const,
@@ -1755,9 +1885,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       content: `${misionData.hours}h - ${misionData.description || misionData.title}`,
       x: cardX,
       y: cardY,
-      width: 280,
-      height: 400,
-      fontSize: 18,
+      width: cardWidth,
+      height: cardHeight,
+      fontSize: 14,
       zIndex: nextZIndex, // Nuevo card aparece encima de todos
       misionData: {
         title: misionData.title,
@@ -3568,6 +3698,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
               idPizarra={pizarraActual?.id || null}
               readOnly={readOnly || isViewingOtherUser}
               openEditarProyecto={onOpenEditarProyecto}
+              onShowFullDescription={openDescriptionModal}
               onTogglePersistent={handleTogglePersistent}
             />
           ))}
@@ -3598,6 +3729,27 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         )}
 
       </div>
+
+      {/* Modal de descripción completa - Portal para renderizar fuera del contexto de la pizarra */}
+      {descriptionModal && typeof document !== 'undefined' && createPortal(
+        <Ventana
+          isOpen={true}
+          onClose={closeDescriptionModal}
+          title={descriptionModal.title}
+          initialWidth={500}
+          initialHeight={400}
+          minWidth={300}
+          minHeight={200}
+          resizable={true}
+          draggable={true}
+          showOverlay={false}
+        >
+          <div className="w-full h-full p-4 overflow-y-auto bg-white">
+            <p className="text-gray-700 whitespace-pre-wrap">{descriptionModal.description}</p>
+          </div>
+        </Ventana>,
+        document.body
+      )}
 
       {/* Ventanas de imágenes independientes */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 99999, pointerEvents: 'none' }} data-image-window>

@@ -17,6 +17,7 @@ interface MisionCardProps {
   updateCard: (cardId: string, updates: Partial<Card>) => void;
   deleteCard?: (cardId: string) => void;
   readOnly?: boolean; // Si es true, oculta botones de play/pause y otras acciones
+  onShowFullDescription?: (title: string, description: string) => void;
 }
 
 export const MisionCard: React.FC<MisionCardProps> = ({
@@ -30,7 +31,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   captureNow,
   updateCard,
   deleteCard,
-  readOnly = false
+  readOnly = false,
+  onShowFullDescription
 }) => {
   const [chatMessage, setChatMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
@@ -873,7 +875,29 @@ export const MisionCard: React.FC<MisionCardProps> = ({
           className={textColorSecondary}
           style={{ fontSize: `${(card.fontSize || 18) - 4}px` }}
         >
-          {card.misionData?.description || card.title}
+          {(() => {
+            const description = card.misionData?.description || card.title;
+            const MAX_LENGTH = 80;
+            const isLong = description.length > MAX_LENGTH;
+
+            if (!isLong) return description;
+
+            return (
+              <>
+                {description.substring(0, MAX_LENGTH)}...{' '}
+                <button
+                  onClick={() => onShowFullDescription?.(
+                    card.misionData?.title || card.title,
+                    description
+                  )}
+                  className={`${isRunning ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'} underline`}
+                  data-todo-interactive
+                >
+                  ver más
+                </button>
+              </>
+            );
+          })()}
         </p>
       </div>
 

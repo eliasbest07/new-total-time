@@ -69,6 +69,7 @@ interface CardWrapperProps {
     onRefresh?: () => void
   ) => void;
   onTogglePersistent?: (cardId: string, isPersistent: boolean) => void;
+  onShowFullDescription?: (title: string, description: string) => void;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -163,6 +164,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
         deleteCard={props.deleteCard}
         readOnly={props.readOnly}
         openEditarProyecto={props.openEditarProyecto}
+        onShowFullDescription={props.onShowFullDescription}
       />
 
       {/* Indicador de card persistente */}

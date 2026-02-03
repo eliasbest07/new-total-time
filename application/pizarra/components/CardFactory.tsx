@@ -59,6 +59,7 @@ interface CardFactoryProps {
     initialData: { nombre: string; descripcion: string; icono: string | null; github_url: string; sitio_web_url: string; tecnologias: string[] },
     onRefresh?: () => void
   ) => void;
+  onShowFullDescription?: (title: string, description: string) => void;
 }
 
 export const CardFactory: React.FC<CardFactoryProps> = (props) => {
@@ -140,6 +141,7 @@ export const CardFactory: React.FC<CardFactoryProps> = (props) => {
               })
             );
           }}
+          onShowFullDescription={props.onShowFullDescription}
         />
       );
 

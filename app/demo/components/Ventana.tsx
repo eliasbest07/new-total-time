@@ -18,6 +18,7 @@ interface VentanaProps {
   className?: string;
   showOverlay?: boolean;
   defaultMaximized?: boolean;
+  zIndex?: number;
 }
 
 const Ventana = ({
@@ -35,7 +36,8 @@ const Ventana = ({
   draggable = true,
   className = '',
   showOverlay = false,
-  defaultMaximized = false
+  defaultMaximized = false,
+  zIndex: customZIndex
 }: VentanaProps) => {
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [size, setSize] = useState({ width: initialWidth, height: initialHeight });
@@ -284,7 +286,7 @@ const Ventana = ({
           top: position.y,
           width: isMinimized ? 300 : size.width,
           height: isMinimized ? 48 : size.height,
-          zIndex: 9999,
+          zIndex: customZIndex ?? 9999,
           minWidth: isMinimized ? 300 : minWidth,
           minHeight: isMinimized ? 48 : minHeight,
           userSelect: (isMinimized || isDragging || isResizing) ? 'none' : 'auto'
