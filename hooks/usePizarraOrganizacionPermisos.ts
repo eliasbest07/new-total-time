@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PizarraOrganizacionPermiso } from '@/domain/entities/PizarraOrganizacionPermiso';
 import { SupabasePizarraOrganizacionRepository } from '@/infrastructure/datasource/SupabasePizarraOrganizacionRepository';
 import { retrySupabaseOperation } from '@/utils/retryWithBackoff';
@@ -26,19 +26,34 @@ export const usePizarraOrganizacionPermisos = (
 
   const repository = new SupabasePizarraOrganizacionRepository();
 
+  // Ref para evitar verificaciones duplicadas
+  const lastCheckedRef = useRef<{ org: string | null, user: number | null }>({ org: null, user: null });
+  const isCheckingRef = useRef<boolean>(false);
+
   /**
    * Verifica si el usuario puede editar la pizarra
    */
   const checkPermiso = useCallback(async () => {
     if (!idOrganizacion || !idUsuario) {
-      console.log('🔐 [usePermisos] Faltan datos: org o usuario');
+      // console.log('🔐 [usePermisos] Faltan datos: org o usuario');
       setLoading(false);
       setPuedeEditar(false);
       return;
     }
 
+    // Evitar verificaciones duplicadas si ya se está verificando o si los IDs no han cambiado
+    if (isCheckingRef.current) {
+      return;
+    }
+
+    if (lastCheckedRef.current.org === idOrganizacion && lastCheckedRef.current.user === idUsuario) {
+      setLoading(false);
+      return; // Ya verificamos estos IDs, no hace falta volver a hacerlo
+    }
+
     try {
-      console.log('🔐 [usePermisos] Verificando permisos para usuario:', idUsuario);
+      isCheckingRef.current = true;
+      // console.log('🔐 [usePermisos] Verificando permisos para usuario:', idUsuario);
       setLoading(true);
       setError(null);
 
@@ -48,12 +63,15 @@ export const usePizarraOrganizacionPermisos = (
         'Verificar permisos de edición'
       );
 
-      console.log('🔐 [usePermisos] Resultado:', canEdit ? 'Puede editar' : 'Solo lectura');
+      // console.log('🔐 [usePermisos] Resultado:', canEdit ? 'Puede editar' : 'Solo lectura');
       setPuedeEditar(canEdit);
 
       // Obtener datos completos del permiso si existe
       const permisoData = await repository.getPermiso(idOrganizacion, idUsuario);
       setPermiso(permisoData);
+
+      // Marcar como verificado
+      lastCheckedRef.current = { org: idOrganizacion, user: idUsuario };
 
     } catch (err) {
       console.error('❌ [usePermisos] Error verificando permisos:', err);
@@ -61,6 +79,7 @@ export const usePizarraOrganizacionPermisos = (
       setPuedeEditar(false);
     } finally {
       setLoading(false);
+      isCheckingRef.current = false;
     }
   }, [idOrganizacion, idUsuario]);
 
@@ -78,7 +97,7 @@ export const usePizarraOrganizacionPermisos = (
     }
 
     try {
-      console.log('🔐 [usePermisos] Otorgando permiso a usuario:', idUsuarioTarget);
+      // console.log('🔐 [usePermisos] Otorgando permiso a usuario:', idUsuarioTarget);
 
       const permisoCreado = await retrySupabaseOperation(
         () => repository.setPermiso(
@@ -113,7 +132,7 @@ export const usePizarraOrganizacionPermisos = (
     }
 
     try {
-      console.log('🔐 [usePermisos] Revocando permiso de usuario:', idUsuarioTarget);
+      // console.log('🔐 [usePermisos] Revocando permiso de usuario:', idUsuarioTarget);
 
       const success = await retrySupabaseOperation(
         () => repository.revocarPermiso(idOrganizacion, idUsuarioTarget),
@@ -182,6 +201,8 @@ export const usePizarraOrganizacionPermisos = (
    * Refresca el estado de permisos
    */
   const refetch = useCallback(async () => {
+    // Limpiar el cache para forzar una nueva verificación
+    lastCheckedRef.current = { org: null, user: null };
     await checkPermiso();
   }, [checkPermiso]);
 

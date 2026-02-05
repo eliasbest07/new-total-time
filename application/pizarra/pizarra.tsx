@@ -302,7 +302,10 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
               return [...prevCards, card];
             }
           });
-        }
+        },
+        // Parámetros de caché - solo usar para pizarras propias
+        storagePrefix,
+        useCache: !isViewingOtherUser && !isOrganizacionPizarra
       });
 
       const logPrefix = isViewingOtherUser ? '[PIZARRA COMPARTIDA]' : '[PIZARRA SYNC]';
@@ -1290,27 +1293,37 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     let cardWidth: number;
     let cardHeight: number;
 
+    // Tamaño de fuente constante para todas las notas
+    const fontSize = 14;
+
+    // Estimar dimensiones necesarias según el texto
+    // Aproximación: cada carácter ocupa ~7px de ancho con fontSize 14
+    const charWidth = fontSize * 0.5;
+    const lineHeight = fontSize * 1.4; // 1.4 es el line-height típico
+
     if (textLength <= 30) {
-      // Texto muy corto
-      cardWidth = 120;
-      cardHeight = 80;
+      // Texto muy corto - ajustar para que quepa bien
+      const minWidth = Math.max(150, text.length * charWidth + 40);
+      const minHeight = Math.max(100, 60 + numLines * lineHeight);
+      cardWidth = minWidth;
+      cardHeight = minHeight;
     } else if (textLength <= 80) {
       // Texto corto
-      cardWidth = Math.min(180, longestLine * 7 + 30);
-      cardHeight = 90;
+      cardWidth = Math.min(250, Math.max(180, longestLine * charWidth + 40));
+      cardHeight = Math.max(120, 60 + numLines * lineHeight);
     } else if (textLength <= 200) {
       // Texto mediano
-      cardWidth = Math.min(250, Math.max(150, longestLine * 6 + 30));
-      const estLines = Math.ceil(textLength / 30) + numLines - 1;
-      cardHeight = Math.min(300, 60 + estLines * 20);
+      cardWidth = Math.min(300, Math.max(200, longestLine * charWidth + 40));
+      const estLines = Math.ceil(textLength / (cardWidth / charWidth)) + numLines;
+      cardHeight = Math.min(350, 80 + estLines * lineHeight);
     } else {
       // Texto largo
-      cardWidth = Math.min(350, Math.max(200, longestLine * 5 + 30));
-      const charsPerLine = Math.floor((cardWidth - 30) / 7);
+      cardWidth = Math.min(400, Math.max(250, longestLine * charWidth + 40));
+      const charsPerLine = Math.floor((cardWidth - 40) / charWidth);
       const estLines = lines.reduce((total, line) => {
         return total + Math.max(1, Math.ceil(line.length / charsPerLine));
       }, 0);
-      cardHeight = Math.min(450, 60 + estLines * 18);
+      cardHeight = Math.min(500, 80 + estLines * lineHeight);
     }
 
 
@@ -1347,7 +1360,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       y: cardY,
       width: cardWidth,
       height: cardHeight,
-      fontSize: 14,
+      fontSize: fontSize,
       zIndex: nextZIndex // Nuevo card aparece encima de todos
     };
 

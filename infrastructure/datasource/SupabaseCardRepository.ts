@@ -94,10 +94,11 @@ export class SupabaseCardRepository implements CardRepository {
     try {
       // console.log('🗑️ Eliminando card:', cardId);
 
+      // Remover filtro por id_pizarra para permitir eliminar cards persistentes de otras pizarras
+      // card_id es único globalmente, no necesitamos filtrar por pizarra
       const { error } = await supabase
         .from('cards')
         .delete()
-        .eq('id_pizarra', idPizarra)
         .eq('card_id', cardId);
 
       if (error) {
@@ -229,13 +230,14 @@ export class SupabaseCardRepository implements CardRepository {
   async togglePersistent(idPizarra: string, cardId: string, isPersistent: boolean): Promise<boolean> {
     try {
       console.log(`📌 [Repo] Toggle persistent: pizarra=${idPizarra}, card=${cardId}, persistent=${isPersistent}`);
+      // Remover filtro por id_pizarra para permitir toggle de cards persistentes de otras pizarras
+      // card_id es único globalmente, no necesitamos filtrar por pizarra
       const { data, error } = await supabase
         .from('cards')
         .update({
           is_persistent: isPersistent,
           updated_at: new Date().toISOString()
         })
-        .eq('id_pizarra', idPizarra)
         .eq('card_id', cardId)
         .select();
 

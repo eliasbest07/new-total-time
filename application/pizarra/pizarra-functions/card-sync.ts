@@ -3,6 +3,7 @@
  *
  * Funciones para sincronizar tarjetas desde Supabase hacia el estado local de la pizarra.
  * Maneja la carga de datos específicos para cada tipo de tarjeta.
+ * Incluye sistema de caché en localStorage para reducir peticiones a BD.
  */
 
 import { Card, MisionData, ActivityData, UsuarioData, TodoItem } from '../types';
@@ -22,6 +23,55 @@ interface Usuario {
 }
 
 /**
+ * Helpers para el sistema de caché
+ * No usamos el hook useCardDataCache porque estas son funciones puras
+ */
+const getTodayDate = (): string => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+};
+
+const isCacheValid = (savedDate: string | null): boolean => {
+  if (!savedDate) return false;
+  return savedDate === getTodayDate();
+};
+
+const saveCardDataToCache = (cardId: string, data: any, storagePrefix: string = 'real') => {
+  try {
+    const storageKey = `pizarra-${storagePrefix}-card-data-${cardId}-v1`;
+    const cacheData = {
+      ...data,
+      cachedAt: new Date().toISOString(),
+      date: getTodayDate()
+    };
+    localStorage.setItem(storageKey, JSON.stringify(cacheData));
+  } catch (error) {
+    console.error('❌ [CARD-CACHE] Error guardando datos:', error);
+  }
+};
+
+const loadCardDataFromCache = (cardId: string, storagePrefix: string = 'real'): any | null => {
+  try {
+    const storageKey = `pizarra-${storagePrefix}-card-data-${cardId}-v1`;
+    const savedData = localStorage.getItem(storageKey);
+
+    if (!savedData) return null;
+
+    const parsed = JSON.parse(savedData);
+
+    if (!isCacheValid(parsed.date)) {
+      localStorage.removeItem(storageKey);
+      return null;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error('❌ [CARD-CACHE] Error cargando datos:', error);
+    return null;
+  }
+};
+
+/**
  * Parámetros para la sincronización de cards
  */
 export interface SyncCardsParams {
@@ -30,6 +80,8 @@ export interface SyncCardsParams {
   isViewingOtherUser: boolean;
   onUpdatePastedImages?: (cardId: string, imageUrl: string) => void;
   onCardReady?: (card: Card) => void; // Callback para carga progresiva
+  storagePrefix?: string; // Prefijo para localStorage (default: 'real')
+  useCache?: boolean; // Si debe usar caché (default: true para pizarras propias)
 }
 
 /**
@@ -48,22 +100,35 @@ export interface ShouldSyncParams {
  *
  * @param cardDB - Tarjeta desde la base de datos
  * @param card - Tarjeta local a actualizar
+ * @param storagePrefix - Prefijo para localStorage
+ * @param useCache - Si debe usar caché (false para pizarras compartidas)
  *
  * Proceso:
- * 1. Obtiene la relación card-mision desde card_mision
- * 2. Obtiene los datos completos de la misión
- * 3. Actualiza el objeto card.misionData con toda la información
+ * 1. Intenta cargar desde caché si useCache=true
+ * 2. Si no hay caché, obtiene datos de Supabase
+ * 3. Guarda en caché para futuras cargas
  */
-async function loadMisionData(cardDB: CardDB, card: Card): Promise<void> {
+async function loadMisionData(cardDB: CardDB, card: Card, storagePrefix: string = 'real', useCache: boolean = true): Promise<void> {
   try {
-    console.log('🔍 [CARD-SYNC] Cargando misionData para card:', cardDB.card_id, '(UUID:', cardDB.id, ')');
+    // 1. Intentar cargar desde caché primero (solo para pizarras propias)
+    if (useCache) {
+      const cachedData = loadCardDataFromCache(cardDB.card_id, storagePrefix);
+      if (cachedData && cachedData.misionData) {
+        card.misionData = cachedData.misionData;
+        console.log('✅ [CARD-CACHE] misionData cargado desde caché para card:', cardDB.card_id);
+        return;
+      }
+    }
+
+    // 2. Si no hay caché, cargar desde Supabase
+    console.log('🔍 [CARD-SYNC] Cargando misionData desde BD para card:', cardDB.card_id, '(UUID:', cardDB.id, ')');
     const { SupabaseCardMisionRepository } = await import('@/infrastructure/datasource/SupabaseCardMisionRepository');
     const { SupabaseMisionRepository } = await import('@/infrastructure/datasource/SupabaseMisionRepository');
 
     const cardMisionRepo = new SupabaseCardMisionRepository();
     const misionRepo = new SupabaseMisionRepository();
 
-    const cardMision = await cardMisionRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID en lugar de card_id
+    const cardMision = await cardMisionRepo.getByCardId(cardDB.id);
     console.log('🔍 [CARD-SYNC] cardMision obtenido:', cardMision);
 
     if (cardMision) {
@@ -107,6 +172,11 @@ async function loadMisionData(cardDB: CardDB, card: Card): Promise<void> {
           usuario_asignado_avatar: usuarioAsignadoAvatar || undefined
         };
         console.log('✅ [CARD-SYNC] misionData cargado exitosamente:', card.misionData);
+
+        // 3. Guardar en caché para próximas cargas (solo para pizarras propias)
+        if (useCache) {
+          saveCardDataToCache(cardDB.card_id, { misionData: card.misionData }, storagePrefix);
+        }
       } else {
         console.warn('⚠️ [CARD-SYNC] No se encontró misión con id:', cardMision.id_mision);
       }
@@ -130,14 +200,25 @@ async function loadMisionData(cardDB: CardDB, card: Card): Promise<void> {
  * 2. Crea objeto de participante con datos del usuario actual
  * 3. Actualiza card.activityData con toda la información
  */
-async function loadActividadData(cardDB: CardDB, card: Card, usuario: Usuario | null): Promise<void> {
+async function loadActividadData(cardDB: CardDB, card: Card, usuario: Usuario | null, storagePrefix: string = 'real', useCache: boolean = true): Promise<void> {
   if (!usuario) return;
 
   try {
+    // 1. Intentar cargar desde caché
+    if (useCache) {
+      const cachedData = loadCardDataFromCache(cardDB.card_id, storagePrefix);
+      if (cachedData && cachedData.activityData) {
+        card.activityData = cachedData.activityData;
+        console.log('✅ [CARD-CACHE] activityData cargado desde caché para card:', cardDB.card_id);
+        return;
+      }
+    }
+
+    // 2. Cargar desde Supabase
     const { SupabaseCardActividadRepository } = await import('@/infrastructure/datasource/SupabaseCardActividadRepository');
     const cardActividadRepo = new SupabaseCardActividadRepository();
 
-    const cardActividad = await cardActividadRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
+    const cardActividad = await cardActividadRepo.getByCardId(cardDB.id);
     if (cardActividad) {
       const currentUserParticipant = {
         name: usuario.getNombreCompleto ? usuario.getNombreCompleto() : '',
@@ -155,6 +236,11 @@ async function loadActividadData(cardDB: CardDB, card: Card, usuario: Usuario | 
         timeLeft: cardActividad.time_left || 0,
         id_actividad: cardDB.id
       };
+
+      // 3. Guardar en caché
+      if (useCache) {
+        saveCardDataToCache(cardDB.card_id, { activityData: card.activityData }, storagePrefix);
+      }
     }
   } catch (error) {
     console.error('Error cargando datos de actividad:', error);
@@ -173,12 +259,30 @@ async function loadActividadData(cardDB: CardDB, card: Card, usuario: Usuario | 
  * 3. Convierte timestamps de string a Date
  * 4. Actualiza card.usuarioData con toda la información
  */
-async function loadUsuarioData(cardDB: CardDB, card: Card): Promise<void> {
+async function loadUsuarioData(cardDB: CardDB, card: Card, storagePrefix: string = 'real', useCache: boolean = true): Promise<void> {
   try {
+    // 1. Intentar cargar desde caché
+    if (useCache) {
+      const cachedData = loadCardDataFromCache(cardDB.card_id, storagePrefix);
+      if (cachedData && cachedData.usuarioData) {
+        card.usuarioData = cachedData.usuarioData;
+        // Restaurar Date objects en messages
+        if (card.usuarioData && card.usuarioData.messages) {
+          card.usuarioData.messages = card.usuarioData.messages.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          }));
+        }
+        console.log('✅ [CARD-CACHE] usuarioData cargado desde caché para card:', cardDB.card_id);
+        return;
+      }
+    }
+
+    // 2. Cargar desde Supabase
     const { SupabaseCardUsuarioRepository } = await import('@/infrastructure/datasource/SupabaseCardUsuarioRepository');
     const cardUsuarioRepo = new SupabaseCardUsuarioRepository();
 
-    const cardUsuario = await cardUsuarioRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
+    const cardUsuario = await cardUsuarioRepo.getByCardId(cardDB.id);
     if (cardUsuario) {
       card.usuarioData = {
         userId: cardUsuario.user_id,
@@ -203,6 +307,11 @@ async function loadUsuarioData(cardDB: CardDB, card: Card): Promise<void> {
           console.log('No hay mensajes en formato JSON para esta card de usuario');
         }
       }
+
+      // 3. Guardar en caché
+      if (useCache) {
+        saveCardDataToCache(cardDB.card_id, { usuarioData: card.usuarioData }, storagePrefix);
+      }
     }
   } catch (error) {
     console.error('Error cargando datos de usuario:', error);
@@ -220,26 +329,25 @@ async function loadUsuarioData(cardDB: CardDB, card: Card): Promise<void> {
  * 2. Mapea a formato TodoItem
  * 3. Actualiza card.todos con el array
  */
-async function loadTodoData(cardDB: CardDB, card: Card): Promise<void> {
+async function loadTodoData(cardDB: CardDB, card: Card, storagePrefix: string = 'real', useCache: boolean = true): Promise<void> {
   try {
-    console.log('🔍 DEBUG TD [loadTodoData] INICIO - Cargando todos para card:', {
-      card_id_frontend: cardDB.card_id,
-      uuid_bd: cardDB.id,
-      card_type: cardDB.type,
-      card_title: cardDB.title,
-      card_todos_antes: card.todos
-    });
+    // 1. Intentar cargar desde caché
+    if (useCache) {
+      const cachedData = loadCardDataFromCache(cardDB.card_id, storagePrefix);
+      if (cachedData && cachedData.todos) {
+        card.todos = cachedData.todos;
+        console.log('✅ [CARD-CACHE] todos cargados desde caché para card:', cardDB.card_id, '(', card.todos?.length || 0, 'items )');
+        return;
+      }
+    }
+
+    // 2. Cargar desde Supabase
+    console.log('🔍 DEBUG TD [loadTodoData] Cargando todos desde BD para card:', cardDB.card_id);
 
     const { SupabaseCardTodoRepository } = await import('@/infrastructure/datasource/SupabaseCardTodoRepository');
     const cardTodoRepo = new SupabaseCardTodoRepository();
 
-    console.log('🔍 DEBUG TD [loadTodoData] Llamando a getByCardId con UUID:', cardDB.id);
-    const cardTodos = await cardTodoRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
-
-    console.log('🔍 DEBUG TD [loadTodoData] Respuesta de getByCardId:', {
-      todosEncontrados: cardTodos?.length || 0,
-      todos: cardTodos
-    });
+    const cardTodos = await cardTodoRepo.getByCardId(cardDB.id);
 
     if (cardTodos && cardTodos.length > 0) {
       card.todos = cardTodos.map(todo => ({
@@ -247,13 +355,14 @@ async function loadTodoData(cardDB: CardDB, card: Card): Promise<void> {
         text: todo.text,
         completed: todo.completed
       }));
-      console.log('✅ DEBUG TD [loadTodoData] Todos asignados a card.todos:', {
-        cantidad: card.todos.length,
-        todos: card.todos
-      });
+      console.log('✅ DEBUG TD [loadTodoData] Todos asignados a card.todos:', card.todos.length, 'items');
+
+      // 3. Guardar en caché
+      if (useCache) {
+        saveCardDataToCache(cardDB.card_id, { todos: card.todos }, storagePrefix);
+      }
     } else {
       console.warn('⚠️ DEBUG TD [loadTodoData] NO se encontraron todos en la BD para esta card');
-      console.log('🔍 DEBUG TD [loadTodoData] card.todos después:', card.todos);
     }
   } catch (error) {
     console.error('❌ DEBUG TD [loadTodoData] Error cargando todos:', error);
@@ -275,17 +384,38 @@ async function loadTodoData(cardDB: CardDB, card: Card): Promise<void> {
 async function loadImageData(
   cardDB: CardDB,
   card: Card,
-  onUpdatePastedImages?: (cardId: string, imageUrl: string) => void
+  onUpdatePastedImages?: (cardId: string, imageUrl: string) => void,
+  storagePrefix: string = 'real',
+  useCache: boolean = true
 ): Promise<void> {
   try {
+    // 1. Intentar cargar desde caché
+    if (useCache) {
+      const cachedData = loadCardDataFromCache(cardDB.card_id, storagePrefix);
+      if (cachedData && cachedData.imageUrl) {
+        card.imageUrl = cachedData.imageUrl;
+        if (onUpdatePastedImages) {
+          onUpdatePastedImages(card.id, cachedData.imageUrl);
+        }
+        console.log('✅ [CARD-CACHE] imageUrl cargado desde caché para card:', cardDB.card_id);
+        return;
+      }
+    }
+
+    // 2. Cargar desde Supabase
     const { SupabaseCardImageRepository } = await import('@/infrastructure/datasource/SupabaseCardImageRepository');
     const cardImageRepo = new SupabaseCardImageRepository();
 
-    const cardImage = await cardImageRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
+    const cardImage = await cardImageRepo.getByCardId(cardDB.id);
     if (cardImage) {
       card.imageUrl = cardImage.image_url;
       if (onUpdatePastedImages) {
         onUpdatePastedImages(card.id, cardImage.image_url);
+      }
+
+      // 3. Guardar en caché
+      if (useCache) {
+        saveCardDataToCache(cardDB.card_id, { imageUrl: card.imageUrl }, storagePrefix);
       }
     }
   } catch (error) {
@@ -298,38 +428,45 @@ async function loadImageData(
  *
  * @param cardDB - Tarjeta desde la base de datos
  * @param card - Tarjeta local a actualizar
+ * @param storagePrefix - Prefijo para localStorage
+ * @param useCache - Si debe usar caché
  *
  * Proceso:
- * 1. Obtiene la relación card-proyecto desde card_proyectos
- * 2. Obtiene los datos completos del proyecto desde la tabla proyectos
- * 3. Obtiene notas asociadas desde card_proyecto_nota
- * 4. Actualiza el objeto card.proyectoData con toda la información
+ * 1. Intenta cargar desde caché si useCache=true
+ * 2. Si no hay caché, obtiene datos de Supabase
+ * 3. Guarda en caché para futuras cargas
  */
-async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
+async function loadProyectoData(cardDB: CardDB, card: Card, storagePrefix: string = 'real', useCache: boolean = true): Promise<void> {
   try {
-    console.log('🔍 [CARD-SYNC] Cargando proyectoData para card:', cardDB.card_id, '(UUID:', cardDB.id, ')');
+    // 1. Intentar cargar desde caché
+    if (useCache) {
+      const cachedData = loadCardDataFromCache(cardDB.card_id, storagePrefix);
+      if (cachedData && cachedData.proyectoData) {
+        card.proyectoData = cachedData.proyectoData;
+        console.log('✅ [CARD-CACHE] proyectoData cargado desde caché para card:', cardDB.card_id);
+        return;
+      }
+    }
+
+    // 2. Cargar desde Supabase
+    console.log('🔍 [CARD-SYNC] Cargando proyectoData desde BD para card:', cardDB.card_id, '(UUID:', cardDB.id, ')');
 
     const { SupabaseCardProyectoRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoRepository');
     const { SupabaseProyectoRepository } = await import('@/infrastructure/datasource/SupabaseProyectoRepository');
-    // const { SupabaseCardProyectoNotaRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoNotaRepository');
 
     const cardProyectoRepo = new SupabaseCardProyectoRepository();
     const proyectoRepo = new SupabaseProyectoRepository();
-    // const cardProyectoNotaRepo = new SupabaseCardProyectoNotaRepository();
 
-    // 1. Obtener la relación card-proyecto
-    const cardProyecto = await cardProyectoRepo.getByCardId(cardDB.id); // ✅ FIX: Usar UUID
+    // Obtener la relación card-proyecto
+    const cardProyecto = await cardProyectoRepo.getByCardId(cardDB.id);
     console.log('🔍 [CARD-SYNC] cardProyecto obtenido:', cardProyecto);
 
     if (cardProyecto) {
-      // 2. Obtener los datos completos del proyecto
+      // Obtener los datos completos del proyecto
       const proyecto = await proyectoRepo.getProyectoById(cardProyecto.id_proyecto);
       console.log('🔍 [CARD-SYNC] proyecto obtenido:', proyecto);
 
       if (proyecto) {
-        // 3. Obtener notas asociadas (COMENTADO - tabla no existe)
-        // const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
-        // const notasIds = proyectoNotas ? proyectoNotas.map(nota => nota.id_card_nota) : [];
         const notasIds: string[] = [];
 
         // Parsear colors de forma segura
@@ -340,7 +477,7 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
           } catch { /* ignorar error de parsing */ }
         }
 
-        // 4. Actualizar proyectoData
+        // Actualizar proyectoData
         card.proyectoData = {
           id: proyecto.id,
           nombre: proyecto.nombre || card.title,
@@ -356,10 +493,13 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
         };
         console.log('✅ [CARD-SYNC] proyectoData cargado exitosamente:', {
           proyectoId: card.proyectoData.id,
-          proyectoIdType: typeof card.proyectoData.id,
-          nombre: card.proyectoData.nombre,
-          cardId: cardDB.card_id
+          nombre: card.proyectoData.nombre
         });
+
+        // 3. Guardar en caché
+        if (useCache) {
+          saveCardDataToCache(cardDB.card_id, { proyectoData: card.proyectoData }, storagePrefix);
+        }
       } else {
         console.warn('⚠️ [CARD-SYNC] No se encontró proyecto con id:', cardProyecto.id_proyecto);
       }
@@ -384,9 +524,6 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
         // Cargar proyecto usando el ID del content
         const proyecto = await proyectoRepo.getProyectoById(proyectoIdFromContent);
         if (proyecto) {
-          // COMENTADO - tabla card_proyecto_notas no existe
-          // const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
-          // const notasIds = proyectoNotas ? proyectoNotas.map(nota => nota.id_card_nota) : [];
           const notasIds: string[] = [];
 
           // Parsear colors de forma segura
@@ -415,6 +552,11 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
             nombre: card.proyectoData.nombre
           });
 
+          // 3. Guardar en caché
+          if (useCache) {
+            saveCardDataToCache(cardDB.card_id, { proyectoData: card.proyectoData }, storagePrefix);
+          }
+
           // Crear la relación card_proyectos para futuras cargas
           try {
             await cardProyectoRepo.create({
@@ -426,14 +568,6 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
             // Puede fallar si ya existe, ignorar
           }
         }
-      } else {
-        // Fallback: intentar cargar solo las notas asociadas
-        // COMENTADO - tabla card_proyecto_notas no existe
-        // const proyectoNotas = await cardProyectoNotaRepo.getByCardProyectoId(cardDB.id);
-        // if (proyectoNotas && proyectoNotas.length > 0 && card.proyectoData) {
-        //   card.proyectoData.notas = proyectoNotas.map(nota => nota.id_card_nota);
-        //   console.log('ℹ️ [CARD-SYNC] Solo se cargaron notas del proyecto (sin datos de proyecto)');
-        // }
       }
     }
   } catch (error) {
@@ -468,9 +602,9 @@ async function loadProyectoData(cardDB: CardDB, card: Card): Promise<void> {
  * 4. Retorna array completo de cards enriquecidas
  */
 export async function syncCardsFromDB(params: SyncCardsParams): Promise<Card[]> {
-  const { cardsDB, usuario, onUpdatePastedImages, onCardReady } = params;
+  const { cardsDB, usuario, onUpdatePastedImages, onCardReady, storagePrefix = 'real', useCache = true } = params;
 
-  console.log('🔄 [CARD-SYNC] Procesando', cardsDB.length, 'cards desde Supabase (carga progresiva)');
+  console.log('🔄 [CARD-SYNC] Procesando', cardsDB.length, 'cards desde Supabase (carga progresiva)', useCache ? '(con caché)' : '(sin caché)');
 
   // FASE 1: Mapear todos los cards básicos inmediatamente
   const basicCards: Card[] = cardsDB.map(cardDB => mapCardDBToCard(cardDB));
@@ -489,28 +623,28 @@ export async function syncCardsFromDB(params: SyncCardsParams): Promise<Card[]> 
       switch (cardDB.type) {
         case 'mision':
         case 'mision-organizacion':
-          await loadMisionData(cardDB, card);
+          await loadMisionData(cardDB, card, storagePrefix, useCache);
           break;
 
         case 'actividad':
-          await loadActividadData(cardDB, card, usuario);
+          await loadActividadData(cardDB, card, usuario, storagePrefix, useCache);
           break;
 
         case 'usuario':
-          await loadUsuarioData(cardDB, card);
+          await loadUsuarioData(cardDB, card, storagePrefix, useCache);
           break;
 
         case 'todo':
-          await loadTodoData(cardDB, card);
+          await loadTodoData(cardDB, card, storagePrefix, useCache);
           break;
 
         case 'image':
-          await loadImageData(cardDB, card, onUpdatePastedImages);
+          await loadImageData(cardDB, card, onUpdatePastedImages, storagePrefix, useCache);
           break;
 
         case 'proyecto':
         case 'proyecto-organizacion':
-          await loadProyectoData(cardDB, card);
+          await loadProyectoData(cardDB, card, storagePrefix, useCache);
           break;
       }
 

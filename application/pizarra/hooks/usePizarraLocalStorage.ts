@@ -99,28 +99,51 @@ export const usePizarraLocalStorage = (
     }
   }, [HISTORY_STORAGE_KEY]);
 
-  // Función para verificar si necesita cargar desde Supabase (solo para pizarras de organización)
+  // Función para verificar si necesita cargar desde Supabase
+  // Para pizarras de organización: verifica si ya cargó hoy
+  // Para pizarras personales (LOCAL-FIRST): verifica si hay datos válidos en localStorage del mismo día
   const shouldLoadFromSupabase = useCallback((): boolean => {
-    if (!isOrganizacionPizarra) return false;
-
     const todayDate = getTodayDate();
     const lastSupabaseLoad = localStorage.getItem(LAST_SUPABASE_LOAD_KEY);
+    const savedDate = localStorage.getItem(DATE_STORAGE_KEY);
+    const savedCards = localStorage.getItem(PIZARRA_STORAGE_KEY);
 
-    // Si nunca ha cargado desde Supabase, debe cargar
-    if (!lastSupabaseLoad) {
-      console.log('📥 [PIZARRA ORG] Primera carga del día - debe cargar desde Supabase');
+    // Para pizarras de organización
+    if (isOrganizacionPizarra) {
+      // Si nunca ha cargado desde Supabase, debe cargar
+      if (!lastSupabaseLoad) {
+        console.log('📥 [PIZARRA ORG] Primera carga del día - debe cargar desde Supabase');
+        return true;
+      }
+
+      // Si la última carga fue en otro día, debe cargar
+      if (lastSupabaseLoad !== todayDate) {
+        console.log('📥 [PIZARRA ORG] Nuevo día detectado - debe cargar desde Supabase');
+        return true;
+      }
+
+      console.log('💾 [PIZARRA ORG] Ya cargó desde Supabase hoy - usar localStorage');
+      return false;
+    }
+
+    // Para pizarras personales (LOCAL-FIRST)
+    // Si no hay datos guardados, debe cargar de Supabase
+    if (!savedCards || !savedDate) {
+      console.log('📥 [LOCAL-FIRST] Sin datos en localStorage - debe cargar desde Supabase');
       return true;
     }
 
-    // Si la última carga fue en otro día, debe cargar
-    if (lastSupabaseLoad !== todayDate) {
-      console.log('📥 [PIZARRA ORG] Nuevo día detectado - debe cargar desde Supabase');
+    // Si los datos son de otro día, debe cargar de Supabase
+    if (savedDate !== todayDate) {
+      console.log('📥 [LOCAL-FIRST] Nuevo día detectado - debe cargar desde Supabase');
       return true;
     }
 
-    console.log('💾 [PIZARRA ORG] Ya cargó desde Supabase hoy - usar localStorage');
+    // Si nunca ha cargado de Supabase hoy y hay datos locales válidos, NO cargar
+    // (los datos locales del mismo día son válidos)
+    console.log('💾 [LOCAL-FIRST] Datos válidos en localStorage del mismo día - NO cargar desde Supabase');
     return false;
-  }, [isOrganizacionPizarra, LAST_SUPABASE_LOAD_KEY]);
+  }, [isOrganizacionPizarra, LAST_SUPABASE_LOAD_KEY, DATE_STORAGE_KEY, PIZARRA_STORAGE_KEY]);
 
   // Función para marcar que se cargó desde Supabase
   const markSupabaseLoaded = useCallback(() => {
@@ -439,16 +462,25 @@ export const usePizarraLocalStorage = (
   }, [setCards, setConnections, setPanOffset]);
 
   // Cargar al montar el componente
-  // NUNCA cargar desde localStorage al inicio - las cards deben venir desde Supabase
-  // localStorage solo se usa para guardar cambios posteriores
+  // LOCAL-FIRST: Para pizarras personales, intentar cargar desde localStorage primero
+  // Las pizarras de organización siguen cargando desde Supabase
   useEffect(() => {
-    console.log('⏭️ [PIZARRA STORAGE] NO cargar desde localStorage - solo Supabase carga las cards iniciales');
+    // Para pizarras de organización: comportamiento anterior (Supabase primero)
+    if (isOrganizacionPizarra) {
+      console.log('⏭️ [PIZARRA STORAGE] Pizarra de organización - Supabase carga las cards iniciales');
+      return;
+    }
 
-    // Si no está inicializado, limpiar localStorage para evitar conflictos
-    if (!isInitialized) {
-      console.log('🧹 [PIZARRA STORAGE] Limpiando localStorage para permitir carga limpia desde Supabase');
-      localStorage.removeItem(PIZARRA_STORAGE_KEY);
-      localStorage.removeItem(CONNECTIONS_STORAGE_KEY);
+    // Para pizarras personales: LOCAL-FIRST
+    const savedDate = localStorage.getItem(DATE_STORAGE_KEY);
+    const todayDate = getTodayDate();
+
+    // Si hay datos del mismo día, cargarlos desde localStorage
+    if (savedDate === todayDate) {
+      console.log('📦 [LOCAL-FIRST] Cargando desde localStorage (mismo día)');
+      loadFromLocalStorage();
+    } else {
+      console.log('📥 [LOCAL-FIRST] Nuevo día o sin datos, se cargará desde Supabase');
     }
   }, []); // Solo se ejecuta una vez al montar
 

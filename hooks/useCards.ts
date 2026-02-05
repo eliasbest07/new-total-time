@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseCardRepository } from '@/infrastructure/datasource/SupabaseCardRepository';
 import { CardDB, CreateCardDTO, UpdateCardDTO } from '@/domain/entities/Card';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
+import { useCardDataCache } from '@/application/pizarra/hooks/useCardDataCache';
 
 interface UseCardsReturn {
   cards: CardDB[];
@@ -24,13 +25,15 @@ interface UseCardsReturn {
  * @param idPizarra - ID de la pizarra
  * @param currentUserId - ID del usuario actual (quien hace los cambios) - opcional
  * @param pizarraOwnerId - ID del dueño de la pizarra - opcional
+ * @param skipInitialLoad - Si es true, no carga cards automáticamente al montar (para local-first)
  */
-export const useCards = (idPizarra: string | null, currentUserId?: string | null, pizarraOwnerId?: string | null): UseCardsReturn => {
+export const useCards = (idPizarra: string | null, currentUserId?: string | null, pizarraOwnerId?: string | null, skipInitialLoad: boolean = false): UseCardsReturn => {
   const [cards, setCards] = useState<CardDB[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const cardRepository = useRef(new SupabaseCardRepository());
+  const { loadPersistentCards, savePersistentCards } = useCardDataCache();
 
   // Nota: El envío de mensajes de actualización se maneja en saveToSupabase de pizarra.tsx
   // Los parámetros currentUserId y pizarraOwnerId se mantienen por compatibilidad pero no se usan aquí
@@ -56,7 +59,24 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
       let allCards = cardsData;
       console.log(`🔍 currentUserId para buscar persistentes: ${currentUserId}`);
       if (currentUserId) {
-        const persistentCards = await cardRepository.current.getPersistentCardsByUser(currentUserId, idPizarra);
+        // Intentar cargar desde caché primero
+        let persistentCards = loadPersistentCards(currentUserId);
+
+        if (persistentCards === null) {
+          // Si no hay caché, cargar desde BD
+          console.log('🔍 [CARD-CACHE] No hay caché de cards persistentes, cargando desde BD...');
+          persistentCards = await cardRepository.current.getPersistentCardsByUser(currentUserId, idPizarra);
+
+          // Guardar en caché para próximas cargas
+          if (persistentCards.length > 0) {
+            savePersistentCards(persistentCards, currentUserId);
+          }
+        } else {
+          console.log(`✅ [CARD-CACHE] Cards persistentes cargadas desde caché: ${persistentCards.length}`);
+          // Filtrar las que no sean de la pizarra actual (esto ya está implementado en el repositorio)
+          persistentCards = persistentCards.filter(c => c.id_pizarra !== idPizarra);
+        }
+
         console.log(`📌 Cards persistentes encontradas: ${persistentCards.length}`);
         if (persistentCards.length > 0) {
           // Combinar cards, evitando duplicados por card_id
@@ -197,14 +217,16 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
     }
   }, [idPizarra]);
 
-  // Cargar cards inicialmente
+  // Cargar cards inicialmente (si no se salta la carga inicial)
   useEffect(() => {
-    loadCards();
-  }, [loadCards]);
+    if (!skipInitialLoad) {
+      loadCards();
+    }
+  }, [loadCards, skipInitialLoad]);
 
-  // Suscripción en tiempo real
+  // Suscripción en tiempo real (deshabilitada si skipInitialLoad)
   useEffect(() => {
-    if (!idPizarra) return;
+    if (!idPizarra || skipInitialLoad) return;
 
     // console.log('📡 Configurando suscripción realtime para cards de pizarra:', idPizarra);
 
@@ -245,7 +267,7 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
       // console.log('🧹 Limpiando suscripción realtime de cards');
       supabase.removeChannel(channel);
     };
-  }, [idPizarra]);
+  }, [idPizarra, skipInitialLoad]);
 
   return {
     cards,
