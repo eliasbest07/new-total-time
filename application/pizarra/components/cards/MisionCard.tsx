@@ -49,6 +49,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   // 🔒 ESTADO LOCAL SIMPLE - Solo bloquear después de capturas
   const [localIsRunning, setLocalIsRunning] = useState(card.misionData?.isRunning || false);
   const [justProcessedCapture, setJustProcessedCapture] = useState(false);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Obtener el usuario actual (UUID del auth)
   const { usuario } = useAuth();
@@ -74,13 +76,47 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   const updateCaptureNowRef = useRef(updateCaptureNow);
 
   // Guardar el ID de suscripción para no perderlo cuando el card se actualice
-  const suscripcionIdRef = useRef<{id: string | number, tipo: 'misionActivaId' | 'id_mision'} | null>(null);
+  const suscripcionIdRef = useRef<{ id: string | number, tipo: 'misionActivaId' | 'id_mision' } | null>(null);
 
   // Actualizar refs cuando cambien las funciones
   useEffect(() => {
     captureNowRef.current = captureNow;
     updateCaptureNowRef.current = updateCaptureNow;
   }, [captureNow, updateCaptureNow]);
+
+  // 🧹 CLEANUP: Pausar misiones abandonadas al cargar la página
+  useEffect(() => {
+    const cleanupAbandonedMision = async () => {
+      // Solo ejecutar una vez al montar
+      if (card.misionData?.isRunning && card.misionData?.misionActivaId) {
+        console.log('🧹 [CLEANUP] Detectada misión en estado running al cargar. Pausando automáticamente...');
+
+        try {
+          // Pausar la misión en Supabase
+          await supabase
+            .from('misiones_activas')
+            .update({
+              is_running: false,
+              estado: 'pausada',
+              fecha_fin: new Date().toISOString()
+            })
+            .eq('id', card.misionData.misionActivaId);
+
+          console.log('✅ [CLEANUP] Misión pausada automáticamente');
+
+          // Actualizar estado local
+          setLocalIsRunning(false);
+        } catch (error) {
+          console.error('❌ [CLEANUP] Error pausando misión:', error);
+        }
+      }
+    };
+
+    // Ejecutar cleanup después de un breve delay para permitir que la UI se inicialice
+    const timer = setTimeout(cleanupAbandonedMision, 1000);
+
+    return () => clearTimeout(timer);
+  }, []); // Solo ejecutar una vez al montar
 
   // SUSCRIPCIÓN A CAMBIOS EN MISIONES_ACTIVAS - Detectar solicitudes de captura
   useEffect(() => {
@@ -114,8 +150,8 @@ export const MisionCard: React.FC<MisionCardProps> = ({
 
     // Si ya hay una suscripción con el mismo ID, no re-suscribir
     if (suscripcionIdRef.current &&
-        suscripcionIdRef.current.id === idParaSuscribirse &&
-        suscripcionIdRef.current.tipo === (usarMisionActivaId ? 'misionActivaId' : 'id_mision')) {
+      suscripcionIdRef.current.id === idParaSuscribirse &&
+      suscripcionIdRef.current.tipo === (usarMisionActivaId ? 'misionActivaId' : 'id_mision')) {
       console.log('✅ [DEBUG NORMAL] Ya suscrito a este ID, no re-suscribir');
       return;
     }
@@ -134,147 +170,147 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     // Si solo tenemos id_mision, suscribirse por referencia
     channel = usarMisionActivaId
       ? subscribeToMisionActiva(
-          String(idParaSuscribirse),
-          async (updatedMision) => {
-            if (!updatedMision) return;
+        String(idParaSuscribirse),
+        async (updatedMision) => {
+          if (!updatedMision) return;
 
-            console.log('📡 [DEBUG NORMAL] ========== ACTUALIZACIÓN RECIBIDA ==========');
-            console.log('📡 [DEBUG NORMAL] Estado completo:', updatedMision);
-            console.log('📡 [DEBUG NORMAL] capture_now:', updatedMision.capture_now);
-            console.log('📡 [DEBUG NORMAL] is_running ANTES:', card.misionData?.isRunning);
-            console.log('📡 [DEBUG NORMAL] is_running NUEVO:', updatedMision.is_running);
+          console.log('📡 [DEBUG NORMAL] ========== ACTUALIZACIÓN RECIBIDA ==========');
+          console.log('📡 [DEBUG NORMAL] Estado completo:', updatedMision);
+          console.log('📡 [DEBUG NORMAL] capture_now:', updatedMision.capture_now);
+          console.log('📡 [DEBUG NORMAL] is_running ANTES:', card.misionData?.isRunning);
+          console.log('📡 [DEBUG NORMAL] is_running NUEVO:', updatedMision.is_running);
 
-            // 🚫 BLOQUEAR CAMBIOS DE ESTADO NO DESEADOS
-            // Si la misión estaba corriendo y ahora viene is_running=false, IGNORAR
-            if (card.misionData?.isRunning && !updatedMision.is_running) {
-              console.log('🚫 [ANTI-PAUSE] BLOQUEANDO cambio de is_running=true a false');
-              console.log('🚫 [ANTI-PAUSE] Manteniendo estado local isRunning=true');
-              // NO actualizar el estado local - mantener la misión corriendo
-            }
-
-            // Detectar solicitud de captura (capture_now === '1')
-            if (updatedMision.capture_now === '1' && !captureRequestedRef.current) {
-              console.log('🚨 [DEBUG NORMAL] ¡SOLICITUD DE CAPTURA DETECTADA!');
-              console.log('🚨 [DEBUG NORMAL] Tomando captura automáticamente...');
-
-              captureRequestedRef.current = true;
-
-              try {
-                // Tomar captura automáticamente usando la ref
-                const captureUrl = await captureNowRef.current();
-
-                if (captureUrl) {
-                  console.log('✅ [DEBUG NORMAL] Captura tomada exitosamente:', captureUrl);
-
-                  // Marcar que acabamos de procesar una captura
-                  setJustProcessedCapture(true);
-                  
-                  // Limpiar el flag después de 5 segundos
-                  setTimeout(() => {
-                    setJustProcessedCapture(false);
-                    console.log('🔄 [SIMPLE STATE] Flag de captura limpiado');
-                  }, 5000);
-
-                  // Actualizar capture_now con la URL de la captura
-                  if (updatedMision.id) {
-                    console.log('📤 [DEBUG NORMAL] Enviando URL de captura al servidor...');
-                    await updateCaptureNowRef.current(updatedMision.id, captureUrl);
-                  }
-
-                } else {
-                  console.error('❌ [DEBUG NORMAL] Error al tomar la captura');
-                }
-              } catch (error) {
-                console.error('❌ [DEBUG NORMAL] Error en captura automática:', error);
-              } finally {
-                // Resetear el flag después de un tiempo
-                setTimeout(() => {
-                  captureRequestedRef.current = false;
-                  console.log('🔄 [DEBUG NORMAL] Flag de captura reseteado');
-                }, 2000);
-              }
-            } else if (updatedMision.capture_now === '1') {
-              console.log('⏭️ [DEBUG NORMAL] Solicitud ya procesada, ignorando...');
-            } else if (updatedMision.capture_now && updatedMision.capture_now !== '0') {
-              console.log('🖼️ [DEBUG NORMAL] Captura ya tiene URL:', updatedMision.capture_now);
-            }
-
-            console.log('📡 [DEBUG NORMAL] ========== FIN ACTUALIZACIÓN ==========');
+          // 🚫 BLOQUEAR CAMBIOS DE ESTADO NO DESEADOS
+          // Si la misión estaba corriendo y ahora viene is_running=false, IGNORAR
+          if (card.misionData?.isRunning && !updatedMision.is_running) {
+            console.log('🚫 [ANTI-PAUSE] BLOQUEANDO cambio de is_running=true a false');
+            console.log('🚫 [ANTI-PAUSE] Manteniendo estado local isRunning=true');
+            // NO actualizar el estado local - mantener la misión corriendo
           }
-        )
+
+          // Detectar solicitud de captura (capture_now === '1')
+          if (updatedMision.capture_now === '1' && !captureRequestedRef.current) {
+            console.log('🚨 [DEBUG NORMAL] ¡SOLICITUD DE CAPTURA DETECTADA!');
+            console.log('🚨 [DEBUG NORMAL] Tomando captura automáticamente...');
+
+            captureRequestedRef.current = true;
+
+            try {
+              // Tomar captura automáticamente usando la ref
+              const captureUrl = await captureNowRef.current();
+
+              if (captureUrl) {
+                console.log('✅ [DEBUG NORMAL] Captura tomada exitosamente:', captureUrl);
+
+                // Marcar que acabamos de procesar una captura
+                setJustProcessedCapture(true);
+
+                // Limpiar el flag después de 5 segundos
+                setTimeout(() => {
+                  setJustProcessedCapture(false);
+                  console.log('🔄 [SIMPLE STATE] Flag de captura limpiado');
+                }, 5000);
+
+                // Actualizar capture_now con la URL de la captura
+                if (updatedMision.id) {
+                  console.log('📤 [DEBUG NORMAL] Enviando URL de captura al servidor...');
+                  await updateCaptureNowRef.current(updatedMision.id, captureUrl);
+                }
+
+              } else {
+                console.error('❌ [DEBUG NORMAL] Error al tomar la captura');
+              }
+            } catch (error) {
+              console.error('❌ [DEBUG NORMAL] Error en captura automática:', error);
+            } finally {
+              // Resetear el flag después de un tiempo
+              setTimeout(() => {
+                captureRequestedRef.current = false;
+                console.log('🔄 [DEBUG NORMAL] Flag de captura reseteado');
+              }, 2000);
+            }
+          } else if (updatedMision.capture_now === '1') {
+            console.log('⏭️ [DEBUG NORMAL] Solicitud ya procesada, ignorando...');
+          } else if (updatedMision.capture_now && updatedMision.capture_now !== '0') {
+            console.log('🖼️ [DEBUG NORMAL] Captura ya tiene URL:', updatedMision.capture_now);
+          }
+
+          console.log('📡 [DEBUG NORMAL] ========== FIN ACTUALIZACIÓN ==========');
+        }
+      )
       : subscribeToMisionActivaByReferencia(
-          'mision',
-          idParaSuscribirse as number,
-          async (updatedMision) => {
-            if (!updatedMision) return;
+        'mision',
+        idParaSuscribirse as number,
+        async (updatedMision) => {
+          if (!updatedMision) return;
 
-            console.log('📡 [DEBUG NORMAL] ========== ACTUALIZACIÓN RECIBIDA ==========');
-            console.log('📡 [DEBUG NORMAL] Estado completo:', updatedMision);
-            console.log('📡 [DEBUG NORMAL] capture_now:', updatedMision.capture_now);
-            console.log('📡 [DEBUG NORMAL] is_running ANTES:', card.misionData?.isRunning);
-            console.log('📡 [DEBUG NORMAL] is_running NUEVO:', updatedMision.is_running);
+          console.log('📡 [DEBUG NORMAL] ========== ACTUALIZACIÓN RECIBIDA ==========');
+          console.log('📡 [DEBUG NORMAL] Estado completo:', updatedMision);
+          console.log('📡 [DEBUG NORMAL] capture_now:', updatedMision.capture_now);
+          console.log('📡 [DEBUG NORMAL] is_running ANTES:', card.misionData?.isRunning);
+          console.log('📡 [DEBUG NORMAL] is_running NUEVO:', updatedMision.is_running);
 
-            // 🚫 BLOQUEAR CAMBIOS DE ESTADO NO DESEADOS
-            // Si la misión estaba corriendo y ahora viene is_running=false, IGNORAR
-            if (card.misionData?.isRunning && !updatedMision.is_running) {
-              console.log('🚫 [ANTI-PAUSE] BLOQUEANDO cambio de is_running=true a false');
-              console.log('🚫 [ANTI-PAUSE] Manteniendo estado local isRunning=true');
-              // NO actualizar el estado local - mantener la misión corriendo
-            }
-
-            // Detectar solicitud de captura (capture_now === '1')
-            if (updatedMision.capture_now === '1' && !captureRequestedRef.current) {
-              console.log('🚨 [DEBUG NORMAL] ¡SOLICITUD DE CAPTURA DETECTADA!');
-              console.log('🚨 [DEBUG NORMAL] Tomando captura automáticamente...');
-
-              captureRequestedRef.current = true;
-
-              try {
-                // Tomar captura automáticamente usando la ref
-                const captureUrl = await captureNowRef.current();
-
-                if (captureUrl) {
-                  console.log('✅ [DEBUG NORMAL] Captura tomada exitosamente:', captureUrl);
-
-                  // Marcar que acabamos de procesar una captura
-                  setJustProcessedCapture(true);
-                  
-                  // Limpiar el flag después de 5 segundos
-                  setTimeout(() => {
-                    setJustProcessedCapture(false);
-                    console.log('🔄 [SIMPLE STATE] Flag de captura limpiado');
-                  }, 5000);
-
-                  // Actualizar capture_now con la URL de la captura
-                  if (updatedMision.id) {
-                    console.log('📤 [DEBUG NORMAL] Enviando URL de captura al servidor...');
-                    await updateCaptureNowRef.current(updatedMision.id, captureUrl);
-                    console.log('✅ [DEBUG NORMAL] URL enviada exitosamente');
-                  }
-
-             
-                } else {
-                  console.error('❌ [DEBUG NORMAL] Error al tomar la captura');
-                  alert('❌ Error al tomar la captura');
-                }
-              } catch (error) {
-                console.error('❌ [DEBUG NORMAL] Error en captura automática:', error);
-              } finally {
-                // Resetear el flag después de un tiempo
-                setTimeout(() => {
-                  captureRequestedRef.current = false;
-                  console.log('🔄 [DEBUG NORMAL] Flag de captura reseteado');
-                }, 2000);
-              }
-            } else if (updatedMision.capture_now === '1') {
-              console.log('⏭️ [DEBUG NORMAL] Solicitud ya procesada, ignorando...');
-            } else if (updatedMision.capture_now && updatedMision.capture_now !== '0') {
-              console.log('🖼️ [DEBUG NORMAL] Captura ya tiene URL:', updatedMision.capture_now);
-            }
-
-            console.log('📡 [DEBUG NORMAL] ========== FIN ACTUALIZACIÓN ==========');
+          // 🚫 BLOQUEAR CAMBIOS DE ESTADO NO DESEADOS
+          // Si la misión estaba corriendo y ahora viene is_running=false, IGNORAR
+          if (card.misionData?.isRunning && !updatedMision.is_running) {
+            console.log('🚫 [ANTI-PAUSE] BLOQUEANDO cambio de is_running=true a false');
+            console.log('🚫 [ANTI-PAUSE] Manteniendo estado local isRunning=true');
+            // NO actualizar el estado local - mantener la misión corriendo
           }
-        );
+
+          // Detectar solicitud de captura (capture_now === '1')
+          if (updatedMision.capture_now === '1' && !captureRequestedRef.current) {
+            console.log('🚨 [DEBUG NORMAL] ¡SOLICITUD DE CAPTURA DETECTADA!');
+            console.log('🚨 [DEBUG NORMAL] Tomando captura automáticamente...');
+
+            captureRequestedRef.current = true;
+
+            try {
+              // Tomar captura automáticamente usando la ref
+              const captureUrl = await captureNowRef.current();
+
+              if (captureUrl) {
+                console.log('✅ [DEBUG NORMAL] Captura tomada exitosamente:', captureUrl);
+
+                // Marcar que acabamos de procesar una captura
+                setJustProcessedCapture(true);
+
+                // Limpiar el flag después de 5 segundos
+                setTimeout(() => {
+                  setJustProcessedCapture(false);
+                  console.log('🔄 [SIMPLE STATE] Flag de captura limpiado');
+                }, 5000);
+
+                // Actualizar capture_now con la URL de la captura
+                if (updatedMision.id) {
+                  console.log('📤 [DEBUG NORMAL] Enviando URL de captura al servidor...');
+                  await updateCaptureNowRef.current(updatedMision.id, captureUrl);
+                  console.log('✅ [DEBUG NORMAL] URL enviada exitosamente');
+                }
+
+
+              } else {
+                console.error('❌ [DEBUG NORMAL] Error al tomar la captura');
+                alert('❌ Error al tomar la captura');
+              }
+            } catch (error) {
+              console.error('❌ [DEBUG NORMAL] Error en captura automática:', error);
+            } finally {
+              // Resetear el flag después de un tiempo
+              setTimeout(() => {
+                captureRequestedRef.current = false;
+                console.log('🔄 [DEBUG NORMAL] Flag de captura reseteado');
+              }, 2000);
+            }
+          } else if (updatedMision.capture_now === '1') {
+            console.log('⏭️ [DEBUG NORMAL] Solicitud ya procesada, ignorando...');
+          } else if (updatedMision.capture_now && updatedMision.capture_now !== '0') {
+            console.log('🖼️ [DEBUG NORMAL] Captura ya tiene URL:', updatedMision.capture_now);
+          }
+
+          console.log('📡 [DEBUG NORMAL] ========== FIN ACTUALIZACIÓN ==========');
+        }
+      );
 
     return () => {
       console.log('🔕 [DEBUG NORMAL] Cleanup llamado');
@@ -306,24 +342,26 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   // Sincronizar estado - SOLO sincronizar, sin bloqueos complejos
   useEffect(() => {
     const dbIsRunning = card.misionData?.isRunning || false;
-    
+
     console.log('🔄 [SIMPLE STATE] Cambio detectado:', {
       db_state: dbIsRunning,
-      local_state: localIsRunning
+      local_state: localIsRunning,
+      justProcessedCapture
     });
-    
+
     // Sincronizar siempre, excepto si acabamos de procesar una captura Y es una pausa
     if (dbIsRunning !== localIsRunning) {
       // Si acabamos de procesar una captura y viene una pausa automática, ignorarla
+      // Solo bloquear si: 1) hay flag de captura, 2) la BD dice false, 3) local dice true
       if (justProcessedCapture && !dbIsRunning && localIsRunning) {
         console.log('🚫 [SIMPLE STATE] Ignorando pausa automática después de captura');
         return;
       }
-      
+
       console.log('✅ [SIMPLE STATE] Sincronizando estado:', dbIsRunning);
       setLocalIsRunning(dbIsRunning);
     }
-  }, [card.misionData?.isRunning]);
+  }, [card.misionData?.isRunning, localIsRunning, justProcessedCapture]);
 
   // Efecto para el contador de tiempo - usar estado local
   useEffect(() => {
@@ -373,6 +411,59 @@ export const MisionCard: React.FC<MisionCardProps> = ({
       }
     };
   }, [localIsRunning, elapsedSeconds, card.misionData?.title, card.title]);
+
+  // Auto-pause cuando se cierre o recargue la página
+  useEffect(() => {
+    const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
+      console.log('🚪 [BEFOREUNLOAD] Página cerrando, verificando misiones activas...');
+
+      // Si la misión está corriendo, pausarla
+      if (localIsRunning && card.misionData?.misionActivaId) {
+        console.log('⏸️ [BEFOREUNLOAD] Pausando misión antes de cerrar página...');
+
+        try {
+          // Usar sendBeacon para asegurar que la petición se envía incluso al cerrar
+          const misionActivaId = card.misionData.misionActivaId;
+          const updateData = {
+            is_running: false,
+            estado: 'pausada',
+            fecha_fin: new Date().toISOString()
+          };
+
+          // Usar fetch con keepalive para que la petición se complete aunque se cierre la página
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+          if (supabaseUrl && supabaseKey) {
+            fetch(`${supabaseUrl}/rest/v1/misiones_activas?id=eq.${misionActivaId}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify(updateData),
+              keepalive: true  // CRÍTICO: mantiene la petición aunque se cierre la página
+            });
+
+            console.log('✅ [BEFOREUNLOAD] Petición de pause enviada con keepalive');
+          }
+        } catch (error) {
+          console.error('❌ [BEFOREUNLOAD] Error pausando misión:', error);
+        }
+      }
+    };
+
+    // Agregar listener
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [localIsRunning, card.misionData?.misionActivaId]);
+
   // SIMPLE: Función para tomar captura manual
   const handleManualCapture = async () => {
     console.log('📸 [MANUAL CAPTURE] INICIO - Estado antes:', {
@@ -382,18 +473,18 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     });
 
     setIsCapturingManual(true);
-    
+
     try {
       console.log('📸 [MANUAL CAPTURE] Llamando captureNow()...');
       const captureUrl = await captureNow();
-      
+
       console.log('📸 [MANUAL CAPTURE] captureNow() completado:', captureUrl);
       console.log('📸 [MANUAL CAPTURE] Estado después de captureNow:', {
         isRunning: card.misionData?.isRunning,
         estado: card.misionData?.estado,
         misionActivaId: card.misionData?.misionActivaId
       });
-      
+
       if (captureUrl) {
         alert('✅ ¡Captura tomada exitosamente!');
         console.log('✅ Captura guardada:', captureUrl);
@@ -405,7 +496,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
       alert('❌ Error al tomar la captura');
     } finally {
       setIsCapturingManual(false);
-      
+
       console.log('📸 [MANUAL CAPTURE] FIN - Estado final:', {
         isRunning: card.misionData?.isRunning,
         estado: card.misionData?.estado,
@@ -476,21 +567,54 @@ export const MisionCard: React.FC<MisionCardProps> = ({
     setNewMessage('');
   };
 
-  // Función para manejar play/pause - actualizar estado local inmediatamente
-  const handlePlayPauseClick = (cardId: string, isRunning: boolean) => {
-    console.log('🎮 [PLAY/PAUSE] Click detectado:', { cardId, isRunning, newState: !isRunning });
-    
-    // Actualizar estado local inmediatamente para respuesta visual rápida
+  // Función para manejar play/pause con mejor control de flujo
+  const handlePlayPauseClick = async (cardId: string, isRunning: boolean) => {
+    console.log('🎮 [PLAY/PAUSE] Click detectado:', { cardId, isRunning, newState: !isRunning, isProcessing });
+
+    // Evitar clicks múltiples mientras se procesa
+    if (isProcessing) {
+      console.log('⏳ [PLAY/PAUSE] Ya se está procesando una acción, ignorando click');
+      return;
+    }
+
     const newState = !isRunning;
-    setLocalIsRunning(newState);
-    
+
+    // Si vamos a iniciar (play), mostrar loading ANTES de pedir permisos
+    if (newState) {
+      console.log('🎬 [PLAY/PAUSE] Iniciando play - mostrando estado de carga');
+      setIsProcessing(true);
+      setIsRequestingPermission(true);
+      // NO actualizar localIsRunning aún - esperar a que se acepten permisos
+    } else {
+      // Si vamos a pausar, actualizar inmediatamente
+      console.log('⏸️ [PLAY/PAUSE] Pausando - actualizando estado inmediatamente');
+      setIsProcessing(true);
+      setLocalIsRunning(false);
+    }
+
     // Limpiar flag de captura cuando el usuario hace cambios manuales
     setJustProcessedCapture(false);
-    
-    console.log('✅ [PLAY/PAUSE] Estado local actualizado inmediatamente a:', newState);
-    
-    // Llamar al handler original
-    handleMisionPlayPause(cardId, isRunning);
+
+    try {
+      // Llamar al handler original (ahora async)
+      await handleMisionPlayPause(cardId, isRunning);
+
+      // Si llegamos aquí sin error y era play, actualizar a running
+      if (newState && !localIsRunning) {
+        console.log('✅ [PLAY/PAUSE] Permisos aceptados, actualizando a running');
+        setLocalIsRunning(true);
+      }
+    } catch (error) {
+      console.error('❌ [PLAY/PAUSE] Error en play/pause:', error);
+      // Si hubo error, revertir estado
+      if (newState) {
+        console.log('⚠️ [PLAY/PAUSE] Error o permisos cancelados, revirtiendo estado');
+        setLocalIsRunning(false);
+      }
+    } finally {
+      setIsProcessing(false);
+      setIsRequestingPermission(false);
+    }
   };
 
 
@@ -661,11 +785,10 @@ export const MisionCard: React.FC<MisionCardProps> = ({
                   className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                      esMio
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-200 text-gray-800'
-                    }`}
+                    className={`max-w-[80%] rounded-lg px-3 py-2 ${esMio
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-800'
+                      }`}
                   >
                     <p className="text-xs leading-tight">{msg.texto}</p>
                     <span className="text-[10px] opacity-70 mt-1 block">
@@ -720,11 +843,12 @@ export const MisionCard: React.FC<MisionCardProps> = ({
 
   // Determinar si está corriendo para cambiar colores - usar estado local protegido
   const isRunning = localIsRunning;
-  const borderColor = isRunning ? 'border-orange-200' : 'border-green-200';
-  const textColor = isRunning ? 'text-orange-800' : 'text-green-800';
-  const textColorSecondary = isRunning ? 'text-orange-700' : 'text-green-700';
-  const bgColor = isRunning ? 'bg-orange-600' : 'bg-green-600';
-  const bgColorHover = isRunning ? 'hover:bg-orange-700' : 'hover:bg-green-700';
+  // Si está solicitando permisos, usar colores amarillos (estado intermedio)
+  const borderColor = isRequestingPermission ? 'border-yellow-200' : (isRunning ? 'border-orange-200' : 'border-green-200');
+  const textColor = isRequestingPermission ? 'text-yellow-800' : (isRunning ? 'text-orange-800' : 'text-green-800');
+  const textColorSecondary = isRequestingPermission ? 'text-yellow-700' : (isRunning ? 'text-orange-700' : 'text-green-700');
+  const bgColor = isRequestingPermission ? 'bg-yellow-500' : (isRunning ? 'bg-orange-600' : 'bg-green-600');
+  const bgColorHover = isRequestingPermission ? 'hover:bg-yellow-600' : (isRunning ? 'hover:bg-orange-700' : 'hover:bg-green-700');
 
   // Modal de entrega
   if (showEntregarModal) {
@@ -795,11 +919,10 @@ export const MisionCard: React.FC<MisionCardProps> = ({
           <button
             onClick={handleSubmitEntrega}
             disabled={enviandoEntrega}
-            className={`flex-1 px-4 py-2 rounded transition-colors ${
-              enviandoEntrega
-                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
+            className={`flex-1 px-4 py-2 rounded transition-colors ${enviandoEntrega
+              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
             data-todo-interactive
           >
             {enviandoEntrega ? 'Enviando...' : 'Enviar Entrega'}
@@ -811,7 +934,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
 
   // Vista normal de la misión
   return (
-    <div className="flex flex-col h-full w-full p-3">
+    <div className={`flex flex-col h-full w-full p-3 ${isRunning ? 'bg-orange-50' : 'bg-white'}`}>
       {/* Botón de entregar - solo visible cuando la misión está activa */}
       {isRunning && (
         <div className="flex justify-end mb-2">
@@ -906,7 +1029,7 @@ export const MisionCard: React.FC<MisionCardProps> = ({
         {/* Botón de play/pause centrado - Solo visible si no es readOnly */}
         {!readOnly && (
           <button
-            className={`${bgColor} ${bgColorHover} text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors duration-200 shadow-lg hover:shadow-xl`}
+            className={`${bgColor} ${bgColorHover} text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors duration-200 shadow-lg hover:shadow-xl ${isProcessing ? 'cursor-wait' : 'cursor-pointer'}`}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -916,10 +1039,11 @@ export const MisionCard: React.FC<MisionCardProps> = ({
               e.preventDefault();
               e.stopPropagation();
             }}
+            disabled={isProcessing}
             data-todo-interactive
           >
             <div style={{ fontSize: `${Math.max(14, (card.fontSize || 18) - 2)}px` }}>
-              {localIsRunning ? '⏸️' : '▶️'}
+              {isRequestingPermission ? '⏳' : (localIsRunning ? '⏸️' : '▶️')}
             </div>
           </button>
         )}

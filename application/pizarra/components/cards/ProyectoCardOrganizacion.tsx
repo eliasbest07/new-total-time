@@ -24,6 +24,7 @@ const getIconEmoji = (icono: string | null): string => {
     'icon_folder': '📁',
     'icon_image': '🖼️',
     'icon_video': '🎥',
+    'icon_youtube': '▶️',
     'icon_code': '💻',
     'icon_note': '📝'
   };
@@ -104,7 +105,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   const [misionFechaInicio, setMisionFechaInicio] = useState('');
   const [misionFechaFin, setMisionFechaFin] = useState('');
   const [misionEstado, setMisionEstado] = useState('pendiente');
-  const [tareasTodo, setTareasTodo] = useState<{id: string; texto: string; completada: boolean}[]>([]);
+  const [tareasTodo, setTareasTodo] = useState<{ id: string; texto: string; completada: boolean }[]>([]);
   const [nuevaTareaTexto, setNuevaTareaTexto] = useState('');
   const [creandoMision, setCreandoMision] = useState(false);
 
@@ -1558,35 +1559,35 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
         {/* Botones de Acción */}
         {(proyectoDataLocal?.sitio_web_url || proyectoDataLocal?.github_url ||
           card.proyectoData?.sitio_web_url || card.proyectoData?.github_url) && (
-          <div className="flex gap-2 mb-3">
-            {(proyectoDataLocal?.sitio_web_url || card.proyectoData?.sitio_web_url) && (
-              <button
-                className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
-                data-todo-interactive
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const url = proyectoDataLocal?.sitio_web_url || card.proyectoData?.sitio_web_url;
-                  if (url) window.open(url, '_blank');
-                }}
-              >
-                Página
-              </button>
-            )}
-            {(proyectoDataLocal?.github_url || card.proyectoData?.github_url) && (
-              <button
-                className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
-                data-todo-interactive
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const url = proyectoDataLocal?.github_url || card.proyectoData?.github_url;
-                  if (url) window.open(url, '_blank');
-                }}
-              >
-                GitHub
-              </button>
-            )}
-          </div>
-        )}
+            <div className="flex gap-2 mb-3">
+              {(proyectoDataLocal?.sitio_web_url || card.proyectoData?.sitio_web_url) && (
+                <button
+                  className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+                  data-todo-interactive
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const url = proyectoDataLocal?.sitio_web_url || card.proyectoData?.sitio_web_url;
+                    if (url) window.open(url, '_blank');
+                  }}
+                >
+                  Página
+                </button>
+              )}
+              {(proyectoDataLocal?.github_url || card.proyectoData?.github_url) && (
+                <button
+                  className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full text-xs font-semibold transition-all shadow-sm hover:shadow-md"
+                  data-todo-interactive
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const url = proyectoDataLocal?.github_url || card.proyectoData?.github_url;
+                    if (url) window.open(url, '_blank');
+                  }}
+                >
+                  GitHub
+                </button>
+              )}
+            </div>
+          )}
 
         {/* Tecnologías */}
         {tecnologias.length > 0 && (
@@ -1889,11 +1890,10 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                       return (
                         <div
                           key={recurso.id}
-                          className={`w-full bg-gray-600 rounded-lg p-3 transition-all shadow-sm border-2 relative group select-none ${
-                            esNota
+                          className={`w-full bg-gray-600 rounded-lg p-3 transition-all shadow-sm border-2 relative group select-none ${esNota
                               ? 'hover:bg-gray-550 border-transparent'
                               : 'hover:bg-gray-550 border-transparent cursor-grab active:cursor-grabbing'
-                          }`}
+                            }`}
                           onDragStart={(e) => {
                             if (!esNota) {
                               e.dataTransfer.setData('text/plain', `Recurso: ${recurso.nombre}`);
@@ -2056,20 +2056,18 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                                   className="flex items-center gap-2 text-xs"
                                 >
                                   <div
-                                    className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 ${
-                                      tarea.completed
+                                    className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 ${tarea.completed
                                         ? 'bg-green-500 text-white border-green-500'
                                         : 'border-gray-400'
-                                    }`}
+                                      }`}
                                   >
                                     {tarea.completed && <span className="text-[8px]">✓</span>}
                                   </div>
                                   <span
-                                    className={`flex-1 truncate ${
-                                      tarea.completed
+                                    className={`flex-1 truncate ${tarea.completed
                                         ? 'line-through text-gray-400'
                                         : 'text-gray-200'
-                                    }`}
+                                      }`}
                                   >
                                     {tarea.text}
                                   </span>
@@ -2286,7 +2284,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                     disabled={creandoMision}
                     data-todo-interactive
                   >
-                    <option value="pendiente">Pendiente</option>
+                    <option value="pendiente">Pausada</option>
                     <option value="en_progreso">En Progreso</option>
                     <option value="completada">Completada</option>
                     <option value="cancelada">Cancelada</option>

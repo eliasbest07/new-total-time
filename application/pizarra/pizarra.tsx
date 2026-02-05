@@ -185,6 +185,75 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     setImageWindows(prev => removeImageWindow(prev, id));
   }, []);
 
+  // 🧹 AUTO-PAUSE: Pausar misión corriendo al cargar la página
+  useEffect(() => {
+    const autoPauseRunningMision = async () => {
+      // Buscar la única misión que puede estar corriendo
+      const runningMisionCard = cards.find(card => card.misionData?.isRunning === true);
+
+      if (runningMisionCard && runningMisionCard.misionData?.misionActivaId) {
+        console.log('🧹 [PAUSE DEBUG] Misión corriendo detectada al cargar página:', runningMisionCard.id);
+        console.log('🧹 [PAUSE DEBUG] Pausando automáticamente...');
+
+        try {
+          // Pausar en Supabase
+          const { error } = await supabase
+            .from('misiones_activas')
+            .update({
+              is_running: false,
+              estado: 'pausada',
+              fecha_fin: new Date().toISOString()
+            })
+            .eq('id', runningMisionCard.misionData.misionActivaId);
+
+          if (error) {
+            console.error('❌ [PAUSE DEBUG] Error al pausar:', error);
+          } else {
+            console.log('✅ [PAUSE DEBUG] Misión pausada exitosamente');
+
+            // Actualizar el estado local de la card
+            setCards(prevCards =>
+              prevCards.map(c =>
+                c.id === runningMisionCard.id
+                  ? {
+                    ...c,
+                    misionData: {
+                      ...c.misionData!,
+                      isRunning: false
+                    }
+                  }
+                  : c
+              )
+            );
+          }
+        } catch (error) {
+          console.error('❌ [PAUSE DEBUG] Error:', error);
+        }
+      }
+    };
+
+    // Ejecutar solo si hay cards cargadas
+    if (cards.length > 0) {
+      // Delay para asegurar que las cards estén completamente inicializadas
+      const timer = setTimeout(autoPauseRunningMision, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [cards.length]); // Solo ejecutar cuando cambie el número de cards
+
+  // 🧹 PAUSE DEBUG: Verificación explícita
+  useEffect(() => {
+    if (cards.length > 0) {
+      const runningCard = cards.find(c => c.misionData?.isRunning);
+      console.log('🔍 [PAUSE DEBUG] Cards cargadas:', cards.length);
+      console.log('🔍 [PAUSE DEBUG] Misión corriendo encontrada:', runningCard ? runningCard.id : 'NINGUNA');
+
+      if (runningCard) {
+        console.log('🔍 [PAUSE DEBUG] Detalle:', runningCard.misionData);
+      }
+    }
+  }, [cards]); // Ejecutar cada vez que cards cambie para ver si llega la data
+
+
   // Efecto para bajar z-index de salas cuando hay ventanas de imagen abiertas
   useEffect(() => {
     if (typeof window === 'undefined') return;

@@ -35,6 +35,32 @@ import CalendarioSemanalUsuario from "@/app/components/CalendarioSemanalUsuario"
 import fotoDePerfil from "../components/image.png";
 import PizarraPermissionRequests from "@/app/components/PizarraPermissionRequests";
 
+// Función helper para convertir icono a emoji
+const getIconEmoji = (icono: string | null): string => {
+  if (!icono) return '📄';
+
+  const iconMap: { [key: string]: string } = {
+    'icon_doc': '📄',
+    'icon_sheet': '📊',
+    'icon_slide': '📽️',
+    'icon_pdf': '📕',
+    'icon_link': '🔗',
+    'icon_folder': '📁',
+    'icon_image': '🖼️',
+    'icon_video': '🎥',
+    'icon_youtube': '▶️',
+    'icon_code': '💻',
+    'icon_note': '📝'
+  };
+
+  // Si el icono ya es un emoji, devolverlo tal cual
+  if (!icono.startsWith('icon_')) {
+    return icono;
+  }
+
+  return iconMap[icono] || '📄';
+};
+
 export default function DashboardPage() {
   const pizarraRef = useRef<PizarraRef>(null);
   const { usuario } = useAuth();
@@ -1832,7 +1858,7 @@ function DashboardAdmin() {
           setShowRecursoDetalles(false);
           setSelectedRecursoDetalles(null);
         }}
-        title={`${selectedRecursoDetalles?.icono || '📄'} ${selectedRecursoDetalles?.nombre || 'Recurso'}`}
+        title={`${getIconEmoji(selectedRecursoDetalles?.icono || null)} ${selectedRecursoDetalles?.nombre || 'Recurso'}`}
         initialWidth={500}
         initialHeight={350}
         minWidth={400}

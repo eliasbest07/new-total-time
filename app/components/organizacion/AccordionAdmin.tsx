@@ -11,14 +11,6 @@ import {
   Target,
   LucideIcon,
   MessageCircle,
-  Link as LinkIcon,
-  FileText,
-  Image as ImageIcon,
-  Video,
-  Code,
-  Database,
-  Globe,
-  Mail,
   Plus
 } from 'lucide-react';
 import { Recurso } from '@/domain/entities/Recurso';
@@ -58,23 +50,30 @@ interface AccordionAdminProps {
   onCollapseChange?: (isCollapsed: boolean) => void;
 }
 
-// Función helper para obtener el ícono de Lucide a partir del nombre
-const getIconFromName = (iconName: string | null): LucideIcon => {
-  const iconMap: { [key: string]: LucideIcon } = {
-    'Link': LinkIcon,
-    'LinkIcon': LinkIcon,
-    'FileText': FileText,
-    'Image': ImageIcon,
-    'ImageIcon': ImageIcon,
-    'Video': Video,
-    'Code': Code,
-    'Database': Database,
-    'Globe': Globe,
-    'Mail': Mail,
-    'Archive': Archive,
+// Función helper para convertir icono a emoji
+const getIconEmoji = (icono: string | null): string => {
+  if (!icono) return '📄';
+
+  const iconMap: { [key: string]: string } = {
+    'icon_doc': '📄',
+    'icon_sheet': '📊',
+    'icon_slide': '📽️',
+    'icon_pdf': '📕',
+    'icon_link': '🔗',
+    'icon_folder': '📁',
+    'icon_image': '🖼️',
+    'icon_video': '🎥',
+    'icon_youtube': '▶️',
+    'icon_code': '💻',
+    'icon_note': '📝'
   };
 
-  return iconMap[iconName || ''] || LinkIcon;
+  // Si el icono ya es un emoji, devolverlo tal cual
+  if (!icono.startsWith('icon_')) {
+    return icono;
+  }
+
+  return iconMap[icono] || '📄';
 };
 
 // Componente Principal
@@ -361,6 +360,8 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
     if (!estado) return '';
     // Mapear 'aprobada' a 'Revisada'
     if (estado.toLowerCase() === 'aprobada') return 'Revisada';
+    // Mapear 'pendiente' a 'Pausada'
+    if (estado.toLowerCase() === 'pendiente') return 'Pausada';
     // Reemplazar guiones bajos con espacios y capitalizar primera letra
     return estado
       .replace(/_/g, ' ')
@@ -895,7 +896,6 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                         <div>
                           <div className="grid grid-cols-5 gap-2 mb-3">
                             {recursos.map((recurso) => {
-                              const IconComponent = getIconFromName(recurso.icono);
                               return (
                                 <div
                                   key={recurso.id}
@@ -937,7 +937,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
                                   }}
                                 >
                                   <div className="w-8 h-8 rounded bg-blue-500 flex items-center justify-center mb-1">
-                                    <IconComponent size={16} className="text-white" />
+                                    <span className="text-lg">{getIconEmoji(recurso.icono)}</span>
                                   </div>
                                   <span className="text-white text-[10px] text-center truncate w-full leading-tight">
                                     {recurso.nombre || 'Recurso'}

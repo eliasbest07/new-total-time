@@ -209,7 +209,7 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
   const newRunningState = !currentIsRunning;
   const tipoLabel = tipo === 'actividad' ? 'ACTIVIDAD' : 'MISION';
 
-  console.log(`🎮 [${tipoLabel} PLAY/PAUSE] *** FUNCIÓN LLAMADA ***`, {
+  console.log(`🎮 [PLAY DEBUG] *** FUNCIÓN LLAMADA ***`, {
     cardId,
     currentIsRunning,
     newRunningState,
@@ -220,14 +220,22 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
   // ========================================
   // PLAY - Iniciar captura
   // ========================================
-  if (newRunningState && !isCapturing) {
-    console.log(`▶️ [${tipoLabel} PLAY/PAUSE] Iniciando ${tipo}...`);
+  if (newRunningState) {
+    console.log(`▶️ [PLAY DEBUG] Iniciando ${tipo}...`);
 
     try {
+      // Si ya estaba capturando, detener primero
+      if (isCapturing) {
+        console.log('🛑 [PLAY] Ya estaba capturando, deteniendo stream anterior...');
+        stopCapturing();
+        // Esperar un momento para que se limpie el stream
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       const card = cards.find(c => c.id === cardId);
       if (!card) {
         console.error('❌ No se encontró la card');
-        return;
+        throw new Error('CARD_NOT_FOUND');
       }
 
       // Obtener datos según el tipo
@@ -237,7 +245,7 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
         console.error(`❌ [${tipoLabel}] Card completa:`, card);
         console.error(`⚠️ [${tipoLabel}] Posible causa: La card no se sincronizó correctamente desde Supabase`);
         alert(`Error: Esta tarjeta de ${tipo} no tiene datos. Por favor, recarga la página o verifica que la ${tipo} existe en la base de datos.`);
-        return;
+        throw new Error('MISSING_DATA');
       }
 
       // Extraer ID y nombre de la entidad
@@ -254,13 +262,13 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
         ? (usuario?.userAuth || 'usuario-desconocido')
         : (usuario?.id || card.misionData?.id_usuario || 'usuario-desconocido');
 
-      console.log(`📤 [${tipoLabel} PLAY/PAUSE] Datos:`, { entityId, userId, entityName });
+      console.log(`📤 [PLAY DEBUG] Datos:`, { entityId, userId, entityName });
 
       // 1. PRIMERO: Solicitar permiso de pantalla (debe estar en user gesture)
       const permissionResult = await requestScreenPermission({ cursor: true, audio: false });
       if (!permissionResult.granted || !permissionResult.mediaStream) {
         console.log('⚠️ Usuario canceló o no se concedió permiso');
-        return;
+        throw new Error('PERMISSION_CANCELLED');
       }
 
       const mediaStream = permissionResult.mediaStream;
@@ -315,7 +323,7 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
         }
       });
 
-      console.log(`✅ [${tipoLabel} PLAY/PAUSE] Captura iniciada exitosamente`);
+      console.log(`✅ [PLAY DEBUG] Captura iniciada exitosamente`);
 
       // 4. Actualizar estado en Supabase a "en_progreso"
       console.log('💾 [MISION ACTIVA] Actualizando estado a en_progreso en Supabase...');
@@ -340,24 +348,66 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
         }
       });
 
-      console.log(`✅ [${tipoLabel} PLAY/PAUSE] Estado actualizado, contador activado`);
+      console.log(`✅ [PLAY DEBUG] Estado actualizado, contador activado`);
     } catch (error) {
       console.error(`❌ Error iniciando captura de ${tipo}:`, error);
     }
   }
   // ========================================
-  // PAUSE - DESACTIVADO TEMPORALMENTE
+  // PAUSE - Detener captura
   // ========================================
-  else if (!newRunningState && isCapturing) {
-    console.log(`🚫 [${tipoLabel} PLAY/PAUSE] PAUSA DESACTIVADA - No pausar automáticamente`);
-    console.log(`🚫 [${tipoLabel} PLAY/PAUSE] Parámetros:`, {
-      newRunningState,
-      isCapturing,
-      cardId
-    });
-    
-    // NO HACER NADA - Mantener la misión activa
-    return;
+  else if (!newRunningState) {  // ✅ Siempre permitir pausar
+    console.log(`⏸️ [PLAY DEBUG] Pausando ${tipo}...`);
+    console.log(`⏸️ [PLAY DEBUG] isCapturing actual: ${isCapturing}`);
+
+    try {
+      const card = cards.find(c => c.id === cardId);
+      if (!card) {
+        console.error('❌ No se encontró la card');
+        return;
+      }
+
+      // Obtener misionActivaId del card
+      const data = tipo === 'actividad' ? card.activityData : card.misionData;
+      const misionActivaId = data?.misionActivaId;
+
+      if (misionActivaId) {
+        // 1. Actualizar estado en Supabase a "pausada"
+        console.log('💾 [PLAY DEBUG] Actualizando estado a pausada en Supabase...');
+        await updateRunningState(misionActivaId, {
+          is_running: false,
+          estado: 'pausada',
+          fecha_fin: new Date().toISOString()
+        });
+        console.log('✅ [PLAY DEBUG] Estado pausada guardado en Supabase');
+      }
+
+      // 2. Actualizar estado local
+      const currentCard = cards.find(c => c.id === cardId);
+      const updateKey = tipo === 'actividad' ? 'activityData' : 'misionData';
+      const currentData = tipo === 'actividad' ? currentCard?.activityData : currentCard?.misionData;
+
+      onUpdateCard(cardId, {
+        [updateKey]: {
+          ...currentData,
+          isRunning: false
+        }
+      });
+      console.log('✅ [PLAY DEBUG] Estado local actualizado a isRunning: false');
+
+      // 3. Detener captura de pantalla SOLO si está capturando
+      if (isCapturing) {
+        console.log('🛑 [PLAY DEBUG] Deteniendo captura de pantalla...');
+        stopCapturing();
+        console.log('✅ [PLAY DEBUG] Captura de pantalla detenida');
+      } else {
+        console.log('ℹ️ [PLAY DEBUG] No hay captura activa para detener (página recargada)');
+      }
+
+      console.log(`✅ [PLAY DEBUG] ${tipo} pausada exitosamente`);
+    } catch (error) {
+      console.error(`❌ Error pausando ${tipo}:`, error);
+    }
   }
 }
 

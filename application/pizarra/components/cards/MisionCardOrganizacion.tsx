@@ -686,7 +686,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
   const getEstadoText = () => {
     switch (misionData.estado) {
       case 'pendiente':
-        return 'Pendiente';
+        return 'Pausada';
       case 'en_progreso':
         return 'En Progreso';
       case 'completada':
@@ -703,7 +703,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       case 'cancelada':
         return 'Cancelada';
       default:
-        return 'Pendiente';
+        return 'Pausada';
     }
   };
 
@@ -750,316 +750,314 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       {/* Contenido */}
       <div className="flex-1 flex flex-col p-3 overflow-hidden">
 
-      {/* Descripción editable */}
-      <div className="mb-2">
-        {isEditingDescription ? (
-          <textarea
-            defaultValue={misionData.description}
-            onBlur={(e) => handleDescriptionChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setIsEditingDescription(false);
-              }
-            }}
-            className="w-full text-xs text-gray-600 bg-transparent border border-green-400 rounded px-2 py-1 focus:outline-none resize-none"
-            rows={2}
-            autoFocus
-            data-todo-interactive
-          />
-        ) : (
-          <p
-            className="text-xs text-gray-600 cursor-pointer hover:text-green-600 line-clamp-2"
-            onClick={() => setIsEditingDescription(true)}
-            data-todo-interactive
-          >
-            {misionData.description || 'Click pra agregar descripción...'}
-          </p>
-        )}
-      </div>
-
-      {/* Usuario asignado y estado */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex-1">
-          {misionData.usuario_asignado_nombre ? (
-            <div
-              className="flex items-center gap-2 bg-gray-100 rounded px-2 py-1 cursor-pointer hover:bg-gray-200"
-              onClick={() => setShowUsuarioSelector(!showUsuarioSelector)}
+        {/* Descripción editable */}
+        <div className="mb-2">
+          {isEditingDescription ? (
+            <textarea
+              defaultValue={misionData.description}
+              onBlur={(e) => handleDescriptionChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setIsEditingDescription(false);
+                }
+              }}
+              className="w-full text-xs text-gray-600 bg-transparent border border-green-400 rounded px-2 py-1 focus:outline-none resize-none"
+              rows={2}
+              autoFocus
               data-todo-interactive
-            >
-              {misionData.usuario_asignado_avatar ? (
-                <img
-                  src={misionData.usuario_asignado_avatar}
-                  alt={misionData.usuario_asignado_nombre}
-                  className="w-5 h-5 rounded-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'flex';
-                  }}
-                />
-              ) : null}
-              <div
-                className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center text-white text-xs"
-                style={{ display: misionData.usuario_asignado_avatar ? 'none' : 'flex' }}
-              >
-                {misionData.usuario_asignado_nombre.charAt(0).toUpperCase()}
-              </div>
-              <span className="text-xs font-medium text-gray-700 truncate">
-                {misionData.usuario_asignado_nombre}
-              </span>
-            </div>
+            />
           ) : (
-            <button
-              onClick={() => setShowUsuarioSelector(!showUsuarioSelector)}
-              className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700"
+            <p
+              className="text-xs text-gray-600 cursor-pointer hover:text-green-600 line-clamp-2"
+              onClick={() => setIsEditingDescription(true)}
               data-todo-interactive
             >
-              <User size={14} />
-              <span>Asignar usuario</span>
-            </button>
+              {misionData.description || 'Click pra agregar descripción...'}
+            </p>
           )}
+        </div>
 
-          {/* Selector de usuarios */}
-          {showUsuarioSelector && (
-            <div className="absolute z-10 mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto" data-todo-interactive>
-              {usuarios.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-gray-500">No hay usuarios disponibles</div>
-              ) : (
-                usuarios.map((usuario) => (
-                  <div
-                    key={usuario.id}
-                    onClick={() => handleAsignarUsuario(usuario)}
-                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                  >
-                    {usuario.profile.avatar ? (
-                      <>
-                        <img
-                          src={usuario.profile.avatar}
-                          alt={`${usuario.profile.nombre} ${usuario.profile.apellido}`}
-                          className="w-6 h-6 rounded-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                            if (fallback) fallback.style.display = 'flex';
-                          }}
-                        />
-                        <div
-                          className="w-6 h-6 bg-gray-700 rounded-full flex items-center justify-center text-white text-xs"
-                          style={{ display: 'none' }}
-                        >
+        {/* Usuario asignado y estado */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex-1">
+            {misionData.usuario_asignado_nombre ? (
+              <div
+                className="flex items-center gap-2 bg-gray-100 rounded px-2 py-1 cursor-pointer hover:bg-gray-200"
+                onClick={() => setShowUsuarioSelector(!showUsuarioSelector)}
+                data-todo-interactive
+              >
+                {misionData.usuario_asignado_avatar ? (
+                  <img
+                    src={misionData.usuario_asignado_avatar}
+                    alt={misionData.usuario_asignado_nombre}
+                    className="w-5 h-5 rounded-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div
+                  className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center text-white text-xs"
+                  style={{ display: misionData.usuario_asignado_avatar ? 'none' : 'flex' }}
+                >
+                  {misionData.usuario_asignado_nombre.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-xs font-medium text-gray-700 truncate">
+                  {misionData.usuario_asignado_nombre}
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowUsuarioSelector(!showUsuarioSelector)}
+                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700"
+                data-todo-interactive
+              >
+                <User size={14} />
+                <span>Asignar usuario</span>
+              </button>
+            )}
+
+            {/* Selector de usuarios */}
+            {showUsuarioSelector && (
+              <div className="absolute z-10 mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto" data-todo-interactive>
+                {usuarios.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-gray-500">No hay usuarios disponibles</div>
+                ) : (
+                  usuarios.map((usuario) => (
+                    <div
+                      key={usuario.id}
+                      onClick={() => handleAsignarUsuario(usuario)}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                    >
+                      {usuario.profile.avatar ? (
+                        <>
+                          <img
+                            src={usuario.profile.avatar}
+                            alt={`${usuario.profile.nombre} ${usuario.profile.apellido}`}
+                            className="w-6 h-6 rounded-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                          <div
+                            className="w-6 h-6 bg-gray-700 rounded-full flex items-center justify-center text-white text-xs"
+                            style={{ display: 'none' }}
+                          >
+                            {usuario.profile.nombre.charAt(0).toUpperCase()}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-6 h-6 bg-gray-700 rounded-full flex items-center justify-center text-white text-xs">
                           {usuario.profile.nombre.charAt(0).toUpperCase()}
                         </div>
-                      </>
-                    ) : (
-                      <div className="w-6 h-6 bg-gray-700 rounded-full flex items-center justify-center text-white text-xs">
-                        {usuario.profile.nombre.charAt(0).toUpperCase()}
+                      )}
+                      <span className="text-xs text-gray-700">
+                        {usuario.profile.nombre} {usuario.profile.apellido}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Botón de captura - Solo visible si la misión está corriendo */}
+          {misionData.isRunning && (misionData.misionActivaId || (misionData.id_mision && currentUserId)) && (
+            <button
+              onClick={handleRequestCapture}
+              className={`${misionData.misionActivaId
+                  ? 'bg-blue-500 hover:bg-blue-600'
+                  : 'bg-gray-400 hover:bg-gray-500'
+                } text-white rounded-full p-2 transition-all relative`}
+              data-todo-interactive
+              title={
+                misionData.misionActivaId
+                  ? "Solicitar captura de pantalla"
+                  : "Asignar usuario para habilitar capturas"
+              }
+            >
+              <Camera size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Imagen de captura simple */}
+        {lastCaptureUrl && (
+          <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+            <img
+              src={lastCaptureUrl}
+              alt="Última captura"
+              className="w-full h-auto object-contain"
+              style={{ maxHeight: '200px' }}
+            />
+            <div className="px-2 py-1 bg-gray-100 flex items-center justify-between">
+              <span className="text-xs text-gray-600">📸 Última captura</span>
+              <button
+                onClick={handleVerTodasCapturas}
+                className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                data-todo-interactive
+                title="Ver todas las capturas"
+              >
+                <Images size={12} />
+                Ver todas
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Badge de estado */}
+        <div className="mb-3">
+          <span className={`${getEstadoColor()} rounded px-2 py-1 text-xs font-medium`}>
+            {getEstadoText()}
+          </span>
+        </div>
+
+        {/* Sección de subtareas */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <div
+              className="flex items-center gap-1 flex-1 cursor-pointer"
+              onClick={() => setShowSubtareas(!showSubtareas)}
+              data-todo-interactive
+            >
+              <h4 className="text-xs font-semibold text-gray-700">Tareas</h4>
+              {showSubtareas ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </div>
+            {/* Botón para mostrar/crear card TODO */}
+            {misionData.card_todos && misionData.card_todos.length > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleShowTodoCard();
+                }}
+                className="text-green-500 hover:text-green-700 transition-colors"
+                data-todo-interactive
+                title="Mostrar card de tareas"
+              >
+                <ExternalLink size={14} />
+              </button>
+            )}
+          </div>
+
+          {showSubtareas && (
+            <>
+              <div className="flex-1 overflow-y-auto mb-2 space-y-1">
+                {loadingCardTodos ? (
+                  <div className="text-xs text-gray-400 italic">Cargando tareas...</div>
+                ) : subtareas && subtareas.length > 0 ? (
+                  subtareas.map((subtarea) => (
+                    <div
+                      key={subtarea.id}
+                      className="flex items-center gap-2 bg-gray-50 rounded px-2 py-1 group"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={subtarea.completed}
+                        onChange={() => handleToggleSubtarea(subtarea.id)}
+                        className="w-3 h-3 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                        data-todo-interactive
+                      />
+                      <span
+                        className={`text-xs flex-1 ${subtarea.completed ? 'line-through text-gray-400' : 'text-gray-700'
+                          }`}
+                      >
+                        {subtarea.text}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteSubtarea(subtarea.id)}
+                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
+                        data-todo-interactive
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-gray-400 italic">No hay tareas</div>
+                )}
+              </div>
+
+              {/* Input para agregar tarea */}
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={newSubtareaText}
+                  onChange={(e) => setNewSubtareaText(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddSubtarea();
+                    }
+                  }}
+                  placeholder="Nueva tarea..."
+                  className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-green-500"
+                  data-todo-interactive
+                  disabled={!misionData.id_pizarra || !misionData.id_mision}
+                />
+                <button
+                  onClick={handleAddSubtarea}
+                  className="bg-green-500 hover:bg-green-600 text-white rounded p-1 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  data-todo-interactive
+                  disabled={!misionData.id_pizarra || !misionData.id_mision}
+                  title={!misionData.id_pizarra || !misionData.id_mision ? 'Se necesita una pizarra y misión activa' : 'Agregar tarea'}
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Sección de entregas */}
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <div
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setShowEntregas(!showEntregas)}
+            data-todo-interactive
+          >
+            <h4 className="text-xs font-semibold text-gray-700">
+              Entregas ({misionData.entregas?.length || 0})
+            </h4>
+            {showEntregas ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </div>
+
+          {showEntregas && (
+            <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+              {misionData.entregas && misionData.entregas.length > 0 ? (
+                misionData.entregas.map((entrega) => (
+                  <div key={entrega.id} className="bg-gray-50 rounded px-2 py-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-gray-700">
+                        {entrega.usuario_nombre}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {new Date(entrega.fecha).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600 line-clamp-2">{entrega.descripcion}</p>
+                    {entrega.imagenes.length > 0 && (
+                      <div className="mt-1 flex gap-1">
+                        {entrega.imagenes.map((img, idx) => (
+                          <img
+                            key={idx}
+                            src={img}
+                            alt="Entrega"
+                            className="w-10 h-10 object-cover rounded"
+                          />
+                        ))}
                       </div>
                     )}
-                    <span className="text-xs text-gray-700">
-                      {usuario.profile.nombre} {usuario.profile.apellido}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Botón de captura - Solo visible si la misión está corriendo */}
-        {misionData.isRunning && (misionData.misionActivaId || (misionData.id_mision && currentUserId)) && (
-          <button
-            onClick={handleRequestCapture}
-            className={`${
-              misionData.misionActivaId
-                ? 'bg-blue-500 hover:bg-blue-600'
-                : 'bg-gray-400 hover:bg-gray-500'
-            } text-white rounded-full p-2 transition-all relative`}
-            data-todo-interactive
-            title={
-              misionData.misionActivaId
-                ? "Solicitar captura de pantalla"
-                : "Asignar usuario para habilitar capturas"
-            }
-          >
-            <Camera size={14} />
-          </button>
-        )}
-      </div>
-
-      {/* Imagen de captura simple */}
-      {lastCaptureUrl && (
-        <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-          <img
-            src={lastCaptureUrl}
-            alt="Última captura"
-            className="w-full h-auto object-contain"
-            style={{ maxHeight: '200px' }}
-          />
-          <div className="px-2 py-1 bg-gray-100 flex items-center justify-between">
-            <span className="text-xs text-gray-600">📸 Última captura</span>
-            <button
-              onClick={handleVerTodasCapturas}
-              className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
-              data-todo-interactive
-              title="Ver todas las capturas"
-            >
-              <Images size={12} />
-              Ver todas
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Badge de estado */}
-      <div className="mb-3">
-        <span className={`${getEstadoColor()} rounded px-2 py-1 text-xs font-medium`}>
-          {getEstadoText()}
-        </span>
-      </div>
-
-      {/* Sección de subtareas */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between mb-2">
-          <div
-            className="flex items-center gap-1 flex-1 cursor-pointer"
-            onClick={() => setShowSubtareas(!showSubtareas)}
-            data-todo-interactive
-          >
-            <h4 className="text-xs font-semibold text-gray-700">Tareas</h4>
-            {showSubtareas ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </div>
-          {/* Botón para mostrar/crear card TODO */}
-          {misionData.card_todos && misionData.card_todos.length > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleShowTodoCard();
-              }}
-              className="text-green-500 hover:text-green-700 transition-colors"
-              data-todo-interactive
-              title="Mostrar card de tareas"
-            >
-              <ExternalLink size={14} />
-            </button>
-          )}
-        </div>
-
-        {showSubtareas && (
-          <>
-            <div className="flex-1 overflow-y-auto mb-2 space-y-1">
-              {loadingCardTodos ? (
-                <div className="text-xs text-gray-400 italic">Cargando tareas...</div>
-              ) : subtareas && subtareas.length > 0 ? (
-                subtareas.map((subtarea) => (
-                  <div
-                    key={subtarea.id}
-                    className="flex items-center gap-2 bg-gray-50 rounded px-2 py-1 group"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={subtarea.completed}
-                      onChange={() => handleToggleSubtarea(subtarea.id)}
-                      className="w-3 h-3 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                      data-todo-interactive
-                    />
-                    <span
-                      className={`text-xs flex-1 ${
-                        subtarea.completed ? 'line-through text-gray-400' : 'text-gray-700'
-                      }`}
-                    >
-                      {subtarea.text}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteSubtarea(subtarea.id)}
-                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
-                      data-todo-interactive
-                    >
-                      <X size={12} />
-                    </button>
                   </div>
                 ))
               ) : (
-                <div className="text-xs text-gray-400 italic">No hay tareas</div>
+                <div className="text-xs text-gray-400 italic">No hay entregas</div>
               )}
             </div>
-
-            {/* Input para agregar tarea */}
-            <div className="flex gap-1">
-              <input
-                type="text"
-                value={newSubtareaText}
-                onChange={(e) => setNewSubtareaText(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddSubtarea();
-                  }
-                }}
-                placeholder="Nueva tarea..."
-                className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-green-500"
-                data-todo-interactive
-                disabled={!misionData.id_pizarra || !misionData.id_mision}
-              />
-              <button
-                onClick={handleAddSubtarea}
-                className="bg-green-500 hover:bg-green-600 text-white rounded p-1 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                data-todo-interactive
-                disabled={!misionData.id_pizarra || !misionData.id_mision}
-                title={!misionData.id_pizarra || !misionData.id_mision ? 'Se necesita una pizarra y misión activa' : 'Agregar tarea'}
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Sección de entregas */}
-      <div className="mt-3 pt-3 border-t border-gray-200">
-        <div
-          className="flex items-center justify-between cursor-pointer"
-          onClick={() => setShowEntregas(!showEntregas)}
-          data-todo-interactive
-        >
-          <h4 className="text-xs font-semibold text-gray-700">
-            Entregas ({misionData.entregas?.length || 0})
-          </h4>
-          {showEntregas ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          )}
         </div>
-
-        {showEntregas && (
-          <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
-            {misionData.entregas && misionData.entregas.length > 0 ? (
-              misionData.entregas.map((entrega) => (
-                <div key={entrega.id} className="bg-gray-50 rounded px-2 py-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-gray-700">
-                      {entrega.usuario_nombre}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {new Date(entrega.fecha).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 line-clamp-2">{entrega.descripcion}</p>
-                  {entrega.imagenes.length > 0 && (
-                    <div className="mt-1 flex gap-1">
-                      {entrega.imagenes.map((img, idx) => (
-                        <img
-                          key={idx}
-                          src={img}
-                          alt="Entrega"
-                          className="w-10 h-10 object-cover rounded"
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="text-xs text-gray-400 italic">No hay entregas</div>
-            )}
-          </div>
-        )}
-      </div>
       </div>
     </div>
   );
