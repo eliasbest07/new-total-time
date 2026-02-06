@@ -384,6 +384,8 @@ export default function MainScreen() {
           onShowScreenshots={handleShowScreenshots}
           storagePrefix="real"
           onOpenUserChat={handleUserClick}
+          usuarios={usuariosFiltrados}
+          currentUserId={usuario?.userAuth}
         />
       </div>
 

@@ -104,6 +104,7 @@ export interface ActividadOrganizacionData {
 
 export interface Card {
   id: string;
+  dbId?: string; // UUID de la BD (cards.id) - usado para referencias en mensajes
   type: string;
   title: string;
   content: string;

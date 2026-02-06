@@ -142,6 +142,29 @@ export class SupabaseCardRepository implements CardRepository {
   }
 
   /**
+   * Obtiene una card por su UUID de BD (para referencias en mensajes compartidos)
+   */
+  async getCardById(id: string): Promise<CardDB | null> {
+    try {
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error obteniendo card por ID:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error en getCardById:', error);
+      return null;
+    }
+  }
+
+  /**
    * Actualiza la posición de una card
    */
   async updateCardPosition(idPizarra: string, cardId: string, x: number, y: number): Promise<CardDB | null> {

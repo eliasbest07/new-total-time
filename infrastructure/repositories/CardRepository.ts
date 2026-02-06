@@ -16,6 +16,9 @@ export interface CardRepository {
   // Obtener una card específica
   getCard(idPizarra: string, cardId: string): Promise<CardDB | null>;
 
+  // Obtener una card por su UUID de BD (para referencias en mensajes)
+  getCardById(id: string): Promise<CardDB | null>;
+
   // Actualizar posición de una card
   updateCardPosition(idPizarra: string, cardId: string, x: number, y: number): Promise<CardDB | null>;
 

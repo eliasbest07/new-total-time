@@ -4,8 +4,8 @@ export interface MensajeRepository {
   // Obtener conversación entre dos usuarios
   getConversacion(userId1: string, userId2: string): Promise<Mensaje[]>;
 
-  // Enviar un mensaje
-  enviarMensaje(idEmisor: string, idReceptor: string, texto: string): Promise<Mensaje | null>;
+  // Enviar un mensaje (opcionalmente con referencia a una card compartida)
+  enviarMensaje(idEmisor: string, idReceptor: string, texto: string, idCardRef?: string): Promise<Mensaje | null>;
 
   // Marcar mensaje como leído
   marcarComoLeido(mensajeId: string): Promise<boolean>;

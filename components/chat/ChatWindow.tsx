@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useChatWindows } from '@/app/contexts/ChatWindowContext';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useChatMessages } from '@/hooks/useChatMessages';
+import { SharedCardPreview } from './SharedCardPreview';
 
 interface ChatWindowProps {
   windowId: string;
@@ -204,20 +205,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             )}
             {!loading && mensajes.map((mensaje) => {
               const esMio = mensaje.idEmisor === usuario?.userAuth;
+              const tieneCard = !!mensaje.idCardRef;
+              console.log('🔍 Mensaje debug:', { id: mensaje.id, texto: mensaje.texto?.substring(0, 30), idCardRef: mensaje.idCardRef, tieneCard });
               return (
                 <div
                   key={mensaje.id}
                   className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg px-4 py-2.5 shadow-sm ${
+                    className={`max-w-[80%] rounded-lg shadow-sm ${
+                      tieneCard ? 'p-2' : 'px-4 py-2.5'
+                    } ${
                       esMio
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-900 border border-gray-200'
                     }`}
                   >
-                    <p className="break-words text-sm leading-relaxed">{mensaje.texto}</p>
-                    <span className={`text-xs mt-1 block ${esMio ? 'text-blue-100' : 'text-gray-500'}`}>
+                    {tieneCard ? (
+                      <SharedCardPreview cardId={mensaje.idCardRef!} esMio={esMio} onAddToPizarra={() => closeChatWindow(windowId)} />
+                    ) : (
+                      <p className="break-words text-sm leading-relaxed">{mensaje.texto}</p>
+                    )}
+                    <span className={`text-xs mt-1 block ${tieneCard ? 'px-2' : ''} ${esMio ? 'text-blue-100' : 'text-gray-500'}`}>
                       {mensaje.createdAt.toLocaleTimeString('es-ES', {
                         hour: '2-digit',
                         minute: '2-digit'

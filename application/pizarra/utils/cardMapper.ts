@@ -7,6 +7,7 @@ import { Card } from '../types';
 export function mapCardDBToCard(cardDB: CardDB): Card {
   const baseCard: Card = {
     id: cardDB.card_id, // Usar card_id como id en el frontend
+    dbId: cardDB.id, // UUID de la BD para referencias
     type: cardDB.type,
     title: cardDB.title || '',
     content: cardDB.content || '',

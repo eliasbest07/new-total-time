@@ -70,6 +70,7 @@ interface CardWrapperProps {
   ) => void;
   onTogglePersistent?: (cardId: string, isPersistent: boolean) => void;
   onShowFullDescription?: (title: string, description: string) => void;
+  onShareCard?: (cardId: string) => void;
 }
 
 export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((props) => {
@@ -214,6 +215,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
           onEditTitle={props.setEditingTitle}
           onDeleteCard={() => props.setConfirmDelete(card.id)}
           onTogglePersistent={props.onTogglePersistent}
+          onShareCard={props.onShareCard}
         />
       )}
 

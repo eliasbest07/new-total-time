@@ -64,7 +64,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           top: '80px',
           left: '50%',
           transform: 'translateX(-50%)',
-          zIndex: 50,
+          zIndex: 99999,
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',

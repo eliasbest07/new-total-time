@@ -30,20 +30,22 @@ export class SupabaseMensajeRepository implements MensajeRepository {
     }
   }
 
-  async enviarMensaje(idEmisor: string, idReceptor: string, texto: string): Promise<Mensaje | null> {
+  async enviarMensaje(idEmisor: string, idReceptor: string, texto: string, idCardRef?: string): Promise<Mensaje | null> {
     try {
-      // console.log('📤 Enviando mensaje de', idEmisor, 'a', idReceptor);
-      // console.log('📤 Texto del mensaje:', texto);
+      const insertData: any = {
+        id_emisor: idEmisor,
+        id_receptor: idReceptor,
+        texto: texto,
+        leido: false
+      };
+
+      if (idCardRef) {
+        insertData.id_card_ref = idCardRef;
+      }
 
       const { data, error } = await supabase
         .from('mensajes')
-        .insert({
-          id_emisor: idEmisor,
-          id_receptor: idReceptor,
-          texto: texto,
-          leido: false
-          // No incluir id_conversacion porque es una columna generada
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -117,7 +119,8 @@ export class SupabaseMensajeRepository implements MensajeRepository {
       data.leido || false,
       data.created_at ? new Date(data.created_at) : new Date(),
       data.updated_at ? new Date(data.updated_at) : new Date(),
-      data.id_conversacion
+      data.id_conversacion,
+      data.id_card_ref || null
     );
   }
 }

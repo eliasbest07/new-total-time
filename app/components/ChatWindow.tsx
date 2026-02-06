@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useRouter } from 'next/navigation';
 import { LayoutGrid } from 'lucide-react';
+import { SharedCardPreview } from '@/components/chat/SharedCardPreview';
 
 interface ChatWindowProps {
   currentUserId: string;
@@ -120,20 +121,27 @@ export default function ChatWindow({ currentUserId, targetUser, initialMessage }
         )}
         {!loading && mensajes.map((mensaje) => {
           const esMio = mensaje.idEmisor === currentUserId;
+          const tieneCard = !!mensaje.idCardRef;
           return (
             <div
               key={mensaje.id}
               className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${
+                className={`max-w-[75%] rounded-lg shadow-sm ${
+                  tieneCard ? 'p-2' : 'px-3 py-2'
+                } ${
                   esMio
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-900 border border-gray-200'
                 }`}
               >
-                <p className="break-words">{mensaje.texto}</p>
-                <span className={`text-xs ${esMio ? 'text-blue-100' : 'text-gray-500'}`}>
+                {tieneCard ? (
+                  <SharedCardPreview cardId={mensaje.idCardRef!} esMio={esMio} />
+                ) : (
+                  <p className="break-words">{mensaje.texto}</p>
+                )}
+                <span className={`text-xs ${tieneCard ? 'px-2' : ''} ${esMio ? 'text-blue-100' : 'text-gray-500'}`}>
                   {mensaje.createdAt.toLocaleTimeString('es-ES', {
                     hour: '2-digit',
                     minute: '2-digit'

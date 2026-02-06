@@ -10,6 +10,7 @@ interface CardConfigPanelProps {
   onEditTitle: (cardId: string) => void;
   onDeleteCard: (cardId: string) => void;
   onTogglePersistent?: (cardId: string, isPersistent: boolean) => void;
+  onShareCard?: (cardId: string) => void;
 }
 
 export const CardConfigPanel: React.FC<CardConfigPanelProps> = ({
@@ -20,7 +21,8 @@ export const CardConfigPanel: React.FC<CardConfigPanelProps> = ({
   onChangeFontSize,
   onEditTitle,
   onDeleteCard,
-  onTogglePersistent
+  onTogglePersistent,
+  onShareCard
 }) => {
   return (
     <div
@@ -101,6 +103,21 @@ export const CardConfigPanel: React.FC<CardConfigPanelProps> = ({
               }`}
             >
               {card.isPersistent ? '📌 Quitar persistencia' : '📌 Persistir'}
+            </button>
+          )}
+
+          {/* Botón compartir */}
+          {onShareCard && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onShareCard(card.id);
+                onClose();
+              }}
+              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white px-2 py-1 rounded text-xs mb-2"
+            >
+              🔗 Compartir
             </button>
           )}
 

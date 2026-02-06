@@ -33,6 +33,8 @@ import { autoConnectMisionToProyecto, autoConnectProyectoToMisiones } from './pi
 import { navigateToCard, bringCardToFront, findCardByMisionId } from './pizarra-functions/navigation-utils';
 import { handleActivityPlayPause, handleMisionPlayPause } from './pizarra-functions/play-pause-handlers';
 import PizarraPermissionRequests from '@/app/components/PizarraPermissionRequests';
+import { UserSelectorModal, UserOption } from '@/components/chat/UserSelectorModal';
+import { SupabaseMensajeRepository } from '@/infrastructure/datasource/SupabaseMensajeRepository';
 import { ToastProvider, useToastContext } from './contexts/ToastContext';
 import { useTodoMisionSync, emitTodoActualizado } from './hooks/useTodoMisionSync';
 import { useVisibleCards } from './hooks/useVisibleCards';
@@ -134,6 +136,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   const [configOpenCard, setConfigOpenCard] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [shareCardId, setShareCardId] = useState<string | null>(null); // ID del card a compartir
   const [cardZIndices, setCardZIndices] = useState<{ [cardId: string]: number }>({});
   const [maxZIndex, setMaxZIndex] = useState(1);
 
@@ -1335,6 +1338,60 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     }
   }, [togglePersistent]);
 
+  // Función para compartir card - abre selector de usuarios
+  const handleShareCard = useCallback((cardId: string) => {
+    setShareCardId(cardId);
+  }, []);
+
+  // Función para enviar la card compartida al usuario seleccionado
+  const handleShareToUser = useCallback(async (user: UserOption) => {
+    if (!shareCardId || !usuario?.userAuth) return;
+
+    const card = cards.find(c => c.id === shareCardId);
+    if (!card) {
+      setShareCardId(null);
+      return;
+    }
+
+    try {
+      // Obtener el dbId: usar el local si existe, sino buscarlo en la BD
+      let cardDbId = card.dbId;
+      if (!cardDbId && pizarraActual?.id) {
+        const { SupabaseCardRepository } = await import('@/infrastructure/datasource/SupabaseCardRepository');
+        const cardRepo = new SupabaseCardRepository();
+        const cardDB = await cardRepo.getCard(pizarraActual.id, card.id);
+        cardDbId = cardDB?.id;
+      }
+
+      if (!cardDbId) {
+        showError('Guarda la pizarra primero antes de compartir');
+        setShareCardId(null);
+        return;
+      }
+
+      const mensajeRepo = new SupabaseMensajeRepository();
+      const textoRef = card.title ? `📋 ${card.title}` : '📋 Card compartida';
+      await mensajeRepo.enviarMensaje(usuario.userAuth, user.userAuth, textoRef, cardDbId);
+
+      // Abrir ventana de chat con el usuario
+      if (onOpenUserChat) {
+        onOpenUserChat({
+          userId: user.userAuth,
+          name: user.nombre,
+          avatar: user.avatar,
+          color: user.color,
+        });
+      }
+
+      showSuccess('Card compartida exitosamente');
+    } catch (error) {
+      console.error('Error compartiendo card:', error);
+      showError('Error al compartir la card');
+    }
+
+    setShareCardId(null);
+  }, [shareCardId, cards, usuario?.userAuth, pizarraActual?.id, onOpenUserChat, showSuccess, showError]);
+
   // Helper: Calcular el siguiente z-index para que el nuevo card aparezca encima de todos
   const getNextZIndex = useCallback(() => {
     // Combinar el maxZIndex del estado con los zIndex de los cards
@@ -1996,12 +2053,15 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     return newCardId; // Retornar el ID del card creado
   }, [cards, panOffset, canvasRef, getNextZIndex]);
 
-  const restoreCard = useCallback((cardData: any) => {
+  const restoreCard = useCallback((cardData: any, centerPosition?: { x: number; y: number }) => {
     const existingIds = cards.map(card => card.id);
     const newId = generateUniqueId(cardData.type || 'card', existingIds);
 
     // Manejar image_url de la DB -> imageUrl del frontend
     const imageUrl = cardData.image_url || cardData.imageUrl;
+
+    const cardWidth = cardData.width || 200;
+    const cardHeight = cardData.height || 150;
 
     // Construir el card restaurado con los datos correctos
     const restoredCard: Card = {
@@ -2009,8 +2069,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       type: cardData.type,
       title: cardData.title || '',
       content: cardData.content || '',
-      x: (cardData.x || generatePosition()) + 50,
-      y: (cardData.y || generatePosition()) + 80,
+      x: centerPosition ? centerPosition.x - (cardWidth / 2) : (cardData.x || generatePosition()) + 50,
+      y: centerPosition ? centerPosition.y - (cardHeight / 2) : (cardData.y || generatePosition()) + 80,
       width: cardData.width || 200,
       height: cardData.height || 150,
       fontSize: cardData.font_size || cardData.fontSize || 14,
@@ -2081,6 +2141,53 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
     setCards(prev => [...prev, restoredCard]);
   }, [cards]);
+
+  // Listener para agregar card compartida desde el chat
+  useEffect(() => {
+    const handleAddSharedCard = async (e: Event) => {
+      const { cardDbId } = (e as CustomEvent).detail;
+      if (!cardDbId) return;
+
+      try {
+        const { SupabaseCardRepository } = await import('@/infrastructure/datasource/SupabaseCardRepository');
+        const repo = new SupabaseCardRepository();
+        const cardDB = await repo.getCardById(cardDbId);
+        if (!cardDB) {
+          showError('No se pudo encontrar la card');
+          return;
+        }
+
+        // Mapear y enriquecer con datos de tablas relacionadas
+        const enrichedCards = await syncCardsFromDB({
+          cardsDB: [cardDB],
+          usuario,
+          isViewingOtherUser: false,
+          onUpdatePastedImages: (cardId, imageUrl) => {
+            setPastedImages(prev => ({ ...prev, [cardId]: imageUrl }));
+          },
+          storagePrefix,
+          useCache: false,
+        });
+
+        if (enrichedCards.length > 0) {
+          // Calcular el centro visible de la pizarra
+          const canvasWidth = canvasRef.current?.clientWidth || 1000;
+          const canvasHeight = canvasRef.current?.clientHeight || 800;
+          const centerX = -panOffset.x + (canvasWidth / 2);
+          const centerY = -panOffset.y + (canvasHeight / 2);
+
+          restoreCard(enrichedCards[0], { x: centerX, y: centerY });
+          showSuccess('Card agregada a tu pizarra');
+        }
+      } catch (error) {
+        console.error('Error agregando card compartida:', error);
+        showError('Error al agregar la card');
+      }
+    };
+
+    window.addEventListener('add-shared-card', handleAddSharedCard);
+    return () => window.removeEventListener('add-shared-card', handleAddSharedCard);
+  }, [usuario, restoreCard, showSuccess, showError, panOffset, canvasRef]);
 
   // Función manual para guardar en Supabase
   const saveToSupabase = useCallback(async () => {
@@ -3782,6 +3889,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
               openEditarProyecto={onOpenEditarProyecto}
               onShowFullDescription={openDescriptionModal}
               onTogglePersistent={handleTogglePersistent}
+              onShareCard={handleShareCard}
             />
           ))}
         </div>
@@ -3830,6 +3938,24 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
             <p className="text-gray-700 whitespace-pre-wrap">{descriptionModal.description}</p>
           </div>
         </Ventana>,
+        document.body
+      )}
+
+      {/* Modal de seleccionar usuario para compartir card */}
+      {shareCardId && typeof document !== 'undefined' && createPortal(
+        <UserSelectorModal
+          usuarios={
+            (usuarios || [])
+              .filter(u => u.userAuth && u.userAuth !== usuario?.userAuth)
+              .map(u => ({
+                userAuth: u.userAuth!,
+                nombre: `${u.profile.nombre}${u.profile.apellido ? ' ' + u.profile.apellido : ''}`,
+                avatar: u.profile.avatar,
+              }))
+          }
+          onSelect={handleShareToUser}
+          onClose={() => setShareCardId(null)}
+        />,
         document.body
       )}
 

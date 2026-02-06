@@ -36,17 +36,16 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
     }
   }, [currentUserId, otherUserId]);
 
-  const enviarMensaje = async (texto: string) => {
-    if (!currentUserId || !otherUserId || !texto.trim()) {
+  const enviarMensaje = async (texto: string, idCardRef?: string) => {
+    if (!currentUserId || !otherUserId || (!texto.trim() && !idCardRef)) {
       console.error('💬 useChatMessages - Faltan datos para enviar mensaje');
       return null;
     }
 
     try {
-      // console.log('💬 useChatMessages - Enviando mensaje');
       setSending(true);
       setError(null);
-      const nuevoMensaje = await mensajeRepository.enviarMensaje(currentUserId, otherUserId, texto.trim());
+      const nuevoMensaje = await mensajeRepository.enviarMensaje(currentUserId, otherUserId, texto.trim(), idCardRef);
 
       if (nuevoMensaje) {
         // Agregar el mensaje optimísticamente al estado local SOLO si no existe ya
@@ -77,18 +76,11 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
     try {
       const success = await mensajeRepository.marcarComoLeido(mensajeId);
       if (success) {
-        // Actualizar estado local
         setMensajes(prev => prev.map(m => {
           if (m.id === mensajeId) {
             const updated = new Mensaje(
-              m.id,
-              m.idEmisor,
-              m.idReceptor,
-              m.texto,
-              true, // leido
-              m.createdAt,
-              m.updatedAt,
-              m.idConversacion
+              m.id, m.idEmisor, m.idReceptor, m.texto,
+              true, m.createdAt, m.updatedAt, m.idConversacion, m.idCardRef
             );
             return updated;
           }
@@ -108,18 +100,11 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
     try {
       const success = await mensajeRepository.marcarConversacionComoLeida(currentUserId, otherUserId);
       if (success) {
-        // Actualizar estado local
         setMensajes(prev => prev.map(m => {
           if (m.idReceptor === currentUserId) {
             return new Mensaje(
-              m.id,
-              m.idEmisor,
-              m.idReceptor,
-              m.texto,
-              true, // leido
-              m.createdAt,
-              m.updatedAt,
-              m.idConversacion
+              m.id, m.idEmisor, m.idReceptor, m.texto,
+              true, m.createdAt, m.updatedAt, m.idConversacion, m.idCardRef
             );
           }
           return m;
@@ -178,7 +163,8 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
               payload.new.leido,
               new Date(payload.new.created_at),
               new Date(payload.new.updated_at),
-              payload.new.id_conversacion
+              payload.new.id_conversacion,
+              payload.new.id_card_ref || null
             );
 
             // Agregar solo si no existe ya (evitar duplicados de cualquier origen)
@@ -200,7 +186,8 @@ export const useChatMessages = (currentUserId: string | null, otherUserId: strin
                     payload.new.leido,
                     new Date(payload.new.created_at),
                     new Date(payload.new.updated_at),
-                    payload.new.id_conversacion
+                    payload.new.id_conversacion,
+                    payload.new.id_card_ref || null
                   )
                 : m
             ));

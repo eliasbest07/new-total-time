@@ -7,6 +7,7 @@ export class Mensaje {
     public createdAt: Date;
     public updatedAt: Date;
     public idConversacion?: string;
+    public idCardRef?: string | null;
 
     constructor(
         id: string,
@@ -16,7 +17,8 @@ export class Mensaje {
         leido: boolean = false,
         createdAt: Date = new Date(),
         updatedAt: Date = new Date(),
-        idConversacion?: string
+        idConversacion?: string,
+        idCardRef?: string | null
     ) {
         this.id = id;
         this.idEmisor = idEmisor;
@@ -26,6 +28,7 @@ export class Mensaje {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.idConversacion = idConversacion;
+        this.idCardRef = idCardRef;
     }
 
     // Método para verificar si el mensaje es del usuario actual
