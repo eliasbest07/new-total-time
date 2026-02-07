@@ -2178,6 +2178,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
           restoreCard(enrichedCards[0], { x: centerX, y: centerY });
           showSuccess('Card agregada a tu pizarra');
+          // Notificar para cerrar la ventana del chat
+          window.dispatchEvent(new CustomEvent('shared-card-added'));
         }
       } catch (error) {
         console.error('Error agregando card compartida:', error);
@@ -4029,18 +4031,18 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         }
       `}</style>
 
-      {/* Toast cuando se carga pan offset desde localStorage */}
-      {showPanOffsetLoadedToast && (
+      {/* Toast cuando se carga pan offset desde localStorage - Portal para escapar del stacking context */}
+      {showPanOffsetLoadedToast && typeof document !== 'undefined' && createPortal(
         <div
           style={{
             position: 'fixed',
-            bottom: fullMode ? '20px' : '160px', // Más arriba que el toast de sincronización
+            bottom: fullMode ? '20px' : '160px',
             right: '20px',
             padding: '6px 12px',
             borderRadius: '12px',
             fontSize: '11px',
             fontWeight: '500',
-            zIndex: 9999,
+            zIndex: 99999,
             backgroundColor: 'rgba(59, 130, 246, 0.9)',
             color: 'white',
             boxShadow: '0 2px 8px rgba(59, 130, 246, 0.2)',
@@ -4054,21 +4056,22 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         >
           <span style={{ fontSize: '12px' }}>🗺️</span>
           <span>Posición restaurada</span>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Toast de estado de carga - discreto encima de permisos */}
-      {!fullMode && ((loadingPizarra || loadingCards) || showSyncedToast) && (
+      {/* Toast de estado de carga - Portal para escapar del stacking context */}
+      {!fullMode && ((loadingPizarra || loadingCards) || showSyncedToast) && typeof document !== 'undefined' && createPortal(
         <div
           style={{
             position: 'fixed',
-            bottom: '130px', // Justo encima del botón de permisos
-            right: '20px', // Inferior derecha para alinearse con Permisos
+            bottom: '130px',
+            right: '20px',
             padding: '6px 12px',
             borderRadius: '12px',
             fontSize: '11px',
             fontWeight: '500',
-            zIndex: 9998,
+            zIndex: 99999,
             backgroundColor: (loadingPizarra || loadingCards)
               ? 'rgba(99, 102, 241, 0.9)'
               : 'rgba(16, 185, 129, 0.9)',
@@ -4113,7 +4116,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
               }
             }
           `}</style>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Componente para ver solicitudes de permiso - SOLO en dashboard (no en fullMode) */}

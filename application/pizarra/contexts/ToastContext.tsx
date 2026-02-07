@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Toast, { ToastType } from '../components/ui/Toast';
 
 interface ToastConfig {
@@ -54,39 +55,43 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showToast({ message, type: 'warning', duration });
   }, [showToast]);
 
+  const toastContainer = typeof document !== 'undefined' ? createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        top: '80px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 99999,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        pointerEvents: 'none',
+      }}
+    >
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          style={{
+            pointerEvents: 'auto',
+          }}
+        >
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            duration={toast.duration}
+            onClose={() => removeToast(toast.id)}
+          />
+        </div>
+      ))}
+    </div>,
+    document.body
+  ) : null;
+
   return (
     <ToastContext.Provider value={{ success, error, info, warning }}>
       {children}
-      {/* Contenedor de toasts - centro superior de la página, debajo del navbar */}
-      <div
-        style={{
-          position: 'fixed',
-          top: '80px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 99999,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          pointerEvents: 'none',
-        }}
-      >
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            style={{
-              pointerEvents: 'auto',
-            }}
-          >
-            <Toast
-              message={toast.message}
-              type={toast.type}
-              duration={toast.duration}
-              onClose={() => removeToast(toast.id)}
-            />
-          </div>
-        ))}
-      </div>
+      {toastContainer}
     </ToastContext.Provider>
   );
 };

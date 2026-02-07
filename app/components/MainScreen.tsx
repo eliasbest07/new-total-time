@@ -265,6 +265,16 @@ export default function MainScreen() {
 
 
 
+  // Cerrar la ventana del chat cuando se agrega una card compartida a la pizarra
+  useEffect(() => {
+    const handleSharedCardAdded = () => {
+      setShowChatWindow(false);
+      setSelectedChatUser(null);
+    };
+    window.addEventListener('shared-card-added', handleSharedCardAdded);
+    return () => window.removeEventListener('shared-card-added', handleSharedCardAdded);
+  }, []);
+
   const handleAddResource = (): void => {
     setShowAddResourceModal(true);
   };
