@@ -9,21 +9,45 @@
 ## 🏗️ Arquitectura del Proyecto
 
 ### Stack Tecnológico
-- **Frontend**: Next.js 15 (App Router), React 19, TypeScript
-- **Backend**: Supabase (PostgreSQL + Realtime + Storage)
-- **Estilos**: Tailwind CSS 4
-- **Estado**: React Context API + Custom Hooks
-- **Autenticación**: Supabase Auth
+- **Frontend**: Next.js 16 (App Router + Turbopack), React 19, TypeScript
+- **Backend**: Supabase (PostgreSQL + Realtime + Auth + Storage)
+- **Estilos**: Tailwind CSS 4 + tailwindcss-animate
+- **Estado**: React Context API + Custom Hooks (7 providers, 35+ hooks)
+- **Autenticación**: Supabase Auth con protección de rutas
+- **Iconos**: Lucide React
+- **Node**: >= 22.0.0
 
 ### Estructura de Carpetas
 ```
 ├── app/                    # Rutas y páginas (Next.js App Router)
+│   ├── contexts/           # Providers globales (Auth, Chat, Settings, etc.)
+│   ├── components/         # Componentes de UI (41 archivos)
+│   │   ├── mainUI/         # Componentes del dashboard principal
+│   │   ├── organizacion/   # Componentes de organización
+│   │   ├── modals/         # Diálogos modales
+│   │   └── debug/          # Herramientas de debug (solo dev)
+│   ├── dashboard/          # Dashboard admin/usuario
+│   ├── login/              # Autenticación
+│   ├── pizarra/[userId]/   # Pizarra personal de usuario
+│   └── pizarra-organizacion/ # Pizarra compartida
 ├── application/            # Casos de uso y lógica de negocio
-├── domain/                # Entidades y enums del dominio
-├── infrastructure/        # Repositorios y servicios (Supabase)
-├── hooks/                 # Custom React Hooks
-├── components/            # Componentes reutilizables
-└── utils/                 # Utilidades y helpers
+│   ├── pizarra/            # Motor de pizarra (35+ archivos)
+│   ├── organizacion/       # CRUD organización
+│   ├── proyecto/           # CRUD proyectos
+│   ├── tareas/             # Gestión de tareas
+│   └── user/               # Gestión de usuarios
+├── domain/                 # Entidades puras del dominio (36 entidades)
+│   ├── entities/           # Card, Mision, Proyecto, Usuario, etc.
+│   └── enums/              # Enumeraciones
+├── infrastructure/         # Capa de datos
+│   ├── repositories/       # Interfaces de repositorios
+│   └── datasource/         # Implementaciones Supabase (28+ repos)
+├── hooks/                  # Custom React Hooks (35+)
+├── components/             # Componentes compartidos (chat, notificaciones)
+├── services/               # Servicios auxiliares
+├── utils/                  # Utilidades (retry, queue, cache, monitoring)
+├── supabase/               # Migraciones SQL
+└── public/                 # Assets estáticos
 ```
 
 ---
@@ -40,15 +64,19 @@
   - Guardado automático cada 3 segundos
   - Exportación/Importación en formato JSON
   - Historial de versiones guardadas
-- **Tipos de Cards Soportados**:
-  - 📝 **Notas** (text): Texto libre editable
-  - ✅ **Listas TODO**: Tareas con checkboxes
-  - 🎯 **Misiones**: Cards de misiones con detalles
-  - 📅 **Actividades**: Cards de actividades con tracking de tiempo
-  - 👤 **Usuarios**: Cards de contacto de usuarios
-  - 📁 **Proyectos**: Cards de proyectos con notas asociadas
-  - 🖼️ **Imágenes**: Cards de imágenes (drag & drop o pegar desde clipboard)
-  - 📎 **Recursos**: Cards de recursos externos
+- **14 Tipos de Cards Soportados**:
+  - 📝 **Notas** (`text`): Texto libre editable
+  - ✅ **Listas TODO** (`todo`): Tareas con checkboxes y gestión de items
+  - 🎯 **Misiones** (`mision`): Cards de misiones personales con horas, screenshots y estado
+  - 🎯 **Misiones Org** (`mision-organizacion`): Misiones de organización con asignación de usuarios y TODOs vinculados
+  - 📅 **Actividades** (`actividad`): Cards con tracking de tiempo y controles play/pause
+  - 📅 **Actividades Org** (`actividad-organizacion`): Actividades de organización
+  - 👤 **Usuarios** (`usuario`): Cards de contacto con avatar y estado online
+  - 📁 **Proyectos** (`proyecto`): Cards de proyectos con notas y TODOs asociados
+  - 📁 **Proyectos Org** (`proyecto-organizacion`): Proyectos de organización con edición y TODOs
+  - 🖼️ **Imágenes** (`image`): Cards de imágenes (drag & drop, pegar desde clipboard, vista completa)
+  - 📎 **Recursos** (`resource`): Cards de recursos externos con tipo e ícono
+  - 🔧 **Genérico** (`generic`): Fallback para tipos desconocidos
 
 #### 1.2 Pizarra de Organización
 - **Descripción**: Pizarra compartida para toda la organización
@@ -148,14 +176,29 @@
 #### 5.1 Chat en Tiempo Real
 - **Chat 1 a 1**: Comunicación privada entre usuarios
 - **Mensajes en tiempo real**: Sincronización instantánea vía Supabase Realtime
-- **Ventana de chat**: Componente flotante y redimensionable
+- **Ventana de chat**: Componente flotante, arrastrable y redimensionable
 - **Indicadores de estado**: Usuario online/offline
 - **Historial**: Mensajes persistentes en base de datos
+- **Gestión de ventanas**: ChatWindowContext maneja múltiples ventanas con minimizar/maximizar
 
-#### 5.2 Notificaciones
+#### 5.2 Envío de Cards por Chat
+- **Compartir cards**: Los usuarios pueden enviar cualquier tipo de card como mensaje de chat
+- **Preview enriquecido**: `SharedCardPreview` muestra previsualizaciones específicas por tipo:
+  - Misiones: Título, descripción, horas estimadas
+  - TODOs: Lista de tareas con estado de completitud
+  - Actividades: Asunto y duración
+  - Proyectos: Ícono, nombre, descripción
+  - Imágenes: Thumbnail de la imagen
+  - Usuarios: Avatar del usuario
+- **Badge de tipo**: Cada card compartido muestra un badge de color según su tipo
+- **Agregar a pizarra**: El receptor puede agregar el card compartido a su pizarra con un solo click
+- **Evento personalizado**: Sistema de custom events (`add-shared-card`) para comunicar con la pizarra
+
+#### 5.3 Notificaciones
 - **Mensajes entrantes**: Notificación cuando se recibe un mensaje
 - **Apertura automática**: La ventana de chat se abre automáticamente
 - **Badges**: Contadores de mensajes no leídos
+- **Posts nuevos**: Badge con cantidad de posts no vistos por sala
 
 ---
 
@@ -263,10 +306,20 @@
 - **Perfil**: Panel de control del usuario con acciones de pizarra
 
 #### 11.2 Modos de Visualización
-- **Modo claro**: Pizarra con fondo claro
-- **Modo oscuro**: (Implementación futura)
+- **Modo claro**: Fondo con gradientes claros (rosa → azul)
+- **Modo oscuro**: Fondo con gradientes oscuros (azul noche profundo)
+- **Modo automático**: Detecta preferencia del sistema operativo (`prefers-color-scheme`)
+- **Persistencia de tema**: Se guarda en localStorage (`total-time-theme`)
 - **Modo completo**: Pizarra a pantalla completa
 - **Modo compacto**: Vista reducida de elementos
+
+#### 11.3 Sistema de Toast Notifications
+- **Tipos**: success (verde), error (rojo), info (azul), warning (amarillo)
+- **Auto-dismiss**: Configurable (default 3 segundos)
+- **Context-Based**: `ToastContext` con métodos `success()`, `error()`, `info()`, `warning()`
+- **Animaciones**: Entrada slide-down, salida fade-out
+- **Stacked**: Múltiples toasts apilados verticalmente
+- **Portal-Based**: Renderizado fuera del árbol de componentes
 
 ---
 
@@ -299,16 +352,95 @@
 ### 14. 🎯 Dashboard
 
 #### 14.1 Dashboard de Administrador
-- **Pizarra de organización**: Vista principal con pizarra compartida
-- **Panel de proyectos**: Listado lateral de proyectos
-- **Panel de misiones**: Vista de misiones de la organización
-- **Input Area**: Creación rápida de notas y tareas
-- **Chat**: Sistema de chat integrado
-- **Modales**: Creación de misiones y proyectos
+- **Pizarra de organización**: Canvas principal con drag & drop de cards
+- **Panel izquierdo**: Listado de proyectos con botón de crear organización, browser de proyectos, acordeón colapsable
+- **Panel derecho (AccordionAdmin)**: Listas de misiones, actividades, usuarios y recursos con filtrado y opciones de creación
+- **Input Area inferior**: Entrada universal para crear notas, listas TODO o enviar mensajes a usuarios
+- **Botones flotantes**: "Nuevo Ticket" (crear misión) y "Crear Actividad"
+- **Chat integrado**: Ventanas flotantes y arrastrables
+- **Modales de creación**: Misiones con nombre, descripción, fechas, horas, estado, proyecto; Actividades con descripción, fecha, hora, duración, enlace, usuario; Proyectos con nombre, descripción, ícono, usuarios
+- **Calendario semanal**: Visualización de tiempo trabajado por día para cualquier usuario
+- **Screenshots**: Visualización de capturas de pantalla de misiones activas
+- **Edición de proyectos**: Modal de edición directa desde el dashboard
+- **Conexiones automáticas**: Detección de relaciones TODO↔Proyecto, TODO↔Misión, Misión↔Proyecto
+- **Toast notifications**: Feedback visual para acciones del usuario
 
 #### 14.2 Dashboard de Usuario
-- **Vista simplificada**: Para usuarios no administradores
-- **Acceso limitado**: Solo funcionalidades permitidas
+- **Vista `DashboardUsuario`**: Dashboard personal simplificado
+- **Pizarra personal**: Acceso a la pizarra propia
+- **Acceso limitado**: Solo funcionalidades permitidas según rol
+
+---
+
+### 15. 🔗 Sistema de Auto-Conexiones
+
+#### 15.1 Auto-Conexión de Cards
+- **Misión → Proyecto**: Al agregar una misión a la pizarra, se conecta automáticamente con su proyecto asignado si ambos están presentes
+- **Proyecto → Misiones**: Al agregar un proyecto, se conecta automáticamente con todas sus misiones ya presentes
+- **ID de conexión**: Formato `auto-{misionId}-{proyectoId}` para evitar duplicados
+- **Tracking**: Set interno rastrea conexiones automáticas para limpieza
+
+#### 15.2 Sincronización TODO-Misión
+- Hook `useTodoMisionSync` sincroniza listas de tareas con misiones
+- Los cambios en TODOs se reflejan en el estado de la misión
+- Las conexiones TODO↔Misión crean vínculos bidireccionales
+
+---
+
+### 16. 📱 Sistema de Card Sync (Carga Progresiva)
+
+#### 16.1 Carga Progresiva de Datos
+- **Loading básico**: Cards se muestran inmediatamente con datos mínimos
+- **Enriquecimiento**: Datos adicionales se cargan en background por tipo:
+  - Misiones: Detalles, usuario asignado, estado de ejecución
+  - Actividades: Metadata, información del participante
+  - Usuarios: Perfil e historial de mensajes
+  - TODOs: Items y estado de completitud
+  - Imágenes: URL y estado de pasted images
+  - Proyectos: Detalles, relaciones, metadata
+
+#### 16.2 Sistema de Cache por Día
+- Cache en localStorage por card y día: `pizarra-{prefix}-card-data-{cardId}-v1`
+- Validación automática contra fecha actual
+- Callback `onCardReady` para actualizaciones progresivas de UI
+
+#### 16.3 Lógica de Decisión de Sync
+- Pizarra propia + no inicializada → Siempre sync desde Supabase
+- Pizarra propia + inicializada → Solo sync si local está vacío
+- Pizarra compartida → Siempre sync desde Supabase
+
+---
+
+### 17. ⏱️ Tracking de Sesiones de Trabajo
+
+#### 17.1 useSimpleTracking (Usuario Actual)
+- **Tiempo Hoy**: Suma de minutos de capturas creadas hoy (5 min por captura)
+- **Última Actividad**: Tiempo dedicado a la última misión/actividad del día
+- **Tiempo Semana**: Suma de minutos de capturas de la semana
+- Actualizaciones en tiempo real vía suscripciones Supabase
+
+#### 17.2 useSesionesTracking (Local)
+- Tracking de sesiones en localStorage
+- Estructura: ID, misión, tipo (misión/actividad), inicio, fin, duración
+- Métodos: `iniciarSesion()`, `finalizarSesion()`, `calcularEstadísticas()`, `limpiarSesionesAntiguas()`
+- Sincronización entre componentes vía custom events
+
+#### 17.3 useUserTracking (Para Admins)
+- Tracking accesible para administradores sobre cualquier usuario
+- Mismas métricas que `useSimpleTracking` pero parametrizado por userId
+- Suscripciones Realtime filtradas por usuario
+
+---
+
+### 18. 📅 Calendario Semanal
+
+#### 18.1 CalendarioSemanalUsuario
+- Muestra horario de trabajo de la semana actual (Lunes-Domingo)
+- Tiempo trabajado por día calculado desde capturas
+- Total de horas de la semana
+- Capturas agrupadas por día con colores pastel (7 colores distintos)
+- Historial de capturas con timestamps
+- Feature de admin: Se abre en modal grande (1800x1000px) desde el dashboard
 
 ---
 
@@ -326,10 +458,13 @@
 - **Testabilidad**: Cada capa puede testearse independientemente
 
 #### 1.2 Patrones Implementados
-- **Repository Pattern**: Abstracción de acceso a datos (28 repositorios)
-- **Factory Pattern**: `CardFactory` para crear diferentes tipos de cards
-- **Observer Pattern**: Supabase Realtime para sincronización
+- **Repository Pattern**: Abstracción de acceso a datos (40+ repositorios con interfaces + implementaciones)
+- **Factory Pattern**: `CardFactory` para crear diferentes tipos de cards (14 tipos)
+- **Observer Pattern**: Supabase Realtime para sincronización en tiempo real
 - **Strategy Pattern**: Diferentes estrategias de guardado (localStorage vs Supabase)
+- **Context Pattern**: 7 providers globales (Auth, Chat, Proyectos, Recursos, Settings, Usuarios, Toast)
+- **Progressive Loading**: Card sync con carga básica inmediata y enriquecimiento en background
+- **Custom Events**: Comunicación entre componentes desacoplados (`add-shared-card`, sesiones tracking)
 
 ---
 
@@ -778,11 +913,20 @@ authCallTracker.logSummary()
 - ✅ Cache inteligente (localStorage + Supabase)
 - ✅ Tracking de canales y auth calls
 - ✅ Optimización de React (memo, lazy loading)
+- ✅ Sistema de temas claro/oscuro/automático
+- ✅ Envío de cards por chat con preview enriquecido
+- ✅ Auto-conexión entre cards (misión↔proyecto)
+- ✅ Carga progresiva de datos de cards con cache por día
+- ✅ Toast notification system (success, error, info, warning)
+- ✅ Tracking de sesiones de trabajo (local + Supabase)
+- ✅ Calendario semanal de tiempo trabajado
+- ✅ Sistema de permisos de pizarra con solicitud/aprobación
+- ✅ Pegar imágenes desde clipboard (Ctrl+V)
 
 ### Recomendado para Futuro 🔜
 - 🔜 Virtualización de listas
 - 🔜 Service workers
-- 🔜 Analytics y error tracking
+- 🔜 Analytics y error tracking (Sentry)
 - 🔜 Testing automatizado
 - 🔜 Performance budgets
 - 🔜 Bundle analysis
@@ -792,20 +936,34 @@ authCallTracker.logSummary()
 ## 📊 Estadísticas del Proyecto
 
 ### Estructura de Código
-- **Pizarra**: ~2,260 líneas organizadas en 25 archivos modulares
-- **Hooks**: 31 hooks personalizados
+- **Rutas/Páginas**: 11 rutas (App Router)
+- **Pizarra**: 35+ archivos modulares (components, hooks, utils, functions, contexts)
+- **Hooks**: 35+ hooks personalizados
 - **Entidades**: 36 entidades de dominio
-- **Repositorios**: 28 repositorios de datos
-- **Componentes**: 50+ componentes React
+- **Repositorios**: 40+ repositorios (interfaces + implementaciones Supabase)
+- **Componentes**: 90+ componentes React
+- **Context Providers**: 7 providers globales
 
 ### Tipos de Cards
-- 8 tipos diferentes de cards en la pizarra
-- Sistema extensible para agregar nuevos tipos
+- 14 tipos diferentes de cards en la pizarra
+- Sistema extensible: agregar componente en `/cards`, registrar en `CardFactory.tsx`
+
+### Context Providers
+| Provider | Propósito |
+|----------|-----------|
+| `AuthContext` | Estado de autenticación, perfil de usuario, presencia online |
+| `ChatWindowContext` | Gestión de ventanas de chat flotantes (abrir, cerrar, minimizar, posición) |
+| `ProyectosContext` | Estado de proyectos de la organización |
+| `RecursosContext` | Estado de recursos |
+| `SettingsContext` | Preferencias del usuario (tema, auto-save, monitor de memoria, modo de vista) |
+| `UsuariosOrganizacionContext` | Lista de miembros de la organización |
+| `ToastContext` | Sistema de notificaciones toast |
 
 ### Integraciones
 - **Supabase**: Base de datos, autenticación, storage, realtime
 - **Lucide React**: Iconos
-- **Tailwind CSS**: Estilos
+- **Tailwind CSS 4**: Estilos con animaciones
+- **@anthropic-ai/sdk**: Integración con Claude AI
 
 ---
 
@@ -827,14 +985,29 @@ Este proyecto es una **plataforma completa de gestión de tiempo y productividad
 - **Colaboración en tiempo real**
 - **Flexibilidad** (pizarras personalizables)
 - **Tracking detallado** de tiempo y actividades
-- **Comunicación integrada** (chat, salas, posts)
+- **Comunicación integrada** (chat con card sharing, salas con posts, notificaciones)
 - **Organización** (proyectos, misiones, recursos)
+- **Carga progresiva** (card sync con cache inteligente)
 
 La arquitectura modular y el uso de TypeScript garantizan **mantenibilidad** y **escalabilidad** del código.
 
 ---
 
-**Versión del Informe**: 1.0  
-**Fecha**: 2024  
+## 📚 Documentación Relacionada
+
+| Documento | Descripción |
+|-----------|-------------|
+| [README.md](./README.md) | Visión general del proyecto, setup y estructura |
+| [AGENTS.md](./AGENTS.md) | Guías de estilo, estructura y convenciones |
+| [PIZARRA_ORGANIZACION_README.md](./PIZARRA_ORGANIZACION_README.md) | Sistema de pizarra compartida con permisos y RLS |
+| [PROYECTO_NOTAS_README.md](./PROYECTO_NOTAS_README.md) | Sistema de notas en cards de proyecto |
+| [docs/PIZARRA_TEAMMATE_MODULE.md](./docs/PIZARRA_TEAMMATE_MODULE.md) | Módulo de visualización de pizarras de compañeros |
+| [docs/THEME_IMPLEMENTATION.md](./docs/THEME_IMPLEMENTATION.md) | Implementación del sistema de temas claro/oscuro |
+| [application/pizarra/README.md](./application/pizarra/README.md) | Arquitectura modular del motor de pizarra |
+
+---
+
+**Versión del Informe**: 2.0
+**Última actualización**: Febrero 2026
 **Proyecto**: Total Time
 
