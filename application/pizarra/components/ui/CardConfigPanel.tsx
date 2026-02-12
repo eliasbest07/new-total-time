@@ -95,6 +95,7 @@ export const CardConfigPanel: React.FC<CardConfigPanelProps> = ({
                 e.preventDefault();
                 e.stopPropagation();
                 onTogglePersistent(card.id, !card.isPersistent);
+                onClose();
               }}
               className={`w-full px-2 py-1 rounded text-xs mb-2 ${
                 card.isPersistent
