@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Card } from '../../types';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 
 interface NoteCardProps {
   card: Card;
@@ -11,6 +11,21 @@ interface NoteCardProps {
   idPizarra?: string | null;
 }
 
+const hasHtmlTags = (text: string): boolean => /<[a-z][\s\S]*>/i.test(text);
+
+const plainTextToHtml = (text: string): string => {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return escaped.replace(/\n/g, '<br>');
+};
+
+const getDisplayHtml = (content: string | null): string => {
+  if (!content) return '';
+  return hasHtmlTags(content) ? content : plainTextToHtml(content);
+};
+
 export const NoteCard: React.FC<NoteCardProps> = ({
   card,
   editingTitle,
@@ -19,29 +34,88 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   updateCardContent
 }) => {
   const [editingContent, setEditingContent] = useState(false);
+  const [isBold, setIsBold] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  // Setear contenido inicial UNA sola vez al entrar en modo edición
+  // NO usar dangerouslySetInnerHTML en el contentEditable porque React lo resetea en cada re-render
+  useEffect(() => {
+    if (editingContent && editorRef.current) {
+      editorRef.current.innerHTML = getDisplayHtml(card.content);
+      // Poner cursor al final
+      const sel = window.getSelection();
+      if (sel) {
+        sel.selectAllChildren(editorRef.current);
+        sel.collapseToEnd();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingContent]); // Solo depende de editingContent, NO de card.content
+
+  // Registrar listeners nativos en el toolbar para evitar problemas con delegación de React
+  useEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (!toolbar) return;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    toolbar.addEventListener('mousedown', handleMouseDown);
+    return () => toolbar.removeEventListener('mousedown', handleMouseDown);
+  }, [editingContent]);
 
   const handleContentDoubleClick = () => {
     setEditingContent(true);
   };
 
-  const handleContentBlur = (value: string) => {
-    updateCardContent(card.id, value);
+  const saveAndClose = useCallback(() => {
+    if (editorRef.current) {
+      updateCardContent(card.id, editorRef.current.innerHTML);
+    }
     setEditingContent(false);
-  };
+  }, [card.id, updateCardContent]);
 
-  const handleContentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Guardar con Ctrl/Cmd + Enter
+  const handleEditorBlur = useCallback((e: React.FocusEvent) => {
+    // Si el foco se fue al toolbar, no cerrar
+    if (toolbarRef.current?.contains(e.relatedTarget as Node)) {
+      return;
+    }
+    saveAndClose();
+  }, [saveAndClose]);
+
+  const handleContentKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      const value = e.currentTarget.value;
-      updateCardContent(card.id, value);
-      setEditingContent(false);
+      saveAndClose();
     }
-    // Cerrar sin guardar con Escape
     if (e.key === 'Escape') {
       setEditingContent(false);
     }
+    if (e.key === 'b' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      document.execCommand('bold', false);
+      setIsBold(document.queryCommandState('bold'));
+    }
   };
+
+  const execFormat = (command: string) => {
+    document.execCommand(command, false);
+    setIsBold(document.queryCommandState('bold'));
+  };
+
+  const handleSelectionChange = () => {
+    setIsBold(document.queryCommandState('bold'));
+  };
+
+  const toolbarBtnClass = (active: boolean) =>
+    `px-1.5 py-0.5 rounded text-xs font-medium cursor-pointer select-none transition-colors inline-flex items-center justify-center ${
+      active
+        ? 'bg-blue-500 text-white'
+        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+    }`;
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -67,41 +141,99 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               data-todo-interactive
             />
           ) : (
-            <h3
-              className="font-semibold text-gray-800 truncate"
-              style={{ fontSize: `${card.fontSize || 18}px` }}
-            >
-              {card.title}
-            </h3>
+            <div className="group inline-flex items-center gap-1 max-w-full">
+              <Pencil
+                size={14}
+                className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 cursor-pointer hover:text-gray-600"
+                onClick={() => setEditingTitle(card.id)}
+                data-todo-interactive
+              />
+              <h3
+                className="font-semibold text-gray-800 truncate"
+                style={{ fontSize: `${card.fontSize || 18}px` }}
+              >
+                {card.title}
+              </h3>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Área de contenido - ocupa todo el espacio restante */}
-      <div className="flex-1 min-h-0 w-full">
+      {/* Área de contenido */}
+      <div className="flex-1 min-h-0 w-full flex flex-col">
         {editingContent ? (
-          <textarea
-            defaultValue={card.content}
-            onBlur={(e) => handleContentBlur(e.target.value)}
-            onKeyDown={handleContentKeyDown}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            className="text-gray-600 w-full h-full bg-transparent border border-gray-400 rounded px-2 py-1 focus:outline-none focus:border-blue-500 resize-none overflow-y-auto"
-            style={{
-              fontSize: `${(card.fontSize || 18) - 2}px`
-            }}
-            autoFocus
-            data-todo-interactive
-          />
+          <>
+            {/* Toolbar: usa spans (no focusables) + listeners nativos via ref */}
+            <div ref={toolbarRef} className="flex items-center gap-1 mb-1 flex-shrink-0">
+              <span
+                className={toolbarBtnClass(isBold)}
+                onClick={() => execFormat('bold')}
+                title="Negrita (Ctrl+B)"
+              >
+                B
+              </span>
+              <div className="w-px h-4 bg-gray-300 mx-0.5" />
+              <span
+                className={toolbarBtnClass(false)}
+                onClick={() => execFormat('justifyLeft')}
+                title="Alinear izquierda"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/>
+                </svg>
+              </span>
+              <span
+                className={toolbarBtnClass(false)}
+                onClick={() => execFormat('justifyCenter')}
+                title="Centrar"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
+                </svg>
+              </span>
+              <span
+                className={toolbarBtnClass(false)}
+                onClick={() => execFormat('justifyRight')}
+                title="Alinear derecha"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/>
+                </svg>
+              </span>
+              <span
+                className={toolbarBtnClass(false)}
+                onClick={() => execFormat('justifyFull')}
+                title="Justificar"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+              </span>
+            </div>
+            {/* Editor contentEditable */}
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={handleEditorBlur}
+              onKeyDown={handleContentKeyDown}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onMouseUp={handleSelectionChange}
+              onKeyUp={handleSelectionChange}
+              className="text-gray-600 w-full flex-1 min-h-0 bg-transparent border border-gray-400 rounded px-2 py-1 focus:outline-none focus:border-blue-500 overflow-y-auto break-words"
+              style={{ fontSize: `${(card.fontSize || 18) - 2}px` }}
+              data-todo-interactive
+            />
+          </>
         ) : (
           <div
-            className="text-gray-600 cursor-pointer hover:bg-gray-100 rounded px-2 py-1 transition-colors w-full h-full overflow-y-auto whitespace-pre-wrap break-words"
+            className="text-gray-600 cursor-pointer hover:bg-gray-100 rounded px-2 py-1 transition-colors w-full h-full overflow-y-auto break-words"
             style={{ fontSize: `${(card.fontSize || 18) - 2}px` }}
             onDoubleClick={handleContentDoubleClick}
+            dangerouslySetInnerHTML={{ __html: getDisplayHtml(card.content) }}
             data-todo-interactive
-          >
-            {card.content}
-          </div>
+          />
         )}
       </div>
     </div>
