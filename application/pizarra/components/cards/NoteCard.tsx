@@ -1,6 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Card } from '../../types';
-import { Pencil } from 'lucide-react';
+import { Pencil, ListChecks, AlignLeft } from 'lucide-react';
+import { isTaskListContent, contentToTaskItems, taskItemsToHtml, parseTaskItems } from './note/taskListUtils';
+import { TaskListView } from './note/TaskListView';
 
 interface NoteCardProps {
   card: Card;
@@ -31,19 +33,19 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   editingTitle,
   updateCardTitle,
   setEditingTitle,
-  updateCardContent
+  updateCardContent,
 }) => {
   const [editingContent, setEditingContent] = useState(false);
   const [isBold, setIsBold] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
+  const isTaskList = isTaskListContent(card.content);
+
   // Setear contenido inicial UNA sola vez al entrar en modo edición
-  // NO usar dangerouslySetInnerHTML en el contentEditable porque React lo resetea en cada re-render
   useEffect(() => {
     if (editingContent && editorRef.current) {
       editorRef.current.innerHTML = getDisplayHtml(card.content);
-      // Poner cursor al final
       const sel = window.getSelection();
       if (sel) {
         sel.selectAllChildren(editorRef.current);
@@ -51,7 +53,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingContent]); // Solo depende de editingContent, NO de card.content
+  }, [editingContent]);
 
   // Registrar listeners nativos en el toolbar para evitar problemas con delegación de React
   useEffect(() => {
@@ -68,7 +70,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   }, [editingContent]);
 
   const handleContentDoubleClick = () => {
-    setEditingContent(true);
+    if (!isTaskList) {
+      setEditingContent(true);
+    }
   };
 
   const saveAndClose = useCallback(() => {
@@ -78,13 +82,15 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     setEditingContent(false);
   }, [card.id, updateCardContent]);
 
-  const handleEditorBlur = useCallback((e: React.FocusEvent) => {
-    // Si el foco se fue al toolbar, no cerrar
-    if (toolbarRef.current?.contains(e.relatedTarget as Node)) {
-      return;
-    }
-    saveAndClose();
-  }, [saveAndClose]);
+  const handleEditorBlur = useCallback(
+    (e: React.FocusEvent) => {
+      if (toolbarRef.current?.contains(e.relatedTarget as Node)) {
+        return;
+      }
+      saveAndClose();
+    },
+    [saveAndClose]
+  );
 
   const handleContentKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -117,11 +123,27 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
     }`;
 
+  // ── Toggle handlers ──
+
+  const toggleToTaskList = () => {
+    const items = contentToTaskItems(card.content);
+    updateCardContent(card.id, taskItemsToHtml(items));
+  };
+
+  const toggleToNote = () => {
+    if (!card.content) return;
+    const items = parseTaskItems(card.content);
+    const plainHtml = items.map((i) => i.text).join('<br>');
+    updateCardContent(card.id, plainHtml || '');
+  };
+
   return (
     <div className="flex flex-col h-full w-full">
       {/* Header con emoji y título */}
       <div className="flex items-center gap-2 flex-shrink-0 mb-2">
-        <div style={{ fontSize: `${Math.max(20, (card.fontSize || 18) + 8)}px` }}>📝</div>
+        <div style={{ fontSize: `${Math.max(20, (card.fontSize || 18) + 8)}px` }}>
+          {isTaskList ? '☑️' : '📝'}
+        </div>
         <div className="flex-1 min-w-0">
           {editingTitle === card.id ? (
             <input
@@ -157,13 +179,33 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             </div>
           )}
         </div>
+        {/* Toggle note ↔ task list */}
+        <button
+          className="p-1 rounded hover:bg-gray-200 transition-colors flex-shrink-0"
+          onClick={isTaskList ? toggleToNote : toggleToTaskList}
+          title={isTaskList ? 'Convertir a nota' : 'Convertir a lista de tareas'}
+          data-todo-interactive
+        >
+          {isTaskList ? (
+            <AlignLeft size={16} className="text-gray-500" />
+          ) : (
+            <ListChecks size={16} className="text-gray-500" />
+          )}
+        </button>
       </div>
 
       {/* Área de contenido */}
       <div className="flex-1 min-h-0 w-full flex flex-col">
-        {editingContent ? (
+        {isTaskList ? (
+          <TaskListView
+            content={card.content}
+            cardId={card.id}
+            fontSize={card.fontSize || 18}
+            updateCardContent={updateCardContent}
+          />
+        ) : editingContent ? (
           <>
-            {/* Toolbar: usa spans (no focusables) + listeners nativos via ref */}
+            {/* Toolbar */}
             <div ref={toolbarRef} className="flex items-center gap-1 mb-1 flex-shrink-0">
               <span
                 className={toolbarBtnClass(isBold)}
@@ -179,7 +221,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 title="Alinear izquierda"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/>
+                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="15" y2="12" /><line x1="3" y1="18" x2="18" y2="18" />
                 </svg>
               </span>
               <span
@@ -188,7 +230,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 title="Centrar"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
+                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="4" y1="18" x2="20" y2="18" />
                 </svg>
               </span>
               <span
@@ -197,7 +239,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 title="Alinear derecha"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="9" y1="12" x2="21" y2="12" /><line x1="6" y1="18" x2="21" y2="18" />
                 </svg>
               </span>
               <span
@@ -206,7 +248,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 title="Justificar"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </span>
             </div>
