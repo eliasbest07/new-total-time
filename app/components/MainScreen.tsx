@@ -23,14 +23,10 @@ import { FileText, Link, Code, Image, Video, Download, LucideIcon } from "lucide
 import AgregarRecursoModal from "./modals/AgregarRecursoModal";
 import { Actividad } from "@/domain/entities/Actividad";
 import { Mision } from "@/domain/entities/Mision";
-import MisionCard from "../demo/components/MisionCard";
 import InputArea from "./mainUI/InputArea";
 import { useChartHistory, BoardHistorySnapshot } from "@/hooks/useChartHistory";
 import ChatWindow from "@/app/components/ChatWindow";
-import { CaptureRepositorySupabase } from "@/infrastructure/datasource/SupabaseCaptureRepository";
-import { Capture } from "@/domain/entities/Capture";
-
-const captureRepository = new CaptureRepositorySupabase();
+import VentanaTicketDetalles from "./modals/VentanaTicketDetalles";
 
 
 export default function MainScreen() {
@@ -43,8 +39,6 @@ export default function MainScreen() {
   const [selectedActividad, setSelectedActividad] = useState<Actividad | null>(null);
   const [showMisionDetails, setShowMisionDetails] = useState(false);
   const [selectedMision, setSelectedMision] = useState<Mision | null>(null);
-  const [showMisionChat, setShowMisionChat] = useState(false);
-  const [misionChatMessage, setMisionChatMessage] = useState('');
   const [showChatWindow, setShowChatWindow] = useState(false);
   const [selectedChatUser, setSelectedChatUser] = useState<{
     userId: string;
@@ -55,8 +49,6 @@ export default function MainScreen() {
   } | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistorySnapshot, setSelectedHistorySnapshot] = useState<BoardHistorySnapshot | null>(null);
-  const [misionCaptures, setMisionCaptures] = useState<Capture[]>([]);
-  const [loadingMisionCaptures, setLoadingMisionCaptures] = useState(false);
 
   const { usuario, isUserOnline } = useAuth();
   const { recursos: recursosSupabase, loading: recursosLoading } = useRecursos(usuario?.id || null);
@@ -293,36 +285,9 @@ export default function MainScreen() {
   };
 
   // Función para manejar la apertura de detalles de misión
-  const handleShowMisionDetails = async (mision: Mision) => {
+  const handleShowMisionDetails = (mision: Mision) => {
     setSelectedMision(mision);
     setShowMisionDetails(true);
-
-    // Cargar capturas de esta misión
-    setLoadingMisionCaptures(true);
-    try {
-      // Obtener capturas del usuario filtradas por id_bloque
-      // NOTA: Las capturas se guardan con usuario.id (no userAuth), así que usamos id para buscar
-      const userIdForCaptures = usuario?.id;
-      if (!userIdForCaptures) {
-        console.log(`📸 [MainScreen] No hay usuario.id disponible`);
-        setMisionCaptures([]);
-        return;
-      }
-
-      console.log(`📸 [MainScreen] Buscando capturas para usuario.id: ${userIdForCaptures}, id_bloque: ${mision.id}`);
-
-      // Obtener capturas directamente por usuario y bloque (más eficiente)
-      const captures = await captureRepository.getByUsuarioAndBloque(userIdForCaptures, String(mision.id));
-
-      console.log(`📸 [MainScreen] Capturas encontradas: ${captures.length}`);
-
-      setMisionCaptures(captures);
-    } catch (error) {
-      console.error('Error cargando capturas de misión:', error);
-      setMisionCaptures([]);
-    } finally {
-      setLoadingMisionCaptures(false);
-    }
   };
 
   // Función para manejar clicks en las barras del chart
@@ -769,217 +734,24 @@ export default function MainScreen() {
         )}
       </Ventana>
 
-      {/* Ventana de detalles de misión */}
-      <Ventana
+      {/* Ventana de detalles de ticket */}
+      <VentanaTicketDetalles
         isOpen={showMisionDetails}
         onClose={() => setShowMisionDetails(false)}
-        title="Detalles del Ticket"
-        initialWidth={600}
-        initialHeight={500}
-        minWidth={500}
-        minHeight={400}
-        showOverlay={false}
-      >
-        {selectedMision && (
-          <div className="text-black space-y-6 p-4">
-            {/* Nombre */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Nombre</h3>
-              <p className="text-gray-700 text-xl font-medium">{selectedMision.nombre || 'Sin nombre'}</p>
-            </div>
-
-            {/* Descripción */}
-            {selectedMision.descripcion && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Descripción</h3>
-                <div className="bg-gray-100 p-3 rounded-lg">
-                  <p className="text-gray-700 whitespace-pre-wrap">{selectedMision.descripcion}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Fechas */}
-            {(selectedMision.fecha_start || selectedMision.fecha_end) && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Fechas</h3>
-                <div className="bg-blue-100 p-3 rounded-lg space-y-2">
-                  {selectedMision.fecha_start && (
-                    <p className="text-blue-800">
-                      <span className="font-medium">Inicio:</span> {formatDate(selectedMision.fecha_start)}
-                    </p>
-                  )}
-                  {selectedMision.fecha_end && (
-                    <p className="text-blue-800">
-                      <span className="font-medium">Fin:</span> {formatDate(selectedMision.fecha_end)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Horas */}
-            {selectedMision.horas && selectedMision.horas > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Duración Estimada</h3>
-                <div className="bg-green-100 p-3 rounded-lg">
-                  <p className="font-medium text-green-800 text-xl">{selectedMision.horas} horas</p>
-                </div>
-              </div>
-            )}
-
-            {/* Estado/Progreso (si existe) */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Estado</h3>
-              <div className="bg-yellow-100 p-3 rounded-lg">
-                <p className="font-medium text-yellow-800">En progreso</p>
-              </div>
-            </div>
-
-            {/* Capturas de pantalla */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">
-                Capturas ({misionCaptures.length}) - Tiempo: {misionCaptures.length * 5} min
-              </h3>
-              {loadingMisionCaptures ? (
-                <div className="flex items-center justify-center py-4">
-                  <div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                </div>
-              ) : misionCaptures.length === 0 ? (
-                <div className="bg-gray-100 p-3 rounded-lg text-center">
-                  <p className="text-gray-500 text-sm">No hay capturas para esta misión</p>
-                  <p className="text-gray-400 text-xs mt-1">ID buscado (id_bloque): "{selectedMision.id}"</p>
-                  <p className="text-gray-400 text-xs">Revisa la consola para ver los id_bloque disponibles</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                  {misionCaptures.map((capture) => (
-                    <div key={capture.id} className="relative group">
-                      <img
-                        src={capture.img_url || '/placeholder-image.png'}
-                        alt={`Captura ${capture.id}`}
-                        className="w-full h-20 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => capture.img_url && window.open(capture.img_url, '_blank')}
-                      />
-                      <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1 truncate">
-                        {new Date(capture.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} | bloque: {capture.id_bloque}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ID de referencia */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Información técnica</h3>
-              <div className="bg-gray-100 p-3 rounded-lg">
-                <p className="text-gray-600 text-sm">ID: {selectedMision.id}</p>
-                {selectedMision.id_usuario && (
-                  <p className="text-gray-600 text-sm">Usuario: {selectedMision.id_usuario}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Input para iniciar chat */}
-            <div className="border-t pt-4">
-              <h3 className="text-lg font-semibold mb-3">Contactar al responsable</h3>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={misionChatMessage}
-                  onChange={(e) => setMisionChatMessage(e.target.value)}
-                  placeholder="Escribe un mensaje para iniciar el chat..."
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && misionChatMessage.trim()) {
-                      setShowMisionChat(true);
-                      console.log('Abriendo chat con mensaje:', misionChatMessage);
-                    }
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    if (misionChatMessage.trim()) {
-                      setShowMisionChat(true);
-                      console.log('Abriendo chat con mensaje:', misionChatMessage);
-                    }
-                  }}
-                  disabled={!misionChatMessage.trim()}
-                  className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  Chatear
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Envía un mensaje para abrir el chat con el responsable de esta misión</p>
-            </div>
-          </div>
-        )}
-      </Ventana>
-
-      {/* Ventana de Chat de Misión */}
-      <Ventana
-        isOpen={showMisionChat}
-        onClose={() => {
-          setShowMisionChat(false);
-          setMisionChatMessage('');
+        mision={selectedMision}
+        usuarios={usuariosOrganizacion}
+        currentUserId={usuario?.id}
+        onOpenChat={(userId, message) => {
+          const user = usuariosOrganizacion.find(u => u.userAuth === userId);
+          if (user) {
+            handleUserClick({
+              userId: user.userAuth,
+              name: user.getNombreCompleto(),
+              avatar: user.profile.avatar,
+            });
+          }
         }}
-        title={`Chat: ${selectedMision?.nombre || 'Misión'}`}
-        initialWidth={700}
-        initialHeight={600}
-        minWidth={500}
-        minHeight={400}
-        showOverlay={true}
-      >
-        <div className="h-full flex flex-col text-black">
-          {/* Header del chat */}
-          <div className="border-b pb-3 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold">
-                {selectedMision?.id_usuario?.toString().substring(0, 2) || 'M'}
-              </div>
-              <div>
-                <h3 className="font-semibold">Responsable de la misión</h3>
-                <p className="text-sm text-gray-500">Usuario ID: {selectedMision?.id_usuario || 'Desconocido'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Área de mensajes */}
-          <div className="flex-1 overflow-y-auto mb-4 space-y-3">
-            {/* Mensaje inicial del usuario */}
-            <div className="flex justify-end">
-              <div className="bg-blue-500 text-white px-4 py-2 rounded-lg max-w-[70%]">
-                <p className="text-sm">{misionChatMessage}</p>
-                <p className="text-xs opacity-75 mt-1">{new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>
-              </div>
-            </div>
-
-            {/* Mensaje informativo */}
-            <div className="text-center">
-              <div className="inline-block bg-gray-100 px-4 py-2 rounded-full">
-                <p className="text-xs text-gray-600">Chat iniciado</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Input de nuevo mensaje */}
-          <div className="border-t pt-4">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Escribe tu mensaje..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-              <button className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors text-sm">
-                Enviar
-              </button>
-            </div>
-          </div>
-        </div>
-      </Ventana>
+      />
 
       {/* Input Area centrado abajo */}
       <InputArea

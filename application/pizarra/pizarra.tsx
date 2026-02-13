@@ -48,6 +48,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   // Estado para almacenar el ID numérico del usuario que se está viendo
   const [viewingUserNumericId, setViewingUserNumericId] = useState<number | null>(null);
 
+  // Estado para almacenar el ID numérico del usuario logueado (para filtrar misiones)
+  const [currentUserNumericId, setCurrentUserNumericId] = useState<number | null>(null);
+
   // Determinar qué usuario se está viendo (el actual o uno específico)
   const isViewingOtherUser = !!viewingUserId && viewingUserId !== usuario?.userAuth;
   // Para pizarra, siempre usamos UUID (id_usuario), no ID numérico
@@ -57,6 +60,11 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   useEffect(() => {
     loadViewingUserId(viewingUserId ?? null).then(setViewingUserNumericId);
   }, [viewingUserId]);
+
+  // Convertir usuario logueado UUID a id numérico
+  useEffect(() => {
+    loadViewingUserId(usuario?.userAuth ?? null).then(setCurrentUserNumericId);
+  }, [usuario?.userAuth]);
 
   // Debug: Verificar que el usuario esté cargado
   useEffect(() => {
@@ -539,9 +547,21 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     setCanvasRef
   } = useCanvasPan(isConnecting, zoomLevel);
 
+  // Filtrar cards de misión: solo mostrar las asignadas al usuario logueado
+  const filteredCards = useMemo(() => {
+    if (!currentUserNumericId) return cards;
+    return cards.filter(card => {
+      const isMision = card.type === 'mision' || card.type === 'mision-organizacion';
+      if (!isMision) return true;
+      if (!card.misionData) return true;
+      if (!card.misionData.id_usuario_asignado) return true;
+      return card.misionData.id_usuario_asignado === currentUserNumericId;
+    });
+  }, [cards, currentUserNumericId]);
+
   // Hook para lazy loading de cards - solo renderiza cards visibles en el viewport
   const { visibleCards, visibleCount, totalCards } = useVisibleCards(
-    cards,
+    filteredCards,
     panOffset,
     zoomLevel,
     canvasRef,
