@@ -5,6 +5,7 @@ import { ResizeHandles } from './ui/ResizeHandles';
 import { CardConfigPanel } from './ui/CardConfigPanel';
 import { DeleteConfirmModal } from './ui/DeleteConfirmModal';
 import { getCardStyle, getCardBorderColor } from '../utils/cardHelpers';
+import { isTaskListContent } from './cards/note/taskListUtils';
 
 interface CardWrapperProps {
   card: Card;
@@ -78,11 +79,16 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
 
   // Determinar si es una misión corriendo para cambiar colores
   const isMisionRunning = card.type === 'mision' && card.misionData?.isRunning;
-  
+  // Determinar si una nota está en modo task list
+  const isNoteAsTaskList = card.type === 'text' && isTaskListContent(card.content);
+
   // Determinar el color de la barra superior
   const getTopBarColor = () => {
     if (isMisionRunning) {
       return 'bg-orange-600';
+    }
+    if (isNoteAsTaskList) {
+      return 'bg-orange-500';
     }
     // Si es mision-organizacion y está en progreso, usar verde
     if (card.type === 'mision-organizacion' && card.misionData?.estado === 'en_progreso') {
@@ -96,7 +102,9 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
       className={`
         ${isMisionRunning
           ? 'absolute rounded-lg shadow-lg border-2 p-2 cursor-move transition-colors duration-200 select-none bg-orange-50 border-orange-300'
-          : getCardStyle(card.type)
+          : isNoteAsTaskList
+            ? 'absolute rounded-lg shadow-lg border-2 p-2 cursor-move transition-colors duration-200 select-none bg-orange-50 border-orange-200'
+            : getCardStyle(card.type)
         }
         ${props.draggedCard === card.id ? 'shadow-2xl border-blue-500' : ''}
         ${props.isConnecting && props.connectingFrom === card.id ? 'ring-4 ring-blue-400' : ''}
