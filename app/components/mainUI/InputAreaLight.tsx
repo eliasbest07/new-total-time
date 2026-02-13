@@ -6,6 +6,8 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { useUsuariosOrganizacionContext } from '@/app/contexts/UsuariosOrganizacionContext';
 import Image from 'next/image';
 
+type CreateMode = 'note' | 'todo';
+
 interface InputAreaLightProps {
   onCreateNote?: (text: string) => void;
   onCreateTodoList?: (text: string) => void;
@@ -30,18 +32,16 @@ export default function InputAreaLight({
   const [inputText, setInputText] = useState('');
   const [showButtons, setShowButtons] = useState(false);
   const [userScrollIndex, setUserScrollIndex] = useState(0);
+  const [createMode, setCreateMode] = useState<CreateMode>('note');
+  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const { usuario } = useAuth();
 
-  // Usar el context de usuarios (ya filtrados, excluyendo usuario actual)
   const { usuariosFiltrados: usuariosOrganizacion } = useUsuariosOrganizacionContext();
 
-  // Ordenar por estado de conexión (los conectados primero)
   const usuariosFiltrados = useMemo(() => {
-    // Ordenar: conectados primero
     return [...usuariosOrganizacion].sort((a, b) => {
-      // TODO: Implementar ordenamiento real por estado online
       return 0;
     });
   }, [usuariosOrganizacion]);
@@ -57,12 +57,11 @@ export default function InputAreaLight({
     setInputText(value);
     setShowButtons(value.trim().length > 0);
 
-    // Auto-resize the textarea
     const textarea = e.target;
     textarea.style.height = 'auto';
     const scrollHeight = textarea.scrollHeight;
-    const lineHeight = 24; // 1.5rem = 24px
-    const maxHeight = lineHeight * 5; // 5 lines max
+    const lineHeight = 24;
+    const maxHeight = lineHeight * 5;
     textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
   };
 
@@ -84,6 +83,14 @@ export default function InputAreaLight({
     }
   };
 
+  const handleCreate = (): void => {
+    if (createMode === 'note') {
+      handleCreateNote();
+    } else {
+      handleCreateTodoList();
+    }
+  };
+
   const handleUserSelect = (user: typeof usuariosFiltrados[0]): void => {
     if (onSendToUser && inputText.trim()) {
       onSendToUser(inputText.trim(), {
@@ -91,7 +98,7 @@ export default function InputAreaLight({
         name: user.getNombreCompleto(),
         avatar: user.profile.avatar,
         color: user.profile.marco || '#3b82f6',
-        online: true // TODO: Implementar lógica real
+        online: true
       });
       setInputText('');
       setShowButtons(false);
@@ -101,33 +108,61 @@ export default function InputAreaLight({
 
   return (
     <div className={`flex flex-col items-center pointer-events-auto ${className}`}>
-      {/* Área de acciones cuando hay texto */}
+      {/* Botones + Usuarios conectados (cuando hay texto) */}
       {showButtons && (
-        <div className="mb-3 flex items-center gap-3">
-          {/* Botones de Nota y Tareas */}
+        <div className="mb-3">
           <div className="bg-white/90 backdrop-blur-sm rounded-full shadow-lg px-4 py-2 flex items-center gap-2">
+            {/* Radio Nota + Botón Nota */}
+            <div
+              className="flex items-center gap-1.5 cursor-pointer"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setCreateMode('note')}
+            >
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+                createMode === 'note' ? 'border-blue-600' : 'border-gray-400'
+              }`}>
+                {createMode === 'note' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+              </div>
+            </div>
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleCreateNote}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded-full text-blue-700 text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 rounded-full text-blue-700 text-sm font-medium transition-colors"
               title="Crear Nota"
             >
-              <StickyNote size={16} />
+              <StickyNote size={14} />
               <span>Nota</span>
             </button>
+
+            <div className="w-px h-5 bg-gray-300" />
+
+            {/* Radio Tarea + Botón Tarea */}
+            <div
+              className="flex items-center gap-1.5 cursor-pointer"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setCreateMode('todo')}
+            >
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+                createMode === 'todo' ? 'border-green-600' : 'border-gray-400'
+              }`}>
+                {createMode === 'todo' && <div className="w-2 h-2 rounded-full bg-green-600" />}
+              </div>
+            </div>
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleCreateTodoList}
-              className="flex items-center gap-2 px-4 py-2 bg-green-50 hover:bg-green-100 rounded-full text-green-700 text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 hover:bg-green-100 rounded-full text-green-700 text-sm font-medium transition-colors"
               title="Crear Lista de Tareas"
             >
-              <CheckSquare size={16} />
-              <span>Tareas</span>
+              <CheckSquare size={14} />
+              <span>Tarea</span>
             </button>
-          </div>
 
-          {/* Barra de usuarios conectados */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-full shadow-lg px-2 py-2 flex items-center gap-2">
-            {/* Flecha izquierda */}
-            {usuariosFiltrados.length > 2 && userScrollIndex > 0 && (
+            {/* Separador antes de usuarios */}
+            {usuariosFiltrados.length > 0 && <div className="w-px h-5 bg-gray-300" />}
+
+            {/* Usuarios conectados */}
+            {usuariosFiltrados.length > 8 && userScrollIndex > 0 && (
               <button
                 onClick={() => setUserScrollIndex(Math.max(0, userScrollIndex - 1))}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors"
@@ -137,10 +172,9 @@ export default function InputAreaLight({
               </button>
             )}
 
-            {/* Usuarios visibles */}
             {usuariosFiltrados.slice(userScrollIndex, userScrollIndex + 8).map((user) => {
               const colorMarco = user.profile.marco || '#3b82f6';
-              const isOnline = true; // TODO: Implementar lógica real
+              const isOnline = true;
 
               return (
                 <button
@@ -149,7 +183,6 @@ export default function InputAreaLight({
                   className="relative group"
                   title={`Enviar a ${user.getNombreCompleto()}`}
                 >
-                  {/* Avatar con marco de color */}
                   <div
                     className="w-12 h-12 rounded-full border-3 flex items-center justify-center transition-transform group-hover:scale-110"
                     style={{ borderColor: colorMarco, borderWidth: '3px' }}
@@ -164,12 +197,10 @@ export default function InputAreaLight({
                     </div>
                   </div>
 
-                  {/* Indicador de estado online */}
                   {isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
                   )}
 
-                  {/* Tooltip con nombre */}
                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                     <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
                       {user.getNombreCompleto()}
@@ -179,8 +210,7 @@ export default function InputAreaLight({
               );
             })}
 
-            {/* Flecha derecha */}
-            {usuariosFiltrados.length > 2 && userScrollIndex + 8 < usuariosFiltrados.length && (
+            {usuariosFiltrados.length > 8 && userScrollIndex + 8 < usuariosFiltrados.length && (
               <button
                 onClick={() => setUserScrollIndex(Math.min(usuariosFiltrados.length - 8, userScrollIndex + 1))}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors"
@@ -201,6 +231,8 @@ export default function InputAreaLight({
           value={inputText}
           onChange={handleInputChange}
           placeholder={placeholder}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           className="flex-1 bg-transparent text-gray-900 placeholder-gray-400 outline-none resize-none"
           style={{
             minHeight: '24px',
@@ -212,8 +244,10 @@ export default function InputAreaLight({
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
-              // Prevenir envío en Enter, solo crear nota/tarea con botones o seleccionar usuario
               e.preventDefault();
+              if (inputText.trim()) {
+                handleCreate();
+              }
             }
           }}
         />

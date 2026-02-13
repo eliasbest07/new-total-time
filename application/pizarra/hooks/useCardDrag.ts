@@ -76,6 +76,10 @@ export const useCardDrag = (
       return;
     }
 
+    // Blur active element first so contentEditable cards save & exit edit mode
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     e.preventDefault();
     e.stopPropagation();
 

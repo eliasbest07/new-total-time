@@ -17,6 +17,10 @@ export const useCanvasPan = (isConnecting: boolean = false, zoomLevel: number = 
     isConnecting: boolean
   ) => {
     if (!draggedCard && e.target === e.currentTarget && !isConnecting) {
+      // Blur active element first so contentEditable cards save & exit edit mode
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       e.preventDefault();
       setIsPanning(true);
       // Guardar posición inicial compensando el zoom
