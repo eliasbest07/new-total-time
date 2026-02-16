@@ -10,11 +10,11 @@ interface VentanaEditarProyectoProps {
   proyectoId: number | null;
   initialData: {
     nombre: string;
-    descripcion: string;
+    descripcion: string | null;
     icono: string | null;
-    github_url: string;
-    sitio_web_url: string;
-    tecnologias: string[];
+    github_url: string | null;
+    sitio_web_url: string | null;
+    tecnologias: string[] | null;
   };
   onProyectoUpdated?: () => void;
   showSuccess?: (message: string, duration?: number) => void;

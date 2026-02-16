@@ -45,7 +45,7 @@ export interface MisionData {
   id_usuario_asignado?: number | null; // ID del usuario asignado
   usuario_asignado_nombre?: string | null; // Nombre del usuario asignado
   usuario_asignado_avatar?: string | null; // Avatar del usuario asignado
-  estado?: 'pendiente' | 'en_progreso' | 'pausada' | 'entregada' | 'aprobada' | 'rechazada' | 'cancelada';
+  estado?: 'pendiente' | 'en_progreso' | 'pausada' | 'entregada' | 'aprobada' | 'rechazada' | 'cancelada' | 'completada' | 'revisada';
   subtareas?: SubtareaMision[];
   entregas?: EntregaMision[];
   misionActivaId?: string; // ID de la misión activa
@@ -168,7 +168,7 @@ export interface PizarraProps {
   onOpenCapturasModal?: (misionActivaId: string, misionTitle: string) => void;
   onOpenEditarProyecto?: (
     proyectoId: number,
-    initialData: { nombre: string; descripcion: string; icono: string | null; github_url: string; sitio_web_url: string; tecnologias: string[] },
+    initialData: { nombre: string; descripcion: string | null; icono: string | null; github_url: string | null; sitio_web_url: string | null; tecnologias: string[] | null },
     onRefresh?: () => void
   ) => void;
 }

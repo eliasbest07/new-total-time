@@ -46,7 +46,7 @@ export interface MisionData {
   id_usuario_asignado?: number | null; // ID del usuario asignado
   usuario_asignado_nombre?: string | null; // Nombre del usuario asignado
   usuario_asignado_avatar?: string | null; // Avatar del usuario asignado
-  estado?: 'pendiente' | 'en_progreso' | 'pausada' | 'entregada' | 'aprobada' | 'rechazada' | 'cancelada';
+  estado?: 'pendiente' | 'en_progreso' | 'pausada' | 'entregada' | 'aprobada' | 'rechazada' | 'cancelada' | 'completada' | 'revisada';
   fecha_ultimo_capture?: string | null; // Fecha de la última captura
   subtareas?: SubtareaMision[];
   entregas?: EntregaMision[];
@@ -79,6 +79,9 @@ export interface ProyectoData {
   colors: string[] | null;
   created_at?: string;
   notas?: string[]; // IDs de cards de tipo 'text' asociadas como notas
+  github_url?: string | null;
+  sitio_web_url?: string | null;
+  tecnologias?: string[] | null;
 }
 
 export interface RecursoData {
@@ -122,6 +125,7 @@ export interface Card {
   recursoData?: RecursoData;
   actividadData?: ActividadOrganizacionData;
   imageUrl?: string; // URL de la imagen guardada en Supabase Storage
+  isPersistent?: boolean; // Si la card es persistente (no se elimina al limpiar)
 }
 
 export interface Connection {
@@ -206,4 +210,5 @@ export interface PizarraProps {
   currentUserId?: string;
   onConnectionCreate?: (connection: Connection, fromCard: Card, toCard: Card) => void;
   onOpenCapturasModal?: (misionActivaId: string, misionTitle: string) => void;
+  onOpenEditarProyecto?: (proyectoId: number, initialData: { nombre: string; descripcion: string | null; icono: string | null; github_url: string | null; sitio_web_url: string | null; tecnologias: string[] | null }, onRefresh?: () => void) => void;
 }

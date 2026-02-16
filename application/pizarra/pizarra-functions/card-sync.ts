@@ -492,13 +492,13 @@ async function loadProyectoData(cardDB: CardDB, card: Card, storagePrefix: strin
           notas: notasIds
         };
         console.log('✅ [CARD-SYNC] proyectoData cargado exitosamente:', {
-          proyectoId: card.proyectoData.id,
-          nombre: card.proyectoData.nombre
+          proyectoId: card.proyectoData!.id,
+          nombre: card.proyectoData!.nombre
         });
 
         // 3. Guardar en caché
         if (useCache) {
-          saveCardDataToCache(cardDB.card_id, { proyectoData: card.proyectoData }, storagePrefix);
+          saveCardDataToCache(cardDB.card_id, { proyectoData: card.proyectoData! }, storagePrefix);
         }
       } else {
         console.warn('⚠️ [CARD-SYNC] No se encontró proyecto con id:', cardProyecto.id_proyecto);
@@ -548,13 +548,13 @@ async function loadProyectoData(cardDB: CardDB, card: Card, storagePrefix: strin
             notas: notasIds
           };
           console.log('✅ [CARD-SYNC] proyectoData cargado desde content:', {
-            proyectoId: card.proyectoData.id,
-            nombre: card.proyectoData.nombre
+            proyectoId: card.proyectoData!.id,
+            nombre: card.proyectoData!.nombre
           });
 
           // 3. Guardar en caché
           if (useCache) {
-            saveCardDataToCache(cardDB.card_id, { proyectoData: card.proyectoData }, storagePrefix);
+            saveCardDataToCache(cardDB.card_id, { proyectoData: card.proyectoData! }, storagePrefix);
           }
 
           // Crear la relación card_proyectos para futuras cargas

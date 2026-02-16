@@ -26,8 +26,8 @@ interface UseMisionSubtareasParams {
   misionData: MisionData;
   tareasBD: CardTodo[] | null;
   updateCard: (cardId: string, updates: Partial<Omit<Card, 'misionData'>> & { misionData?: Partial<MisionData> }) => void;
-  toggleCompletedBD?: (id: string, completed: boolean) => Promise<void>;
-  deleteTodoBD?: (id: string) => Promise<void>;
+  toggleCompletedBD?: (id: string, completed: boolean) => Promise<any>;
+  deleteTodoBD?: (id: string) => Promise<any>;
   createTodoBD?: (data: any) => Promise<any>;
 }
 

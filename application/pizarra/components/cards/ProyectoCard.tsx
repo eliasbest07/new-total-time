@@ -217,13 +217,13 @@ export const ProyectoCard: React.FC<ProyectoCardProps> = ({
     };
 
     // Agregar listener
-    window.addEventListener('conexion-creada', handleConexionCreada as EventListener);
+    window.addEventListener('conexion-creada', handleConexionCreada as unknown as EventListener);
 
     console.log('📎 [ProyectoCard] Listener de conexion-creada agregado para proyecto:', proyectoId);
 
     // Cleanup
     return () => {
-      window.removeEventListener('conexion-creada', handleConexionCreada as EventListener);
+      window.removeEventListener('conexion-creada', handleConexionCreada as unknown as EventListener);
       console.log('📎 [ProyectoCard] Listener de conexion-creada removido');
     };
   }, [card.proyectoData?.id, card.id]);

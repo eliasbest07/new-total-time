@@ -178,11 +178,11 @@ function DashboardAdmin() {
     proyectoId: number | null;
     initialData: {
       nombre: string;
-      descripcion: string;
+      descripcion: string | null;
       icono: string | null;
-      github_url: string;
-      sitio_web_url: string;
-      tecnologias: string[];
+      github_url: string | null;
+      sitio_web_url: string | null;
+      tecnologias: string[] | null;
     };
   }>({
     isOpen: false,
@@ -278,7 +278,7 @@ function DashboardAdmin() {
   // Handler para abrir ventana de editar proyecto
   const handleOpenEditarProyecto = useCallback((
     proyectoId: number,
-    initialData: { nombre: string; descripcion: string; icono: string | null; github_url: string; sitio_web_url: string; tecnologias: string[] },
+    initialData: { nombre: string; descripcion: string | null; icono: string | null; github_url: string | null; sitio_web_url: string | null; tecnologias: string[] | null },
     onRefresh?: () => void
   ) => {
     editarProyectoRefreshRef.current = onRefresh || null;
@@ -431,7 +431,8 @@ function DashboardAdmin() {
             width: 300,
             height: 400,
             font_size: 14,
-            z_index: 1
+            z_index: 1,
+            is_persistent: false
           });
 
           if (!nuevoCard) {
@@ -728,6 +729,9 @@ function DashboardAdmin() {
         icono: proyectoIcono.trim() || null,
         id_organizacion: organizacion.id,
         colors: null,
+        github_url: null,
+        sitio_web_url: null,
+        tecnologias: null,
       });
 
       if (nuevoProyecto) {

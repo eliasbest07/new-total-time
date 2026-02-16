@@ -335,10 +335,10 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                     items: cardTodos
                   });
 
-                  let tareasParseadas = [];
+                  let tareasParseadas: { id: number; text: string; completed: boolean }[] = [];
                   if (cardTodos && cardTodos.length > 0) {
-                    tareasParseadas = cardTodos.map((todo: any) => ({
-                      id: todo.todo_id,
+                    tareasParseadas = cardTodos.map((todo: any, index: number) => ({
+                      id: typeof todo.todo_id === 'number' ? todo.todo_id : index,
                       text: todo.text,
                       completed: todo.completed
                     }));
@@ -790,7 +790,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
                       console.log('[BUG LINK] Parseando TODOs (realtime), datos raw:', todoCards);
 
                       const todosParseadas = todoCards.map((todoCard: any) => {
-                        let tareasParseadas = [];
+                        let tareasParseadas: { id: number; text: string; completed: boolean }[] = [];
                         try {
                           if (typeof todoCard.todos === 'string') {
                             tareasParseadas = JSON.parse(todoCard.todos);
@@ -1003,13 +1003,13 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
     };
 
     // Agregar listener
-    window.addEventListener('conexion-creada', handleConexionCreada as EventListener);
+    window.addEventListener('conexion-creada', handleConexionCreada as unknown as EventListener);
 
     console.log('📎 [ProyectoCard] Listener de conexion-creada agregado para proyecto:', proyectoId);
 
     // Cleanup
     return () => {
-      window.removeEventListener('conexion-creada', handleConexionCreada as EventListener);
+      window.removeEventListener('conexion-creada', handleConexionCreada as unknown as EventListener);
       console.log('📎 [ProyectoCard] Listener de conexion-creada removido');
     };
   }, [proyectoId, card.id, expandedRecursos]);
@@ -1262,10 +1262,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       }
 
       // Actualizar el estado local en lugar de recargar la página
-      setProyectoDataLocal(prev => ({
-        ...prev,
-        icono: publicUrl
-      }));
+      setProyectoDataLocal(prev => prev ? { ...prev, icono: publicUrl } : prev);
 
       setArchivoSeleccionado(null);
       if (fileInputRef.current) {
@@ -1327,10 +1324,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
       }
 
       // Actualizar el estado local en lugar de recargar la página
-      setProyectoDataLocal(prev => ({
-        ...prev,
-        icono: null
-      }));
+      setProyectoDataLocal(prev => prev ? { ...prev, icono: null } : prev);
 
       setShowImageMenu(false);
       alert('✅ Imagen eliminada exitosamente');

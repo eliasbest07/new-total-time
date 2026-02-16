@@ -38,7 +38,7 @@ export interface ConexionEliminadaEvent {
   type: 'todo-mision';
   todoCard: Card;
   misionCard: Card;
-  misionId?: string;
+  misionId?: number;
 }
 
 // Utilidad para verificar si un ID es UUID
@@ -217,16 +217,16 @@ export function useTodoMisionSync({ cards, connections, setCards }: UseTodoMisio
 
   // Registrar event listeners
   useEffect(() => {
-    window.addEventListener('mision-todo-toggle', handleMisionTodoToggle as EventListener);
-    window.addEventListener('mision-todo-delete', handleMisionTodoDelete as EventListener);
-    window.addEventListener('todo-actualizado', handleTodoActualizado as EventListener);
-    window.addEventListener('conexion-eliminada', handleConexionEliminada as EventListener);
+    window.addEventListener('mision-todo-toggle', handleMisionTodoToggle as unknown as EventListener);
+    window.addEventListener('mision-todo-delete', handleMisionTodoDelete as unknown as EventListener);
+    window.addEventListener('todo-actualizado', handleTodoActualizado as unknown as EventListener);
+    window.addEventListener('conexion-eliminada', handleConexionEliminada as unknown as EventListener);
 
     return () => {
-      window.removeEventListener('mision-todo-toggle', handleMisionTodoToggle as EventListener);
-      window.removeEventListener('mision-todo-delete', handleMisionTodoDelete as EventListener);
-      window.removeEventListener('todo-actualizado', handleTodoActualizado as EventListener);
-      window.removeEventListener('conexion-eliminada', handleConexionEliminada as EventListener);
+      window.removeEventListener('mision-todo-toggle', handleMisionTodoToggle as unknown as EventListener);
+      window.removeEventListener('mision-todo-delete', handleMisionTodoDelete as unknown as EventListener);
+      window.removeEventListener('todo-actualizado', handleTodoActualizado as unknown as EventListener);
+      window.removeEventListener('conexion-eliminada', handleConexionEliminada as unknown as EventListener);
     };
   }, [handleMisionTodoToggle, handleMisionTodoDelete, handleTodoActualizado, handleConexionEliminada]);
 
@@ -258,7 +258,7 @@ export const emitConexionCreada = (detail: {
   todoCard: Card;
   misionCard: Card;
   todoCardUUID: string;
-  misionId?: string;
+  misionId?: number;
 }) => {
   window.dispatchEvent(new CustomEvent('conexion-creada', { detail }));
 };

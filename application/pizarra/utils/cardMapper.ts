@@ -80,6 +80,7 @@ export function mapCardToCardDB(card: Card, idPizarra: string) {
     width: card.width,
     height: card.height,
     font_size: card.fontSize || 18,
-    z_index: 1
+    z_index: 1,
+    is_persistent: card.isPersistent || false
   };
 }

@@ -208,6 +208,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
         try {
           // Pausar en Supabase
+          const { supabase } = await import('@/infrastructure/services/SupabaseClient');
           const { error } = await supabase
             .from('misiones_activas')
             .update({
