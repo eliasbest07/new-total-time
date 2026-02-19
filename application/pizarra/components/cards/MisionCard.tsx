@@ -844,11 +844,13 @@ export const MisionCard: React.FC<MisionCardProps> = ({
   // Determinar si está corriendo para cambiar colores - usar estado local protegido
   const isRunning = localIsRunning;
   // Si está solicitando permisos, usar colores amarillos (estado intermedio)
-  const borderColor = isRequestingPermission ? 'border-yellow-200' : (isRunning ? 'border-orange-200' : 'border-green-200');
-  const textColor = isRequestingPermission ? 'text-yellow-800' : (isRunning ? 'text-orange-800' : 'text-green-800');
-  const textColorSecondary = isRequestingPermission ? 'text-yellow-700' : (isRunning ? 'text-orange-700' : 'text-green-700');
-  const bgColor = isRequestingPermission ? 'bg-yellow-500' : (isRunning ? 'bg-orange-600' : 'bg-green-600');
-  const bgColorHover = isRequestingPermission ? 'hover:bg-yellow-600' : (isRunning ? 'hover:bg-orange-700' : 'hover:bg-green-700');
+  // Priorizar estado running sobre requesting para que el card cambie a naranja
+  // apenas se concede permiso y comienza la misión.
+  const borderColor = isRunning ? 'border-orange-200' : (isRequestingPermission ? 'border-yellow-200' : 'border-green-200');
+  const textColor = isRunning ? 'text-orange-800' : (isRequestingPermission ? 'text-yellow-800' : 'text-green-800');
+  const textColorSecondary = isRunning ? 'text-orange-700' : (isRequestingPermission ? 'text-yellow-700' : 'text-green-700');
+  const bgColor = isRunning ? 'bg-orange-600' : (isRequestingPermission ? 'bg-yellow-500' : 'bg-green-600');
+  const bgColorHover = isRunning ? 'hover:bg-orange-700' : (isRequestingPermission ? 'hover:bg-yellow-600' : 'hover:bg-green-700');
 
   // Modal de entrega
   if (showEntregarModal) {

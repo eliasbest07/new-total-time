@@ -26,8 +26,15 @@ interface UseCardsReturn {
  * @param currentUserId - ID del usuario actual (quien hace los cambios) - opcional
  * @param pizarraOwnerId - ID del dueño de la pizarra - opcional
  * @param skipInitialLoad - Si es true, no carga cards automáticamente al montar (para local-first)
+ * @param idProyectoFilter - En pizarras de organización, filtra cards por proyecto (null = pizarra base)
  */
-export const useCards = (idPizarra: string | null, currentUserId?: string | null, pizarraOwnerId?: string | null, skipInitialLoad: boolean = false): UseCardsReturn => {
+export const useCards = (
+  idPizarra: string | null,
+  currentUserId?: string | null,
+  pizarraOwnerId?: string | null,
+  skipInitialLoad: boolean = false,
+  idProyectoFilter?: number | null
+): UseCardsReturn => {
   const [cards, setCards] = useState<CardDB[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +59,7 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
 
     try {
       // Cargar cards de la pizarra actual
-      const cardsData = await cardRepository.current.getCardsByPizarra(idPizarra);
+      const cardsData = await cardRepository.current.getCardsByPizarra(idPizarra, idProyectoFilter);
       console.log(`🃏 Cards de pizarra actual: ${cardsData.length}`);
 
       // Cargar cards persistentes de otras pizarras del usuario
@@ -97,7 +104,7 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
     } finally {
       setLoading(false);
     }
-  }, [idPizarra, currentUserId]);
+  }, [idPizarra, currentUserId, idProyectoFilter]);
 
   // Función para crear una card
   const createCard = useCallback(async (card: CreateCardDTO): Promise<CardDB | null> => {
@@ -241,6 +248,15 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
           filter: `id_pizarra=eq.${idPizarra}`
         },
         async (payload) => {
+          // En pizarras de organización, ignorar eventos de otros proyectos
+          if (idProyectoFilter !== undefined) {
+            const row = (payload.new || payload.old) as { id_proyecto?: number | null } | null;
+            const rowProjectId = row?.id_proyecto ?? null;
+            if (rowProjectId !== idProyectoFilter) {
+              return;
+            }
+          }
+
           // console.log('📡 Cambio detectado en cards:', payload.eventType);
 
           if (payload.eventType === 'INSERT') {
@@ -267,7 +283,7 @@ export const useCards = (idPizarra: string | null, currentUserId?: string | null
       // console.log('🧹 Limpiando suscripción realtime de cards');
       supabase.removeChannel(channel);
     };
-  }, [idPizarra, skipInitialLoad]);
+  }, [idPizarra, skipInitialLoad, idProyectoFilter]);
 
   return {
     cards,

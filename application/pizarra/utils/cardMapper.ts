@@ -48,7 +48,7 @@ export function mapCardDBToCard(cardDB: CardDB): Card {
 /**
  * Convierte una Card del frontend al formato CreateCardDTO para Supabase
  */
-export function mapCardToCardDB(card: Card, idPizarra: string) {
+export function mapCardToCardDB(card: Card, idPizarra: string, idProyecto?: number | null) {
   // Para cards de tipo proyecto, guardar el proyectoId en content como JSON
   let content = card.content;
   if ((card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.id) {
@@ -71,6 +71,7 @@ export function mapCardToCardDB(card: Card, idPizarra: string) {
 
   return {
     id_pizarra: idPizarra,
+    id_proyecto: idProyecto ?? null,
     card_id: card.id,
     type: card.type,
     title: card.title,

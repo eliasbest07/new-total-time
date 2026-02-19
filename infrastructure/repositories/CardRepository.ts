@@ -2,7 +2,7 @@ import { CardDB, CreateCardDTO, UpdateCardDTO } from "@/domain/entities/Card";
 
 export interface CardRepository {
   // Obtener todas las cards de una pizarra
-  getCardsByPizarra(idPizarra: string): Promise<CardDB[]>;
+  getCardsByPizarra(idPizarra: string, idProyecto?: number | null): Promise<CardDB[]>;
 
   // Crear una nueva card
   createCard(card: CreateCardDTO): Promise<CardDB | null>;

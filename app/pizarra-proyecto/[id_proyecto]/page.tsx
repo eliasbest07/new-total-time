@@ -6,7 +6,7 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { usePizarraProyecto } from '@/hooks/usePizarraProyecto';
 import { usePizarraOrganizacionPermisos } from '@/hooks/usePizarraOrganizacionPermisos';
 import Pizarra, { PizarraRef } from '@/application/pizarra/pizarra';
-import { ArrowLeft, Layout, Edit3, Eye } from 'lucide-react';
+import { ArrowLeft, Layout, Edit3, Eye, Layers } from 'lucide-react';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
 
 export default function PizarraProyectoPage() {
@@ -36,7 +36,7 @@ export default function PizarraProyectoPage() {
   useEffect(() => {
     if (!idProyecto) return;
     supabase
-      .from('proyectos')
+      .from('proyecto')
       .select('nombre')
       .eq('id', idProyecto)
       .single()
@@ -128,8 +128,18 @@ export default function PizarraProyectoPage() {
             </p>
           </div>
         </div>
-        <div className={`px-3 py-1 rounded-full text-xs font-medium ${puedeEditar ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-          {puedeEditar ? 'Editor' : 'Visualizador'}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push('/pizarra-organizacion')}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors flex items-center gap-1"
+            title="Ir a pizarra base de organización"
+          >
+            <Layers className="h-3 w-3" />
+            Pizarra Base
+          </button>
+          <div className={`px-3 py-1 rounded-full text-xs font-medium ${puedeEditar ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+            {puedeEditar ? 'Editor' : 'Visualizador'}
+          </div>
         </div>
       </div>
 

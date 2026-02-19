@@ -31,6 +31,7 @@ import { useRecursos } from "@/hooks/useRecursos";
 import { usePizarraOrganizacion } from "@/hooks/usePizarraOrganizacion";
 import { Target, Building2, X } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import CalendarioSemanalUsuario from "@/app/components/CalendarioSemanalUsuario";
 import fotoDePerfil from "../components/image.png";
 import PizarraPermissionRequests from "@/app/components/PizarraPermissionRequests";
@@ -80,6 +81,7 @@ export default function DashboardPage() {
 
 // Componente separado para el Dashboard de Administrador
 function DashboardAdmin() {
+  const router = useRouter();
   const pizarraRef = useRef<PizarraRef>(null);
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
@@ -925,7 +927,7 @@ function DashboardAdmin() {
           <ListadoProyectos
             onProyectoClick={(proyectoId) => {
               console.log("Proyecto seleccionado:", proyectoId);
-              // TODO: Implementar navegación o modal de detalles del proyecto
+              router.push(`/pizarra-proyecto/${proyectoId}`);
             }}
             onCrearProyecto={() => setShowNuevoProyectoModal(true)}
           />

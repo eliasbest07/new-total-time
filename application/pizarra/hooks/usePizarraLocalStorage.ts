@@ -348,6 +348,21 @@ export const usePizarraLocalStorage = (
     }
   }, [cards, connections, panOffset]);
 
+  // Guardado ligero: solo panOffset (evita serializar cards grandes en cada movimiento)
+  const savePanOffsetOnly = useCallback(() => {
+    try {
+      if (!panOffset || typeof panOffset.x !== 'number' || typeof panOffset.y !== 'number') {
+        return;
+      }
+
+      const todayDate = getTodayDate();
+      localStorage.setItem(PAN_OFFSET_STORAGE_KEY, JSON.stringify(panOffset));
+      localStorage.setItem(DATE_STORAGE_KEY, todayDate);
+    } catch (error) {
+      console.error('❌ [PIZARRA STORAGE] Error guardando panOffset:', error);
+    }
+  }, [panOffset, PAN_OFFSET_STORAGE_KEY, DATE_STORAGE_KEY]);
+
   // Limpiar localStorage
   const clearLocalStorage = useCallback(() => {
     try {
@@ -484,7 +499,7 @@ export const usePizarraLocalStorage = (
     }
   }, []); // Solo se ejecuta una vez al montar
 
-  // Guardar automáticamente cuando cambien los datos (con debounce)
+  // Guardar automáticamente cards/connections (con debounce)
   useEffect(() => {
     // No guardar si el localStorage fue limpiado recientemente
     const wasCleared = !localStorage.getItem(PIZARRA_STORAGE_KEY) &&
@@ -507,7 +522,21 @@ export const usePizarraLocalStorage = (
     }, 1000); // Esperar 1 segundo después del último cambio
 
     return () => clearTimeout(timeoutId);
-  }, [cards, connections, panOffset, saveToLocalStorage]);
+  }, [cards, connections, saveToLocalStorage, PIZARRA_STORAGE_KEY, CONNECTIONS_STORAGE_KEY]);
+
+  // Guardar panOffset por separado (más frecuente y liviano)
+  useEffect(() => {
+    // Si no hay datos en pizarra aún, evitamos escrituras innecesarias
+    if (cards.length === 0 && connections.length === 0) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      savePanOffsetOnly();
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [panOffset, cards.length, connections.length, savePanOffsetOnly]);
 
   return {
     loadFromLocalStorage,

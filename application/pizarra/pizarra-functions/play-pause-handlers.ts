@@ -273,6 +273,19 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
 
       const mediaStream = permissionResult.mediaStream;
 
+      // Actualización optimista: si el permiso ya fue concedido, reflejar estado running
+      // de inmediato en UI para evitar delay visual mientras terminan operaciones pesadas
+      // (creación en BD, captura inicial, upload, etc.).
+      const optimisticCard = cards.find(c => c.id === cardId);
+      const optimisticKey = tipo === 'actividad' ? 'activityData' : 'misionData';
+      const optimisticData = tipo === 'actividad' ? optimisticCard?.activityData : optimisticCard?.misionData;
+      onUpdateCard(cardId, {
+        [optimisticKey]: {
+          ...optimisticData,
+          isRunning: true
+        }
+      });
+
       // 2. SEGUNDO: Crear/obtener entidad activa en Supabase
       console.log('💾 [MISION ACTIVA] Creando/obteniendo entidad activa en Supabase...');
       const misionActiva = await getOrCreateMisionActiva({
@@ -289,6 +302,51 @@ export async function handlePlayPause(params: HandlePlayPauseParams): Promise<vo
       }
 
       console.log('✅ [MISION ACTIVA] Entidad activa obtenida:', misionActiva.id);
+
+      // Si el usuario detiene "Compartir pantalla" desde el navegador,
+      // pausar automáticamente la misión/actividad y reflejar UI en verde.
+      let stopHandled = false;
+      const handleScreenShareEnded = async () => {
+        if (stopHandled) return;
+        stopHandled = true;
+
+        console.log('🛑 [SCREEN SHARE] El usuario dejó de compartir pantalla. Pausando automáticamente...');
+
+        try {
+          await updateRunningState(misionActiva.id, {
+            is_running: false,
+            estado: 'pausada',
+            fecha_fin: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error('❌ [SCREEN SHARE] Error actualizando estado en Supabase:', error);
+        }
+
+        try {
+          const currentCardAfterStop = cards.find(c => c.id === cardId);
+          const updateKeyAfterStop = tipo === 'actividad' ? 'activityData' : 'misionData';
+          const currentDataAfterStop = tipo === 'actividad'
+            ? currentCardAfterStop?.activityData
+            : currentCardAfterStop?.misionData;
+
+          onUpdateCard(cardId, {
+            [updateKeyAfterStop]: {
+              ...currentDataAfterStop,
+              isRunning: false
+            }
+          });
+        } catch (error) {
+          console.error('❌ [SCREEN SHARE] Error actualizando estado local:', error);
+        }
+
+        stopCapturing();
+      };
+
+      mediaStream.getTracks().forEach(track => {
+        track.onended = () => {
+          void handleScreenShareEnded();
+        };
+      });
 
       // 3. TERCERO: Iniciar captura con el stream ya obtenido
       await startCaptureSession({

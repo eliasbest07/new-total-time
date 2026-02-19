@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import MenuDashboardUsuario from './MenuDashboardUsuario';
 import IntervalosTiempo from './IntervalosTiempo';
+import CalendarioSemanalUsuario from './CalendarioSemanalUsuario';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useOrganizacion } from '@/hooks/useOrganizacion';
 import { useSimpleTracking } from '@/hooks/useSimpleTracking';
@@ -13,6 +14,7 @@ import { MisionActiva } from '@/domain/entities/MisionActiva';
 import { Target, ChevronRight, ChevronLeft, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import PizarraPermissionRequests from './PizarraPermissionRequests';
+import { SupabaseAuthRepository } from '@/infrastructure/datasource/SupabaseAuthRepository';
 
 /**
  * Dashboard para usuarios NO administradores
@@ -229,9 +231,10 @@ const MisionActivaCard = ({ mision, onImageClick }: { mision: MisionActiva; onIm
 };
 
 export default function DashboardUsuario() {
-    const { usuario } = useAuth();
+    const { usuario, clearUsuario } = useAuth();
     const { organizacion } = useOrganizacion(usuario?.userAuth || null);
     const router = useRouter();
+    const authRepository = new SupabaseAuthRepository();
     const [menuLateralAbierto, setMenuLateralAbierto] = useState(false);
     const [captures, setCaptures] = useState<Capture[]>([]);
     const [loadingCaptures, setLoadingCaptures] = useState(true);
@@ -326,10 +329,15 @@ export default function DashboardUsuario() {
         console.log('Ver miembros');
     };
 
-    const handleLogout = () => {
-        console.log('Logout');
-        // Aquí iría la lógica de logout real
-        window.location.href = '/';
+    const handleLogout = async () => {
+        try {
+            await authRepository.logout();
+        } catch (error) {
+            console.error('Error al cerrar sesión en Supabase:', error);
+        } finally {
+            clearUsuario();
+            router.push('/login');
+        }
     };
 
     const handleConfiguracion = () => {
@@ -522,6 +530,16 @@ export default function DashboardUsuario() {
                             </div>
                         )}
                     </div>
+
+                    {/* Calendario semanal por captures (dashboard persona) */}
+                    {usuario?.userAuth && (
+                        <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-2 sm:p-3">
+                            <CalendarioSemanalUsuario
+                                userId={usuario.userAuth}
+                                userName={userName}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -5,6 +5,7 @@
 export interface CardDB {
   id: string; // uuid generado por la BD
   id_pizarra: string; // uuid de la pizarra
+  id_proyecto?: number | null; // proyecto asociado (solo pizarras de organización)
   card_id: string; // ID de la card en el frontend (ej: "mision-1")
   type: string; // Tipo de card: mision, usuario, proyecto, etc.
   title: string | null;

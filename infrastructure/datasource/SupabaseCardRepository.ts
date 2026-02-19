@@ -7,15 +7,25 @@ export class SupabaseCardRepository implements CardRepository {
   /**
    * Obtiene todas las cards de una pizarra
    */
-  async getCardsByPizarra(idPizarra: string): Promise<CardDB[]> {
+  async getCardsByPizarra(idPizarra: string, idProyecto?: number | null): Promise<CardDB[]> {
     try {
       // console.log('🃏 Obteniendo cards de pizarra:', idPizarra);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('cards')
         .select('*')
-        .eq('id_pizarra', idPizarra)
-        .order('z_index', { ascending: true });
+        .eq('id_pizarra', idPizarra);
+
+      // Solo para pizarras de organización: separar cards de pizarra base vs proyecto
+      if (idProyecto !== undefined) {
+        if (idProyecto === null) {
+          query = query.is('id_proyecto', null);
+        } else {
+          query = query.eq('id_proyecto', idProyecto);
+        }
+      }
+
+      const { data, error } = await query.order('z_index', { ascending: true });
 
       if (error) {
         console.error('❌ Error obteniendo cards:', error);

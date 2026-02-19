@@ -7,6 +7,7 @@ export const useDropHandler = (
   panOffset: { x: number; y: number },
   canvasRef: React.RefObject<HTMLDivElement>,
   cards: Card[],
+  readOnly: boolean = false,
   isOrganizacion: boolean = false,
   autoConnectMisionToProyecto?: (misionCardId: string, misionId: number) => void,
   autoConnectProyectoToMisiones?: (proyectoCardId: string, proyectoId: number) => void,
@@ -20,27 +21,38 @@ export const useDropHandler = (
   const [isReceivingDrag, setIsReceivingDrag] = useState(false);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (readOnly) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
     setIsReceivingDrag(true);
-  }, []);
+  }, [readOnly]);
 
   const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (readOnly) return;
     e.preventDefault();
     e.stopPropagation();
     if (!(e.relatedTarget instanceof Node) || !e.currentTarget.contains(e.relatedTarget)) {
       setIsDragOver(false);
       setIsReceivingDrag(false);
     }
-  }, []);
+  }, [readOnly]);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (readOnly) return;
     e.preventDefault();
     e.stopPropagation();
-  }, []);
+  }, [readOnly]);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (readOnly) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+      setIsReceivingDrag(false);
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
@@ -488,7 +500,7 @@ export const useDropHandler = (
         height: 100
       }]);
     }
-  }, [panOffset, canvasRef, setCards, cards, isOrganizacion, autoConnectMisionToProyecto, autoConnectProyectoToMisiones, centerOnCard, findCardByMisionId]);
+  }, [panOffset, canvasRef, setCards, cards, readOnly, isOrganizacion, autoConnectMisionToProyecto, autoConnectProyectoToMisiones, centerOnCard, findCardByMisionId, addUsuarioCard, addProyectoCard, addRecursoCard]);
 
   return {
     isDragOver,

@@ -68,6 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearUsuario = () => {
     setUsuarioState(null);
     StorageService.clearUser();
+    if (typeof window !== 'undefined') {
+      localStorage.clear();
+      sessionStorage.clear();
+    }
     // ✅ Limpiar el caché de usuarios al hacer logout
     userCacheService.clearAll();
   };

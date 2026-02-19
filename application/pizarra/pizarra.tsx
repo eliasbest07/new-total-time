@@ -53,6 +53,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
   // Determinar qué usuario se está viendo (el actual o uno específico)
   const isViewingOtherUser = !!viewingUserId && viewingUserId !== usuario?.userAuth;
+  const canEditBoard = !readOnly && !isViewingOtherUser;
   // Para pizarra, siempre usamos UUID (id_usuario), no ID numérico
   const effectiveUserId = isViewingOtherUser ? viewingUserId : (usuario?.userAuth || null);
 
@@ -104,7 +105,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   const { cards: cardsDB, loading: loadingCards, createCard, updateCard, deleteCard: deleteCardDB, togglePersistent } = useCards(
     pizarraActual?.id || null,
     usuario?.userAuth || null, // Mantenido por compatibilidad
-    effectiveUserId // Mantenido por compatibilidad
+    effectiveUserId, // Mantenido por compatibilidad
+    false,
+    isOrganizacionPizarra ? ((pizarraActual as any)?.idProyecto ?? null) : undefined
   );
 
   // Hook para gestionar misiones activas
@@ -829,12 +832,12 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
   // LocalStorage para persistencia - SOLO para pizarra propia, NO para pizarras compartidas
   const localStorageHookResult = usePizarraLocalStorage(
-    isViewingOtherUser ? [] : cards, // No guardar cards de otros usuarios
-    isViewingOtherUser ? [] : connections, // No guardar conexiones de otros usuarios
-    isViewingOtherUser ? { x: 0, y: 0 } : panOffset, // No guardar panOffset de otros usuarios
-    isViewingOtherUser ? () => { } : setCards, // No setear cards si es otro usuario
-    isViewingOtherUser ? () => { } : setConnections, // No setear conexiones si es otro usuario
-    isViewingOtherUser ? () => { } : setPanOffset, // No setear panOffset si es otro usuario
+    canEditBoard ? cards : [], // No guardar cards en modo solo lectura
+    canEditBoard ? connections : [], // No guardar conexiones en modo solo lectura
+    canEditBoard ? panOffset : { x: 0, y: 0 }, // No persistir panOffset en modo solo lectura
+    canEditBoard ? setCards : () => { }, // No hidratar cards en modo solo lectura
+    canEditBoard ? setConnections : () => { }, // No hidratar conexiones en modo solo lectura
+    canEditBoard ? setPanOffset : () => { }, // No hidratar panOffset en modo solo lectura
     storagePrefix,
     isOrganizacionPizarra, // Pasar la prop para pizarras de organización
     isInitialized // Pasar estado de inicialización
@@ -1891,6 +1894,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     panOffset,
     canvasRef,
     cards,
+    !canEditBoard,
     storagePrefix === 'organizacion',
     autoConnectMisionToProyectoWrapper,
     autoConnectProyectoToMisionesWrapper,
@@ -2216,6 +2220,11 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
   // Función manual para guardar en Supabase
   const saveToSupabase = useCallback(async () => {
+    if (!canEditBoard) {
+      console.warn('⛔ Guardado bloqueado: pizarra en modo solo lectura/sin permisos de edición');
+      return false;
+    }
+
     if (!usuario) {
       console.error('❌ No hay usuario para guardar');
       alert('❌ Error: No se ha iniciado sesión.');
@@ -2255,11 +2264,21 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       // ❌ DESHABILITADO: Pan offset NO se guarda en Supabase, solo localStorage
       // await pizarraRepo.updatePanOffset(pizarraActual.id, panOffset.x, panOffset.y);
 
-      // 3. Obtener las cards actuales de Supabase para esta pizarra
-      const { data: cardsEnBD, error: cardsError } = await supabase
+      const currentProjectId = isOrganizacionPizarra ? ((pizarraActual as any)?.idProyecto ?? null) : undefined;
+
+      // 3. Obtener las cards actuales de Supabase para esta pizarra/proyecto
+      let cardsQuery = supabase
         .from('cards')
         .select('id, card_id')
         .eq('id_pizarra', pizarraActual.id);
+
+      if (isOrganizacionPizarra) {
+        cardsQuery = currentProjectId === null
+          ? cardsQuery.is('id_proyecto', null)
+          : cardsQuery.eq('id_proyecto', currentProjectId);
+      }
+
+      const { data: cardsEnBD, error: cardsError } = await cardsQuery;
 
       if (cardsError) {
         console.error('❌ Error obteniendo cards de la BD:', cardsError);
@@ -2301,7 +2320,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
         if (cardExists) {
           // Actualizar card existente
-          const cardData = mapCardToCardDB(card, pizarraActual.id);
+          const cardData = mapCardToCardDB(card, pizarraActual.id, currentProjectId);
           const { error: updateError } = await supabase
             .from('cards')
             .update(cardData)
@@ -2400,7 +2419,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
           // }
         } else {
           // Crear nueva card
-          const cardData = mapCardToCardDB(card, pizarraActual.id);
+          const cardData = mapCardToCardDB(card, pizarraActual.id, currentProjectId);
           console.log('📝 [CREAR CARD] Intentando crear card:', {
             card_id: card.id,
             type: card.type,
@@ -2668,13 +2687,13 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       console.error('❌ Error guardando en Supabase:', error);
       return false;
     }
-  }, [pizarraActual, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections, saveHistorySnapshot, pizarraOrganizacion, isViewingOtherUser, viewingUserId]);
+  }, [canEditBoard, pizarraActual, usuario, cards, cardsDB, panOffset, updatePanOffset, createCard, updateCard, deleteCardDB, isInitialized, refetchPizarra, connections, saveHistorySnapshot, pizarraOrganizacion, isViewingOtherUser, viewingUserId]);
 
   // Auto-save hook - detecta cambios y guarda automáticamente
   // Solo se activa si: autoSave está habilitado, NO es pizarra ajena, NO es read-only, y está inicializado
   // IMPORTANTE: Pasamos cards y connections directamente - el hook calcula el hash
   const { hasUnsavedChanges, isSaving, lastSaved } = useAutoSave({
-    enabled: autoSave && !isViewingOtherUser && !readOnly && !isOrganizacionPizarra && isInitialized,
+    enabled: autoSave && canEditBoard && !isOrganizacionPizarra && isInitialized,
     data: { cards, connections }, // El hook stringify esto internamente
     onSave: saveToSupabase,
     debounceMs: 2000 // 2 segundos de debounce
@@ -2721,11 +2740,19 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       // ❌ DESHABILITADO: Pan offset NO se guarda en Supabase, solo localStorage
       // await pizarraOrgRepo.updatePanOffset(pizarraOrg.id, panOffset.x, panOffset.y);
 
-      // 2. Obtener las cards actuales de Supabase para esta pizarra
-      const { data: cardsEnBD, error: cardsError } = await supabase
+      const currentProjectId = pizarraOrg?.idProyecto ?? null;
+
+      // 2. Obtener las cards actuales de Supabase para esta pizarra/proyecto
+      let cardsQuery = supabase
         .from('cards')
         .select('id, card_id')
         .eq('id_pizarra', pizarraOrg.id);
+
+      cardsQuery = currentProjectId === null
+        ? cardsQuery.is('id_proyecto', null)
+        : cardsQuery.eq('id_proyecto', currentProjectId);
+
+      const { data: cardsEnBD, error: cardsError } = await cardsQuery;
 
       if (cardsError) {
         console.error('❌ Error obteniendo cards de la BD:', cardsError);
@@ -2767,7 +2794,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
         if (cardExists) {
           // Actualizar card existente
-          const cardData = mapCardToCardDB(card, pizarraOrg.id);
+          const cardData = mapCardToCardDB(card, pizarraOrg.id, currentProjectId);
           const { error: updateError } = await supabase
             .from('cards')
             .update(cardData)
@@ -2852,7 +2879,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
           }
         } else {
           // Crear nueva card
-          const cardData = mapCardToCardDB(card, pizarraOrg.id);
+          const cardData = mapCardToCardDB(card, pizarraOrg.id, currentProjectId);
           const { data: insertedCard, error: insertError } = await supabase
             .from('cards')
             .insert(cardData)
@@ -3389,79 +3416,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     }
   }, [usuario, setConnections]);
 
-  // Auto-guardado en Supabase cuando está activado
-  useEffect(() => {
-    // Log detallado para debugging
-    console.log('🔍 [AUTO-SAVE CHECK]', {
-      autoSave,
-      hasUsuario: !!usuario,
-      isInitialized,
-      cardsLength: cards.length,
-      isViewingOtherUser,
-      readOnly
-    });
-
-    // No auto-guardar si está en modo solo lectura
-    if (readOnly) {
-      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - modo solo lectura');
-      return;
-    }
-
-    // No auto-guardar si estamos viendo la pizarra de otro usuario Y no tenemos permiso de edición
-    // (Si readOnly === false, significa que tenemos permiso, por ejemplo admin en pizarra de org)
-    if (isViewingOtherUser && readOnly !== false) {
-      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - viendo pizarra sin permiso de edición');
-      return;
-    }
-
-    if (!autoSave) {
-      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - autoSave desactivado');
-      return;
-    }
-
-    if (!usuario) {
-      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - no hay usuario');
-      return;
-    }
-
-    if (!isInitialized) {
-      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - no inicializado');
-      return;
-    }
-
-    if (cards.length === 0) {
-      console.log('⏭️ [AUTO-SAVE] Saltando auto-guardado - no hay cards');
-      return;
-    }
-
-    // Debounce para evitar guardados excesivos
-    console.log(`⏰ [AUTO-SAVE] Programando auto-guardado en 2 segundos... (${cards.length} cards)`);
-    const timeoutId = setTimeout(async () => {
-      try {
-        console.log('🔄 [AUTO-SAVE] Auto-guardado en Supabase iniciado...', {
-          autoSave,
-          usuario: !!usuario,
-          isInitialized,
-          isViewingOtherUser,
-          readOnly,
-          cardsCount: cards.length
-        });
-        const result = await saveToSupabase();
-        if (result) {
-          console.log('✅ [AUTO-SAVE] Auto-guardado completado exitosamente');
-        } else {
-          console.warn('⚠️ [AUTO-SAVE] Auto-guardado falló');
-        }
-      } catch (error) {
-        console.error('❌ [AUTO-SAVE] Error en auto-guardado:', error);
-      }
-    }, 2000); // 2 segundos de debounce
-
-    return () => {
-      console.log('🧹 [AUTO-SAVE] Cancelando timeout de auto-guardado');
-      clearTimeout(timeoutId);
-    };
-  }, [cards, connections, panOffset, autoSave, usuario, isInitialized, saveToSupabase, isViewingOtherUser, readOnly]);
+  // El auto-guardado en Supabase se maneja exclusivamente con useAutoSave
+  // para evitar guardados duplicados y reducir carga de red.
 
   // Función para agregar una conexión programáticamente
   const addConnection = useCallback((fromCardId: string, toCardId: string, skipValidation = false) => {
