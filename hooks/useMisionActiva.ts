@@ -82,7 +82,7 @@ export const useMisionActiva = () => {
    * Agregar URL de captura
    */
   const addCaptureUrl = useCallback(async (misionActivaId: string, captureUrl: string) => {
-   console.log(misionActivaId)
+    console.log(misionActivaId)
     try {
       const data = await misionActivaRepository.addCaptureUrl(misionActivaId, captureUrl);
       setMisionActiva(data);
@@ -228,7 +228,7 @@ export const useMisionActiva = () => {
   }, []);
 
   /**
-   * Verificar y actualizar misiones inactivas (sin capturas en más de 5:30 minutos)
+   * Verificar y pausar misiones en_progreso sin capturas en los últimos 10 minutos
    */
   const verificarMisionesInactivas = useCallback(async () => {
     try {
