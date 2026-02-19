@@ -7,6 +7,7 @@ import IntervalosTiempo from './IntervalosTiempo';
 import CalendarioSemanalUsuario from './CalendarioSemanalUsuario';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useOrganizacion } from '@/hooks/useOrganizacion';
+import { useUsuariosOrganizacion } from '@/hooks/useUsuariosOrganizacion';
 import { useSimpleTracking } from '@/hooks/useSimpleTracking';
 import { CaptureRepositorySupabase } from '@/infrastructure/datasource/SupabaseCaptureRepository';
 import { Capture } from '@/domain/entities/Capture';
@@ -231,8 +232,9 @@ const MisionActivaCard = ({ mision, onImageClick }: { mision: MisionActiva; onIm
 };
 
 export default function DashboardUsuario() {
-    const { usuario, clearUsuario } = useAuth();
+    const { usuario, clearUsuario, isUserOnline } = useAuth();
     const { organizacion } = useOrganizacion(usuario?.userAuth || null);
+    const { usuarios: miembrosOrganizacion } = useUsuariosOrganizacion(organizacion?.id || null);
     const router = useRouter();
     const authRepository = new SupabaseAuthRepository();
     const [menuLateralAbierto, setMenuLateralAbierto] = useState(false);
@@ -249,6 +251,7 @@ export default function DashboardUsuario() {
     const userName = usuario?.getNombreCompleto() || 'Usuario';
     const userAvatar = usuario?.profile?.avatar || '/total-time_logo.png';
     const userOrganization = organizacion?.nombre || 'Sin organización';
+    const userHealth = usuario?.barraSalud ?? 100;
 
     // Cargar captures del usuario
     useEffect(() => {
@@ -325,10 +328,6 @@ export default function DashboardUsuario() {
         console.log('Salir de organización');
     };
 
-    const handleVerMiembros = () => {
-        console.log('Ver miembros');
-    };
-
     const handleLogout = async () => {
         try {
             await authRepository.logout();
@@ -397,53 +396,95 @@ export default function DashboardUsuario() {
                                 />
                             </div>
                         </div>
-                        <span className="text-white font-medium text-base">{userName}</span>
+                        <div className="flex items-center gap-3 min-w-0">
+                            <span className="text-white font-medium text-base truncate">{userName}</span>
+                            <div className="w-20 h-2 bg-white/25 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-green-500 rounded-full transition-all duration-500"
+                                    style={{ width: `${Math.max(0, Math.min(100, userHealth))}%` }}
+                                />
+                            </div>
+                        </div>
                     </button>
                 </div>
 
-                {/* Header responsivo */}
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8 pt-16">
+                <div className="pt-16 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
+                    {/* Header responsivo */}
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
 
-                    {/* Sección izquierda - Perfil y estadísticas */}
-                    <div className="xl:col-span-2 space-y-6">
-                        <LifeBar percentage={85} />
+                        {/* Sección izquierda - Perfil y estadísticas */}
+                        <div className="xl:col-span-2 space-y-6">
+                            <LifeBar percentage={85} />
 
-                        {/* Estadísticas responsivas */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                            <StatsCard value={estadisticas.tiempoHoy} label="Tiempo hoy" isLoading={isLoadingStats} />
-                            <StatsCard value={estadisticas.ultimaActividad} label="Última actividad" isLoading={isLoadingStats} />
-                            <StatsCard value={estadisticas.tiempoSemana} label="Esta semana" isLoading={isLoadingStats} />
+                            {/* Estadísticas responsivas */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                                <StatsCard value={estadisticas.tiempoHoy} label="Tiempo hoy" isLoading={isLoadingStats} />
+                                <StatsCard value={estadisticas.ultimaActividad} label="Última actividad" isLoading={isLoadingStats} />
+                                <StatsCard value={estadisticas.tiempoSemana} label="Esta semana" isLoading={isLoadingStats} />
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Sección derecha - Organización */}
-                    <div className="xl:col-span-1">
-                        <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-fit">
-                            <h3 className="text-white text-lg sm:text-xl font-medium mb-4">
-                                Organización: {userOrganization}
-                            </h3>
-                            <div className="space-y-3">
-                                <button
-                                    onClick={handleVerMiembros}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-lg transition-colors text-sm sm:text-base"
-                                >
-                                    Ver Miembros
-                                </button>
-                             
+                        {/* Sección derecha - Organización */}
+                        <div className="xl:col-span-1">
+                            <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-fit">
+                                <h3 className="text-white text-lg sm:text-xl font-medium mb-4">
+                                    {userOrganization}
+                                </h3>
+
+                                <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                                    {miembrosOrganizacion.length > 0 ? (
+                                        miembrosOrganizacion.map((miembro) => {
+                                            const online = isUserOnline(miembro.userAuth);
+                                            return (
+                                                <div
+                                                    key={miembro.userAuth}
+                                                    className="relative flex-shrink-0"
+                                                    title={`${miembro.getNombreCompleto()} - ${online ? 'Online' : 'Offline'}`}
+                                                >
+                                                    <div className="w-10 h-10 rounded-full border-2 border-white/30 overflow-hidden bg-white/10">
+                                                        <Image
+                                                            src={miembro.profile.avatar || '/total-time_logo.png'}
+                                                            alt={miembro.getNombreCompleto()}
+                                                            width={40}
+                                                            height={40}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </div>
+                                                    <span
+                                                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#111827] ${
+                                                            online ? 'bg-green-500' : 'bg-gray-400'
+                                                        }`}
+                                                    />
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <span className="text-white/60 text-sm">Sin miembros disponibles</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Contenido principal - Grid responsivo */}
-                <div className="space-y-6 lg:space-y-8">
-                    {/* Intervalos de Tiempo - Ancho completo */}
-                    {/* {usuario?.userAuth && (
-                        <IntervalosTiempo userId={usuario.userAuth} />
-                    )} */}
+                    {/* Contenido principal - Grid responsivo */}
+                    <div className="space-y-6 lg:space-y-8 pb-4">
+                        {/* Intervalos de Tiempo - Ancho completo */}
+                        {/* {usuario?.userAuth && (
+                            <IntervalosTiempo userId={usuario.userAuth} />
+                        )} */}
 
-                    {/* Grid de tareas y screenshots */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                        {/* Calendario semanal por captures (dashboard persona) */}
+                        {usuario?.userAuth && (
+                            <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-2 sm:p-3">
+                                <CalendarioSemanalUsuario
+                                    userId={usuario.userAuth}
+                                    userName={userName}
+                                />
+                            </div>
+                        )}
+
+                        {/* Grid de tareas y screenshots */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
                         {/* Mis Misiones Activas */}
                         <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 h-80 flex flex-col">
                             <h3 className="text-white text-lg sm:text-xl font-medium mb-4 flex items-center gap-2">
@@ -529,17 +570,8 @@ export default function DashboardUsuario() {
                                 </button>
                             </div>
                         )}
-                    </div>
-
-                    {/* Calendario semanal por captures (dashboard persona) */}
-                    {usuario?.userAuth && (
-                        <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-2 sm:p-3">
-                            <CalendarioSemanalUsuario
-                                userId={usuario.userAuth}
-                                userName={userName}
-                            />
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
 
