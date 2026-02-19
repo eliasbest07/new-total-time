@@ -9,6 +9,7 @@
 export interface PizarraOrganizacion {
   id: string; // UUID
   idOrganizacion: string; // UUID - Referencia a organizacion.id
+  idProyecto?: number | null; // ID del proyecto (null = pizarra libre de org)
   panOffsetX: number; // Posición X del canvas
   panOffsetY: number; // Posición Y del canvas
   zoomLevel: number; // Nivel de zoom del canvas

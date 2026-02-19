@@ -145,10 +145,10 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
     if (resultado) {
       console.log('✅ [DEBUG ADMIN] Señal enviada exitosamente:', resultado);
-      alert(`📸 Solicitud enviada a ${misionData.usuario_asignado_nombre}. El usuario recibirá una notificación.`);
+      showInfo(`Solicitud enviada a ${misionData.usuario_asignado_nombre}`);
     } else {
       console.error('❌ [DEBUG ADMIN] Error al enviar la señal');
-      alert('❌ Error al enviar la solicitud de captura');
+      showError('Error al enviar la solicitud de captura');
     }
 
     console.log('🎯 [DEBUG ADMIN] ========== FIN SOLICITUD CAPTURA ==========');
@@ -639,7 +639,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       case 'pendiente':
         return 'bg-yellow-500';
       case 'en_progreso':
-        return 'bg-blue-500';
+        return 'bg-green-500';
       case 'completada':
         return 'bg-green-500';
       case 'entregada':
@@ -648,7 +648,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       case 'aprobada':
         return 'bg-indigo-500';
       case 'pausada':
-        return 'bg-yellow-500';
+        return 'bg-blue-500';
       case 'rechazada':
         return 'bg-red-500';
       case 'cancelada':
@@ -664,7 +664,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       case 'pendiente':
         return 'bg-yellow-100 text-yellow-800';
       case 'en_progreso':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-green-100 text-green-800';
       case 'completada':
         return 'bg-green-100 text-green-800';
       case 'entregada':
@@ -673,7 +673,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
       case 'aprobada':
         return 'bg-indigo-100 text-indigo-800';
       case 'pausada':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-blue-100 text-blue-800';
       case 'rechazada':
         return 'bg-red-100 text-red-800';
       case 'cancelada':
@@ -733,9 +733,7 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
               />
             ) : (
               <h3
-                className="font-bold text-white truncate text-sm cursor-pointer hover:text-green-100"
-                onClick={() => setIsEditingTitle(true)}
-                data-todo-interactive
+                className="font-bold text-white truncate text-sm"
               >
                 {misionData.title}
               </h3>
@@ -865,8 +863,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
             )}
           </div>
 
-          {/* Botón de captura - Solo visible si la misión está corriendo */}
-          {misionData.isRunning && (misionData.misionActivaId || (misionData.id_mision && currentUserId)) && (
+          {/* Botón de captura - Solo visible si la misión está corriendo y no entregada */}
+          {misionData.estado !== 'entregada' && misionData.isRunning && (misionData.misionActivaId || (misionData.id_mision && currentUserId)) && (
             <button
               onClick={handleRequestCapture}
               className={`${misionData.misionActivaId
@@ -916,8 +914,8 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
           </span>
         </div>
 
-        {/* Sección de subtareas */}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Sección de subtareas - oculta cuando está entregada */}
+        <div className={`flex-1 overflow-hidden flex flex-col ${misionData.estado === 'entregada' ? 'hidden' : ''}`}>
           <div className="flex items-center justify-between mb-2">
             <div
               className="flex items-center gap-1 flex-1 cursor-pointer"
@@ -1013,49 +1011,97 @@ export const MisionCardOrganizacion: React.FC<MisionCardOrganizacionProps> = ({
 
         {/* Sección de entregas */}
         <div className="mt-3 pt-3 border-t border-gray-200">
-          <div
-            className="flex items-center justify-between cursor-pointer"
-            onClick={() => setShowEntregas(!showEntregas)}
-            data-todo-interactive
-          >
-            <h4 className="text-xs font-semibold text-gray-700">
-              Entregas ({misionData.entregas?.length || 0})
-            </h4>
-            {showEntregas ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </div>
-
-          {showEntregas && (
-            <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
-              {misionData.entregas && misionData.entregas.length > 0 ? (
-                misionData.entregas.map((entrega) => (
-                  <div key={entrega.id} className="bg-gray-50 rounded px-2 py-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-gray-700">
-                        {entrega.usuario_nombre}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {new Date(entrega.fecha).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600 line-clamp-2">{entrega.descripcion}</p>
-                    {entrega.imagenes.length > 0 && (
-                      <div className="mt-1 flex gap-1">
-                        {entrega.imagenes.map((img, idx) => (
-                          <img
-                            key={idx}
-                            src={img}
-                            alt="Entrega"
-                            className="w-10 h-10 object-cover rounded"
-                          />
-                        ))}
+          {misionData.estado === 'entregada' ? (
+            <>
+              <button
+                onClick={() => setShowEntregas(!showEntregas)}
+                className="w-full flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded px-3 py-2 text-xs font-semibold transition-colors"
+                data-todo-interactive
+              >
+                <ExternalLink size={13} />
+                Ver entrega
+                {showEntregas ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </button>
+              {showEntregas && (
+                <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                  {misionData.entregas && misionData.entregas.length > 0 ? (
+                    misionData.entregas.map((entrega) => (
+                      <div key={entrega.id} className="bg-gray-50 rounded px-2 py-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-gray-700">
+                            {entrega.usuario_nombre}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(entrega.fecha).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 line-clamp-2">{entrega.descripcion}</p>
+                        {entrega.imagenes.length > 0 && (
+                          <div className="mt-1 flex gap-1">
+                            {entrega.imagenes.map((img, idx) => (
+                              <img
+                                key={idx}
+                                src={img}
+                                alt="Entrega"
+                                className="w-10 h-10 object-cover rounded"
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-xs text-gray-400 italic">No hay entregas</div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-gray-400 italic">No hay entregas</div>
+                  )}
+                </div>
               )}
-            </div>
+            </>
+          ) : (
+            <>
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => setShowEntregas(!showEntregas)}
+                data-todo-interactive
+              >
+                <h4 className="text-xs font-semibold text-gray-700">
+                  Entregas ({misionData.entregas?.length || 0})
+                </h4>
+                {showEntregas ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </div>
+              {showEntregas && (
+                <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                  {misionData.entregas && misionData.entregas.length > 0 ? (
+                    misionData.entregas.map((entrega) => (
+                      <div key={entrega.id} className="bg-gray-50 rounded px-2 py-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-gray-700">
+                            {entrega.usuario_nombre}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(entrega.fecha).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 line-clamp-2">{entrega.descripcion}</p>
+                        {entrega.imagenes.length > 0 && (
+                          <div className="mt-1 flex gap-1">
+                            {entrega.imagenes.map((img, idx) => (
+                              <img
+                                key={idx}
+                                src={img}
+                                alt="Entrega"
+                                className="w-10 h-10 object-cover rounded"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-gray-400 italic">No hay entregas</div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

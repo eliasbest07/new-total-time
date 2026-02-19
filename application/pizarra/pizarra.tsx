@@ -549,8 +549,10 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   } = useCanvasPan(isConnecting, zoomLevel);
 
   // Filtrar cards de misión: solo mostrar las asignadas al usuario logueado
+  // En la pizarra de organización todos los miembros ven todos los cards
   const filteredCards = useMemo(() => {
     if (!currentUserNumericId) return cards;
+    if (isOrganizacionPizarra) return cards;
     return cards.filter(card => {
       const isMision = card.type === 'mision' || card.type === 'mision-organizacion';
       if (!isMision) return true;
@@ -558,7 +560,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       if (!card.misionData.id_usuario_asignado) return true;
       return card.misionData.id_usuario_asignado === currentUserNumericId;
     });
-  }, [cards, currentUserNumericId]);
+  }, [cards, currentUserNumericId, isOrganizacionPizarra]);
 
   // Hook para lazy loading de cards - solo renderiza cards visibles en el viewport
   const { visibleCards, visibleCount, totalCards } = useVisibleCards(

@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '../../types/index';
 import { Actividad } from '@/domain/entities/Actividad';
 import { Mision } from '@/domain/entities/Mision';
 import { Recurso } from '@/domain/entities/Recurso';
-import { Plus, ChevronDown, ChevronUp, X, MoreVertical, Upload, Trash2 } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, X, MoreVertical, Upload, Trash2, Layout } from 'lucide-react';
 import { useMisiones } from '@/hooks/useMisiones';
 import { useUsuarioId } from '@/hooks/useUsuarioId';
 import { useAuth } from '@/app/contexts/AuthContext';
@@ -58,6 +59,7 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
   idPizarra,
   openEditarProyecto
 }) => {
+  const router = useRouter();
   const { usuario } = useAuth();
   const { usuarioId } = useUsuarioId();
   const { createMision, deleteMision } = useMisiones(usuarioId);
@@ -1548,6 +1550,21 @@ export const ProyectoCardOrganizacion: React.FC<ProyectoCardOrganizacionProps> =
               </h3>
             )}
           </div>
+          {/* Botón pizarra del proyecto */}
+          {card.proyectoData?.id && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/pizarra-proyecto/${card.proyectoData!.id}`);
+              }}
+              className="flex-shrink-0 flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors"
+              data-todo-interactive
+              title="Abrir pizarra del proyecto"
+            >
+              <Layout size={13} />
+              Pizarra
+            </button>
+          )}
         </div>
 
         {/* Botones de Acción */}

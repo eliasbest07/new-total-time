@@ -20,11 +20,12 @@ export class SupabasePizarraOrganizacionRepository {
         esValido: !!idOrganizacion
       });
 
-      // Buscar pizarra existente
+      // Buscar pizarra existente (pizarra libre, sin proyecto asociado)
       const { data, error } = await supabase
         .from('pizarras')
         .select('*')
         .eq('id_organizacion', idOrganizacion)
+        .is('id_proyecto', null)
         .maybeSingle();
 
       if (error) {
@@ -53,9 +54,43 @@ export class SupabasePizarraOrganizacionRepository {
   }
 
   /**
+   * Obtiene la pizarra de un proyecto específico.
+   * Si no existe, la crea automáticamente.
+   */
+  async getPizarraByProyecto(idOrganizacion: string, idProyecto: number): Promise<PizarraOrganizacion | null> {
+    try {
+      console.log('🎨 [PizarraOrg] Obteniendo pizarra para proyecto:', { idOrganizacion, idProyecto });
+
+      const { data, error } = await supabase
+        .from('pizarras')
+        .select('*')
+        .eq('id_organizacion', idOrganizacion)
+        .eq('id_proyecto', idProyecto)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ [PizarraOrg] Error obteniendo pizarra de proyecto:', error);
+        return null;
+      }
+
+      if (data) {
+        console.log('✅ [PizarraOrg] Pizarra de proyecto encontrada:', data.id);
+        return this.mapToDomain(data);
+      }
+
+      console.log('📝 [PizarraOrg] Creando pizarra para proyecto:', idProyecto);
+      return await this.createPizarra(idOrganizacion, idProyecto);
+
+    } catch (error) {
+      console.error('❌ [PizarraOrg] Error en getPizarraByProyecto:', error);
+      return null;
+    }
+  }
+
+  /**
    * Crea una nueva pizarra para una organización
    */
-  async createPizarra(idOrganizacion: string): Promise<PizarraOrganizacion | null> {
+  async createPizarra(idOrganizacion: string, idProyecto?: number): Promise<PizarraOrganizacion | null> {
     try {
       console.log('📝 [PizarraOrg] Creando pizarra para organización:', {
         idOrganizacion,
@@ -63,12 +98,16 @@ export class SupabasePizarraOrganizacionRepository {
         esValido: !!idOrganizacion
       });
 
-      const insertData = {
+      const insertData: any = {
         id_usuario: 'f14a1ce3-ee6c-493c-a1df-fb31ba82c3d4',
         id_organizacion: idOrganizacion,
         pan_offset_x: 0,
         pan_offset_y: 0,
       };
+
+      if (idProyecto !== undefined) {
+        insertData.id_proyecto = idProyecto;
+      }
 
       console.log('📝 [PizarraOrg] Datos a insertar:', insertData);
 
@@ -417,6 +456,7 @@ export class SupabasePizarraOrganizacionRepository {
     return {
       id: data.id,
       idOrganizacion: data.id_organizacion,
+      idProyecto: data.id_proyecto ?? null,
       panOffsetX: data.pan_offset_x,
       panOffsetY: data.pan_offset_y,
       zoomLevel: data.zoom_level,

@@ -128,6 +128,24 @@ const sectionDots = [
   { label: 'Comienza', gradient: 'from-blue-500 to-cyan-400' },
 ]
 
+const floatingSquares = [
+  { size: 72, left: 8, duration: 28, delay: 3, radius: 10, isSlow: true },
+  { size: 45, left: 22, duration: 22, delay: 8, radius: 8, isSlow: false },
+  { size: 98, left: 37, duration: 35, delay: 1, radius: 12, isSlow: false },
+  { size: 30, left: 52, duration: 20, delay: 14, radius: 7, isSlow: true },
+  { size: 60, left: 68, duration: 26, delay: 6, radius: 9, isSlow: false },
+  { size: 85, left: 15, duration: 32, delay: 11, radius: 14, isSlow: false },
+  { size: 40, left: 80, duration: 24, delay: 2, radius: 8, isSlow: true },
+  { size: 55, left: 45, duration: 30, delay: 17, radius: 11, isSlow: false },
+  { size: 110, left: 90, duration: 38, delay: 5, radius: 13, isSlow: false },
+  { size: 35, left: 60, duration: 21, delay: 9, radius: 7, isSlow: true },
+  { size: 68, left: 3, duration: 27, delay: 15, radius: 10, isSlow: false },
+  { size: 48, left: 75, duration: 23, delay: 4, radius: 9, isSlow: false },
+  { size: 90, left: 30, duration: 34, delay: 12, radius: 15, isSlow: true },
+  { size: 25, left: 55, duration: 19, delay: 7, radius: 6, isSlow: false },
+  { size: 78, left: 42, duration: 29, delay: 18, radius: 11, isSlow: false },
+]
+
 /* ═══════════════════════════════════════════════════════════════
    COMPONENT
    ═══════════════════════════════════════════════════════════════ */
@@ -304,7 +322,12 @@ export default function LandingPage() {
         .stagger-5 { animation-delay: 0.5s; }
         .cta-primary {
           background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
-          transition: all 0.3s ease; position: relative; overflow: hidden;
+          transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+          position: relative; overflow: hidden;
+        }
+        .cta-primary:focus-visible {
+          outline: 2px solid #60a5fa;
+          outline-offset: 2px;
         }
         .cta-primary::after {
           content: ''; position: absolute; inset: 0;
@@ -318,6 +341,16 @@ export default function LandingPage() {
           50% { box-shadow: 0 0 50px -5px rgba(59,130,246,0.25); }
         }
         .testimonial-glow { animation: testimonialGlow 4s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .floating-square,
+          .floating-square-slow,
+          .hero-animate,
+          .hero-badge-pulse,
+          .testimonial-glow,
+          .card-glow { animation: none !important; }
+          .stack-card { transition: none !important; }
+          .hero-animate { opacity: 1 !important; transform: none !important; }
+        }
       ` }} />
 
       {/* ═══════════════════════════════════════════════════════
@@ -326,34 +359,27 @@ export default function LandingPage() {
       <div className="landing-bg min-h-screen relative">
 
         {/* ── Floating Squares Background ── */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-          {Array.from({ length: 15 }).map((_, i) => {
-            const size = 20 + Math.random() * 100
-            const left = Math.random() * 100
-            const duration = 18 + Math.random() * 25
-            const delay = Math.random() * 20
-            const isSlow = i % 3 === 0
-            return (
-              <div
-                key={i}
-                className={`floating-square ${isSlow ? 'floating-square-slow' : ''}`}
-                style={{
-                  width: size, height: size,
-                  left: `${left}%`,
-                  animationDuration: `${duration}s`,
-                  animationDelay: `${delay}s`,
-                  borderRadius: `${6 + Math.random() * 10}px`,
-                }}
-              />
-            )
-          })}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden="true" style={{ zIndex: 0 }}>
+          {floatingSquares.map((sq, i) => (
+            <div
+              key={i}
+              className={`floating-square ${sq.isSlow ? 'floating-square-slow' : ''}`}
+              style={{
+                width: sq.size, height: sq.size,
+                left: `${sq.left}%`,
+                animationDuration: `${sq.duration}s`,
+                animationDelay: `${sq.delay}s`,
+                borderRadius: `${sq.radius}px`,
+              }}
+            />
+          ))}
         </div>
 
         {/* ═══════════════════════════════════════════════════
             NAVBAR
             ═══════════════════════════════════════════════════ */}
         <nav
-          className={`fixed top-0 left-0 right-0 transition-all duration-300 ${
+          className={`fixed top-0 left-0 right-0 transition-[background-color,backdrop-filter,box-shadow] duration-300 ${
             navScrolled
               ? 'bg-[#0a0a1a]/90 backdrop-blur-xl shadow-lg shadow-black/20'
               : 'bg-[#0a0a1a]'
@@ -363,22 +389,22 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="flex items-center justify-between h-16">
               {/* Logo */}
-              <Link href="/getstarted" className="flex items-center gap-2.5 group">
+              <Link href="/getstarted" className="flex items-center gap-2.5 group focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2 rounded-lg">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-shadow">
-                  <Clock className="w-5 h-5 text-white" />
+                  <Clock className="w-5 h-5 text-white" aria-hidden="true" />
                 </div>
                 <span className="text-white font-bold text-lg tracking-tight">Total Time</span>
               </Link>
 
               {/* Desktop links */}
               <div className="hidden md:flex items-center gap-8">
-                <button onClick={() => scrollToCard(2)} className="text-gray-400 hover:text-white text-sm font-medium transition-colors">
+                <button onClick={() => scrollToCard(2)} className="text-gray-400 hover:text-white text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2 rounded">
                   Funcionalidades
                 </button>
-                <button onClick={() => scrollToCard(8)} className="text-gray-400 hover:text-white text-sm font-medium transition-colors">
+                <button onClick={() => scrollToCard(8)} className="text-gray-400 hover:text-white text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2 rounded">
                   Cómo funciona
                 </button>
-                <button onClick={() => scrollToCard(10)} className="text-gray-400 hover:text-white text-sm font-medium transition-colors">
+                <button onClick={() => scrollToCard(10)} className="text-gray-400 hover:text-white text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2 rounded">
                   Testimonios
                 </button>
               </div>
@@ -403,9 +429,11 @@ export default function LandingPage() {
               {/* Mobile menu button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
+                className="md:hidden p-2 text-gray-400 hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2 rounded-lg"
+                aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+                aria-expanded={mobileMenuOpen}
               >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {mobileMenuOpen ? <X className="w-6 h-6" aria-hidden="true" /> : <Menu className="w-6 h-6" aria-hidden="true" />}
               </button>
             </div>
 
@@ -440,12 +468,12 @@ export default function LandingPage() {
                   <div
                     className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-300 text-sm mb-5 hero-badge-pulse ${heroVisible ? 'hero-animate' : 'opacity-0'}`}
                   >
-                    <Zap className="w-3.5 h-3.5" />
+                    <Zap className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>Plataforma de gestión para equipos remotos</span>
                   </div>
 
                   <h1
-                    className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] mb-4 tracking-tight ${heroVisible ? 'hero-animate stagger-1' : 'opacity-0'}`}
+                    className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] mb-4 tracking-tight [text-wrap:balance] ${heroVisible ? 'hero-animate stagger-1' : 'opacity-0'}`}
                   >
                     Tu equipo remoto trabaja.
                     <br />
@@ -475,10 +503,10 @@ export default function LandingPage() {
                     </Link>
                     <button
                       onClick={() => scrollToCard(2)}
-                      className="px-7 py-3.5 rounded-xl text-gray-300 font-medium text-base border border-white/10 hover:border-white/25 hover:bg-white/5 transition-all flex items-center gap-2"
+                      className="px-7 py-3.5 rounded-xl text-gray-300 font-medium text-base border border-white/10 hover:border-white/25 hover:bg-white/5 transition-[border-color,background-color] duration-200 flex items-center gap-2 focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2"
                     >
                       <span>Ver Funcionalidades</span>
-                      <ChevronRight className="w-5 h-5" />
+                      <ChevronRight className="w-5 h-5" aria-hidden="true" />
                     </button>
                   </div>
 
@@ -486,18 +514,18 @@ export default function LandingPage() {
                     className={`mt-8 flex flex-wrap items-center justify-center gap-6 text-gray-500 text-sm ${heroVisible ? 'hero-animate stagger-4' : 'opacity-0'}`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <Shield className="w-4 h-4 text-green-500" />
+                      <Shield className="w-4 h-4 text-green-500" aria-hidden="true" />
                       <span>Datos seguros</span>
                     </div>
-                    <div className="hidden sm:block w-px h-4 bg-gray-700" />
+                    <div className="hidden sm:block w-px h-4 bg-gray-700" aria-hidden="true" />
                     <div className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-blue-400" />
+                      <Clock className="w-4 h-4 text-blue-400" aria-hidden="true" />
                       <span>Setup en 2 minutos</span>
                     </div>
-                    <div className="hidden sm:block w-px h-4 bg-gray-700" />
+                    <div className="hidden sm:block w-px h-4 bg-gray-700" aria-hidden="true" />
                     <div className="flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-purple-400" />
-                      <span>Para equipos de 1 a 50</span>
+                      <Users className="w-4 h-4 text-purple-400" aria-hidden="true" />
+                      <span>Para equipos de 1&nbsp;a&nbsp;50</span>
                     </div>
                   </div>
                 </div>
@@ -510,7 +538,7 @@ export default function LandingPage() {
                 <div className="max-w-5xl mx-auto w-full">
                   <div className="max-w-3xl mx-auto mb-6">
                     <p className="text-blue-400 font-semibold text-sm uppercase tracking-widest mb-3">El reto de los equipos remotos</p>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-4 tracking-tight">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-4 tracking-tight [text-wrap:balance]">
                       Inviertes en tu equipo.
                       <br />
                       <span className="text-gray-400 font-bold">Pero no tienes forma de medir los resultados.</span>
@@ -537,10 +565,10 @@ export default function LandingPage() {
                       return (
                         <div
                           key={i}
-                          className="flex items-start gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/15 hover:border-red-500/30 transition-colors"
+                          className="flex items-start gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/15 hover:border-red-500/30 transition-[border-color] duration-200"
                         >
                           <div className="p-1.5 rounded-lg bg-red-500/10 shrink-0">
-                            <Icon className="w-4 h-4 text-red-400" />
+                            <Icon className="w-4 h-4 text-red-400" aria-hidden="true" />
                           </div>
                           <p className="text-gray-300 text-xs sm:text-sm leading-relaxed">{point.text}</p>
                         </div>
@@ -588,10 +616,10 @@ export default function LandingPage() {
                               className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center shadow-lg shrink-0`}
                               style={{ boxShadow: `0 8px 32px -4px ${feature.glow}`, width: '4.5rem', height: '4.5rem' }}
                             >
-                              <Icon className="w-9 h-9 text-white" />
+                              <Icon className="w-9 h-9 text-white" aria-hidden="true" />
                             </div>
                             <div>
-                              <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">{feature.title}</h3>
+                              <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight [text-wrap:balance]">{feature.title}</h3>
                               <p className="text-gray-400 text-base sm:text-lg font-medium">{feature.subtitle}</p>
                             </div>
                           </div>
@@ -599,7 +627,7 @@ export default function LandingPage() {
                           <div className="flex flex-col gap-3.5">
                             {feature.bullets.map((bullet, j) => (
                               <div key={j} className="flex items-center gap-3">
-                                <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+                                <CheckCircle className="w-5 h-5 text-green-400 shrink-0" aria-hidden="true" />
                                 <span className="text-gray-400 text-base">{bullet}</span>
                               </div>
                             ))}
@@ -618,7 +646,7 @@ export default function LandingPage() {
                 <div className="max-w-6xl mx-auto w-full">
                   <div className="text-center mb-10">
                     <p className="text-blue-400 font-semibold text-sm uppercase tracking-widest mb-4">Cómo funciona</p>
-                    <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                    <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight [text-wrap:balance]">
                       En 4 pasos tienes control total
                     </h2>
                   </div>
@@ -627,7 +655,7 @@ export default function LandingPage() {
                     {steps.map((step, i) => (
                       <div
                         key={i}
-                        className="relative p-6 sm:p-8 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/30 hover:bg-blue-500/5 transition-all duration-300 group"
+                        className="relative p-6 sm:p-8 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/30 hover:bg-blue-500/5 transition-[border-color,background-color,color] duration-300 group"
                       >
                         <div className="relative">
                           <span className="text-4xl sm:text-5xl font-black text-white/10 group-hover:text-blue-500/15 transition-colors mb-3 block">{step.num}</span>
@@ -646,7 +674,7 @@ export default function LandingPage() {
               <div className="flex items-center justify-center h-full px-4 sm:px-6" style={{ paddingTop: '72px' }}>
                 <div className="max-w-5xl mx-auto w-full">
                   <div className="text-center mb-8">
-                    <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3 tracking-tight">
+                    <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3 tracking-tight [text-wrap:balance]">
                       Deja de improvisar.
                       <span className="text-gray-400"> Empieza a gestionar.</span>
                     </h2>
@@ -677,7 +705,7 @@ export default function LandingPage() {
 
                     <div className="p-6 sm:p-8 rounded-2xl bg-green-500/5 border border-green-500/20">
                       <h3 className="text-lg font-bold text-green-400 mb-5 flex items-center gap-3">
-                        <CheckCircle className="w-9 h-9 p-1.5 rounded-lg bg-green-500/15" />
+                        <CheckCircle className="w-9 h-9 p-1.5 rounded-lg bg-green-500/15" aria-hidden="true" />
                         Con Total Time
                       </h3>
                       <div className="space-y-3.5">
@@ -690,7 +718,7 @@ export default function LandingPage() {
                           'Todo el contexto del proyecto queda registrado',
                         ].map((item, i) => (
                           <div key={i} className="flex items-start gap-3">
-                            <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 shrink-0" />
+                            <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 shrink-0" aria-hidden="true" />
                             <span className="text-gray-300 text-sm sm:text-base font-light">{item}</span>
                           </div>
                         ))}
@@ -707,7 +735,7 @@ export default function LandingPage() {
                 <div className="max-w-5xl mx-auto w-full">
                   <div className="text-center mb-4">
                     <p className="text-blue-400 font-semibold text-xs uppercase tracking-widest mb-2">Caso real</p>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight [text-wrap:balance]">
                       La historia de Alvaro
                     </h2>
                   </div>
@@ -826,7 +854,7 @@ export default function LandingPage() {
                       href="/registre"
                       className="cta-primary inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-bold text-base shadow-xl shadow-blue-500/25"
                     >
-                      <span>Crear Mi Organización Gratis</span>
+                      <span>Quiero Acceso Anticipado</span>
                       <ArrowRight className="w-5 h-5" />
                     </Link>
 
@@ -847,7 +875,7 @@ export default function LandingPage() {
                       </div>
                       <div className="flex items-center gap-6 text-gray-500 text-sm font-medium">
                         <Link href="/login" className="hover:text-white transition-colors">Iniciar Sesión</Link>
-                        <Link href="/registre" className="hover:text-white transition-colors">Registrarse</Link>
+                        <Link href="/registre" className="hover:text-white transition-colors">Acceso Anticipado</Link>
                       </div>
                     </div>
                   </div>
