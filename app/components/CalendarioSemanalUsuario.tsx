@@ -148,29 +148,29 @@ export default function CalendarioSemanalUsuario({ userId, userName }: Calendari
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 space-y-4 sm:p-6 sm:space-y-6 min-w-0 overflow-hidden">
       {/* Header con información del usuario y total de horas */}
-      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100/50 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Calendar className="w-6 h-6 text-purple-600" />
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800">{userName}</h3>
-              <p className="text-sm text-gray-600">Semana del {diasSemana[0].toLocaleDateString('es-ES')} al {diasSemana[6].toLocaleDateString('es-ES')}</p>
+      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-3 sm:p-4 border border-purple-100/50 backdrop-blur-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 truncate">{userName}</h3>
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Semana del {diasSemana[0].toLocaleDateString('es-ES')} al {diasSemana[6].toLocaleDateString('es-ES')}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-200/50">
-            <Clock className="w-5 h-5 text-purple-600" />
+          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-3 py-2 sm:px-4 rounded-lg border border-purple-200/50 shrink-0">
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
             <div className="text-right">
               <p className="text-xs text-gray-600">Total Semana</p>
-              <p className="text-lg font-bold text-purple-700">{totalHorasSemana}</p>
+              <p className="text-base sm:text-lg font-bold text-purple-700">{totalHorasSemana}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Calendario semanal */}
-      <div className="grid grid-cols-7 gap-3">
+      {/* Calendario semanal: 1 col móvil, 2 sm, 4 md, 7 lg */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {diasSemana.map((dia, index) => {
           const fechaKey = formatearFecha(dia);
           const capturasDia = capturesPorDia[fechaKey] || [];
@@ -184,8 +184,8 @@ export default function CalendarioSemanalUsuario({ userId, userName }: Calendari
               className={`flex flex-col ${esHoy ? 'ring-2 ring-purple-400' : ''} rounded-xl overflow-hidden`}
             >
               {/* Header del día */}
-              <div className={`${colorDia} p-3 text-center border-b backdrop-blur-sm`}>
-                <p className="text-sm font-bold">{obtenerNombreDia(dia)}</p>
+              <div className={`${colorDia} p-2 sm:p-3 text-center border-b backdrop-blur-sm`}>
+                <p className="text-xs sm:text-sm font-bold">{obtenerNombreDia(dia)}</p>
                 <p className="text-xs opacity-80">{dia.getDate()}</p>
                 {capturasDia.length > 0 && (
                   <p className="text-xs font-semibold mt-1">
@@ -194,17 +194,17 @@ export default function CalendarioSemanalUsuario({ userId, userName }: Calendari
                 )}
               </div>
 
-              {/* Bloques de capturas */}
-              <div className="bg-white/40 backdrop-blur-sm p-2 space-y-2 min-h-[400px] max-h-[500px] overflow-y-auto border border-gray-100/50">
+              {/* Bloques de capturas: horizontal con scroll en responsive, vertical en lg+ */}
+              <div className="bg-white/40 backdrop-blur-sm p-2 flex gap-2 overflow-x-auto overflow-y-hidden border border-gray-100/50 min-h-[120px] sm:min-h-[140px] pb-1 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:min-h-[400px] lg:max-h-[500px] lg:pb-2">
                 {capturasDia.length === 0 ? (
-                  <div className="flex items-center justify-center h-full">
+                  <div className="flex items-center justify-center flex-1 min-h-[100px] lg:min-h-[200px]">
                     <p className="text-xs text-gray-400 text-center">Sin registros</p>
                   </div>
                 ) : (
                   capturasDia.map((capture, idx) => (
                     <div
                       key={capture.id}
-                      className={`${colorDia} rounded-lg p-2 border backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow cursor-pointer group`}
+                      className={`${colorDia} rounded-lg p-2 border backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow cursor-pointer group flex-shrink-0 w-[160px] sm:w-[180px] lg:w-full lg:flex-shrink`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold">
@@ -237,18 +237,18 @@ export default function CalendarioSemanalUsuario({ userId, userName }: Calendari
 
       {/* Resumen de la semana */}
       {captures.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-100/50 backdrop-blur-sm">
-          <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-3 sm:p-4 border border-blue-100/50 backdrop-blur-sm">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold text-blue-700">{captures.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-blue-700">{captures.length}</p>
               <p className="text-xs text-gray-600">Capturas Totales</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-blue-700">{totalHorasSemana}</p>
+              <p className="text-xl sm:text-2xl font-bold text-blue-700">{totalHorasSemana}</p>
               <p className="text-xs text-gray-600">Tiempo Total</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-blue-700">
+              <p className="text-xl sm:text-2xl font-bold text-blue-700">
                 {Object.keys(capturesPorDia).length}
               </p>
               <p className="text-xs text-gray-600">Días Activos</p>

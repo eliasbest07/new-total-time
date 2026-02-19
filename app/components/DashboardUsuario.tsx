@@ -42,19 +42,6 @@ const UserProfile = ({ userName, userAvatar }: { userName: string; userAvatar: s
     </div>
 );
 
-const LifeBar = ({ percentage }: { percentage: number }) => (
-    <div className="mb-6">
-        <h3 className="text-white text-base sm:text-lg mb-3">Barra de Salud</h3>
-        <div className="flex items-center gap-3 sm:gap-4">
-            <div className="flex-1 max-w-xs h-4 sm:h-6 bg-gray-300 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500 rounded-full transition-all duration-500"
-                    style={{ width: `${percentage}%` }}></div>
-            </div>
-            <span className="text-white text-sm font-medium">{percentage}%</span>
-        </div>
-    </div>
-);
-
 const StatsCard = ({ value, label, isLoading }: { value: string; label: string; isLoading?: boolean }) => (
     <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 min-w-0 flex-1">
         {isLoading ? (
@@ -408,14 +395,12 @@ export default function DashboardUsuario() {
                     </button>
                 </div>
 
-                <div className="pt-16 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
+                <div className="pt-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
                     {/* Header responsivo */}
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
 
                         {/* Sección izquierda - Perfil y estadísticas */}
                         <div className="xl:col-span-2 space-y-6">
-                            <LifeBar percentage={85} />
-
                             {/* Estadísticas responsivas */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                                 <StatsCard value={estadisticas.tiempoHoy} label="Tiempo hoy" isLoading={isLoadingStats} />
@@ -475,7 +460,7 @@ export default function DashboardUsuario() {
 
                         {/* Calendario semanal por captures (dashboard persona) */}
                         {usuario?.userAuth && (
-                            <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-2 sm:p-3">
+                            <div className="bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-2 sm:p-3 min-w-0 overflow-hidden">
                                 <CalendarioSemanalUsuario
                                     userId={usuario.userAuth}
                                     userName={userName}
