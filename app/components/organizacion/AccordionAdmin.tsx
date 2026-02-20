@@ -19,7 +19,6 @@ import { Actividad } from '@/domain/entities/Actividad';
 import { Mision } from '@/domain/entities/Mision';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { supabase } from '@/infrastructure/services/SupabaseClient';
-import { misionActivaRepository } from '@/infrastructure/datasource/SupabaseMisionActivaRepository';
 
 // Tipos/Interfaces
 interface Section {
@@ -134,8 +133,7 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
     if (misiones.length === 0) return;
 
     const loadMisionesActivas = async () => {
-      console.log('[EN_PROCESO] === INICIO loadMisionesActivas ===');
-      console.log('[EN_PROCESO] Misiones IDs:', misiones.map(m => m.id));
+      console.log('[ACCORDIONADMIN] Cargando misiones activas para IDs:', misiones.map(m => m.id));
 
       const { data, error } = await supabase
         .from('misiones_activas')
@@ -154,13 +152,13 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
       const debugInfo: string[] = [];
 
       data?.forEach(ma => {
+        const info = `ID:${ma.id_referencia} estado:"${ma.estado}" is_running:${ma.is_running}`;
+        console.log(`[ACCORDIONADMIN] ${info}`);
+        debugInfo.push(info);
         estadoMisiones[ma.id_referencia] = {
           estado: ma.estado || 'pendiente',
           isRunning: ma.is_running || false
         };
-        if (ma.estado === 'en_progreso') {
-          console.log(`[EN_PROCESO] Misión #${ma.id_referencia} | estado:"${ma.estado}" | is_running:${ma.is_running}`);
-        }
       });
 
       setMisionesActivas(estadoMisiones);
@@ -169,37 +167,6 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
       const runningCount = Object.values(estadoMisiones).filter(m => m.isRunning).length;
       console.log(`[ACCORDIONADMIN] RESUMEN: Misiones activas: ${data?.length || 0}, Running: ${runningCount}`);
       console.log('[ACCORDIONADMIN] Misiones activas procesadas:', estadoMisiones);
-
-      // 🔍 [EN_PROCESO] Verificar y pausar misiones en_progreso sin captura reciente (10 min)
-      console.log('[EN_PROCESO] === INICIANDO VERIFICACIÓN DE INACTIVIDAD ===');
-      console.log('[EN_PROCESO] runningCount:', runningCount);
-      console.log('[EN_PROCESO] Llamando verificarYActualizarMisionesInactivas...');
-
-      const resultado = await misionActivaRepository.verificarYActualizarMisionesInactivas();
-      console.log('[EN_PROCESO] Resultado verificación:', JSON.stringify(resultado));
-
-      if (resultado.desactivadas > 0) {
-        console.log(`[EN_PROCESO] ✅ ${resultado.desactivadas} misiones PAUSADAS por inactividad, recargando estados...`);
-        // Recargar estados después de pausar
-        const { data: refreshData } = await supabase
-          .from('misiones_activas')
-          .select('id_referencia, estado, is_running')
-          .eq('tipo', 'mision')
-          .in('id_referencia', misiones.map(m => m.id));
-        if (refreshData) {
-          console.log('[EN_PROCESO] Datos refreshed:', JSON.stringify(refreshData));
-          const refreshedEstados: Record<number, { estado: string; isRunning: boolean }> = {};
-          refreshData.forEach(ma => {
-            refreshedEstados[ma.id_referencia] = {
-              estado: ma.estado || 'pendiente',
-              isRunning: ma.is_running || false
-            };
-          });
-          setMisionesActivas(refreshedEstados);
-        }
-      } else {
-        console.log('[EN_PROCESO] No se pausó ninguna misión');
-      }
     };
 
     loadMisionesActivas();
@@ -517,480 +484,488 @@ const AccordionAdmin: React.FC<AccordionAdminProps> = ({
           {/* Contenedor del Accordion */}
           <div className="bg-[#001f3f] rounded-lg shadow-lg overflow-hidden flex-1">
             {sections.map((section) => {
-              const Icon = section.icon;
-              const isActive = activeSection === section.id;
-              const isExpanded = isActive;
+            const Icon = section.icon;
+            const isActive = activeSection === section.id;
+            const isExpanded = isActive;
 
-              return (
-                <div key={section.id} className="border-b border-white/20 last:border-b-0">
-                  {/* Header */}
-                  <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${isActive ? section.color : 'bg-transparent'
+            return (
+              <div key={section.id} className="border-b border-white/20 last:border-b-0">
+                {/* Header */}
+                <div className={`w-full px-4 py-4 flex items-center justify-between transition-all duration-300 hover:bg-white/5 ${
+                  isActive ? section.color : 'bg-transparent'
+                }`}>
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="flex items-center space-x-3 flex-1"
+                  >
+                    <Icon
+                      size={20}
+                      className={`transition-colors duration-300 ${
+                        isActive ? 'text-white' : 'text-white/70'
+                      }`}
+                    />
+                    <span className={`font-medium transition-colors duration-300 ${
+                      isActive ? 'text-white' : 'text-white/90'
                     }`}>
-                    <button
-                      onClick={() => toggleSection(section.id)}
-                      className="flex items-center space-x-3 flex-1"
-                    >
-                      <Icon
-                        size={20}
-                        className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/70'
-                          }`}
-                      />
-                      <span className={`font-medium transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/90'
-                        }`}>
-                        {section.title}
-                      </span>
-                    </button>
-                    <div className="flex items-center space-x-2">
-                      {/* Botón + para agregar recursos */}
-                      {section.id === 'recursos' && onAddResource && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddResource();
-                          }}
-                          className="p-1.5 bg-white/20 hover:bg-white/30 rounded-full transition-colors duration-200"
-                          title="Agregar recurso"
-                        >
-                          <Plus
-                            size={14}
-                            className="text-white"
-                          />
-                        </button>
-                      )}
+                      {section.title}
+                    </span>
+                  </button>
+                  <div className="flex items-center space-x-2">
+                    {/* Botón + para agregar recursos */}
+                    {section.id === 'recursos' && onAddResource && (
                       <button
-                        onClick={() => toggleSection(section.id)}
-                        className="p-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddResource();
+                        }}
+                        className="p-1.5 bg-white/20 hover:bg-white/30 rounded-full transition-colors duration-200"
+                        title="Agregar recurso"
                       >
-                        <ChevronDown
-                          size={16}
-                          className={`transition-all duration-300 ${isActive ? 'text-white rotate-180' : 'text-white/70'
-                            }`}
+                        <Plus
+                          size={14}
+                          className="text-white"
                         />
                       </button>
-                    </div>
+                    )}
+                    <button
+                      onClick={() => toggleSection(section.id)}
+                      className="p-1"
+                    >
+                      <ChevronDown
+                        size={16}
+                        className={`transition-all duration-300 ${
+                          isActive ? 'text-white rotate-180' : 'text-white/70'
+                        }`}
+                      />
+                    </button>
                   </div>
+                </div>
 
-                  {/* Expandable Content */}
-                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
-                    }`}>
-                    <div className="bg-[#002b56] px-4 py-3 overflow-y-auto max-h-[600px]">
-                      {section.content === 'misiones' ? (
-                        // Sección de Misiones
+              {/* Expandable Content */}
+              <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+              }`}>
+                <div className="bg-[#002b56] px-4 py-3 overflow-y-auto max-h-[600px]">
+                  {section.content === 'misiones' ? (
+                    // Sección de Misiones
+                    <div>
+                      {misiones.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-white/60 text-sm">No hay tickets disponibles</p>
+                        </div>
+                      ) : (
                         <div>
-                          {misiones.length === 0 ? (
-                            <div className="text-center py-8">
-                              <p className="text-white/60 text-sm">No hay tickets disponibles</p>
-                            </div>
-                          ) : (
-                            <div>
-                              <div className="space-y-1.5 mb-2">
-                                {currentMisiones.map((mision, idx) => {
-                                  const estadoActivo = misionesActivas[mision.id];
-                                  // isRunning indica si la misión está siendo trabajada activamente (timer corriendo)
-                                  const isEnProgreso = estadoActivo?.isRunning === true;
-                                  // Siempre usar mision.estado (tabla misiones) como fuente principal
-                                  // Solo mostrar "en_progreso" si isRunning está activo
-                                  const estadoFinal = isEnProgreso ? 'en_progreso' : mision.estado;
+                          <div className="space-y-1.5 mb-2">
+                            {currentMisiones.map((mision, idx) => {
+                              const estadoActivo = misionesActivas[mision.id];
+                              // isRunning indica si la misión está siendo trabajada activamente (timer corriendo)
+                              const isEnProgreso = estadoActivo?.isRunning === true;
+                              // Siempre usar mision.estado (tabla misiones) como fuente principal
+                              // Solo mostrar "en_progreso" si isRunning está activo
+                              const estadoFinal = isEnProgreso ? 'en_progreso' : mision.estado;
 
-                                  // DEBUG: Log para cada misión
-                                  console.log(`[ACCORDIONADMIN] Mision[${idx}] ID:${mision.id} "${mision.nombre}" | estado:"${mision.estado}" | isRunning:${estadoActivo?.isRunning} | isEnProgreso:${isEnProgreso}`);
+                              // DEBUG: Log para cada misión
+                              console.log(`[ACCORDIONADMIN] Mision[${idx}] ID:${mision.id} "${mision.nombre}" | estado:"${mision.estado}" | isRunning:${estadoActivo?.isRunning} | isEnProgreso:${isEnProgreso}`);
 
-                                  return (
-                                    <div
-                                      key={mision.id}
-                                      draggable
-                                      title={mision.nombre || 'Sin nombre'}
-                                      className={`p-2 rounded-md transition-colors duration-200 cursor-grab active:cursor-grabbing select-none ${isEnProgreso
-                                        ? 'bg-green-500/30 hover:bg-green-500/40 border border-green-400/50'
-                                        : 'bg-white/10 hover:bg-white/20'
-                                        }`}
-                                      onClick={() => {
-                                        console.log(`[ACCORDIONADMIN] CLICK en mision ID:${mision.id} estado:"${mision.estado}" isRunning:${estadoActivo?.isRunning}`);
-                                        if (onMisionClick) {
-                                          onMisionClick(mision);
-                                        }
-                                      }}
-                                      onDragStart={(e) => {
-                                        e.dataTransfer.setData('text/plain', `Misión: ${mision.nombre}`);
-                                        e.dataTransfer.setData('application/json', JSON.stringify({
-                                          type: 'mision-organizacion',
-                                          id_mision: mision.id,
-                                          title: mision.nombre,
-                                          description: mision.descripcion,
-                                          hours: mision.horas,
-                                          estado: estadoFinal || mision.estado || 'pendiente',
-                                          fecha_start: mision.fecha_start,
-                                          fecha_end: mision.fecha_end,
-                                          id_usuario: mision.id_usuario,
-                                          id_creador: mision.id_creador
-                                        }));
-                                        e.currentTarget.style.opacity = '0.5';
-                                      }}
-                                      onDragEnd={(e) => {
-                                        e.currentTarget.style.opacity = '1';
-                                      }}
-                                    >
-                                      <div className="flex items-center justify-between gap-1 mb-1">
-                                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                          {isEnProgreso && (
-                                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse flex-shrink-0" title="En progreso"></span>
-                                          )}
-                                          <h4 className="text-xs font-medium text-white truncate">
-                                            {mision.nombre || 'Sin nombre'}
-                                          </h4>
-                                        </div>
-                                        {mision.horas && (
-                                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${isEnProgreso
-                                            ? 'bg-green-200 text-green-800'
-                                            : 'bg-orange-100 text-orange-700'
-                                            }`}>
-                                            {mision.horas}h
-                                          </span>
-                                        )}
-                                      </div>
-                                      {mision.descripcion && (
-                                        <p className="text-[10px] text-white/60 line-clamp-1 mb-1">
-                                          {mision.descripcion}
-                                        </p>
-                                      )}
-                                      <div className="flex items-center justify-between gap-2">
-                                        {estadoFinal && (
-                                          <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded ${getEstadoColor(estadoFinal)}`}>
-                                            {formatEstado(estadoFinal)}
-                                          </span>
-                                        )}
-                                        <div className="flex gap-2 text-[10px] text-white/50">
-                                          {mision.fecha_end && (
-                                            <span>🏁 {new Date(mision.fecha_end).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {/* Paginación horizontal para misiones */}
-                              {totalMisionPages > 1 && (
-                                <div className="flex justify-center gap-1 pt-2">
-                                  <button
-                                    onClick={() => setCurrentMisionPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentMisionPage === 1}
-                                    className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
-                                  >
-                                    <ChevronLeft size={14} className="text-white" />
-                                  </button>
-                                  <span className="px-2 py-1 text-xs text-white/80">
-                                    {currentMisionPage} / {totalMisionPages}
-                                  </span>
-                                  <button
-                                    onClick={() => setCurrentMisionPage(prev => Math.min(totalMisionPages, prev + 1))}
-                                    disabled={currentMisionPage === totalMisionPages}
-                                    className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
-                                  >
-                                    <ChevronRight size={14} className="text-white" />
-                                  </button>
+                              return (
+                              <div
+                                key={mision.id}
+                                draggable
+                                title={mision.nombre || 'Sin nombre'}
+                                className={`p-2 rounded-md transition-colors duration-200 cursor-grab active:cursor-grabbing select-none ${
+                                  isEnProgreso
+                                    ? 'bg-green-500/30 hover:bg-green-500/40 border border-green-400/50'
+                                    : 'bg-white/10 hover:bg-white/20'
+                                }`}
+                                onClick={() => {
+                                  console.log(`[ACCORDIONADMIN] CLICK en mision ID:${mision.id} estado:"${mision.estado}" isRunning:${estadoActivo?.isRunning}`);
+                                  if (onMisionClick) {
+                                    onMisionClick(mision);
+                                  }
+                                }}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', `Misión: ${mision.nombre}`);
+                                  e.dataTransfer.setData('application/json', JSON.stringify({
+                                    type: 'mision-organizacion',
+                                    id_mision: mision.id,
+                                    title: mision.nombre,
+                                    description: mision.descripcion,
+                                    hours: mision.horas,
+                                    estado: estadoFinal || mision.estado || 'pendiente',
+                                    fecha_start: mision.fecha_start,
+                                    fecha_end: mision.fecha_end,
+                                    id_usuario: mision.id_usuario,
+                                    id_creador: mision.id_creador
+                                  }));
+                                  e.currentTarget.style.opacity = '0.5';
+                                }}
+                                onDragEnd={(e) => {
+                                  e.currentTarget.style.opacity = '1';
+                                }}
+                              >
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                    {isEnProgreso && (
+                                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse flex-shrink-0" title="En progreso"></span>
+                                    )}
+                                    <h4 className="text-xs font-medium text-white truncate">
+                                      {mision.nombre || 'Sin nombre'}
+                                    </h4>
+                                  </div>
+                                  {mision.horas && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                                      isEnProgreso
+                                        ? 'bg-green-200 text-green-800'
+                                        : 'bg-orange-100 text-orange-700'
+                                    }`}>
+                                      {mision.horas}h
+                                    </span>
+                                  )}
                                 </div>
-                              )}
+                                {mision.descripcion && (
+                                  <p className="text-[10px] text-white/60 line-clamp-1 mb-1">
+                                    {mision.descripcion}
+                                  </p>
+                                )}
+                                <div className="flex items-center justify-between gap-2">
+                                  {estadoFinal && (
+                                    <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded ${getEstadoColor(estadoFinal)}`}>
+                                      {formatEstado(estadoFinal)}
+                                    </span>
+                                  )}
+                                  <div className="flex gap-2 text-[10px] text-white/50">
+                                    {mision.fecha_end && (
+                                      <span>🏁 {new Date(mision.fecha_end).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Paginación horizontal para misiones */}
+                          {totalMisionPages > 1 && (
+                            <div className="flex justify-center gap-1 pt-2">
+                              <button
+                                onClick={() => setCurrentMisionPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentMisionPage === 1}
+                                className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
+                              >
+                                <ChevronLeft size={14} className="text-white" />
+                              </button>
+                              <span className="px-2 py-1 text-xs text-white/80">
+                                {currentMisionPage} / {totalMisionPages}
+                              </span>
+                              <button
+                                onClick={() => setCurrentMisionPage(prev => Math.min(totalMisionPages, prev + 1))}
+                                disabled={currentMisionPage === totalMisionPages}
+                                className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
+                              >
+                                <ChevronRight size={14} className="text-white" />
+                              </button>
                             </div>
                           )}
                         </div>
-                      ) : section.content === 'actividades' ? (
-                        // Sección de Actividades
+                      )}
+                    </div>
+                  ) : section.content === 'actividades' ? (
+                    // Sección de Actividades
+                    <div>
+                      {actividades.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-white/60 text-sm">No hay actividades disponibles</p>
+                        </div>
+                      ) : (
                         <div>
-                          {actividades.length === 0 ? (
-                            <div className="text-center py-8">
-                              <p className="text-white/60 text-sm">No hay actividades disponibles</p>
+                          <div className="space-y-3 mb-3">
+                            {currentActividades.map((actividad) => (
+                              <div
+                                key={actividad.id}
+                                draggable
+                                className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none"
+                                onClick={() => {
+                                  if (onActividadClick) {
+                                    onActividadClick(actividad);
+                                  }
+                                }}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', `Actividad: ${actividad.descripcion}`);
+                                  e.dataTransfer.setData('application/json', JSON.stringify({
+                                    type: 'actividad-organizacion',
+                                    id_actividad: actividad.id,
+                                    descripcion: actividad.descripcion,
+                                    fecha: actividad.fecha,
+                                    hora_inicio: actividad.hora_inicio,
+                                    cant_horas: actividad.cant_horas,
+                                    link: actividad.link,
+                                    id_usuario: actividad.id_usuario,
+                                    id_proyecto: actividad.id_proyecto,
+                                    tiempo_dedicado: actividad.tiempo_dedicado
+                                  }));
+                                  e.currentTarget.style.opacity = '0.5';
+                                }}
+                                onDragEnd={(e) => {
+                                  e.currentTarget.style.opacity = '1';
+                                }}
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <p className="text-sm text-white font-medium">
+                                    {actividad.descripcion || 'Sin descripción'}
+                                  </p>
+                                  {actividad.cant_horas && (
+                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium ml-2">
+                                      {actividad.cant_horas}h
+                                    </span>
+                                  )}
+                                </div>
+                                {actividad.fecha && (
+                                  <div className="text-xs text-white/60">
+                                    📅 {new Date(actividad.fecha).toLocaleDateString('es-ES')}
+                                  </div>
+                                )}
+                                {actividad.tiempo_dedicado && (
+                                  <div className="text-xs text-white/60 mt-1">
+                                    ⏱️ Tiempo dedicado: {Math.round(actividad.tiempo_dedicado)} min
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Paginación horizontal para actividades */}
+                          {totalActividadPages > 1 && (
+                            <div className="flex justify-center gap-1 pt-2">
+                              <button
+                                onClick={() => setCurrentActividadPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentActividadPage === 1}
+                                className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
+                              >
+                                <ChevronLeft size={14} className="text-white" />
+                              </button>
+                              <span className="px-2 py-1 text-xs text-white/80">
+                                {currentActividadPage} / {totalActividadPages}
+                              </span>
+                              <button
+                                onClick={() => setCurrentActividadPage(prev => Math.min(totalActividadPages, prev + 1))}
+                                disabled={currentActividadPage === totalActividadPages}
+                                className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
+                              >
+                                <ChevronRight size={14} className="text-white" />
+                              </button>
                             </div>
-                          ) : (
-                            <div>
-                              <div className="space-y-3 mb-3">
-                                {currentActividades.map((actividad) => (
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : section.content === 'usuarios' ? (
+                    // Sección de Usuarios para Chatear
+                    <div>
+                      {allUsers.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-white/60 text-sm">No hay usuarios disponibles</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="grid grid-cols-2 gap-3 mb-4">
+                            {currentUsers.map((user) => (
+                              <div
+                                key={user.id}
+                                draggable
+                                className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none"
+                                onClick={() => {
+                                  if (onUserClick) {
+                                    onUserClick({
+                                      userId: user.userAuth,
+                                      name: user.name,
+                                      avatar: user.avatar,
+                                      color: user.color,
+                                      online: user.online
+                                    });
+                                  }
+                                }}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', `Usuario: ${user.name}`);
+                                  e.dataTransfer.setData('application/json', JSON.stringify({
+                                    type: 'usuario',
+                                    userId: user.userAuth,
+                                    name: user.name,
+                                    avatar: user.avatar,
+                                    color: user.color,
+                                    online: user.online
+                                  }));
+                                  e.currentTarget.style.opacity = '0.5';
+                                }}
+                                onDragEnd={(e) => {
+                                  e.currentTarget.style.opacity = '1';
+                                }}
+                              >
+                                <div className="relative" title={user.name}>
+                                  {/* Marco de color */}
                                   <div
-                                    key={actividad.id}
-                                    draggable
-                                    className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none"
-                                    onClick={() => {
-                                      if (onActividadClick) {
-                                        onActividadClick(actividad);
-                                      }
-                                    }}
-                                    onDragStart={(e) => {
-                                      e.dataTransfer.setData('text/plain', `Actividad: ${actividad.descripcion}`);
-                                      e.dataTransfer.setData('application/json', JSON.stringify({
-                                        type: 'actividad-organizacion',
-                                        id_actividad: actividad.id,
-                                        descripcion: actividad.descripcion,
-                                        fecha: actividad.fecha,
-                                        hora_inicio: actividad.hora_inicio,
-                                        cant_horas: actividad.cant_horas,
-                                        link: actividad.link,
-                                        id_usuario: actividad.id_usuario,
-                                        id_proyecto: actividad.id_proyecto,
-                                        tiempo_dedicado: actividad.tiempo_dedicado
-                                      }));
-                                      e.currentTarget.style.opacity = '0.5';
-                                    }}
-                                    onDragEnd={(e) => {
-                                      e.currentTarget.style.opacity = '1';
-                                    }}
+                                    className="w-12 h-12 rounded-full border-2 flex items-center justify-center"
+                                    style={{ borderColor: typeof user.color === 'string' && user.color.startsWith('#') ? user.color : undefined }}
                                   >
-                                    <div className="flex items-start justify-between mb-2">
-                                      <p className="text-sm text-white font-medium">
-                                        {actividad.descripcion || 'Sin descripción'}
-                                      </p>
-                                      {actividad.cant_horas && (
-                                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium ml-2">
-                                          {actividad.cant_horas}h
+                                    {/* Avatar interno */}
+                                    <div className={`w-10 h-10 rounded-full ${typeof user.color === 'string' && user.color.startsWith('#') ? 'bg-gray-500' : user.color} flex items-center justify-center text-white text-sm font-semibold overflow-hidden`}>
+                                      {user.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) && !userImageErrors[user.userAuth] ? (
+                                        <img
+                                          src={user.avatar}
+                                          alt={user.name}
+                                          className="w-full h-full object-cover"
+                                          onError={() => {
+                                            setUserImageErrors(prev => ({ ...prev, [user.userAuth]: true }));
+                                          }}
+                                        />
+                                      ) : (
+                                        <span className="w-full h-full flex items-center justify-center text-2xl">
+                                          {user.avatar && !(user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) ? user.avatar : '👤'}
                                         </span>
                                       )}
                                     </div>
-                                    {actividad.fecha && (
-                                      <div className="text-xs text-white/60">
-                                        📅 {new Date(actividad.fecha).toLocaleDateString('es-ES')}
-                                      </div>
-                                    )}
-                                    {actividad.tiempo_dedicado && (
-                                      <div className="text-xs text-white/60 mt-1">
-                                        ⏱️ Tiempo dedicado: {Math.round(actividad.tiempo_dedicado)} min
-                                      </div>
-                                    )}
                                   </div>
-                                ))}
-                              </div>
-
-                              {/* Paginación horizontal para actividades */}
-                              {totalActividadPages > 1 && (
-                                <div className="flex justify-center gap-1 pt-2">
-                                  <button
-                                    onClick={() => setCurrentActividadPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentActividadPage === 1}
-                                    className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
-                                  >
-                                    <ChevronLeft size={14} className="text-white" />
-                                  </button>
-                                  <span className="px-2 py-1 text-xs text-white/80">
-                                    {currentActividadPage} / {totalActividadPages}
-                                  </span>
-                                  <button
-                                    onClick={() => setCurrentActividadPage(prev => Math.min(totalActividadPages, prev + 1))}
-                                    disabled={currentActividadPage === totalActividadPages}
-                                    className="p-1 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded transition-colors duration-200 disabled:opacity-40"
-                                  >
-                                    <ChevronRight size={14} className="text-white" />
-                                  </button>
+                                  {user.online && (
+                                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white/20"></div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : section.content === 'usuarios' ? (
-                        // Sección de Usuarios para Chatear
-                        <div>
-                          {allUsers.length === 0 ? (
-                            <div className="text-center py-8">
-                              <p className="text-white/60 text-sm">No hay usuarios disponibles</p>
-                            </div>
-                          ) : (
-                            <div>
-                              <div className="grid grid-cols-2 gap-3 mb-4">
-                                {currentUsers.map((user) => (
-                                  <div
-                                    key={user.id}
-                                    draggable
-                                    className="flex items-center space-x-2 p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 cursor-grab active:cursor-grabbing select-none"
-                                    onClick={() => {
-                                      if (onUserClick) {
-                                        onUserClick({
-                                          userId: user.userAuth,
-                                          name: user.name,
-                                          avatar: user.avatar,
-                                          color: user.color,
-                                          online: user.online
-                                        });
-                                      }
-                                    }}
-                                    onDragStart={(e) => {
-                                      e.dataTransfer.setData('text/plain', `Usuario: ${user.name}`);
-                                      e.dataTransfer.setData('application/json', JSON.stringify({
-                                        type: 'usuario',
-                                        userId: user.userAuth,
-                                        name: user.name,
-                                        avatar: user.avatar,
-                                        color: user.color,
-                                        online: user.online
-                                      }));
-                                      e.currentTarget.style.opacity = '0.5';
-                                    }}
-                                    onDragEnd={(e) => {
-                                      e.currentTarget.style.opacity = '1';
-                                    }}
-                                  >
-                                    <div className="relative" title={user.name}>
-                                      {/* Marco de color */}
-                                      <div
-                                        className="w-12 h-12 rounded-full border-2 flex items-center justify-center"
-                                        style={{ borderColor: typeof user.color === 'string' && user.color.startsWith('#') ? user.color : undefined }}
-                                      >
-                                        {/* Avatar interno */}
-                                        <div className={`w-10 h-10 rounded-full ${typeof user.color === 'string' && user.color.startsWith('#') ? 'bg-gray-500' : user.color} flex items-center justify-center text-white text-sm font-semibold overflow-hidden`}>
-                                          {user.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) && !userImageErrors[user.userAuth] ? (
-                                            <img
-                                              src={user.avatar}
-                                              alt={user.name}
-                                              className="w-full h-full object-cover"
-                                              onError={() => {
-                                                setUserImageErrors(prev => ({ ...prev, [user.userAuth]: true }));
-                                              }}
-                                            />
-                                          ) : (
-                                            <span className="w-full h-full flex items-center justify-center text-2xl">
-                                              {user.avatar && !(user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) ? user.avatar : '👤'}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {user.online && (
-                                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white/20"></div>
-                                      )}
-                                    </div>
-                                    <div className="flex-1 min-w-0" title={user.name}>
-                                      <p className="text-sm font-medium text-white truncate">
-                                        {user.name}
-                                      </p>
-                                      <p className="text-xs text-white/60 truncate">
-                                        {user.status}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {/* Paginación horizontal por números para usuarios */}
-                              {totalUserPages > 1 && (
-                                <div className="flex items-center justify-center gap-2">
-                                  <button
-                                    onClick={() => setCurrentUserPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentUserPage === 1}
-                                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded-lg text-sm text-white/80 hover:text-white transition-colors duration-200 font-medium disabled:text-white/40"
-                                  >
-                                    ←
-                                  </button>
-
-                                  {Array.from({ length: totalUserPages }, (_, i) => i + 1).map((page) => (
-                                    <button
-                                      key={page}
-                                      onClick={() => setCurrentUserPage(page)}
-                                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-200 ${currentUserPage === page
-                                        ? 'bg-green-500 text-white'
-                                        : 'bg-white/10 hover:bg-white/20 text-white/80 hover:text-white'
-                                        }`}
-                                    >
-                                      {page}
-                                    </button>
-                                  ))}
-
-                                  <button
-                                    onClick={() => setCurrentUserPage(prev => Math.min(totalUserPages, prev + 1))}
-                                    disabled={currentUserPage === totalUserPages}
-                                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded-lg text-sm text-white/80 hover:text-white transition-colors duration-200 font-medium disabled:text-white/40"
-                                  >
-                                    →
-                                  </button>
+                                <div className="flex-1 min-w-0" title={user.name}>
+                                  <p className="text-sm font-medium text-white truncate">
+                                    {user.name}
+                                  </p>
+                                  <p className="text-xs text-white/60 truncate">
+                                    {user.status}
+                                  </p>
                                 </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : section.content === 'recursos' ? (
-                        // Sección de Recursos
-                        <div>
-                          {recursos.length === 0 ? (
-                            <div className="text-center py-8">
-                              <p className="text-white/60 text-sm mb-4">No hay recursos disponibles</p>
-                              {onAddResource && (
-                                <button
-                                  onClick={handleAddResource}
-                                  className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors duration-200"
-                                >
-                                  Agregar primer recurso
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div>
-                              <div className="grid grid-cols-5 gap-2 mb-3">
-                                {recursos.map((recurso) => {
-                                  return (
-                                    <div
-                                      key={recurso.id}
-                                      draggable
-                                      className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-grab active:cursor-grabbing hover:scale-105 flex flex-col items-center select-none"
-                                      onMouseEnter={(e) => {
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        setHoveredRecurso({
-                                          name: recurso.nombre || 'Recurso',
-                                          url: recurso.link || undefined,
-                                          x: rect.left + rect.width / 2,
-                                          y: rect.top - 10
-                                        });
-                                      }}
-                                      onMouseLeave={() => {
-                                        setHoveredRecurso(null);
-                                      }}
-                                      onDragStart={(e) => {
-                                        setHoveredRecurso(null);
-                                        e.dataTransfer.setData('text/plain', `Recurso: ${recurso.nombre}`);
-                                        e.dataTransfer.setData('application/json', JSON.stringify({
-                                          type: 'recurso',
-                                          id: recurso.id,
-                                          name: recurso.nombre,
-                                          resourceType: 'document',
-                                          url: recurso.link,
-                                          icon: recurso.icono,
-                                          color: 'bg-blue-500'
-                                        }));
-                                        e.currentTarget.style.opacity = '0.5';
-                                      }}
-                                      onDragEnd={(e) => {
-                                        e.currentTarget.style.opacity = '1';
-                                      }}
-                                      onClick={() => {
-                                        if (onRecursoClick) {
-                                          onRecursoClick(recurso);
-                                        }
-                                      }}
-                                    >
-                                      <div className="w-8 h-8 rounded bg-blue-500 flex items-center justify-center mb-1">
-                                        <span className="text-lg">{getIconEmoji(recurso.icono)}</span>
-                                      </div>
-                                      <span className="text-white text-[10px] text-center truncate w-full leading-tight">
-                                        {recurso.nombre || 'Recurso'}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
                               </div>
+                            ))}
+                          </div>
 
-                              {/* Botón para agregar más recursos */}
-                              {onAddResource && (
+                          {/* Paginación horizontal por números para usuarios */}
+                          {totalUserPages > 1 && (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => setCurrentUserPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentUserPage === 1}
+                                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded-lg text-sm text-white/80 hover:text-white transition-colors duration-200 font-medium disabled:text-white/40"
+                              >
+                                ←
+                              </button>
+
+                              {Array.from({ length: totalUserPages }, (_, i) => i + 1).map((page) => (
                                 <button
-                                  onClick={handleAddResource}
-                                  className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-xs font-medium transition-colors duration-200 flex items-center justify-center gap-1"
+                                  key={page}
+                                  onClick={() => setCurrentUserPage(page)}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                                    currentUserPage === page
+                                      ? 'bg-green-500 text-white'
+                                      : 'bg-white/10 hover:bg-white/20 text-white/80 hover:text-white'
+                                  }`}
                                 >
-                                  <Plus size={14} />
-                                  Agregar recurso
+                                  {page}
                                 </button>
-                              )}
+                              ))}
+
+                              <button
+                                onClick={() => setCurrentUserPage(prev => Math.min(totalUserPages, prev + 1))}
+                                disabled={currentUserPage === totalUserPages}
+                                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed rounded-lg text-sm text-white/80 hover:text-white transition-colors duration-200 font-medium disabled:text-white/40"
+                              >
+                                →
+                              </button>
                             </div>
                           )}
                         </div>
-                      ) : null}
+                      )}
                     </div>
-                  </div>
+                  ) : section.content === 'recursos' ? (
+                    // Sección de Recursos
+                    <div>
+                      {recursos.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-white/60 text-sm mb-4">No hay recursos disponibles</p>
+                          {onAddResource && (
+                            <button
+                              onClick={handleAddResource}
+                              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors duration-200"
+                            >
+                              Agregar primer recurso
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="grid grid-cols-5 gap-2 mb-3">
+                            {recursos.map((recurso) => {
+                              return (
+                                <div
+                                  key={recurso.id}
+                                  draggable
+                                  className="relative bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-all duration-200 cursor-grab active:cursor-grabbing hover:scale-105 flex flex-col items-center select-none"
+                                  onMouseEnter={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setHoveredRecurso({
+                                      name: recurso.nombre || 'Recurso',
+                                      url: recurso.link || undefined,
+                                      x: rect.left + rect.width / 2,
+                                      y: rect.top - 10
+                                    });
+                                  }}
+                                  onMouseLeave={() => {
+                                    setHoveredRecurso(null);
+                                  }}
+                                  onDragStart={(e) => {
+                                    setHoveredRecurso(null);
+                                    e.dataTransfer.setData('text/plain', `Recurso: ${recurso.nombre}`);
+                                    e.dataTransfer.setData('application/json', JSON.stringify({
+                                      type: 'recurso',
+                                      id: recurso.id,
+                                      name: recurso.nombre,
+                                      resourceType: 'document',
+                                      url: recurso.link,
+                                      icon: recurso.icono,
+                                      color: 'bg-blue-500'
+                                    }));
+                                    e.currentTarget.style.opacity = '0.5';
+                                  }}
+                                  onDragEnd={(e) => {
+                                    e.currentTarget.style.opacity = '1';
+                                  }}
+                                  onClick={() => {
+                                    if (onRecursoClick) {
+                                      onRecursoClick(recurso);
+                                    }
+                                  }}
+                                >
+                                  <div className="w-8 h-8 rounded bg-blue-500 flex items-center justify-center mb-1">
+                                    <span className="text-lg">{getIconEmoji(recurso.icono)}</span>
+                                  </div>
+                                  <span className="text-white text-[10px] text-center truncate w-full leading-tight">
+                                    {recurso.nombre || 'Recurso'}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Botón para agregar más recursos */}
+                          {onAddResource && (
+                            <button
+                              onClick={handleAddResource}
+                              className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-xs font-medium transition-colors duration-200 flex items-center justify-center gap-1"
+                            >
+                              <Plus size={14} />
+                              Agregar recurso
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
-              );
-            })}
+              </div>
+            </div>
+          );
+        })}
           </div>
         </div>
       </div>

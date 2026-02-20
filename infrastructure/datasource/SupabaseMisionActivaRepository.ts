@@ -14,7 +14,7 @@ export class SupabaseMisionActivaRepository {
 
 
   /**
-   * Obtener misiÃ³n activa por tipo, referencia y usuario
+   * Obtener misión activa por tipo, referencia y usuario
    */
   async getByTipoAndReferencia(
     tipo: 'mision' | 'actividad',
@@ -35,26 +35,26 @@ export class SupabaseMisionActivaRepository {
           // No existe registro
           return null;
         }
-        console.error('âŒ Error obteniendo misiÃ³n activa:', error);
+        console.error('❌ Error obteniendo misión activa:', error);
         return null;
       }
 
       return data;
     } catch (error) {
-      console.error('âŒ Error en getByTipoAndReferencia:', error);
+      console.error('❌ Error en getByTipoAndReferencia:', error);
       return null;
     }
   }
 
   /**
-   * Obtener misiÃ³n activa solo por tipo y referencia (cualquier usuario)
+   * Obtener misión activa solo por tipo y referencia (cualquier usuario)
    */
   async getByTipoAndReferenciaOnly(
     tipo: 'mision' | 'actividad',
     idReferencia: number
   ): Promise<MisionActiva | null> {
     try {
-      console.log('ðŸ” [SUPABASE] Buscando misiÃ³n activa:', { tipo, id_referencia: idReferencia });
+      console.log('🔍 [SUPABASE] Buscando misión activa:', { tipo, id_referencia: idReferencia });
 
       // Usar .limit(1) en lugar de .maybeSingle() para evitar problemas con RLS
       const { data, error } = await supabase
@@ -65,8 +65,8 @@ export class SupabaseMisionActivaRepository {
         .limit(1);
 
       if (error) {
-        console.error('âŒ [SUPABASE] Error obteniendo misiÃ³n activa:', error);
-        console.error('ðŸ’¡ Posible problema de RLS (Row Level Security)');
+        console.error('❌ [SUPABASE] Error obteniendo misión activa:', error);
+        console.error('💡 Posible problema de RLS (Row Level Security)');
         return null;
       }
 
@@ -74,7 +74,7 @@ export class SupabaseMisionActivaRepository {
       const mision = data && data.length > 0 ? data[0] : null;
 
       if (mision) {
-        console.log('âœ… [SUPABASE] MisiÃ³n activa encontrada:', {
+        console.log('✅ [SUPABASE] Misión activa encontrada:', {
           id: mision.id,
           estado: mision.estado,
           is_running: mision.is_running,
@@ -82,23 +82,23 @@ export class SupabaseMisionActivaRepository {
           id_referencia: mision.id_referencia
         });
       } else {
-        console.log('â„¹ï¸ [SUPABASE] No se encontrÃ³ misiÃ³n activa para id_referencia:', idReferencia);
-        console.log('ðŸ’¡ Esto puede ser por: 1) No existe, 2) RLS estÃ¡ bloqueando el acceso');
+        console.log('ℹ️ [SUPABASE] No se encontró misión activa para id_referencia:', idReferencia);
+        console.log('💡 Esto puede ser por: 1) No existe, 2) RLS está bloqueando el acceso');
       }
 
       return mision;
     } catch (error) {
-      console.error('âŒ Error en getByTipoAndReferenciaOnly:', error);
+      console.error('❌ Error en getByTipoAndReferenciaOnly:', error);
       return null;
     }
   }
 
   /**
-   * Crear nueva misiÃ³n activa (solo INSERT)
+   * Crear nueva misión activa (solo INSERT)
    */
   async create(dto: CreateMisionActivaDTO): Promise<MisionActiva | null> {
     try {
-      console.log('ðŸ“ [CREATE] Creando nueva misiÃ³n activa:', {
+      console.log('📝 [CREATE] Creando nueva misión activa:', {
         tipo: dto.tipo,
         id_referencia: dto.id_referencia,
         id_usuario_asignado: dto.id_usuario_asignado
@@ -119,27 +119,27 @@ export class SupabaseMisionActivaRepository {
         .single();
 
       if (error) {
-        console.error('âŒ Error creando misiÃ³n activa:', error);
+        console.error('❌ Error creando misión activa:', error);
         return null;
       }
 
-      console.log('âœ… [CREATE] MisiÃ³n activa creada:', data.id);
+      console.log('✅ [CREATE] Misión activa creada:', data.id);
       return data;
     } catch (error) {
-      console.error('âŒ Error en create:', error);
+      console.error('❌ Error en create:', error);
       return null;
     }
   }
 
   /**
-   * Actualizar misiÃ³n activa existente (resetear a estado inicial)
+   * Actualizar misión activa existente (resetear a estado inicial)
    */
   async resetMisionActiva(
     idMisionActiva: string,
     nuevoUsuarioAsignado: string
   ): Promise<MisionActiva | null> {
     try {
-      console.log('ðŸ”„ [RESET] Reseteando misiÃ³n activa:', {
+      console.log('🔄 [RESET] Reseteando misión activa:', {
         id: idMisionActiva,
         nuevo_usuario: nuevoUsuarioAsignado
       });
@@ -160,27 +160,27 @@ export class SupabaseMisionActivaRepository {
         .single();
 
       if (error) {
-        console.error('âŒ Error reseteando misiÃ³n activa:', error);
+        console.error('❌ Error reseteando misión activa:', error);
         return null;
       }
 
-      console.log('âœ… [RESET] MisiÃ³n activa reseteada:', data.id);
+      console.log('✅ [RESET] Misión activa reseteada:', data.id);
       return data;
     } catch (error) {
-      console.error('âŒ Error en resetMisionActiva:', error);
+      console.error('❌ Error en resetMisionActiva:', error);
       return null;
     }
   }
 
   /**
-   * Actualizar estado de ejecuciÃ³n (play/pause) por ID de misiÃ³n activa
+   * Actualizar estado de ejecución (play/pause) por ID de misión activa
    */
   async updateRunningState(
     idMisionActiva: string,
     dto: UpdateRunningStateDTO
   ): Promise<MisionActiva | null> {
     try {
-      // console.log('â–¶ï¸ Actualizando estado de ejecuciÃ³n:', dto.is_running ? 'PLAY' : 'PAUSE');
+      // console.log('▶️ Actualizando estado de ejecución:', dto.is_running ? 'PLAY' : 'PAUSE');
 
       const updateData: any = {
         is_running: dto.is_running,
@@ -197,13 +197,13 @@ export class SupabaseMisionActivaRepository {
         updateData.tiempo_total_segundos = dto.tiempo_total_segundos;
       }
 
-      // Si se estÃ¡ iniciando (PLAY)
+      // Si se está iniciando (PLAY)
       if (dto.is_running && dto.fecha_inicio) {
         updateData.fecha_inicio = dto.fecha_inicio;
         updateData.estado = 'en_progreso';
       }
 
-      // Si se estÃ¡ pausando
+      // Si se está pausando
       if (!dto.is_running && dto.fecha_pausa) {
         updateData.fecha_pausa = dto.fecha_pausa;
         updateData.estado = 'pausada';
@@ -217,25 +217,25 @@ export class SupabaseMisionActivaRepository {
         .single();
 
       if (error) {
-        console.error('âŒ Error actualizando estado:', error);
+        console.error('❌ Error actualizando estado:', error);
         return null;
       }
 
-      // console.log('âœ… Estado actualizado');
+      // console.log('✅ Estado actualizado');
       return data;
     } catch (error) {
-      console.error('âŒ Error en updateRunningState:', error);
+      console.error('❌ Error en updateRunningState:', error);
       return null;
     }
   }
 
   /**
-   * Actualizar fecha de Ãºltima captura por ID de misiÃ³n activa
+   * Actualizar fecha de última captura por ID de misión activa
    * Nota: Las capturas se guardan en la tabla 'capture', no en misiones_activas
    */
   async addCaptureUrl(idMisionActiva: string, captureUrl: string): Promise<MisionActiva | null> {
     try {
-      // console.log('ðŸ“¸ Actualizando fecha de Ãºltima captura');
+      // console.log('📸 Actualizando fecha de última captura');
 
       const fechaActual = new Date().toISOString();
 
@@ -250,21 +250,21 @@ export class SupabaseMisionActivaRepository {
         .single();
 
       if (error) {
-        console.error('âŒ Error actualizando fecha de captura:', error);
+        console.error('❌ Error actualizando fecha de captura:', error);
         return null;
       }
 
-      // console.log('âœ… Fecha de captura actualizada:', fechaActual);
+      // console.log('✅ Fecha de captura actualizada:', fechaActual);
       return data;
     } catch (error) {
-      console.error('âŒ Error en addCaptureUrl:', error);
+      console.error('❌ Error en addCaptureUrl:', error);
       return null;
     }
   }
 
   /**
-   * Enviar entrega por ID de misiÃ³n activa
-   * Crea/actualiza el entregable y actualiza el estado de la misiÃ³n activa
+   * Enviar entrega por ID de misión activa
+   * Crea/actualiza el entregable y actualiza el estado de la misión activa
    * Nota: Las capturas se consultan desde la tabla 'capture', no se duplican en entregables
    */
   async submitEntrega(
@@ -272,7 +272,7 @@ export class SupabaseMisionActivaRepository {
     dto: SubmitEntregaDTO
   ): Promise<MisionActiva | null> {
     try {
-      console.log('ðŸ“¦ Enviando entrega para misiÃ³n activa:', idMisionActiva);
+      console.log('📦 Enviando entrega para misión activa:', idMisionActiva);
 
       // 1. Crear o actualizar entregable (sin capturas_urls)
       const { data: entregable, error: entregableError } = await supabase
@@ -292,13 +292,13 @@ export class SupabaseMisionActivaRepository {
         .single();
 
       if (entregableError) {
-        console.error('âŒ Error creando entregable:', entregableError);
+        console.error('❌ Error creando entregable:', entregableError);
         return null;
       }
 
-      console.log('âœ… Entregable creado/actualizado:', entregable.id);
+      console.log('✅ Entregable creado/actualizado:', entregable.id);
 
-      // 2. Actualizar estado de la misiÃ³n activa
+      // 2. Actualizar estado de la misión activa
       const { data, error } = await supabase
         .from('misiones_activas')
         .update({
@@ -317,14 +317,14 @@ export class SupabaseMisionActivaRepository {
         .single();
 
       if (error) {
-        console.error('âŒ Error actualizando misiÃ³n activa:', error);
+        console.error('❌ Error actualizando misión activa:', error);
         return null;
       }
 
-      console.log('âœ… Entrega enviada correctamente');
+      console.log('✅ Entrega enviada correctamente');
       return data;
     } catch (error) {
-      console.error('âŒ Error en submitEntrega:', error);
+      console.error('❌ Error en submitEntrega:', error);
       return null;
     }
   }
@@ -341,13 +341,13 @@ export class SupabaseMisionActivaRepository {
         .order('updated_at', { ascending: false });
 
       if (error) {
-        console.error('âŒ Error obteniendo misiones del usuario:', error);
+        console.error('❌ Error obteniendo misiones del usuario:', error);
         return [];
       }
 
       return data || [];
     } catch (error) {
-      console.error('âŒ Error en getByUserId:', error);
+      console.error('❌ Error en getByUserId:', error);
       return [];
     }
   }
@@ -365,30 +365,30 @@ export class SupabaseMisionActivaRepository {
         .order('fecha_entrega', { ascending: false });
 
       if (error) {
-        console.error('âŒ Error obteniendo misiones entregadas:', error);
+        console.error('❌ Error obteniendo misiones entregadas:', error);
         return [];
       }
 
       return data || [];
     } catch (error) {
-      console.error('âŒ Error en getEntregadasByUserId:', error);
+      console.error('❌ Error en getEntregadasByUserId:', error);
       return [];
     }
   }
 
   /**
    * Actualizar la columna capture_now
-   * Si el valor es una URL (captura recibida), tambiÃ©n actualiza fecha_ultimo_capture
-   * para evitar que la misiÃ³n sea marcada como inactiva
+   * Si el valor es una URL (captura recibida), también actualiza fecha_ultimo_capture
+   * para evitar que la misión sea marcada como inactiva
    */
   async updateCaptureNow(idMisionActiva: string, value: string): Promise<MisionActiva | null> {
     try {
-      console.log('ðŸ“¸ Actualizando capture_now a:', value);
+      console.log('📸 Actualizando capture_now a:', value);
 
       const fechaActual = new Date().toISOString();
 
-      // Si es una URL de captura, tambiÃ©n actualizar fecha_ultimo_capture
-      // Esto evita que la verificaciÃ³n de inactividad pause la misiÃ³n
+      // Si es una URL de captura, también actualizar fecha_ultimo_capture
+      // Esto evita que la verificación de inactividad pause la misión
       const updateData: any = {
         capture_now: value,
         updated_at: fechaActual
@@ -397,7 +397,7 @@ export class SupabaseMisionActivaRepository {
       // Si el valor es una URL (empieza con http), es una captura recibida
       if (value.startsWith('http')) {
         updateData.fecha_ultimo_capture = fechaActual;
-        console.log('ðŸ“¸ TambiÃ©n actualizando fecha_ultimo_capture (captura recibida)');
+        console.log('📸 También actualizando fecha_ultimo_capture (captura recibida)');
       }
 
       const { data, error } = await supabase
@@ -408,20 +408,20 @@ export class SupabaseMisionActivaRepository {
         .single();
 
       if (error) {
-        console.error('âŒ Error actualizando capture_now:', error);
+        console.error('❌ Error actualizando capture_now:', error);
         return null;
       }
 
-      console.log('âœ… capture_now actualizado');
+      console.log('✅ capture_now actualizado');
       return data;
     } catch (error) {
-      console.error('âŒ Error en updateCaptureNow:', error);
+      console.error('❌ Error en updateCaptureNow:', error);
       return null;
     }
   }
 
   /**
-   * Suscribirse a cambios en tiempo real de una misiÃ³n activa por ID
+   * Suscribirse a cambios en tiempo real de una misión activa por ID
    */
   subscribeToMisionActiva(
     idMisionActiva: string,
@@ -438,7 +438,7 @@ export class SupabaseMisionActivaRepository {
           filter: `id=eq.${idMisionActiva}`
         },
         (payload) => {
-          console.log('ðŸ”” Cambio en misiÃ³n activa:', payload.new);
+          console.log('🔔 Cambio en misión activa:', payload.new);
           onUpdate(payload.new as MisionActiva);
         }
       )
@@ -459,7 +459,7 @@ export class SupabaseMisionActivaRepository {
   ) {
     const channelName = `mision-activa-${tipo}-${idReferencia}-${Date.now()}`;
 
-    console.log('ðŸ“¡ [REALTIME] SuscripciÃ³n creada:', { tipo, id_referencia: idReferencia });
+    console.log('📡 [REALTIME] Suscripción creada:', { tipo, id_referencia: idReferencia });
 
     const channel = supabase
       .channel(channelName, {
@@ -483,7 +483,7 @@ export class SupabaseMisionActivaRepository {
 
           // Solo procesar eventos que coincidan
           if (eventoTipo === tipo && eventoIdReferencia === idReferencia) {
-            console.log('ðŸ“¡ [REALTIME] Cambio detectado:', {
+            console.log('📡 [REALTIME] Cambio detectado:', {
               tipo: eventoTipo,
               id_referencia: eventoIdReferencia,
               estado: (payload.new as any)?.estado,
@@ -500,9 +500,9 @@ export class SupabaseMisionActivaRepository {
       )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
-          console.log('âœ… [REALTIME] SuscripciÃ³n activa para:', { tipo, id_referencia: idReferencia });
+          console.log('✅ [REALTIME] Suscripción activa para:', { tipo, id_referencia: idReferencia });
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('âŒ [REALTIME] Error en suscripciÃ³n:', err);
+          console.error('❌ [REALTIME] Error en suscripción:', err);
         }
       });
 
@@ -510,128 +510,122 @@ export class SupabaseMisionActivaRepository {
   }
 
   /**
-   * Verificar y pausar misiones en_progreso sin capturas en 10 min
+   * Verificar y actualizar el estado de misiones que aparentan estar activas
+   * pero no han tenido capturas en más de 5 minutos 30 segundos
+   * (5 minutos de intervalo + 30 segundos de margen de tolerancia)
+   * Retorna un objeto con información sobre las misiones verificadas
    */
   async verificarYActualizarMisionesInactivas(): Promise<{
     total: number;
     desactivadas: number;
     activas: number;
   }> {
-    const fmt = (iso: string) => new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    // 🚫 TEMPORALMENTE DESACTIVADO - Testing capturas
+    console.log('🚫 [VERIFICAR] Función DESACTIVADA temporalmente');
+    return { total: 0, desactivadas: 0, activas: 0 };
 
     try {
-      // 1. LIMPIEZA DE ZOMBIES: Misiones que en la tabla principal dicen 'en_progreso' pero no están activas en misiones_activas
-      console.log('[EN_PROCESO] Buscando misiones "zombies" (en_progreso en main, pero inactivas)...');
-      const { data: misionesZombies, error: zombieError } = await supabase
-        .from('misiones')
-        .select('id, estado')
-        .eq('estado', 'en_progreso');
+      console.log('🔍 [VERIFICAR] Buscando misiones con is_running = true');
 
-      if (!zombieError && misionesZombies && misionesZombies.length > 0) {
-        // Verificar cuáles NO están en misiones_activas con is_running=true
-        const { data: activasReales } = await supabase
-          .from('misiones_activas')
-          .select('id_referencia')
-          .eq('is_running', true)
-          .in('id_referencia', misionesZombies.map(m => m.id));
-
-        const idsReales = new Set(activasReales?.map(a => a.id_referencia) || []);
-        const zombiesReales = misionesZombies.filter(m => !idsReales.has(m.id));
-
-        if (zombiesReales.length > 0) {
-          console.log(`[EN_PROCESO] 🧟 Encontrados ${zombiesReales.length} zombies. Corrigiendo a 'pausada'...`);
-          const { error: updateZombieError } = await supabase
-            .from('misiones')
-            .update({ estado: 'pausada' })
-            .in('id', zombiesReales.map(z => z.id));
-
-          if (updateZombieError) console.error('[EN_PROCESO] ❌ Error corrigiendo zombies:', updateZombieError);
-          else console.log('[EN_PROCESO] ✅ Zombies corregidos.');
-        } else {
-          console.log('[EN_PROCESO] No se encontraron zombies reales.');
-        }
-      }
-
-      // 2. VERIFICACIÓN STANDARD: Misiones activas sin captura reciente
-      const { data: misionesEnProgreso, error: queryError } = await supabase
+      // 1. Obtener todas las misiones que aparentan estar activas
+      const { data: misionesActivas, error: queryError } = await supabase
         .from('misiones_activas')
-        .select('id, tipo, id_referencia, estado, is_running, fecha_ultimo_capture, fecha_inicio, updated_at')
-        .eq('estado', 'en_progreso');
+        .select('*')
+        .eq('is_running', true);
 
       if (queryError) {
-        console.error('[EN_PROCESO] ❌ Error en query:', queryError);
+        console.error('❌ Error consultando misiones activas:', queryError);
         return { total: 0, desactivadas: 0, activas: 0 };
       }
 
-      if (!misionesEnProgreso || misionesEnProgreso.length === 0) {
-        console.log('[EN_PROCESO] Sin misiones activas en_progreso');
+      if (!misionesActivas) {
+        console.log('ℹ️ [VERIFICAR] No hay misiones con is_running = true');
         return { total: 0, desactivadas: 0, activas: 0 };
       }
+
+      if (misionesActivas!.length === 0) {
+        console.log('ℹ️ [VERIFICAR] No hay misiones con is_running = true');
+        return { total: 0, desactivadas: 0, activas: 0 };
+      }
+
+      const totalMisiones = misionesActivas!.length;
+
+      console.log(`📊 [VERIFICAR] Encontradas ${totalMisiones} misiones con is_running = true`);
 
       const ahora = new Date();
-      const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
+      // 15 minutos (tiempo más generoso) + 30 segundos (margen de tolerancia)
+      const QUINCE_MIN_30_SEG_MS = (15 * 60 * 1000) + (30 * 1000); // 930,000 ms
       let misionesDesactivadas = 0;
 
-      console.log(`[EN_PROCESO] ═══════════════════════════════════════`);
-      console.log(`[EN_PROCESO] ${misionesEnProgreso.length} misión(es) activas verificando tiempo...`);
+      // 2. Verificar cada misión
+      for (const mision of misionesActivas!) {
+        // Si no tiene fecha_ultimo_capture, verificar cuánto tiempo lleva en estado is_running
+        if (!mision.fecha_ultimo_capture) {
+          // Usar fecha_inicio o updated_at como referencia
+          const fechaReferencia = mision.fecha_inicio || mision.updated_at;
+          if (!fechaReferencia) {
+            console.warn('⚠️ [VERIFICAR] Misión sin fechas de referencia, saltando:', mision.id);
+            continue;
+          }
 
-      for (const m of misionesEnProgreso) {
-        const captura = m.fecha_ultimo_capture;
-        const fallback = m.fecha_inicio || m.updated_at;
-        const fechaUsada = (captura && typeof captura === 'string') ? captura : fallback;
-        const origen = (captura && typeof captura === 'string') ? 'última captura' : 'fallback';
+          const tiempoTranscurrido = ahora.getTime() - new Date(fechaReferencia).getTime();
 
-        if (!fechaUsada) { continue; }
-        const ref = new Date(fechaUsada);
-        if (isNaN(ref.getTime())) { continue; }
+          if (tiempoTranscurrido > QUINCE_MIN_30_SEG_MS) {
+            console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) sin capturas y más de 15:30 min desde inicio`);
+            await this.desactivarMision(mision.id);
+            misionesDesactivadas++;
+          }
+          continue;
+        }
 
-        const diffMs = ahora.getTime() - ref.getTime();
-        const diffMin = (diffMs / 60000).toFixed(1);
-        const pasa = diffMs > DIEZ_MINUTOS_MS;
+        // 3. Calcular tiempo desde último capture
+        const fechaUltimoCapture = new Date(mision.fecha_ultimo_capture);
+        const tiempoDesdeUltimoCapture = ahora.getTime() - fechaUltimoCapture.getTime();
 
-        if (pasa) {
-          console.log(`[EN_PROCESO] ⏰ Misión #${m.id_referencia} (${diffMin} min sin captura) → PAUSANDO...`);
-          await this.desactivarMision(m.id);
+        // 4. Si pasaron más de 15 minutos 30 segundos, actualizar a inactiva
+        if (tiempoDesdeUltimoCapture > QUINCE_MIN_30_SEG_MS) {
+          console.log(`⏰ [VERIFICAR] Misión ${mision.id} (${mision.tipo} #${mision.id_referencia}) inactiva detectada:`, {
+            ultimo_capture: mision.fecha_ultimo_capture,
+            tiempo_transcurrido_seg: Math.round(tiempoDesdeUltimoCapture / 1000),
+            limite_seg: Math.round(QUINCE_MIN_30_SEG_MS / 1000)
+          });
+
+          await this.desactivarMision(mision.id);
           misionesDesactivadas++;
         }
       }
 
+      const misionesQuePermanenActivas = totalMisiones - misionesDesactivadas;
+
       if (misionesDesactivadas > 0) {
-        console.log(`[EN_PROCESO] RESULTADO: ${misionesDesactivadas} pausadas automática(s).`);
+        console.log(`✅ [VERIFICAR] ${misionesDesactivadas} misiones desactivadas, ${misionesQuePermanenActivas} siguen activas`);
+      } else {
+        console.log('✅ [VERIFICAR] Todas las misiones activas están capturando correctamente');
       }
-      console.log(`[EN_PROCESO] ═══════════════════════════════════════`);
 
       return {
-        total: misionesEnProgreso.length,
+        total: totalMisiones,
         desactivadas: misionesDesactivadas,
-        activas: misionesEnProgreso.length - misionesDesactivadas
+        activas: misionesQuePermanenActivas
       };
     } catch (error) {
-      console.error('[EN_PROCESO] ❌ Excepción:', error);
+      console.error('❌ Error en verificarYActualizarMisionesInactivas:', error);
       return { total: 0, desactivadas: 0, activas: 0 };
     }
   }
 
+  /**
+   * Desactivar una misión (poner is_running = false)
+   */
   private async desactivarMision(idMisionActiva: string): Promise<void> {
+    // 🚫 COMPLETAMENTE DESACTIVADO - No pausar nunca
+    console.log('🚫 [DESACTIVAR] Función DESACTIVADA - NO pausar misión:', idMisionActiva);
+    return;
+    
     try {
-      const { data, error } = await supabase
-        .from('misiones_activas')
-        .update({
-          is_running: false,
-          estado: 'pausada',
-          fecha_pausa: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', idMisionActiva)
-        .select();
-
-      if (error) {
-        console.error(`[EN_PROCESO] âŒ UPDATE fallÃ³ para ${idMisionActiva}:`, error.message);
-      } else {
-        console.log(`[EN_PROCESO] âœ… ${idMisionActiva} â†’ pausada OK`);
-      }
+      // Código desactivado...
     } catch (error) {
-      console.error(`[EN_PROCESO] âŒ ExcepciÃ³n pausando ${idMisionActiva}:`, error);
+      console.error('❌ Error en desactivarMision:', error);
     }
   }
 
@@ -639,4 +633,3 @@ export class SupabaseMisionActivaRepository {
 
 // Exportar instancia singleton
 export const misionActivaRepository = new SupabaseMisionActivaRepository();
-
