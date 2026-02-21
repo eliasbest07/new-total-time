@@ -9,8 +9,6 @@ export class SupabaseCardRepository implements CardRepository {
    */
   async getCardsByPizarra(idPizarra: string, idProyecto?: number | null): Promise<CardDB[]> {
     try {
-      console.log('🃏 [DEBUG REPO] getCardsByPizarra llamado para:', idPizarra);
-
       let query = supabase
         .from('cards')
         .select('*')
@@ -31,14 +29,13 @@ export class SupabaseCardRepository implements CardRepository {
       const { data, error } = await query.order('z_index', { ascending: true });
 
       if (error) {
-        console.error('❌ [DEBUG REPO] Error obteniendo cards:', error);
+        console.error('❌ Error obteniendo cards:', error);
         return [];
       }
 
-      console.log('✅ [DEBUG REPO] Cards encontradas en BD:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('❌ [DEBUG REPO] Error en getCardsByPizarra:', error);
+      console.error('❌ Error en getCardsByPizarra:', error);
       return [];
     }
   }

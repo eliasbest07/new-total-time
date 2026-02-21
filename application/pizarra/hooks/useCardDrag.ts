@@ -114,22 +114,7 @@ export const useCardDrag = (
   }, [draggedCard, dragOffset, panOffset, canvasRef, setCards, zoomLevel]);
 
   const handleMouseUp = useCallback(() => {
-    console.log('🖱️ [DRAG] handleMouseUp ejecutado');
-    console.log('   draggedCard:', draggedCard);
-
     if (draggedCard) {
-      // Buscar la card arrastrada
-      const card = cards.find(c => c.id === draggedCard);
-      console.log('   Card encontrada:', card ? `${card.type} - ${card.id}` : 'NO ENCONTRADA');
-
-      // El useEffect se encargará de la limpieza automática y actualización del estado
-      // Solo loggear información aquí
-      if (card && card.type === 'mision') {
-        console.log('✅ [MISION DETECTADA] Card tipo mision arrastrada:', card.id);
-      } else if (card) {
-        console.log('⛔ [RECHAZADO] Card tipo:', card.type, '(solo se monitorean misiones)');
-      }
-
       setDraggedCard(null);
       setDragOffset({ x: 0, y: 0 });
     }

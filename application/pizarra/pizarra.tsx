@@ -38,12 +38,15 @@ import { SupabaseMensajeRepository } from '@/infrastructure/datasource/SupabaseM
 import { ToastProvider, useToastContext } from './contexts/ToastContext';
 import { useTodoMisionSync, emitTodoActualizado } from './hooks/useTodoMisionSync';
 import { useVisibleCards } from './hooks/useVisibleCards';
+import { ImportAIModal } from './components/modals/ImportAIModal';
+import { useSearchParams } from 'next/navigation';
 
 // Componente interno que usa el ToastContext
 const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, onOpenEditarProyecto, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
   const { success: showSuccess, error: showError } = useToastContext();
+  const searchParams = useSearchParams();
 
   // Estado para almacenar el ID numérico del usuario que se está viendo
   const [viewingUserNumericId, setViewingUserNumericId] = useState<number | null>(null);
@@ -188,6 +191,20 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
   // Estado para modal de descripción completa
   const [descriptionModal, setDescriptionModal] = useState<{ title: string; description: string } | null>(null);
+
+  // Estado para modal de importación AI
+  const [showImportAIModal, setShowImportAIModal] = useState(false);
+  const [initialImportUrl, setInitialImportUrl] = useState<string | undefined>(undefined);
+
+  // Efecto para detectar el parámetro 'import' en la URL
+  useEffect(() => {
+    const importParam = searchParams.get('import');
+    if (importParam) {
+      console.log('🚀 [IMPORT] Detectado parámetro import');
+      setInitialImportUrl(importParam);
+      setShowImportAIModal(true);
+    }
+  }, [searchParams]);
 
   // Función para abrir modal de descripción
   const openDescriptionModal = useCallback((title: string, description: string) => {
@@ -568,18 +585,15 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   // Filtrar cards de misión: solo mostrar las asignadas al usuario logueado
   // En la pizarra de organización todos los miembros ven todos los cards
   const filteredCards = useMemo(() => {
-    console.log('🔍 [PIZARRA RENDER] Calculando filteredCards. Total cards:', cards.length);
     if (!currentUserNumericId) return cards;
     if (isOrganizacionPizarra) return cards;
-    const filtered = cards.filter(card => {
+    return cards.filter(card => {
       const isMision = card.type === 'mision' || card.type === 'mision-organizacion';
       if (!isMision) return true;
       if (!card.misionData) return true;
       if (!card.misionData.id_usuario_asignado) return true;
       return card.misionData.id_usuario_asignado === currentUserNumericId;
     });
-    console.log('🔍 [PIZARRA RENDER] Cards filtradas:', filtered.length);
-    return filtered;
   }, [cards, currentUserNumericId, isOrganizacionPizarra]);
 
   // Hook para lazy loading de cards - solo renderiza cards visibles en el viewport
@@ -1290,21 +1304,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }, [cards]);
 
   const deleteCard = useCallback(async (cardId: string) => {
-    // ─── DEBUG ELIMINACION ───────────────────────────────────────────
-    const cardToDelete = cards.find(c => c.id === cardId);
-    console.group(`🗑️ [DEBUG ELIMINACION] Card: "${cardId}"`);
-    console.log('[DEBUG ELIMINACION] Tipo:', cardToDelete?.type ?? 'desconocido');
-    console.log('[DEBUG ELIMINACION] Cards en estado ANTES:', cards.length, cards.map(c => c.id));
-
-    // Verificar localStorage ANTES
-    const lsKey = `pizarra-${storagePrefix}-cards-v1`;
-    const lsBefore = localStorage.getItem(lsKey);
-    const lsCardsBefore = lsBefore ? JSON.parse(lsBefore) : [];
-    const existsInLS = lsCardsBefore.some((c: any) => c.id === cardId);
-    console.log('[DEBUG ELIMINACION] ¿Existe en localStorage ANTES?:', existsInLS, `(key: ${lsKey})`);
-    console.log('[DEBUG ELIMINACION] Cards en localStorage ANTES:', lsCardsBefore.length, lsCardsBefore.map((c: any) => c.id));
-    // ────────────────────────────────────────────────────────────────
-
     if (pastedImages[cardId]) {
       URL.revokeObjectURL(pastedImages[cardId]);
       setPastedImages(prev => {
@@ -1315,6 +1314,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     }
 
     // Limpiar del tracking de misiones verificadas y conexiones auto-creadas
+    const cardToDelete = cards.find(c => c.id === cardId);
     if (cardToDelete?.misionData?.id_mision) {
       const misionKey = `${cardId}-${cardToDelete.misionData.id_mision}`;
       verifiedMisionesRef.current.delete(misionKey);
@@ -1334,8 +1334,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     setConnections(prev => prev.filter(conn =>
       conn.from !== cardId && conn.to !== cardId
     ));
-
-    console.log('[DEBUG ELIMINACION] Conexiones a eliminar:', connectionsToDelete.length, connectionsToDelete.map(c => c.id));
 
     // Disparar evento si se elimina un TODO card (async para evitar conflictos de render)
     if (cardToDelete?.type === 'todo') {
@@ -1366,11 +1364,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Eliminar solo localmente (no eliminar de Supabase automáticamente)
     setCards(prev => {
       const next = prev.filter(card => card.id !== cardId);
-      console.log('[DEBUG ELIMINACION] Cards en estado DESPUES:', next.length, next.map(c => c.id));
-      console.log('[DEBUG ELIMINACION] ¿Card sigue en estado?:', next.some(c => c.id === cardId));
-      console.log('[DEBUG ELIMINACION] localStorage se actualizará automáticamente en ~1s con el nuevo estado');
-      console.log('[DEBUG ELIMINACION] Supabase se actualizará en el próximo auto-save (2s debounce): la card se eliminará de la BD al guardar');
-      console.groupEnd();
       return next;
     });
     setConfirmDelete(null);
@@ -1471,9 +1464,46 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     return nextZIndex;
   }, [cards, maxZIndex]);
 
+  // Función para manejar la importación de cards
+  const handleImportCards = useCallback((importedCards: Card[]) => {
+    // Calcular el centro visible
+    const canvasWidth = canvasRef.current?.clientWidth || 1000;
+    const canvasHeight = canvasRef.current?.clientHeight || 800;
+    const centerX = -panOffset.x + (canvasWidth / 2);
+    const centerY = -panOffset.y + (canvasHeight / 2);
+
+    const existingIds = cards.map(c => c.id);
+    const newCards = importedCards.map((card, index) => {
+      // Ajustar posición para que aparezcan en una cuadrícula con mayor separación
+      const COLUMNS = 3;
+      const SPACING_X = 350; // Ancho típico + margen
+      const SPACING_Y = 300; // Alto típico + margen
+      
+      const colIndex = index % COLUMNS;
+      const rowIndex = Math.floor(index / COLUMNS);
+      
+      const offsetX = colIndex * SPACING_X; 
+      const offsetY = rowIndex * SPACING_Y;
+      
+      const newId = generateUniqueId(card.type, [...existingIds, ...importedCards.map(c => c.id)]);
+      
+      // Calcular posición inicial centrada pero desplazada según el índice
+      // (card.width/2) se resta para que el punto (x,y) sea la esquina superior izquierda
+      return {
+        ...card,
+        id: newId,
+        x: centerX - (card.width / 2) + offsetX - ((COLUMNS - 1) * SPACING_X / 2), // Centrar el bloque completo horizontalmente
+        y: centerY - (card.height / 2) + offsetY - 100, // Un poco más arriba del centro vertical
+        zIndex: getNextZIndex() + index
+      };
+    });
+
+    setCards(prev => [...prev, ...newCards]);
+    showSuccess(`${newCards.length} cards importadas exitosamente`);
+  }, [cards, panOffset, canvasRef, getNextZIndex, showSuccess]);
+
   // Funciones públicas expuestas via ref
   const addNoteCard = useCallback((text: string, position?: { x: number; y: number }) => {
-    console.log('📝 [DEBUG CARGA ORGANIZACION] addNoteCard llamado:', text);
     const existingIds = cards.map(card => card.id);
 
     // Calcular tamaño basado en el texto
@@ -1565,7 +1595,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }, [cards, panOffset, canvasRef, getNextZIndex]);
 
   const addTodoCard = useCallback((text?: string) => {
-    console.log('📝 [DEBUG CARGA ORGANIZACION] addTodoCard llamado:', text);
     const existingIds = cards.map(card => card.id);
 
     // Calcular tamaño basado en el texto inicial
@@ -1620,9 +1649,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     color?: string;
     online?: boolean;
   }) => {
-    console.log('🔵 [DEBUG CARGA ORGANIZACION] addUsuarioCard llamado:', userData.name, userData.userId);
-    console.log('🔵 Ref actual antes de verificar:', Array.from(addedUsersRef.current));
-
     // Verificar primero en el ref (para llamadas rápidas)
     if (addedUsersRef.current.has(userData.userId)) {
       console.log('⚠️ Usuario ya está siendo agregado (ref):', userData.name, userData.userId);
@@ -1955,10 +1981,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     usuario_asignado_nombre?: string;
     usuario_asignado_avatar?: string;
   }): string => {
-    console.group('🔧 [DEBUG CARGA ORGANIZACION] addMisionCardOrganizacion');
-    console.log('Datos recibidos:', misionData);
-    console.log('Cards existentes (antes):', cards.length);
-
     const existingIds = cards.map(card => card.id);
 
     // Calcular el centro visible de la pizarra
@@ -2021,9 +2043,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Actualizar cardZIndices para que se renderice correctamente
     setCardZIndices(prev => ({ ...prev, [newCardId]: nextZIndex }));
 
-    console.log('✅ [DEBUG CARGA ORGANIZACION] Misión card creada:', newCardId);
-    console.log('   Tipo:', newCard.type);
-    console.groupEnd();
     setCards(prev => [...prev, newCard]);
     return newCardId; // Retornar el ID del card creado
   }, [cards, panOffset, canvasRef, pizarra, getNextZIndex]);
@@ -2285,13 +2304,12 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     }
 
     try {
-      console.group('💾 [DEBUG CARGA ORGANIZACION] saveToSupabase');
-      console.log('Usuario UUID:', usuario.userAuth);
-      console.log('Cards a guardar:', cards.length);
-      console.log('Tipos:', cards.map(c => c.type));
-
       // 1. Verificar/Obtener la pizarra del día
-      console.log('   - Obteniendo pizarra del día...');
+      console.log('💾 Guardando en Supabase...');
+      // ❌ COLUMNA ELIMINADA: id_proyecto ya no existe en la tabla cards
+      // console.log('   - ID Usuario (UUID):', usuario.userAuth);
+      // console.log('   - Cards a guardar:', cards.length);
+
       const { supabase } = await import('@/infrastructure/services/SupabaseClient');
       const SupabasePizarraRepository = (await import('@/infrastructure/datasource/SupabasePizarraRepository')).SupabasePizarraRepository;
       const pizarraRepo = new SupabasePizarraRepository();
@@ -2351,19 +2369,11 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         !cards.some(localCard => localCard.id === dbCardId)
       );
 
-      console.group(`🗑️ [DEBUG ELIMINACION] Sync Supabase - pizarra: ${pizarraActual.id}`);
-      console.log('[DEBUG ELIMINACION] Cards en BD:', currentCardsInDB.length, currentCardsInDB);
-      console.log('[DEBUG ELIMINACION] Cards en estado local:', cards.length, cards.map(c => c.id));
-      console.log('[DEBUG ELIMINACION] Cards a eliminar de BD:', cardsToDelete.length, cardsToDelete);
-      console.groupEnd();
-
       for (const cardId of cardsToDelete) {
         const cardUUID = cardIdToUUID.get(cardId);
-        console.log(`[DEBUG ELIMINACION] Eliminando de Supabase → card_id: ${cardId} | UUID: ${cardUUID ?? 'NO ENCONTRADO'}`);
 
         let deleteQuery;
         if (cardUUID) {
-          console.log(`[DEBUG ELIMINACION] Eliminando por UUID: ${cardUUID} (Pizarra: ${pizarraActual.id})`);
           deleteQuery = supabase
             .from('cards')
             .delete()
@@ -2371,7 +2381,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
             .eq('id_pizarra', pizarraActual.id) // Refuerzo: scoping por pizarra
             .select();
         } else {
-          console.warn(`[DEBUG ELIMINACION] ⚠️ No se encontró UUID para ${cardId}, usando card_id + id_pizarra`);
           deleteQuery = supabase
             .from('cards')
             .delete()
@@ -2380,17 +2389,10 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
             .select();
         }
 
-        const { data: deletedData, error: deleteError } = await deleteQuery;
+        const { error: deleteError } = await deleteQuery;
 
         if (deleteError) {
-          console.error(`[DEBUG ELIMINACION] ❌ Error eliminando de BD: ${cardId}`, deleteError);
-        } else {
-          const deletedCount = deletedData?.length || 0;
-          if (deletedCount === 0) {
-            console.warn(`[DEBUG ELIMINACION] ⚠️ BORRADO SILENCIOSO - 0 filas afectadas para ${cardId} (UUID: ${cardUUID}). POSIBLE BLOQUEO RLS.`);
-          } else {
-            console.log(`[DEBUG ELIMINACION] ✅ Eliminado de Supabase: ${cardId} | Filas afectadas: ${deletedCount}`);
-          }
+          console.error(`❌ Error eliminando de BD: ${cardId}`, deleteError);
         }
       }
 
@@ -2512,12 +2514,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
           const cardData = mapCardToCardDB(card, pizarraActual.id, currentProjectId);
           // ❌ COLUMNA ELIMINADA: id_proyecto ya no existe en la tabla cards
           // delete (cardData as any).id_proyecto;
-
-          console.log('📝 [CREAR CARD] Intentando crear/actualizar card (upsert):', {
-            card_id: card.id,
-            type: card.type,
-            pizarraId: pizarraActual.id
-          });
 
           const { data: createdCard, error: createError } = await supabase
             .from('cards')
@@ -2717,11 +2713,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         saveHistorySnapshot(todayDate, cards);
       }
 
-      console.log('✅ [DEBUG CARGA ORGANIZACION] Guardado en Supabase completado');
-      console.log('   - ID Pizarra:', pizarraActual.id);
-      console.log('   - Cards guardadas:', cards.length);
-      console.log('   - Conexiones guardadas:', connections.length);
-      console.groupEnd();
+      console.log('✅ Pizarra guardada exitosamente');
 
       // Enviar mensaje de actualización si estamos editando la pizarra de otro usuario
       console.log('🔍 [GUARDAR] Verificando si enviar mensaje:', {
@@ -3821,6 +3813,19 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
             </svg>
           </button>
 
+          {/* Botón Importar IA */}
+          <button
+            onClick={() => setShowImportAIModal(true)}
+            className="p-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg transition-all hover:shadow-xl"
+            title="Importar desde IA"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
+
           {/* Separador */}
           <div className="w-px h-6 bg-gray-300" />
 
@@ -3996,6 +4001,15 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         )}
 
       </div>
+
+      {/* Modal de Importación AI */}
+      <ImportAIModal
+        isOpen={showImportAIModal}
+        onClose={() => setShowImportAIModal(false)}
+        onImport={handleImportCards}
+        currentCardCount={cards.length}
+        initialUrl={initialImportUrl}
+      />
 
       {/* Modal de descripción completa - Portal para renderizar fuera del contexto de la pizarra */}
       {descriptionModal && typeof document !== 'undefined' && createPortal(

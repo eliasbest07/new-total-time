@@ -1,0 +1,29 @@
+[
+  {
+    "action": "create_note",
+    "note": {
+      "title": "Brainstorming de Proyecto",
+      "content": "Ideas principales:\n- Integración con IA\n- Sincronización en tiempo real\n- Soporte offline",
+      "tags": ["dev", "planning", "q1"]
+    }
+  },
+  {
+    "action": "create_todo",
+    "todo": {
+      "title": "Roadmap Q1",
+      "items": [
+        "Diseñar arquitectura",
+        "Configurar base de datos",
+        "Implementar autenticación",
+        "Pruebas de carga"
+      ]
+    }
+  },
+  {
+    "action": "create_note",
+    "note": {
+      "title": "Recordatorio",
+      "content": "Revisar los logs de error en Supabase antes del despliegue."
+    }
+  }
+]
