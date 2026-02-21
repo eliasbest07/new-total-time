@@ -9,14 +9,16 @@ export class SupabaseCardRepository implements CardRepository {
    */
   async getCardsByPizarra(idPizarra: string, idProyecto?: number | null): Promise<CardDB[]> {
     try {
-      // console.log('🃏 Obteniendo cards de pizarra:', idPizarra);
+      console.log('🃏 [DEBUG REPO] getCardsByPizarra llamado para:', idPizarra);
 
       let query = supabase
         .from('cards')
         .select('*')
         .eq('id_pizarra', idPizarra);
 
+      // ❌ COLUMNA ELIMINADA: id_proyecto ya no existe en la tabla cards
       // Solo para pizarras de organización: separar cards de pizarra base vs proyecto
+      /*
       if (idProyecto !== undefined) {
         if (idProyecto === null) {
           query = query.is('id_proyecto', null);
@@ -24,18 +26,19 @@ export class SupabaseCardRepository implements CardRepository {
           query = query.eq('id_proyecto', idProyecto);
         }
       }
+      */
 
       const { data, error } = await query.order('z_index', { ascending: true });
 
       if (error) {
-        console.error('❌ Error obteniendo cards:', error);
+        console.error('❌ [DEBUG REPO] Error obteniendo cards:', error);
         return [];
       }
 
-      // console.log('✅ Cards encontradas:', data?.length || 0);
+      console.log('✅ [DEBUG REPO] Cards encontradas en BD:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('❌ Error en getCardsByPizarra:', error);
+      console.error('❌ [DEBUG REPO] Error en getCardsByPizarra:', error);
       return [];
     }
   }
@@ -104,11 +107,12 @@ export class SupabaseCardRepository implements CardRepository {
     try {
       // console.log('🗑️ Eliminando card:', cardId);
 
-      // Remover filtro por id_pizarra para permitir eliminar cards persistentes de otras pizarras
-      // card_id es único globalmente, no necesitamos filtrar por pizarra
+      // CRÍTICO: Filtrar por id_pizarra para evitar borrar la misma card de otras pizarras
+      // (caso de cards persistentes). card_id identifica la card, pero id_pizarra identifica la instancia en esta pizarra.
       const { error } = await supabase
         .from('cards')
         .delete()
+        .eq('id_pizarra', idPizarra)
         .eq('card_id', cardId);
 
       if (error) {

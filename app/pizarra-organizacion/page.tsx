@@ -253,7 +253,25 @@ export default function PizarraOrganizacionPage() {
       {/* Input Area - Solo visible si tiene permisos de edición */}
       {puedeEditar && (
         <div className="border-t border-gray-200 bg-white">
-          <InputArea />
+          <InputArea
+            onCreateNote={(text) => {
+              if (pizarraRef.current?.addNoteCard) {
+                pizarraRef.current.addNoteCard({
+                  title: 'Nueva Nota',
+                  description: text,
+                  color: '#feff9c'
+                });
+              }
+            }}
+            onCreateTodoList={(text) => {
+              if (pizarraRef.current?.addTodoCard) {
+                pizarraRef.current.addTodoCard({
+                  title: 'Lista de Tareas',
+                  todos: text.split('\n').filter(t => t.trim()).map(t => ({ text: t, completed: false }))
+                });
+              }
+            }}
+          />
         </div>
       )}
 

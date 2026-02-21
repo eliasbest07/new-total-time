@@ -33,6 +33,22 @@ export default function PizarraUsuarioPage() {
   const [mensajeEnviado, setMensajeEnviado] = useState(false);
   const [currentUserNumericId, setCurrentUserNumericId] = useState<number | null>(null);
 
+  // [DEBUG] Lectura en tiempo real de localStorage y BD para debug de sincronización
+  const [debugLsCount, setDebugLsCount] = useState<number>(0);
+  useEffect(() => {
+    const readLS = () => {
+      try {
+        const raw = localStorage.getItem(`pizarra-user-${userId}-cards-v1`);
+        const parsed = raw ? JSON.parse(raw) : [];
+        setDebugLsCount(Array.isArray(parsed) ? parsed.length : -1);
+      } catch { setDebugLsCount(-1); }
+    };
+    readLS();
+    // Re-leer cada 1.5s para reflejar los cambios del auto-save
+    const interval = setInterval(readLS, 1500);
+    return () => clearInterval(interval);
+  }, [userId]);
+
   // Hook de permisos - usa IDs numéricos
   const {
     hasPermission,
@@ -293,337 +309,345 @@ export default function PizarraUsuarioPage() {
         </div>
 
         {/* Botones de acción */}
-        <div className="flex items-center gap-3">
-          {/* Mostrar controles de edición solo si puede editar */}
-          {canEdit ? (
-            <>
-              {/* Botón para agregar elementos */}
-              <button
-                onClick={() => setShowAddPanel(!showAddPanel)}
-                className={`flex items-center gap-2 px-4 py-2 ${showAddPanel ? 'bg-green-600' : 'bg-green-500 hover:bg-green-600'} text-white rounded-lg transition-all duration-200 shadow-lg font-medium`}
-              >
-                <Plus className="w-5 h-5" />
-                <span>Agregar</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${showAddPanel ? 'rotate-180' : ''}`} />
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Botón de solicitar permiso o estado pendiente */}
-              {isPending ? (
-                <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/80 text-white rounded-lg shadow-lg font-medium">
-                  <Clock className="w-5 h-5" />
-                  <span>Solicitud pendiente</span>
-                </div>
-              ) : (
-                <button
-                  onClick={requestPermission}
-                  disabled={loadingPermission}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 shadow-lg font-medium disabled:opacity-50"
-                >
-                  <Send className="w-5 h-5" />
-                  <span>Solicitar permiso de edición</span>
-                </button>
-              )}
-              {/* Indicador de solo lectura */}
-              <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md text-white/80 rounded-lg shadow-lg">
-                <Lock className="w-4 h-4" />
-                <span className="text-sm">Solo lectura</span>
-              </div>
-            </>
-          )}
-
-          {/* Botón de historial */}
-          <button
-            onClick={() => setShowHistoryModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-200 shadow-lg font-medium"
-          >
-            <History className="w-5 h-5" />
-            <span>Ver Historial</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Panel para agregar elementos - solo si puede editar */}
-      {canEdit && showAddPanel && (
-        <div className="absolute top-20 right-4 z-50 w-80 bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden">
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('misiones')}
-              className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
-                activeTab === 'misiones' ? 'bg-green-50 text-green-700 border-b-2 border-green-500' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <Target className="w-4 h-4" />
-              Misiones
-            </button>
-            <button
-              onClick={() => setActiveTab('actividades')}
-              className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
-                activeTab === 'actividades' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <CalendarDays className="w-4 h-4" />
-              Actividades
-            </button>
-            <button
-              onClick={() => setActiveTab('recursos')}
-              className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
-                activeTab === 'recursos' ? 'bg-orange-50 text-orange-700 border-b-2 border-orange-500' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <Link2 className="w-4 h-4" />
-              Recursos
-            </button>
+        <div className="flex flex-col items-end gap-2">
+          {/* [DEBUG BAR] Contadores de sincronización */}
+          <div style={{ display: 'flex', gap: 20, background: 'rgba(0,0,0,0.7)', borderRadius: 6, padding: '3px 10px' }}>
+            <span style={{ color: '#ff4444', fontWeight: 700, fontFamily: 'monospace', fontSize: 12 }}>
+              LS: {debugLsCount}
+            </span>
+            <span style={{ color: '#ff9944', fontWeight: 700, fontFamily: 'monospace', fontSize: 12 }}>
+              State: —
+            </span>
           </div>
-
-          {/* Contenido */}
-          <div className="max-h-80 overflow-y-auto p-3">
-            {activeTab === 'misiones' && (
-              <div className="space-y-2">
-                {loadingMisiones ? (
-                  <div className="text-center py-4 text-gray-500">Cargando misiones...</div>
-                ) : misiones.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">No hay misiones disponibles</div>
-                ) : (
-                  misiones.map((mision) => (
-                    <button
-                      key={mision.id}
-                      onClick={() => handleAddMision(mision)}
-                      className="w-full text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200"
-                    >
-                      <div className="font-medium text-green-800 text-sm">{mision.nombre || 'Sin nombre'}</div>
-                      {mision.descripcion && (
-                        <div className="text-xs text-green-600 mt-1 line-clamp-2">{mision.descripcion}</div>
-                      )}
-                      {mision.horas && (
-                        <div className="text-xs text-green-500 mt-1">{mision.horas}h estimadas</div>
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeTab === 'actividades' && (
-              <div className="space-y-2">
-                {loadingActividades ? (
-                  <div className="text-center py-4 text-gray-500">Cargando actividades...</div>
-                ) : actividades.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">No hay actividades disponibles</div>
-                ) : (
-                  actividades.map((actividad) => (
-                    <button
-                      key={actividad.id}
-                      onClick={() => handleAddActividad(actividad)}
-                      className="w-full text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
-                    >
-                      <div className="font-medium text-blue-800 text-sm">{actividad.descripcion || 'Sin descripción'}</div>
-                      {actividad.fecha && (
-                        <div className="text-xs text-blue-600 mt-1">
-                          {new Date(actividad.fecha).toLocaleDateString('es-ES')}
-                          {actividad.hora_inicio && ` - ${actividad.hora_inicio}`}
-                        </div>
-                      )}
-                      {actividad.cant_horas && (
-                        <div className="text-xs text-blue-500 mt-1">{actividad.cant_horas}h</div>
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeTab === 'recursos' && (
-              <div className="space-y-2">
-                {loadingRecursos ? (
-                  <div className="text-center py-4 text-gray-500">Cargando recursos...</div>
-                ) : recursos.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">No hay recursos disponibles</div>
-                ) : (
-                  <>
-                    {recursos
-                      .slice(recursosPage * RECURSOS_PER_PAGE, (recursosPage + 1) * RECURSOS_PER_PAGE)
-                      .map((recurso) => (
-                        <button
-                          key={recurso.id}
-                          onClick={() => handleAddRecurso(recurso)}
-                          className="w-full text-left p-3 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-200"
-                        >
-                          <div className="flex items-center gap-2">
-                            {recurso.icono && <span className="text-lg">{recurso.icono}</span>}
-                            <div className="font-medium text-orange-800 text-sm">{recurso.nombre || 'Sin nombre'}</div>
-                          </div>
-                          {recurso.link && (
-                            <div className="text-xs text-orange-600 mt-1 truncate">{recurso.link}</div>
-                          )}
-                        </button>
-                      ))}
-
-                    {/* Paginación */}
-                    {recursos.length > RECURSOS_PER_PAGE && (
-                      <div className="flex items-center justify-between pt-2 border-t border-orange-200 mt-2">
-                        <button
-                          onClick={() => setRecursosPage(p => Math.max(0, p - 1))}
-                          disabled={recursosPage === 0}
-                          className="px-3 py-1 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
-                        >
-                          Anterior
-                        </button>
-                        <span className="text-xs text-gray-500">
-                          {recursosPage + 1} / {Math.ceil(recursos.length / RECURSOS_PER_PAGE)}
-                        </span>
-                        <button
-                          onClick={() => setRecursosPage(p => Math.min(Math.ceil(recursos.length / RECURSOS_PER_PAGE) - 1, p + 1))}
-                          disabled={recursosPage >= Math.ceil(recursos.length / RECURSOS_PER_PAGE) - 1}
-                          className="px-3 py-1 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
-                        >
-                          Siguiente
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Pizarra del usuario */}
-      <div className="w-full h-full">
-        <Pizarra
-          fullMode={true}
-          ref={pizarraRef}
-          storagePrefix={`user-${userId}`}
-          viewingUserId={userId}
-          onShowScreenshots={() => {}}
-          readOnly={isReadOnly}
-        />
-      </div>
-
-      {/* InputArea - Solo visible si puede editar */}
-      {canEdit && (
-        <InputArea
-          onCreateNote={(text) => {
-            if (pizarraRef.current) {
-              pizarraRef.current.addNoteCard(text);
-            }
-          }}
-          onCreateTodoList={(text) => {
-            if (pizarraRef.current) {
-              pizarraRef.current.addTodoCard(text);
-            }
-          }}
-          onSendToUser={(text, user) => {
-            console.log('Enviar a usuario:', user, text);
-          }}
-          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
-          placeholder="Escribe aquí para crear notas o tareas en esta pizarra..."
-        />
-      )}
-
-      {/* Info flotante */}
-      <div className="absolute bottom-4 right-4 z-50 bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg shadow-lg">
-        <p className="text-white text-sm">
-          {canEdit
-            ? `Pizarra de ${userName} - Puedes agregar notas y tareas`
-            : `Pizarra de ${userName} - Modo solo lectura`
-          }
-        </p>
-      </div>
-
-      {/* Modal de Historial de Pizarras */}
-      <Ventana
-        isOpen={showHistoryModal}
-        onClose={() => setShowHistoryModal(false)}
-        title={`Historial de Pizarras de ${userName}`}
-        initialWidth={900}
-        initialHeight={600}
-        minWidth={700}
-        minHeight={500}
-        showOverlay={true}
-      >
-        <div className="p-6">
-          {loadingHistory ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-gray-600">Cargando historial...</p>
-              </div>
-            </div>
-          ) : historialPizarras.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <History className="w-16 h-16 text-gray-300 mb-4" />
-              <p className="text-gray-500 text-lg font-medium">No hay pizarras en el historial</p>
-              <p className="text-gray-400 text-sm">Este usuario aún no tiene pizarras guardadas</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {historialPizarras.length} pizarra{historialPizarras.length !== 1 ? 's' : ''} encontrada{historialPizarras.length !== 1 ? 's' : ''}
-                </h3>
+          <div className="flex items-center gap-3">
+            {/* Mostrar controles de edición solo si puede editar */}
+            {canEdit ? (
+              <>
+                {/* Botón para agregar elementos */}
                 <button
-                  onClick={loadHistorialPizarras}
-                  className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                  onClick={() => setShowAddPanel(!showAddPanel)}
+                  className={`flex items-center gap-2 px-4 py-2 ${showAddPanel ? 'bg-green-600' : 'bg-green-500 hover:bg-green-600'} text-white rounded-lg transition-all duration-200 shadow-lg font-medium`}
                 >
-                  Actualizar
+                  <Plus className="w-5 h-5" />
+                  <span>Agregar</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showAddPanel ? 'rotate-180' : ''}`} />
                 </button>
-              </div>
-
-              <div className="grid gap-3 max-h-96 overflow-y-auto">
-                {historialPizarras.map((pizarra) => (
-                  <div
-                    key={pizarra.id}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm font-medium text-gray-900">
-                            {new Date(pizarra.created_at).toLocaleString('es-ES', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-500 space-y-1">
-                          <p>ID: {pizarra.id}</p>
-                          {pizarra.updated_at && (
-                            <p>Última actualización: {new Date(pizarra.updated_at).toLocaleString('es-ES')}</p>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        onClick={async () => {
-                          if (pizarraRef.current?.loadPizarraById) {
-                            try {
-                              await pizarraRef.current.loadPizarraById(pizarra.id);
-                              setShowHistoryModal(false);
-                            } catch (error) {
-                              console.error('Error cargando pizarra:', error);
-                              alert('Error al cargar la pizarra');
-                            }
-                          }
-                        }}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Cargar
-                      </button>
-                    </div>
+              </>
+            ) : (
+              <>
+                {/* Botón de solicitar permiso o estado pendiente */}
+                {isPending ? (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/80 text-white rounded-lg shadow-lg font-medium">
+                    <Clock className="w-5 h-5" />
+                    <span>Solicitud pendiente</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                ) : (
+                  <button
+                    onClick={requestPermission}
+                    disabled={loadingPermission}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 shadow-lg font-medium disabled:opacity-50"
+                  >
+                    <Send className="w-5 h-5" />
+                    <span>Solicitar permiso de edición</span>
+                  </button>
+                )}
+                {/* Indicador de solo lectura */}
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md text-white/80 rounded-lg shadow-lg">
+                  <Lock className="w-4 h-4" />
+                  <span className="text-sm">Solo lectura</span>
+                </div>
+              </>
+            )}
+
+            {/* Botón de historial */}
+            <button
+              onClick={() => setShowHistoryModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-200 shadow-lg font-medium"
+            >
+              <History className="w-5 h-5" />
+              <span>Ver Historial</span>
+            </button>
+          </div>
         </div>
-      </Ventana>
-    </div>
-  );
+      </div>
+
+        {/* Panel para agregar elementos - solo si puede editar */}
+        {canEdit && showAddPanel && (
+          <div className="absolute top-20 right-4 z-50 w-80 bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden">
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200">
+              <button
+                onClick={() => setActiveTab('misiones')}
+                className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${activeTab === 'misiones' ? 'bg-green-50 text-green-700 border-b-2 border-green-500' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+              >
+                <Target className="w-4 h-4" />
+                Misiones
+              </button>
+              <button
+                onClick={() => setActiveTab('actividades')}
+                className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${activeTab === 'actividades' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+              >
+                <CalendarDays className="w-4 h-4" />
+                Actividades
+              </button>
+              <button
+                onClick={() => setActiveTab('recursos')}
+                className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${activeTab === 'recursos' ? 'bg-orange-50 text-orange-700 border-b-2 border-orange-500' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+              >
+                <Link2 className="w-4 h-4" />
+                Recursos
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="max-h-80 overflow-y-auto p-3">
+              {activeTab === 'misiones' && (
+                <div className="space-y-2">
+                  {loadingMisiones ? (
+                    <div className="text-center py-4 text-gray-500">Cargando misiones...</div>
+                  ) : misiones.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">No hay misiones disponibles</div>
+                  ) : (
+                    misiones.map((mision) => (
+                      <button
+                        key={mision.id}
+                        onClick={() => handleAddMision(mision)}
+                        className="w-full text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200"
+                      >
+                        <div className="font-medium text-green-800 text-sm">{mision.nombre || 'Sin nombre'}</div>
+                        {mision.descripcion && (
+                          <div className="text-xs text-green-600 mt-1 line-clamp-2">{mision.descripcion}</div>
+                        )}
+                        {mision.horas && (
+                          <div className="text-xs text-green-500 mt-1">{mision.horas}h estimadas</div>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'actividades' && (
+                <div className="space-y-2">
+                  {loadingActividades ? (
+                    <div className="text-center py-4 text-gray-500">Cargando actividades...</div>
+                  ) : actividades.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">No hay actividades disponibles</div>
+                  ) : (
+                    actividades.map((actividad) => (
+                      <button
+                        key={actividad.id}
+                        onClick={() => handleAddActividad(actividad)}
+                        className="w-full text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                      >
+                        <div className="font-medium text-blue-800 text-sm">{actividad.descripcion || 'Sin descripción'}</div>
+                        {actividad.fecha && (
+                          <div className="text-xs text-blue-600 mt-1">
+                            {new Date(actividad.fecha).toLocaleDateString('es-ES')}
+                            {actividad.hora_inicio && ` - ${actividad.hora_inicio}`}
+                          </div>
+                        )}
+                        {actividad.cant_horas && (
+                          <div className="text-xs text-blue-500 mt-1">{actividad.cant_horas}h</div>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'recursos' && (
+                <div className="space-y-2">
+                  {loadingRecursos ? (
+                    <div className="text-center py-4 text-gray-500">Cargando recursos...</div>
+                  ) : recursos.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">No hay recursos disponibles</div>
+                  ) : (
+                    <>
+                      {recursos
+                        .slice(recursosPage * RECURSOS_PER_PAGE, (recursosPage + 1) * RECURSOS_PER_PAGE)
+                        .map((recurso) => (
+                          <button
+                            key={recurso.id}
+                            onClick={() => handleAddRecurso(recurso)}
+                            className="w-full text-left p-3 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-200"
+                          >
+                            <div className="flex items-center gap-2">
+                              {recurso.icono && <span className="text-lg">{recurso.icono}</span>}
+                              <div className="font-medium text-orange-800 text-sm">{recurso.nombre || 'Sin nombre'}</div>
+                            </div>
+                            {recurso.link && (
+                              <div className="text-xs text-orange-600 mt-1 truncate">{recurso.link}</div>
+                            )}
+                          </button>
+                        ))}
+
+                      {/* Paginación */}
+                      {recursos.length > RECURSOS_PER_PAGE && (
+                        <div className="flex items-center justify-between pt-2 border-t border-orange-200 mt-2">
+                          <button
+                            onClick={() => setRecursosPage(p => Math.max(0, p - 1))}
+                            disabled={recursosPage === 0}
+                            className="px-3 py-1 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+                          >
+                            Anterior
+                          </button>
+                          <span className="text-xs text-gray-500">
+                            {recursosPage + 1} / {Math.ceil(recursos.length / RECURSOS_PER_PAGE)}
+                          </span>
+                          <button
+                            onClick={() => setRecursosPage(p => Math.min(Math.ceil(recursos.length / RECURSOS_PER_PAGE) - 1, p + 1))}
+                            disabled={recursosPage >= Math.ceil(recursos.length / RECURSOS_PER_PAGE) - 1}
+                            className="px-3 py-1 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Pizarra del usuario */}
+        <div className="w-full h-full">
+          <Pizarra
+            fullMode={true}
+            ref={pizarraRef}
+            storagePrefix={`user-${userId}`}
+            viewingUserId={userId}
+            onShowScreenshots={() => { }}
+            readOnly={isReadOnly}
+          />
+        </div>
+
+        {/* InputArea - Solo visible si puede editar */}
+        {canEdit && (
+          <InputArea
+            onCreateNote={(text) => {
+              if (pizarraRef.current) {
+                pizarraRef.current.addNoteCard(text);
+              }
+            }}
+            onCreateTodoList={(text) => {
+              if (pizarraRef.current) {
+                pizarraRef.current.addTodoCard(text);
+              }
+            }}
+            onSendToUser={(text, user) => {
+              console.log('Enviar a usuario:', user, text);
+            }}
+            className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
+            placeholder="Escribe aquí para crear notas o tareas en esta pizarra..."
+          />
+        )}
+
+        {/* Info flotante */}
+        <div className="absolute bottom-4 right-4 z-50 bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg shadow-lg">
+          <p className="text-white text-sm">
+            {canEdit
+              ? `Pizarra de ${userName} - Puedes agregar notas y tareas`
+              : `Pizarra de ${userName} - Modo solo lectura`
+            }
+          </p>
+        </div>
+
+        {/* Modal de Historial de Pizarras */}
+        <Ventana
+          isOpen={showHistoryModal}
+          onClose={() => setShowHistoryModal(false)}
+          title={`Historial de Pizarras de ${userName}`}
+          initialWidth={900}
+          initialHeight={600}
+          minWidth={700}
+          minHeight={500}
+          showOverlay={true}
+        >
+          <div className="p-6">
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-gray-600">Cargando historial...</p>
+                </div>
+              </div>
+            ) : historialPizarras.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <History className="w-16 h-16 text-gray-300 mb-4" />
+                <p className="text-gray-500 text-lg font-medium">No hay pizarras en el historial</p>
+                <p className="text-gray-400 text-sm">Este usuario aún no tiene pizarras guardadas</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {historialPizarras.length} pizarra{historialPizarras.length !== 1 ? 's' : ''} encontrada{historialPizarras.length !== 1 ? 's' : ''}
+                  </h3>
+                  <button
+                    onClick={loadHistorialPizarras}
+                    className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                  >
+                    Actualizar
+                  </button>
+                </div>
+
+                <div className="grid gap-3 max-h-96 overflow-y-auto">
+                  {historialPizarras.map((pizarra) => (
+                    <div
+                      key={pizarra.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Calendar className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm font-medium text-gray-900">
+                              {new Date(pizarra.created_at).toLocaleString('es-ES', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 space-y-1">
+                            <p>ID: {pizarra.id}</p>
+                            {pizarra.updated_at && (
+                              <p>Última actualización: {new Date(pizarra.updated_at).toLocaleString('es-ES')}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (pizarraRef.current?.loadPizarraById) {
+                              try {
+                                await pizarraRef.current.loadPizarraById(pizarra.id);
+                                setShowHistoryModal(false);
+                              } catch (error) {
+                                console.error('Error cargando pizarra:', error);
+                                alert('Error al cargar la pizarra');
+                              }
+                            }
+                          }}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Cargar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Ventana>
+      </div>
+      );
 }

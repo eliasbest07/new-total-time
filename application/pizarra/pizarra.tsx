@@ -151,6 +151,19 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   const [cardZIndices, setCardZIndices] = useState<{ [cardId: string]: number }>({});
   const [maxZIndex, setMaxZIndex] = useState(1);
 
+  // [DEBUG] Contador de cards en localStorage
+  const [lsCardCount, setLsCardCount] = useState<number>(0);
+  useEffect(() => {
+    try {
+      const lsKey = `pizarra-${storagePrefix}-cards-v1`;
+      const raw = localStorage.getItem(lsKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setLsCardCount(Array.isArray(parsed) ? parsed.length : -1);
+    } catch {
+      setLsCardCount(-1);
+    }
+  }, [cards, storagePrefix]); // se recalcula cada vez que cards cambia
+
   // Estado de zoom (1 = 100%)
   const [zoomLevel, setZoomLevel] = useState(1);
   const MIN_ZOOM = 0.25;
@@ -352,8 +365,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
       if (!shouldSync) {
         // Marcar como inicializado incluso si no hay cards que sincronizar
-        if (!isInitialized && pizarraActual) {
-          console.log('✅ [PIZARRA] Marcando pizarra como inicializada (sin cards en DB)');
+        // SOLO si ya terminaron de cargar
+        if (!isInitialized && pizarraActual && !loadingCards) {
+          console.log('✅ [PIZARRA] Marcando pizarra como inicializada (sin cards en DB y carga terminada)');
           setIsInitialized(true);
         }
         return;
@@ -403,7 +417,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     };
 
     performSync();
-  }, [cardsDB, pizarraActual, usuario, isViewingOtherUser, isInitialized, isOrganizacionPizarra]);
+  }, [cardsDB, pizarraActual, usuario, isViewingOtherUser, isInitialized, isOrganizacionPizarra, loadingCards]);
 
   // Mostrar toast de "Sincronizado" brevemente después de cargar
   useEffect(() => {
@@ -554,15 +568,18 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   // Filtrar cards de misión: solo mostrar las asignadas al usuario logueado
   // En la pizarra de organización todos los miembros ven todos los cards
   const filteredCards = useMemo(() => {
+    console.log('🔍 [PIZARRA RENDER] Calculando filteredCards. Total cards:', cards.length);
     if (!currentUserNumericId) return cards;
     if (isOrganizacionPizarra) return cards;
-    return cards.filter(card => {
+    const filtered = cards.filter(card => {
       const isMision = card.type === 'mision' || card.type === 'mision-organizacion';
       if (!isMision) return true;
       if (!card.misionData) return true;
       if (!card.misionData.id_usuario_asignado) return true;
       return card.misionData.id_usuario_asignado === currentUserNumericId;
     });
+    console.log('🔍 [PIZARRA RENDER] Cards filtradas:', filtered.length);
+    return filtered;
   }, [cards, currentUserNumericId, isOrganizacionPizarra]);
 
   // Hook para lazy loading de cards - solo renderiza cards visibles en el viewport
@@ -1273,6 +1290,21 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }, [cards]);
 
   const deleteCard = useCallback(async (cardId: string) => {
+    // ─── DEBUG ELIMINACION ───────────────────────────────────────────
+    const cardToDelete = cards.find(c => c.id === cardId);
+    console.group(`🗑️ [DEBUG ELIMINACION] Card: "${cardId}"`);
+    console.log('[DEBUG ELIMINACION] Tipo:', cardToDelete?.type ?? 'desconocido');
+    console.log('[DEBUG ELIMINACION] Cards en estado ANTES:', cards.length, cards.map(c => c.id));
+
+    // Verificar localStorage ANTES
+    const lsKey = `pizarra-${storagePrefix}-cards-v1`;
+    const lsBefore = localStorage.getItem(lsKey);
+    const lsCardsBefore = lsBefore ? JSON.parse(lsBefore) : [];
+    const existsInLS = lsCardsBefore.some((c: any) => c.id === cardId);
+    console.log('[DEBUG ELIMINACION] ¿Existe en localStorage ANTES?:', existsInLS, `(key: ${lsKey})`);
+    console.log('[DEBUG ELIMINACION] Cards en localStorage ANTES:', lsCardsBefore.length, lsCardsBefore.map((c: any) => c.id));
+    // ────────────────────────────────────────────────────────────────
+
     if (pastedImages[cardId]) {
       URL.revokeObjectURL(pastedImages[cardId]);
       setPastedImages(prev => {
@@ -1283,7 +1315,6 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     }
 
     // Limpiar del tracking de misiones verificadas y conexiones auto-creadas
-    const cardToDelete = cards.find(c => c.id === cardId);
     if (cardToDelete?.misionData?.id_mision) {
       const misionKey = `${cardId}-${cardToDelete.misionData.id_mision}`;
       verifiedMisionesRef.current.delete(misionKey);
@@ -1304,7 +1335,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       conn.from !== cardId && conn.to !== cardId
     ));
 
-    console.log('🗑️ Card eliminada junto con sus conexiones:', cardId);
+    console.log('[DEBUG ELIMINACION] Conexiones a eliminar:', connectionsToDelete.length, connectionsToDelete.map(c => c.id));
 
     // Disparar evento si se elimina un TODO card (async para evitar conflictos de render)
     if (cardToDelete?.type === 'todo') {
@@ -1333,10 +1364,18 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     }
 
     // Eliminar solo localmente (no eliminar de Supabase automáticamente)
-    setCards(prev => prev.filter(card => card.id !== cardId));
+    setCards(prev => {
+      const next = prev.filter(card => card.id !== cardId);
+      console.log('[DEBUG ELIMINACION] Cards en estado DESPUES:', next.length, next.map(c => c.id));
+      console.log('[DEBUG ELIMINACION] ¿Card sigue en estado?:', next.some(c => c.id === cardId));
+      console.log('[DEBUG ELIMINACION] localStorage se actualizará automáticamente en ~1s con el nuevo estado');
+      console.log('[DEBUG ELIMINACION] Supabase se actualizará en el próximo auto-save (2s debounce): la card se eliminará de la BD al guardar');
+      console.groupEnd();
+      return next;
+    });
     setConfirmDelete(null);
     setConfigOpenCard(null);
-  }, [pastedImages, setPastedImages, cards, setConnections]);
+  }, [pastedImages, setPastedImages, cards, setConnections, storagePrefix]);
 
   // Función para abrir ventana de chat desde UsuarioCard
   const handleOpenUserChat = useCallback((userData: {
@@ -1434,6 +1473,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
   // Funciones públicas expuestas via ref
   const addNoteCard = useCallback((text: string, position?: { x: number; y: number }) => {
+    console.log('📝 [DEBUG CARGA ORGANIZACION] addNoteCard llamado:', text);
     const existingIds = cards.map(card => card.id);
 
     // Calcular tamaño basado en el texto
@@ -1525,6 +1565,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }, [cards, panOffset, canvasRef, getNextZIndex]);
 
   const addTodoCard = useCallback((text?: string) => {
+    console.log('📝 [DEBUG CARGA ORGANIZACION] addTodoCard llamado:', text);
     const existingIds = cards.map(card => card.id);
 
     // Calcular tamaño basado en el texto inicial
@@ -1579,7 +1620,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     color?: string;
     online?: boolean;
   }) => {
-    console.log('🔵 addUsuarioCard llamado:', userData.name, userData.userId);
+    console.log('🔵 [DEBUG CARGA ORGANIZACION] addUsuarioCard llamado:', userData.name, userData.userId);
     console.log('🔵 Ref actual antes de verificar:', Array.from(addedUsersRef.current));
 
     // Verificar primero en el ref (para llamadas rápidas)
@@ -1914,6 +1955,10 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     usuario_asignado_nombre?: string;
     usuario_asignado_avatar?: string;
   }): string => {
+    console.group('🔧 [DEBUG CARGA ORGANIZACION] addMisionCardOrganizacion');
+    console.log('Datos recibidos:', misionData);
+    console.log('Cards existentes (antes):', cards.length);
+
     const existingIds = cards.map(card => card.id);
 
     // Calcular el centro visible de la pizarra
@@ -1976,7 +2021,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     // Actualizar cardZIndices para que se renderice correctamente
     setCardZIndices(prev => ({ ...prev, [newCardId]: nextZIndex }));
 
-    console.log('✅ Misión card creada en pizarra:', newCardId);
+    console.log('✅ [DEBUG CARGA ORGANIZACION] Misión card creada:', newCardId);
+    console.log('   Tipo:', newCard.type);
+    console.groupEnd();
     setCards(prev => [...prev, newCard]);
     return newCardId; // Retornar el ID del card creado
   }, [cards, panOffset, canvasRef, pizarra, getNextZIndex]);
@@ -2238,9 +2285,10 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     }
 
     try {
-      console.log('💾 Guardando  en Supabase...');
-      console.log('   - ID Usuario (UUID):', usuario.userAuth);
-      console.log('   - Cards a guardar:', cards.length);
+      console.group('💾 [DEBUG CARGA ORGANIZACION] saveToSupabase');
+      console.log('Usuario UUID:', usuario.userAuth);
+      console.log('Cards a guardar:', cards.length);
+      console.log('Tipos:', cards.map(c => c.type));
 
       // 1. Verificar/Obtener la pizarra del día
       console.log('   - Obteniendo pizarra del día...');
@@ -2272,11 +2320,14 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         .select('id, card_id')
         .eq('id_pizarra', pizarraActual.id);
 
+      // ❌ COLUMNA ELIMINADA: id_proyecto ya no existe en la tabla cards
+      /*
       if (isOrganizacionPizarra) {
         cardsQuery = currentProjectId === null
           ? cardsQuery.is('id_proyecto', null)
           : cardsQuery.eq('id_proyecto', currentProjectId);
       }
+      */
 
       const { data: cardsEnBD, error: cardsError } = await cardsQuery;
 
@@ -2285,7 +2336,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         return false;
       }
 
-      const currentCardsInDB = (cardsEnBD || []).map((c: any) => c.card_id);
+      const currentCardsInDB = (cardsEnBD || [])
+        .map((c: any) => c.card_id)
+        .filter((id: any) => id !== undefined && id !== null);
 
       // Crear un mapa de card_id (frontend) → id (UUID de BD) para las operaciones relacionadas
       const cardIdToUUID = new Map<string, string>();
@@ -2294,22 +2347,50 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       });
 
       // 4. Eliminar cards que ya no existen localmente
-      console.log('   - Eliminando cards obsoletas...');
       const cardsToDelete = currentCardsInDB.filter(dbCardId =>
         !cards.some(localCard => localCard.id === dbCardId)
       );
 
+      console.group(`🗑️ [DEBUG ELIMINACION] Sync Supabase - pizarra: ${pizarraActual.id}`);
+      console.log('[DEBUG ELIMINACION] Cards en BD:', currentCardsInDB.length, currentCardsInDB);
+      console.log('[DEBUG ELIMINACION] Cards en estado local:', cards.length, cards.map(c => c.id));
+      console.log('[DEBUG ELIMINACION] Cards a eliminar de BD:', cardsToDelete.length, cardsToDelete);
+      console.groupEnd();
+
       for (const cardId of cardsToDelete) {
-        const { error: deleteError } = await supabase
-          .from('cards')
-          .delete()
-          .eq('id_pizarra', pizarraActual.id)
-          .eq('card_id', cardId);
+        const cardUUID = cardIdToUUID.get(cardId);
+        console.log(`[DEBUG ELIMINACION] Eliminando de Supabase → card_id: ${cardId} | UUID: ${cardUUID ?? 'NO ENCONTRADO'}`);
+
+        let deleteQuery;
+        if (cardUUID) {
+          console.log(`[DEBUG ELIMINACION] Eliminando por UUID: ${cardUUID} (Pizarra: ${pizarraActual.id})`);
+          deleteQuery = supabase
+            .from('cards')
+            .delete()
+            .eq('id', cardUUID)
+            .eq('id_pizarra', pizarraActual.id) // Refuerzo: scoping por pizarra
+            .select();
+        } else {
+          console.warn(`[DEBUG ELIMINACION] ⚠️ No se encontró UUID para ${cardId}, usando card_id + id_pizarra`);
+          deleteQuery = supabase
+            .from('cards')
+            .delete()
+            .eq('card_id', cardId)
+            .eq('id_pizarra', pizarraActual.id) // CRÍTICO: Evitar borrado global por card_id
+            .select();
+        }
+
+        const { data: deletedData, error: deleteError } = await deleteQuery;
 
         if (deleteError) {
-          console.error('❌ Error eliminando card:', cardId, deleteError);
+          console.error(`[DEBUG ELIMINACION] ❌ Error eliminando de BD: ${cardId}`, deleteError);
         } else {
-          console.log('🗑️ Card eliminada de Supabase:', cardId);
+          const deletedCount = deletedData?.length || 0;
+          if (deletedCount === 0) {
+            console.warn(`[DEBUG ELIMINACION] ⚠️ BORRADO SILENCIOSO - 0 filas afectadas para ${cardId} (UUID: ${cardUUID}). POSIBLE BLOQUEO RLS.`);
+          } else {
+            console.log(`[DEBUG ELIMINACION] ✅ Eliminado de Supabase: ${cardId} | Filas afectadas: ${deletedCount}`);
+          }
         }
       }
 
@@ -2321,6 +2402,9 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         if (cardExists) {
           // Actualizar card existente
           const cardData = mapCardToCardDB(card, pizarraActual.id, currentProjectId);
+          // ❌ COLUMNA ELIMINADA: id_proyecto ya no existe en la tabla cards
+          // delete (cardData as any).id_proyecto;
+
           const { error: updateError } = await supabase
             .from('cards')
             .update(cardData)
@@ -2328,7 +2412,13 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
             .eq('card_id', card.id);
 
           if (updateError) {
-            console.error('❌ Error actualizando card:', card.id, updateError);
+            // Si el error es un objeto vacío (común en Supabase cuando no hay cambios o race conditions)
+            if (Object.keys(updateError).length === 0) {
+              console.warn('⚠️ Update contestado con error vacío (posible race condition/sin cambios):', card.id);
+            } else {
+              console.error('❌ Error actualizando card:', card.id, JSON.stringify(updateError, null, 2));
+              showError(`Error actualizando card: ${JSON.stringify(updateError)}`);
+            }
           } else {
             console.log('   ✏️ Card actualizada:', card.id);
           }
@@ -2420,11 +2510,13 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         } else {
           // Crear nueva card
           const cardData = mapCardToCardDB(card, pizarraActual.id, currentProjectId);
-          console.log('📝 [CREAR CARD] Intentando crear card:', {
+          // ❌ COLUMNA ELIMINADA: id_proyecto ya no existe en la tabla cards
+          // delete (cardData as any).id_proyecto;
+
+          console.log('📝 [CREAR CARD] Intentando crear/actualizar card (upsert):', {
             card_id: card.id,
             type: card.type,
-            pizarraId: pizarraActual.id,
-            id_pizarra_en_cardData: cardData.id_pizarra
+            pizarraId: pizarraActual.id
           });
 
           const { data: createdCard, error: createError } = await supabase
@@ -2434,64 +2526,31 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
             .single();
 
           if (createError) {
-            // Si es un error de duplicado (23505), intentar actualizar en lugar de insertar
-            if (createError.code === '23505') {
-              console.log('⚠️ Card ya existe, actualizando en lugar de crear:', card.id);
-              const { data: updatedCard, error: updateError } = await supabase
-                .from('cards')
-                .update(cardData)
-                .eq('id_pizarra', pizarraActual.id)
-                .eq('card_id', card.id)
-                .select()
-                .single();
-
-              if (updateError) {
-                console.error('❌ Error actualizando card duplicada:', card.id, updateError);
-                continue;
-              } else {
-                console.log('   ✏️ Card duplicada actualizada exitosamente:', card.id);
-
-                // Para cards de tipo proyecto/proyecto-organizacion, asegurar que existe la relación card_proyectos
-                if (updatedCard && (card.type === 'proyecto' || card.type === 'proyecto-organizacion') && card.proyectoData?.id) {
-                  const { SupabaseCardProyectoRepository } = await import('@/infrastructure/datasource/SupabaseCardProyectoRepository');
-                  const cardProyectoRepo = new SupabaseCardProyectoRepository();
-
-                  // Verificar si ya existe la relación
-                  const existingRelation = await cardProyectoRepo.getByCardId(updatedCard.id);
-
-                  if (!existingRelation) {
-                    // Crear la relación si no existe
-                    await cardProyectoRepo.create({
-                      id_card: updatedCard.id,
-                      id_proyecto: card.proyectoData.id
-                    });
-                    console.log('✅ [PROYECTO-DUPLICADO] Relación card-proyecto creada para proyecto ID:', card.proyectoData.id);
-                  } else {
-                    console.log('ℹ️ [PROYECTO-DUPLICADO] Relación card-proyecto ya existe');
-                  }
-                }
-
-                continue;
-              }
-            } else {
-              console.error('❌ Error creando card:', card.id);
-              console.error('   Error completo:', JSON.stringify(createError, null, 2));
-              console.error('   Datos enviados:', JSON.stringify(cardData, null, 2));
-              // No continuar si hay error
+            // Error 23505 = duplicate key: la card ya fue insertada por otra instancia de auto-save (race condition).
+            // Se ignora silenciosamente porque la card ya existe en la BD.
+            if ((createError as any).code === '23505') {
+              console.warn('⚠️ [RACE CONDITION] Card ya existe en BD (doble auto-save), ignorando:', card.id);
               continue;
             }
+            console.error('❌ Error insertando card:', card.id);
+            console.error('   Error completo:', JSON.stringify(createError, null, 2));
+            showError(`Error guardando card nueva: ${JSON.stringify(createError)}`);
+            continue;
           } else {
-            console.log('   ➕ Card creada exitosamente:', card.id);
+            console.log('   ➕/✏️ Card guardada:', card.id);
 
-            // Si es una misión, crear también su entrada en card_misiones
+            // Si es una misión, crear su entrada en card_misiones solo si no existe
             if (createdCard && (card.type === 'mision' || card.type === 'mision-organizacion') && card.misionData?.id_mision) {
               const cardMisionRepo = new SupabaseCardMisionRepository();
-              await cardMisionRepo.create({
-                id_card: createdCard.id,
-                id_mision: typeof card.misionData.id_mision === 'string' ? parseInt(card.misionData.id_mision) : card.misionData.id_mision,
-                is_running: card.misionData.isRunning || false,
-                last_capture_url: card.misionData.lastCaptureUrl || null
-              });
+              const existingMision = await cardMisionRepo.getByCardId(createdCard.id);
+              if (!existingMision) {
+                await cardMisionRepo.create({
+                  id_card: createdCard.id,
+                  id_mision: typeof card.misionData.id_mision === 'string' ? parseInt(card.misionData.id_mision) : card.misionData.id_mision,
+                  is_running: card.misionData.isRunning || false,
+                  last_capture_url: card.misionData.lastCaptureUrl || null
+                });
+              }
             }
 
             // Si es una actividad, crear también su entrada en card_actividades
@@ -2518,18 +2577,21 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
               });
             }
 
-            // Si es un usuario, crear también su entrada en card_usuarios
+            // Si es un usuario, crear su entrada en card_usuarios solo si no existe
             if (createdCard && card.type === 'usuario' && card.usuarioData) {
               const { SupabaseCardUsuarioRepository } = await import('@/infrastructure/datasource/SupabaseCardUsuarioRepository');
               const cardUsuarioRepo = new SupabaseCardUsuarioRepository();
-              await cardUsuarioRepo.create({
-                id_card: createdCard.id,
-                user_id: card.usuarioData.userId,
-                name: card.usuarioData.name || null,
-                avatar: card.usuarioData.avatar || null,
-                color: card.usuarioData.color || null,
-                online: card.usuarioData.online || false
-              });
+              const existingUsuario = await cardUsuarioRepo.getByCardId(createdCard.id);
+              if (!existingUsuario) {
+                await cardUsuarioRepo.create({
+                  id_card: createdCard.id,
+                  user_id: card.usuarioData.userId,
+                  name: card.usuarioData.name || null,
+                  avatar: card.usuarioData.avatar || null,
+                  color: card.usuarioData.color || null,
+                  online: card.usuarioData.online || false
+                });
+              }
             }
 
             // Si es una card de tipo todo, crear sus todos en card_todos
@@ -2655,10 +2717,11 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         saveHistorySnapshot(todayDate, cards);
       }
 
-      console.log('✅ Pizarra guardada exitosamente');
+      console.log('✅ [DEBUG CARGA ORGANIZACION] Guardado en Supabase completado');
       console.log('   - ID Pizarra:', pizarraActual.id);
       console.log('   - Cards guardadas:', cards.length);
       console.log('   - Conexiones guardadas:', connections.length);
+      console.groupEnd();
 
       // Enviar mensaje de actualización si estamos editando la pizarra de otro usuario
       console.log('🔍 [GUARDAR] Verificando si enviar mensaje:', {
@@ -2693,7 +2756,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   // Solo se activa si: autoSave está habilitado, NO es pizarra ajena, NO es read-only, y está inicializado
   // IMPORTANTE: Pasamos cards y connections directamente - el hook calcula el hash
   const { hasUnsavedChanges, isSaving, lastSaved } = useAutoSave({
-    enabled: autoSave && canEditBoard && !isOrganizacionPizarra && isInitialized,
+    enabled: autoSave && canEditBoard && isInitialized,
     data: { cards, connections }, // El hook stringify esto internamente
     onSave: saveToSupabase,
     debounceMs: 2000 // 2 segundos de debounce
@@ -3544,6 +3607,38 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     console.log('✅ [updateCardFromRef] Card actualizado');
   }, [setCards]);
 
+  // ✅ Función para borrar TODA la pizarra
+  // Funciona igual que deleteCard: vacía el estado local y deja que el
+  // auto-save (saveToSupabase) borre las cards de Supabase una por una,
+  // lo que SÍ pasa el RLS (igual que el borrado individual de cards).
+  const clearAll = useCallback(async () => {
+    console.group('🧹 [clearAll] Limpiando toda la pizarra');
+    console.log('[clearAll] Cards actuales en estado:', cards.length, cards.map(c => c.id));
+
+    // 1. Limpiar pastedImages (URLs de objeto para evitar memory leaks)
+    Object.values(pastedImages).forEach(url => {
+      try { URL.revokeObjectURL(url); } catch (_) { }
+    });
+    setPastedImages({});
+
+    // 2. Resetear tracking de conexiones automáticas
+    autoConnectionsRef.current.clear();
+    verifiedMisionesRef.current.clear();
+
+    // 3. Vaciar conexiones localmente
+    setConnections([]);
+
+    // 4. Vaciar cards localmente — el auto-save detectará que
+    //    estas cards ya no existen y las borrará de Supabase card por card
+    setCards([]);
+
+    // 5. Limpiar localStorage ahora (no esperar al auto-save de localStorage)
+    clearLocalStorage();
+
+    console.log('[clearAll] Estado local limpiado. Supabase se actualizará en el próximo auto-save (~2s).');
+    console.groupEnd();
+  }, [pastedImages, setPastedImages, clearLocalStorage, setConnections, cards]);
+
   useImperativeHandle(ref, () => ({
     addNoteCard,
     addTodoCard,
@@ -3552,6 +3647,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     addMisionCard,
     restoreCard,
     clearStorage: clearLocalStorage,
+    clearAll, // ✅ Borra todo: DB + local + localStorage
     exportStorage: exportToJSON,
     importStorage: importFromJSON,
     saveToSupabase,
@@ -3559,11 +3655,11 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     loadPizarraById,
     addConnection,
     removeConnectionBetween,
-    centerOnCard: navigateToCardWrapper, // navigateToCard funciona como centerOnCard
+    centerOnCard: navigateToCardWrapper,
     findCardByMisionId: findCardByMisionIdWrapper,
     updateCardId,
     updateCard: updateCardFromRef
-  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, addMisionCard, restoreCard, clearLocalStorage, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCardWrapper, findCardByMisionIdWrapper, updateCardId, updateCardFromRef]);
+  }), [addNoteCard, addTodoCard, addUsuarioCard, addMisionCardOrganizacion, addMisionCard, restoreCard, clearLocalStorage, clearAll, exportToJSON, importFromJSON, saveToSupabase, loadFromSupabase, loadPizarraById, addConnection, removeConnectionBetween, navigateToCardWrapper, findCardByMisionIdWrapper, updateCardId, updateCardFromRef]);
 
   // Renderizar indicador de guardado
   const renderSaveIndicator = () => {

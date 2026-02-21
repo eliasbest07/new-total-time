@@ -230,6 +230,7 @@ export const CardWrapperComponent: React.FC<CardWrapperProps> = React.memo((prop
       {/* Delete confirmation modal */}
       {props.confirmDelete === card.id && (
         <DeleteConfirmModal
+          cardId={card.id}
           onConfirm={() => props.deleteCard(card.id)}
           onCancel={() => props.setConfirmDelete(null)}
         />

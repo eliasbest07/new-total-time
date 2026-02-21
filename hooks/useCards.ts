@@ -36,7 +36,8 @@ export const useCards = (
   idProyectoFilter?: number | null
 ): UseCardsReturn => {
   const [cards, setCards] = useState<CardDB[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Iniciar loading en true si se va a cargar automáticamente, para evitar race conditions
+  const [loading, setLoading] = useState(!skipInitialLoad);
   const [error, setError] = useState<string | null>(null);
 
   const cardRepository = useRef(new SupabaseCardRepository());
@@ -62,6 +63,11 @@ export const useCards = (
       const cardsData = await cardRepository.current.getCardsByPizarra(idPizarra, idProyectoFilter);
       console.log(`🃏 Cards de pizarra actual: ${cardsData.length}`);
 
+      // [MODIFICADO] NO Cargar cards persistentes de otras pizarras
+      // El usuario solicitó que las cards persistentes NO se vean en las dos pizarras.
+      const allCards = cardsData;
+
+      /* LOGICA ANTERIOR COMENTADA:
       // Cargar cards persistentes de otras pizarras del usuario
       let allCards = cardsData;
       console.log(`🔍 currentUserId para buscar persistentes: ${currentUserId}`);
@@ -95,6 +101,7 @@ export const useCards = (
       } else {
         console.log('⚠️ No hay currentUserId, no se buscan cards persistentes');
       }
+      */
 
       setCards(allCards);
     } catch (err) {
@@ -188,17 +195,23 @@ export const useCards = (
   const deleteAllCards = useCallback(async (): Promise<boolean> => {
     if (!idPizarra) return false;
 
+    // TODO: Implementar un endpoint de "deleteAll" en el backend que maneje esto atómicamente
+    // Por ahora, eliminamos una por una para aprovechar la lógica de deleteCard (que ya maneja persistencia, etc.)
+    // y para asegurarnos de que funciona aunque falle el borrado masivo por RLS
     try {
-      const eliminadas = await cardRepository.current.deleteAllCards(idPizarra);
-      if (eliminadas) {
-        setCards([]);
-      }
-      return eliminadas;
+      console.log(`🗑️ Eliminando todas las cards (${cards.length}) individualmente...`);
+
+      const promises = cards.map(card => deleteCard(card.card_id));
+      await Promise.all(promises);
+
+      // Forzar limpieza del estado local
+      setCards([]);
+      return true;
     } catch (err) {
       console.error('❌ Error eliminando todas las cards:', err);
       return false;
     }
-  }, [idPizarra]);
+  }, [cards, deleteCard, idPizarra]);
 
   // Función para toggle persistencia de una card
   const togglePersistent = useCallback(async (cardId: string, isPersistent: boolean): Promise<boolean> => {
@@ -248,7 +261,8 @@ export const useCards = (
           filter: `id_pizarra=eq.${idPizarra}`
         },
         async (payload) => {
-          // En pizarras de organización, ignorar eventos de otros proyectos
+          // ❌ COLUMNA ELIMINADA: id_proyecto ya no existe en la tabla cards
+          /*
           if (idProyectoFilter !== undefined) {
             const row = (payload.new || payload.old) as { id_proyecto?: number | null } | null;
             const rowProjectId = row?.id_proyecto ?? null;
@@ -256,6 +270,7 @@ export const useCards = (
               return;
             }
           }
+          */
 
           // console.log('📡 Cambio detectado en cards:', payload.eventType);
 

@@ -368,7 +368,7 @@ export default function MainScreen() {
       <div className="mb-8 px-2 z-30 pointer-events-auto w-fit">
         <Perfil
           showPizarraControls={true}
-          onClearStorage={() => pizarraRef.current?.clearStorage?.()}
+          onClearStorage={async () => await pizarraRef.current?.clearAll?.()}
           onExportJSON={() => pizarraRef.current?.exportStorage?.()}
           onImportJSON={(content) => pizarraRef.current?.importStorage?.(content)}
           onSaveToSupabase={async () => {
@@ -889,9 +889,9 @@ export default function MainScreen() {
                           badge: 'bg-green-500 text-white',
                           text: 'text-green-900'
 
-                          
+
                         };
-                        
+
                       case 'Proyecto':
                         return {
                           bg: 'bg-indigo-50',

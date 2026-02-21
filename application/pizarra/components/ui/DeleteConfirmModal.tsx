@@ -3,9 +3,10 @@ import React from 'react';
 interface DeleteConfirmModalProps {
   onConfirm: () => void;
   onCancel: () => void;
+  cardId?: string;
 }
 
-export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({ onConfirm, onCancel }) => {
+export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({ onConfirm, onCancel, cardId }) => {
   return (
     <div
       className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 rounded-lg"
@@ -13,6 +14,11 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({ onConfir
     >
       <div className="bg-white p-4 rounded-lg shadow-xl max-w-xs">
         <h3 className="text-gray-800 font-semibold mb-2">¿Eliminar card?</h3>
+        {cardId && (
+          <p className="text-gray-400 text-xs font-mono bg-gray-100 rounded px-2 py-1 mb-2 break-all select-all">
+            🪲 ID: {cardId}
+          </p>
+        )}
         <p className="text-gray-600 text-sm mb-4">Esta acción no se puede deshacer.</p>
         <div className="flex gap-2">
           <button
@@ -29,6 +35,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({ onConfir
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              console.log('🗑️ [DELETE] Confirmando eliminar card con ID:', cardId);
               onConfirm();
             }}
             className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm"

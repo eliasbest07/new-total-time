@@ -175,6 +175,7 @@ export interface PizarraRef {
   }) => void;
   updateCardId?: (oldId: string, newId: string) => void;
   clearStorage?: () => void;
+  clearAll?: () => Promise<void>; // ✅ Borra todo: DB + estado local + localStorage
   exportStorage?: () => void;
   importStorage?: (content: string) => void;
   saveToSupabase?: () => Promise<boolean | undefined>;

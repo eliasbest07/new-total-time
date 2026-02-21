@@ -743,14 +743,11 @@ export function shouldSyncFromDB(params: ShouldSyncParams): boolean {
       return true;
     }
 
-    // Si ya está inicializado PERO no hay cards locales y SÍ hay en Supabase, sincronizar
-    if (cardsLocal.length === 0 && cardsDB.length > 0) {
-      console.log('🔄 [shouldSyncFromDB] Hay cards en Supabase pero pizarra local vacía, sincronizando:', cardsDB.length, 'cards → SÍ sincronizar');
-      return true;
-    }
-
-    // Si ya está inicializado y hay cards locales, NO sincronizar (para evitar sobrescribir cambios locales)
-    console.log('✅ [shouldSyncFromDB] Pizarra ya inicializada con', cardsLocal.length, 'cards locales → NO sincronizar');
+    // ✅ FIX: Una vez inicializada, el estado local ES la fuente de verdad.
+    // NO re-importar aunque el estado local esté vacío: el usuario puede haber
+    // borrado todas las cards intencionalmente. El auto-save se encarga de
+    // sincronizar los borrados hacia Supabase.
+    console.log('✅ [shouldSyncFromDB] Pizarra ya inicializada → NO sincronizar (estado local es fuente de verdad)');
     return false;
   } else {
     // Para pizarras compartidas, SIEMPRE sincronizar

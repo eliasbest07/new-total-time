@@ -71,7 +71,8 @@ export function mapCardToCardDB(card: Card, idPizarra: string, idProyecto?: numb
 
   return {
     id_pizarra: idPizarra,
-    id_proyecto: idProyecto ?? null,
+    // ❌ COLUMNA ELIMINADA: id_proyecto ya no existe en la tabla cards
+    // id_proyecto: idProyecto ?? null,
     card_id: card.id,
     type: card.type,
     title: card.title,
