@@ -1,0 +1,71 @@
+[
+  {
+    "action": "create_note",
+    "note": {
+      "titulo": "Requisitos del Proyecto",
+      "contenido": "Especificación completa de features a implementar"
+    }
+  },
+  {
+    "action": "create_todo",
+    "todo": {
+      "nombre": "Implementar Autenticación",
+      "descripcion": "Setup JWT + validación en backend"
+    }
+  },
+  {
+    "action": "create_mision",
+    "mision": {
+      "nombre": "Backend - Sprint 25",
+      "descripcion": "Implementar APIs de autenticación y perfil de usuario",
+      "horas": 40,
+      "estado": "activa"
+    }
+  },
+  {
+    "action": "create_actividad",
+    "actividad": {
+      "descripcion": "Daily Standup",
+      "fecha": "2024-02-26",
+      "hora_inicio": "09:30",
+      "cant_horas": 1
+    }
+  },
+  {
+    "action": "create_actividad",
+    "actividad": {
+      "descripcion": "Sprint Planning Meeting",
+      "fecha": "2024-02-26",
+      "hora_inicio": "14:00",
+      "cant_horas": 2
+    }
+  },
+  {
+    "action": "create_connection",
+    "connection": {
+      "from_index": 0,
+      "to_index": 1
+    }
+  },
+  {
+    "action": "create_connection",
+    "connection": {
+      "from_index": 1,
+      "to_index": 2
+    }
+  },
+  {
+    "action": "create_connection",
+    "connection": {
+      "from_index": 2,
+      "to_index": 3
+    }
+  },
+  {
+    "action": "create_connection",
+    "connection": {
+      "from_index": 2,
+      "to_index": 4
+    }
+  }
+]

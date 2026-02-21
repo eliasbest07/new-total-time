@@ -21,6 +21,7 @@ interface ImportResult {
   cards: Card[];
   misiones: Omit<Mision, 'id' | 'created_at'>[];
   actividades: Omit<Actividad, 'id' | 'created_at'>[];
+  connections?: Array<{ from_index: number; to_index: number }>;
 }
 
 interface ExternalData {
@@ -84,6 +85,7 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
   const [fetchedItems, setFetchedItems] = useState<ImportItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [step, setStep] = useState<'input' | 'selection'>('input');
+  const [rawConnections, setRawConnections] = useState<Array<{ from_index: number; to_index: number }>>([]);
 
   // Effect to auto-fetch/parse if initialUrl is provided
   const hasAutoFetched = React.useRef(false);
@@ -229,7 +231,7 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
         id_usuario: usuarioAuth || null,
         descripcion: item.actividad.descripcion || null,
         fecha: item.actividad.fecha || null,
-        cant_horas: item.actividad.cant_horas || null,
+        cant_horas: item.actividad.cant_horas ? Math.round(item.actividad.cant_horas) : null,
         link: item.actividad.link || null,
         captures: null,
         tiempo_dedicado: null,
@@ -263,8 +265,25 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
       itemsToProcess = [data];
     }
 
+    // Separar conexiones de items normales
+    const connections: Array<{ from_index: number; to_index: number }> = [];
+    const normalItems = itemsToProcess.filter((item, index) => {
+      if (item.action === 'create_connection' && item.connection) {
+        connections.push({
+          from_index: item.connection.from_index,
+          to_index: item.connection.to_index
+        });
+        return false; // Excluir de items normales
+      }
+      return true;
+    });
+
+    // Guardar conexiones para usarlas después
+    setRawConnections(connections);
+    console.log('🔗 Conexiones detectadas:', connections);
+
     const validItems: ImportItem[] = [];
-    itemsToProcess.forEach((item, index) => {
+    normalItems.forEach((item, index) => {
       const importItem = mapExternalToItems(item, index);
       if (importItem) validItems.push(importItem);
     });
@@ -321,7 +340,8 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
     const result: ImportResult = {
       cards: [],
       misiones: [],
-      actividades: []
+      actividades: [],
+      connections: []
     };
 
     // Separar items por tipo
@@ -337,21 +357,77 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
       }
     }
 
+    // Procesar conexiones: mapear índices originales a indices de items seleccionados
+    if (rawConnections.length > 0) {
+      console.log('🔗 Procesando conexiones:', rawConnections);
+      
+      // Crear mapping de índices del fetchedItems al índice en el resultado
+      const indexMapping = new Map<string, number>();
+      let cardResultIndex = 0;
+      let misionResultIndex = 0;
+      let actividadResultIndex = 0;
+
+      for (const item of selectedItemObjects) {
+        const itemId = item.id;
+        if (item.type === 'card') {
+          indexMapping.set(`card-${item.id}`, cardResultIndex++);
+        } else if (item.type === 'mision') {
+          indexMapping.set(`mision-${item.id}`, misionResultIndex++);
+        } else if (item.type === 'actividad') {
+          indexMapping.set(`actividad-${item.id}`, actividadResultIndex++);
+        }
+      }
+
+      // Mapear conexiones basadas en los índices seleccionados
+      for (const conn of rawConnections) {
+        // Buscar el item en fetchedItems que corresponde al índice original
+        // En realidad, fetch Items tiene el mismo orden que el JSON original (sin conexiones)
+        // Así que fetchedItems[from_index] = item que corresponde a from_index del JSON original
+        
+        if (conn.from_index < fetchedItems.length && conn.to_index < fetchedItems.length) {
+          const fromItem = fetchedItems[conn.from_index];
+          const toItem = fetchedItems[conn.to_index];
+
+          // Verificar si ambos items están seleccionados
+          if (selectedItems.has(fromItem.id) && selectedItems.has(toItem.id)) {
+            // Calcular espacios índices en el resultado
+            const fromResultIndex = selectedItemObjects.findIndex(item => item.id === fromItem.id);
+            const toResultIndex = selectedItemObjects.findIndex(item => item.id === toItem.id);
+
+            if (fromResultIndex !== -1 && toResultIndex !== -1) {
+              result.connections!.push({
+                from_index: fromResultIndex,
+                to_index: toResultIndex
+              });
+              console.log(`  ✓ Conexión mapeada: ${fromResultIndex} → ${toResultIndex}`);
+            }
+          }
+        }
+      }
+    }
+
     console.log('✅ Items a crear:', {
       cards: result.cards.length,
       misiones: result.misiones.length,
-      actividades: result.actividades.length
+      actividades: result.actividades.length,
+      connections: result.connections?.length || 0
     });
 
     // Crear misiones si existe el hook
     if (result.misiones.length > 0 && onCreateMision) {
       try {
         console.log('🎯 Creando misiones...');
+        const createdMisiones: Array<Mision> = [];
         for (const mision of result.misiones) {
           console.log('   Creando misión:', mision.nombre);
           const created = await onCreateMision(mision);
-          console.log('   ✓ Misión creada:', created?.id);
+          if (created?.id) {
+            console.log('   ✓ Misión creada con ID:', created.id);
+            createdMisiones.push(created);
+          }
         }
+        // Actualizar result.misiones con los datos completos (incluyendo ID)
+        result.misiones = createdMisiones;
       } catch (err) {
         console.error('❌ Error creating misiones:', err);
       }
@@ -361,11 +437,17 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
     if (result.actividades.length > 0 && onCreateActividad) {
       try {
         console.log('📅 Creando actividades...');
+        const createdActividades: Array<Actividad> = [];
         for (const actividad of result.actividades) {
           console.log('   Creando actividad:', actividad.descripcion);
           const created = await onCreateActividad(actividad);
-          console.log('   ✓ Actividad creada:', created?.id);
+          if (created?.id) {
+            console.log('   ✓ Actividad creada con ID:', created.id);
+            createdActividades.push(created);
+          }
         }
+        // Actualizar result.actividades con los datos completos (incluyendo ID)
+        result.actividades = createdActividades;
       } catch (err) {
         console.error('❌ Error creating actividades:', err);
       }

@@ -121,7 +121,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
   // Hooks para crear misiones y actividades desde importación
   const userIdForMisiones = isViewingOtherUser ? viewingUserNumericId : currentUserNumericId;
-  const { createMision } = useMisiones(userIdForMisiones);
+  const { createMision, deleteMision } = useMisiones(userIdForMisiones);
   const { createActividad } = useActividades(usuario?.userAuth || null);
 
   // Estado de inicialización
@@ -441,6 +441,8 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
 
     performSync();
   }, [cardsDB, pizarraActual, usuario, isViewingOtherUser, isInitialized, isOrganizacionPizarra, loadingCards]);
+
+
 
   // Mostrar toast de "Sincronizado" brevemente después de cargar
   useEffect(() => {
@@ -887,8 +889,29 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     importFromJSON,
     saveHistorySnapshot,
     shouldLoadFromSupabase,
-    markSupabaseLoaded
+    markSupabaseLoaded,
+    getIsInitializedFromStorage,
+    setIsInitializedInStorage
   } = localStorageHookResult;
+
+  // Guardar isInitialized en localStorage cuando cambia
+  useEffect(() => {
+    if (canEditBoard) {
+      console.log('💾 [INIT-STATE] Guardando estado de inicialización:', isInitialized);
+      setIsInitializedInStorage(isInitialized);
+    }
+  }, [isInitialized, canEditBoard, setIsInitializedInStorage]);
+
+  // Restaurar isInitialized desde localStorage al montar (solo una vez)
+  useEffect(() => {
+    if (canEditBoard && !isOrganizacionPizarra) {
+      const storedInitState = getIsInitializedFromStorage();
+      if (storedInitState) {
+        console.log('📦 [INIT-STATE] Restaurando desde localStorage, marcando como inicializado');
+        setIsInitialized(true);
+      }
+    }
+  }, [canEditBoard, isOrganizacionPizarra, getIsInitializedFromStorage]);
 
   // Helper para actualizar cards desde funciones externas
   const updateCardData = useCallback((cardId: string, updates: any) => {
@@ -1372,9 +1395,21 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       const next = prev.filter(card => card.id !== cardId);
       return next;
     });
+
+    // También eliminar de BD si la card tiene dbId (cards persistidas)
+    if (cardToDelete?.dbId && deleteCardDB) {
+      try {
+        console.log('🗑️ Eliminando card de BD:', cardId, 'dbId:', cardToDelete.dbId);
+        await deleteCardDB(cardToDelete.dbId);
+        console.log('✅ Card eliminada de BD:', cardId);
+      } catch (err) {
+        console.error('❌ Error eliminando card de BD:', err);
+      }
+    }
+
     setConfirmDelete(null);
     setConfigOpenCard(null);
-  }, [pastedImages, setPastedImages, cards, setConnections, storagePrefix]);
+  }, [pastedImages, setPastedImages, cards, setConnections, deleteCardDB, storagePrefix]);
 
   // Función para abrir ventana de chat desde UsuarioCard
   const handleOpenUserChat = useCallback((userData: {
@@ -1487,24 +1522,24 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     const centerY = -panOffset.y + (canvasHeight / 2);
 
     const existingIds = cards.map(c => c.id);
-    
+
     // Procesar cards normales (notas, todos)
     const allNewCards: Card[] = [];
-    
+
     // 1. Agregar cards normales
     const newCards = importResult.cards.map((card, index) => {
       const COLUMNS = 3;
       const SPACING_X = 350;
       const SPACING_Y = 300;
-      
+
       const colIndex = index % COLUMNS;
       const rowIndex = Math.floor(index / COLUMNS);
-      
-      const offsetX = colIndex * SPACING_X; 
+
+      const offsetX = colIndex * SPACING_X;
       const offsetY = rowIndex * SPACING_Y;
-      
+
       const newId = generateUniqueId(card.type, [...existingIds, ...importResult.cards.map(c => c.id)]);
-      
+
       return {
         ...card,
         id: newId,
@@ -1520,16 +1555,16 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       const COLUMNS = 2;
       const SPACING_X = 500;
       const SPACING_Y = 380;
-      
+
       const totalCardsIndex = newCards.length + index;
       const colIndex = totalCardsIndex % COLUMNS;
       const rowIndex = Math.floor(totalCardsIndex / COLUMNS);
-      
+
       const offsetX = colIndex * SPACING_X;
       const offsetY = rowIndex * SPACING_Y;
-      
+
       const newId = generateUniqueId('mision', existingIds);
-      
+
       const misionCard: Card = {
         id: newId,
         type: 'mision',
@@ -1542,7 +1577,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         fontSize: 13,
         zIndex: getNextZIndex() + totalCardsIndex,
         misionData: {
-          id_mision: 0,
+          id_mision: mision.id || 0,
           title: mision.nombre,
           description: mision.descripcion || '',
           horas: mision.horas || 0,
@@ -1551,7 +1586,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
           estado: mision.estado || 'activa'
         }
       };
-      
+
       return misionCard;
     });
     allNewCards.push(...misionCards);
@@ -1561,16 +1596,16 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       const COLUMNS = 2;
       const SPACING_X = 450;
       const SPACING_Y = 340;
-      
+
       const totalCardsIndex = newCards.length + misionCards.length + index;
       const colIndex = totalCardsIndex % COLUMNS;
       const rowIndex = Math.floor(totalCardsIndex / COLUMNS);
-      
+
       const offsetX = colIndex * SPACING_X;
       const offsetY = rowIndex * SPACING_Y;
-      
+
       const newId = generateUniqueId('actividad', existingIds);
-      
+
       const actividadCard: Card = {
         id: newId,
         type: 'actividad',
@@ -1592,16 +1627,66 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
           timeLeft: 0
         }
       };
-      
+
       return actividadCard;
     });
     allNewCards.push(...actividadCards);
 
     setCards(prev => [...prev, ...allNewCards]);
-    
+
+    // Procesar conexiones si existen
+    if (importResult.connections && importResult.connections.length > 0) {
+      console.log('🔗 [IMPORT] Procesando conexiones:', importResult.connections);
+
+      // Crear lista de todas las cards (cards normales + misiones + actividades)
+      const allCardsFlat = [...newCards, ...misionCards, ...actividadCards];
+      const newConnections: Connection[] = [];
+
+      for (const conn of importResult.connections) {
+        if (conn.from_index < allCardsFlat.length && conn.to_index < allCardsFlat.length) {
+          const fromCard = allCardsFlat[conn.from_index];
+          const toCard = allCardsFlat[conn.to_index];
+
+          const connectionId = generateUniqueId('connection', connections.map(c => c.id));
+          const newConnection: Connection = {
+            id: connectionId,
+            from: fromCard.id,
+            to: toCard.id
+          };
+
+          newConnections.push(newConnection);
+          console.log(`  ✓ Conexión creada: ${fromCard.title} → ${toCard.title}`);
+
+          // Disparar callback si existe
+          if (onConnectionCreate) {
+            try {
+              await handleConnectionCreate({
+                connection: newConnection,
+                fromCard,
+                toCard,
+                onConnectionCreate,
+                showSuccess,
+                showError,
+                pizarraId: pizarraActual?.id
+              });
+            } catch (err) {
+              console.error('❌ Error en callback onConnectionCreate:', err);
+            }
+          }
+        }
+      }
+
+      // Actualizar el estado de conexiones
+      if (newConnections.length > 0) {
+        setConnections(prev => [...prev, ...newConnections]);
+        console.log(`✅ ${newConnections.length} conexiones importadas`);
+      }
+    }
+
     // Contar total de items importados
     const totalImported = allNewCards.length;
-    showSuccess(`${totalImported} items importados exitosamente`);
+    const totalConnections = importResult.connections?.length || 0;
+    showSuccess(`${totalImported} items + ${totalConnections} conexiones importados exitosamente`);
   }, [cards, panOffset, canvasRef, getNextZIndex, showSuccess, userIdForMisiones, usuario?.userAuth]);
 
   // Funciones públicas expuestas via ref

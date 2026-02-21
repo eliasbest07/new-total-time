@@ -1,0 +1,11 @@
+[
+  {
+    "action": "create_mision",
+    "mision": {
+      "nombre": "Test Misión Play",
+      "descripcion": "Misión de prueba para testear el play",
+      "horas": 8,
+      "estado": "activa"
+    }
+  }
+]

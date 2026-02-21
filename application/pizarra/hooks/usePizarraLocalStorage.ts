@@ -27,6 +27,7 @@ export const usePizarraLocalStorage = (
   const DATE_STORAGE_KEY = `pizarra-${storagePrefix}-date-v1`;
   const HISTORY_STORAGE_KEY = `pizarra-${storagePrefix}-history`;
   const LAST_SUPABASE_LOAD_KEY = `pizarra-${storagePrefix}-last-supabase-load`;
+  const IS_INITIALIZED_KEY = `pizarra-${storagePrefix}-is-initialized-v1`;
 
   // Función helper para obtener la fecha del día en formato YYYY-MM-DD
   const getTodayDate = (): string => {
@@ -151,6 +152,32 @@ export const usePizarraLocalStorage = (
     localStorage.setItem(LAST_SUPABASE_LOAD_KEY, todayDate);
     console.log('✅ [PIZARRA ORG] Marcado como cargado desde Supabase hoy:', todayDate);
   }, [LAST_SUPABASE_LOAD_KEY]);
+
+  // Cargar isInitialized desde localStorage
+  const getIsInitializedFromStorage = useCallback((): boolean => {
+    try {
+      const stored = localStorage.getItem(IS_INITIALIZED_KEY);
+      if (stored === 'true') {
+        console.log('📦 [IS_INITIALIZED] Cargado desde localStorage: true');
+        return true;
+      }
+      console.log('📦 [IS_INITIALIZED] Cargado desde localStorage: false');
+      return false;
+    } catch (error) {
+      console.error('❌ [IS_INITIALIZED] Error cargando:', error);
+      return false;
+    }
+  }, [IS_INITIALIZED_KEY]);
+
+  // Guardar isInitialized en localStorage
+  const setIsInitializedInStorage = useCallback((value: boolean) => {
+    try {
+      localStorage.setItem(IS_INITIALIZED_KEY, value ? 'true' : 'false');
+      console.log('💾 [IS_INITIALIZED] Guardado en localStorage:', value);
+    } catch (error) {
+      console.error('❌ [IS_INITIALIZED] Error guardando:', error);
+    }
+  }, [IS_INITIALIZED_KEY]);
 
   // Cargar datos desde localStorage al montar
   const loadFromLocalStorage = useCallback(() => {
@@ -547,6 +574,8 @@ export const usePizarraLocalStorage = (
     forceCleanStorage,
     saveHistorySnapshot,
     shouldLoadFromSupabase,
-    markSupabaseLoaded
+    markSupabaseLoaded,
+    getIsInitializedFromStorage,
+    setIsInitializedInStorage
   };
 };
