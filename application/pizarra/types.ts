@@ -192,6 +192,7 @@ export interface PizarraProps {
   isOrganizacionPizarra?: boolean; // Nueva: indica si es pizarra de organización (persistencia permanente)
   readOnly?: boolean; // Nueva: indica si la pizarra es de solo lectura
   pizarraOrganizacion?: any; // Objeto de pizarra de organización (para guardar)
+  importParam?: string; // Parámetro de importación desde URL
   onOpenUserChat?: (userData: {
     userId: string;
     name: string;

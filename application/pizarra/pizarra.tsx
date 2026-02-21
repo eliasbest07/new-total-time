@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useScreenshots } from '@/hooks/useScreenshots';
@@ -7,6 +9,8 @@ import { Card, PizarraRef, PizarraProps, TodoItem, ActivityData, MisionData, Con
 import { usePizarra } from '@/hooks/usePizarra';
 import { useCards } from '@/hooks/useCards';
 import { useCardMision } from '@/hooks/useCardMision';
+import { useMisiones } from '@/hooks/useMisiones';
+import { useActividades } from '@/hooks/useActividades';
 import { mapCardDBToCard, mapCardToCardDB } from './utils/cardMapper';
 import { SupabaseCardMisionRepository } from '@/infrastructure/datasource/SupabaseCardMisionRepository';
 import { SupabaseMisionRepository } from '@/infrastructure/datasource/SupabaseMisionRepository';
@@ -39,14 +43,12 @@ import { ToastProvider, useToastContext } from './contexts/ToastContext';
 import { useTodoMisionSync, emitTodoActualizado } from './hooks/useTodoMisionSync';
 import { useVisibleCards } from './hooks/useVisibleCards';
 import { ImportAIModal } from './components/modals/ImportAIModal';
-import { useSearchParams } from 'next/navigation';
 
 // Componente interno que usa el ToastContext
-const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, onOpenEditarProyecto, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion }, ref) => {
+const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots, storagePrefix = 'real', lightMode = false, fullMode = false, viewingUserId, onOpenUserChat, usuarios, currentUserId, onConnectionCreate, onOpenCapturasModal, onOpenEditarProyecto, isOrganizacionPizarra = false, readOnly = false, pizarraOrganizacion, importParam }, ref) => {
   const { usuario } = useAuth();
   const { autoSave } = useSettings();
   const { success: showSuccess, error: showError } = useToastContext();
-  const searchParams = useSearchParams();
 
   // Estado para almacenar el ID numérico del usuario que se está viendo
   const [viewingUserNumericId, setViewingUserNumericId] = useState<number | null>(null);
@@ -116,6 +118,11 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   // Hook para gestionar misiones activas
   const { getOrCreateMisionActiva, updateRunningState, addCaptureUrl } = useMisionActiva();
   // useSimpleTracking ya no se necesita aquí - ahora funciona automáticamente desde la tabla capture
+
+  // Hooks para crear misiones y actividades desde importación
+  const userIdForMisiones = isViewingOtherUser ? viewingUserNumericId : currentUserNumericId;
+  const { createMision } = useMisiones(userIdForMisiones);
+  const { createActividad } = useActividades(usuario?.userAuth || null);
 
   // Estado de inicialización
   const [isInitialized, setIsInitialized] = useState(false);
@@ -196,15 +203,14 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   const [showImportAIModal, setShowImportAIModal] = useState(false);
   const [initialImportUrl, setInitialImportUrl] = useState<string | undefined>(undefined);
 
-  // Efecto para detectar el parámetro 'import' en la URL
+  // Efecto para detectar el parámetro 'import' 
   useEffect(() => {
-    const importParam = searchParams.get('import');
     if (importParam) {
       console.log('🚀 [IMPORT] Detectado parámetro import');
       setInitialImportUrl(importParam);
       setShowImportAIModal(true);
     }
-  }, [searchParams]);
+  }, [importParam]);
 
   // Función para abrir modal de descripción
   const openDescriptionModal = useCallback((title: string, description: string) => {
@@ -1465,7 +1471,15 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }, [cards, maxZIndex]);
 
   // Función para manejar la importación de cards
-  const handleImportCards = useCallback((importedCards: Card[]) => {
+  const handleImportCards = useCallback((importResult: { cards: Card[]; misiones: any[]; actividades: any[] }) => {
+    console.log('📥 [IMPORT] handleImportCards llamado:', {
+      cards: importResult.cards.length,
+      misiones: importResult.misiones.length,
+      actividades: importResult.actividades.length,
+      userIdForMisiones,
+      usuarioAuth: usuario?.userAuth
+    });
+
     // Calcular el centro visible
     const canvasWidth = canvasRef.current?.clientWidth || 1000;
     const canvasHeight = canvasRef.current?.clientHeight || 800;
@@ -1473,11 +1487,15 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
     const centerY = -panOffset.y + (canvasHeight / 2);
 
     const existingIds = cards.map(c => c.id);
-    const newCards = importedCards.map((card, index) => {
-      // Ajustar posición para que aparezcan en una cuadrícula con mayor separación
+    
+    // Procesar cards normales (notas, todos)
+    const allNewCards: Card[] = [];
+    
+    // 1. Agregar cards normales
+    const newCards = importResult.cards.map((card, index) => {
       const COLUMNS = 3;
-      const SPACING_X = 350; // Ancho típico + margen
-      const SPACING_Y = 300; // Alto típico + margen
+      const SPACING_X = 350;
+      const SPACING_Y = 300;
       
       const colIndex = index % COLUMNS;
       const rowIndex = Math.floor(index / COLUMNS);
@@ -1485,22 +1503,106 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
       const offsetX = colIndex * SPACING_X; 
       const offsetY = rowIndex * SPACING_Y;
       
-      const newId = generateUniqueId(card.type, [...existingIds, ...importedCards.map(c => c.id)]);
+      const newId = generateUniqueId(card.type, [...existingIds, ...importResult.cards.map(c => c.id)]);
       
-      // Calcular posición inicial centrada pero desplazada según el índice
-      // (card.width/2) se resta para que el punto (x,y) sea la esquina superior izquierda
       return {
         ...card,
         id: newId,
-        x: centerX - (card.width / 2) + offsetX - ((COLUMNS - 1) * SPACING_X / 2), // Centrar el bloque completo horizontalmente
-        y: centerY - (card.height / 2) + offsetY - 100, // Un poco más arriba del centro vertical
+        x: centerX - (card.width / 2) + offsetX - ((COLUMNS - 1) * SPACING_X / 2),
+        y: centerY - (card.height / 2) + offsetY - 100,
         zIndex: getNextZIndex() + index
       };
     });
+    allNewCards.push(...newCards);
 
-    setCards(prev => [...prev, ...newCards]);
-    showSuccess(`${newCards.length} cards importadas exitosamente`);
-  }, [cards, panOffset, canvasRef, getNextZIndex, showSuccess]);
+    // 2. Agregar cards para misiones con type 'mision'
+    const misionCards = importResult.misiones.map((mision, index) => {
+      const COLUMNS = 2;
+      const SPACING_X = 500;
+      const SPACING_Y = 380;
+      
+      const totalCardsIndex = newCards.length + index;
+      const colIndex = totalCardsIndex % COLUMNS;
+      const rowIndex = Math.floor(totalCardsIndex / COLUMNS);
+      
+      const offsetX = colIndex * SPACING_X;
+      const offsetY = rowIndex * SPACING_Y;
+      
+      const newId = generateUniqueId('mision', existingIds);
+      
+      const misionCard: Card = {
+        id: newId,
+        type: 'mision',
+        title: mision.nombre,
+        content: mision.descripcion || '',
+        x: centerX - (450 / 2) + offsetX - ((COLUMNS - 1) * SPACING_X / 2),
+        y: centerY - (320 / 2) + offsetY - 100,
+        width: 450,
+        height: 320,
+        fontSize: 13,
+        zIndex: getNextZIndex() + totalCardsIndex,
+        misionData: {
+          id_mision: 0,
+          title: mision.nombre,
+          description: mision.descripcion || '',
+          horas: mision.horas || 0,
+          fecha_start: mision.fecha_start,
+          fecha_end: mision.fecha_end,
+          estado: mision.estado || 'activa'
+        }
+      };
+      
+      return misionCard;
+    });
+    allNewCards.push(...misionCards);
+
+    // 3. Agregar cards para actividades con type 'actividad'
+    const actividadCards = importResult.actividades.map((actividad, index) => {
+      const COLUMNS = 2;
+      const SPACING_X = 450;
+      const SPACING_Y = 340;
+      
+      const totalCardsIndex = newCards.length + misionCards.length + index;
+      const colIndex = totalCardsIndex % COLUMNS;
+      const rowIndex = Math.floor(totalCardsIndex / COLUMNS);
+      
+      const offsetX = colIndex * SPACING_X;
+      const offsetY = rowIndex * SPACING_Y;
+      
+      const newId = generateUniqueId('actividad', existingIds);
+      
+      const actividadCard: Card = {
+        id: newId,
+        type: 'actividad',
+        title: actividad.descripcion?.substring(0, 30) || 'Actividad',
+        content: `${actividad.fecha || ''} ${actividad.hora_inicio || ''}`,
+        x: centerX - (380 / 2) + offsetX - ((COLUMNS - 1) * SPACING_X / 2),
+        y: centerY - (260 / 2) + offsetY - 100,
+        width: 380,
+        height: 260,
+        fontSize: 12,
+        zIndex: getNextZIndex() + totalCardsIndex,
+        activityData: {
+          subject: actividad.descripcion || 'Actividad',
+          participants: [],
+          date: actividad.fecha || '',
+          time: actividad.hora_inicio || '',
+          duration: actividad.cant_horas || 0,
+          isRunning: false,
+          timeLeft: 0
+        }
+      };
+      
+      return actividadCard;
+    });
+    allNewCards.push(...actividadCards);
+
+    setCards(prev => [...prev, ...allNewCards]);
+    
+    // Contar total de items importados
+    const totalImported = allNewCards.length;
+    showSuccess(`${totalImported} items importados exitosamente`);
+  }, [cards, panOffset, canvasRef, getNextZIndex, showSuccess, userIdForMisiones, usuario?.userAuth]);
 
   // Funciones públicas expuestas via ref
   const addNoteCard = useCallback((text: string, position?: { x: number; y: number }) => {
@@ -4009,6 +4111,10 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
         onImport={handleImportCards}
         currentCardCount={cards.length}
         initialUrl={initialImportUrl}
+        idUsuario={viewingUserNumericId || undefined}
+        usuarioAuth={usuario?.userAuth}
+        onCreateMision={createMision}
+        onCreateActividad={createActividad}
       />
 
       {/* Modal de descripción completa - Portal para renderizar fuera del contexto de la pizarra */}

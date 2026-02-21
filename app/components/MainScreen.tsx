@@ -29,7 +29,7 @@ import ChatWindow from "@/app/components/ChatWindow";
 import VentanaTicketDetalles from "./modals/VentanaTicketDetalles";
 
 
-export default function MainScreen() {
+export default function MainScreen({ importParam }: { importParam?: string | null }) {
   const pizarraRef = useRef<PizarraRef>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [recursos, setRecursos] = useState<Resource[]>([]);
@@ -361,6 +361,7 @@ export default function MainScreen() {
           onOpenUserChat={handleUserClick}
           usuarios={usuariosFiltrados}
           currentUserId={usuario?.userAuth}
+          importParam={importParam}
         />
       </div>
 

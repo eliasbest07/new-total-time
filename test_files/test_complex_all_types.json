@@ -1,0 +1,38 @@
+[
+  {
+    "action": "create_note",
+    "note": {
+      "title": "Note",
+      "content": "Content"
+    }
+  },
+  {
+    "action": "create_todo",
+    "todo": {
+      "title": "Todo",
+      "items": [
+        "Item 1"
+      ]
+    }
+  },
+  {
+    "action": "create_mision",
+    "mision": {
+      "nombre": "Mision",
+      "descripcion": "Desc",
+      "horas": 10,
+      "fecha_start": "2024-02-20",
+      "fecha_end": "2024-02-25",
+      "estado": "activa"
+    }
+  },
+  {
+    "action": "create_actividad",
+    "actividad": {
+      "descripcion": "Act",
+      "fecha": "2024-02-21",
+      "hora_inicio": "14:00",
+      "cant_horas": 2
+    }
+  }
+]

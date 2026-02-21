@@ -26,14 +26,15 @@ export async function GET(request: Request) {
       throw new Error(`Error HTTP: ${response.status}`);
     }
 
-    const data = await response.json();
-    console.log('✅ [FETCH-IMPORT] JSON recibido:', data.length || 'N/A', 'items');
+    const data = await response.json() as unknown;
+    console.log('✅ [FETCH-IMPORT] JSON recibido:', Array.isArray(data) ? (data as unknown[]).length : 'N/A', 'items');
 
     return NextResponse.json(data);
-  } catch (error: any) {
-    console.error('❌ [FETCH-IMPORT] Error:', error.message);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ [FETCH-IMPORT] Error:', errorMessage);
     return NextResponse.json(
-      { error: `Error al procesar la URL: ${error.message}` },
+      { error: `Error al procesar la URL: ${errorMessage}` },
       { status: 500 }
     );
   }

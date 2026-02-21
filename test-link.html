@@ -75,17 +75,13 @@
     <div class="container">
         <h1>🔗 Link de Prueba - Importación Múltiple</h1>
         
-        <p>Este link contiene 8 items para probar la pizarra:</p>
+        <p>Este link contiene 4 items para probar la pizarra:</p>
         <div class="items-list">
             <ul>
                 <li>📝 Nota: Proyecto Pizarra Digital</li>
-                <li>✓ Todo: Tareas Frontend (5 items)</li>
-                <li>📝 Nota: Arquitectura</li>
-                <li>🎫 Ticket: Implementar API REST (8h)</li>
-                <li>✓ Todo: Checklist QA (4 items)</li>
-                <li>🎫 Ticket: Setup BD (4h)</li>
-                <li>📝 Nota: Recordatorio Reunión</li>
-                <li>🎫 Ticket: Documentación (3h)</li>
+                <li>✓ Todo: Tareas Frontend (3 items)</li>
+                <li>🎯 Misión: Desarrollo Frontend (40h)</li>
+                <li>📅 Actividad: Reunión de planificación (2h)</li>
             </ul>
         </div>
 
@@ -114,7 +110,7 @@
     <script>
         // El link muy largo
         const link = `http://localhost:3001/pizarra?import=%5B%7B%22action%22%3A%22create_note%22%2C%2
-2note%22%3A%7B%22title%22%3A%22Proyecto%3A%20Pizarra%20Digital%22%2C%22content%22%3A%22Sistema%20de%20gesti%C3%B3n%20de%20cards%20en%20tiempo%20real.%5Cn%5CnFeatures%3A%5Cn-%20Drag%20%26%20drop%5Cn-%20Conexiones%20entre%20cards%5Cn-%20Auto-sincronizaci%C3%B3n%5Cn-%20Exporta%2Fimporta%20datos%22%7D%7D%2C%7B%22action%22%3A%22create_todo%22%2C%22todo%22%3A%7B%22title%22%3A%22Tareas%20Frontend%22%2C%22items%22%3A%5B%22Dise%C3%B1ar%20interfaz%20principal%22%2C%22Implementar%20componente%20Card%22%2C%22Agregar%20drag%20%26%20drop%22%2C%22Testing%20unitarios%22%2C%22Optimizar%20performance%22%5D%7D%7D%2C%7B%22action%22%3A%22create_note%22%2C%22note%22%3A%7B%22title%22%3A%22Arquitectura%22%2C%22content%22%3A%22Stack%3A%5Cn-%20Frontend%3A%20React%2018%20%2B%20TypeScript%5Cn-%20Backend%3A%20Next.js%2015%5Cn-%20DB%3A%20Supabase%20PostgreSQL%5Cn-%20Estado%3A%20Zustand%5Cn-%20Estilos%3A%20Tailwind%20CSS%22%7D%7D%2C%7B%22action%22%3A%22create_ticket%22%2C%22ticket%22%3A%7B%22title%22%3A%22Implementar%20API%20REST%22%2C%22description%22%3A%22Crear%20endpoints%20para%20CRUD%20de%20cards%20y%20conexiones.%22%2C%22hours%22%3A8%7D%7D%2C%7B%22action%22%3A%22create_todo%22%2C%22todo%22%3A%7B%22title%22%3A%22Checklist%20QA%22%2C%22items%22%3A%5B%22Pruebas%20en%20Chrome%22%2C%22Pruebas%20en%20Firefox%22%2C%22Testing%20mobile%20responsivo%22%2C%22Verificar%20CORS%22%5D%7D%7D%2C%7B%22action%22%3A%22create_ticket%22%2C%22ticket%22%3A%7B%22title%22%3A%22Setup%20BD%22%2C%22description%22%3A%22Configurar%20Supabase%20y%20crear%20tablas.%22%2C%22hours%22%3A4%7D%7D%2C%7B%22action%22%3A%22create_note%22%2C%22note%22%3A%7B%22title%22%3A%22Recordatorio%20-%20Reuni%C3%B3n%22%2C%22content%22%3A%22Revisar%20avance%20con%20team%20el%20viernes.%5Cn%5CnTemas%3A%5Cn-%20Progress%20en%20frontend%5Cn-%20Status%20de%20BD%5Cn-%20Timeline%22%7D%7D%2C%7B%22action%22%3A%22create_ticket%22%2C%22ticket%22%3A%7B%22title%22%3A%22Documentaci%C3%B3n%22%2C%22description%22%3A%22Crear%20README.md%20con%20instrucciones%20de%20setup.%22%2C%22hours%22%3A3%7D%7D%5D`;
+2note%22%3A%7B%22title%22%3A%22Proyecto%3A%20Pizarra%20Digital%22%2C%22content%22%3A%22Sistema%20de%20gesti%C3%B3n%20de%20cards%20en%20tiempo%20real.%5Cn%5CnFeatures%3A%5Cn-%20Drag%20%26%20drop%5Cn-%20Conexiones%20entre%20cards%5Cn-%20Auto-sincronizaci%C3%B3n%22%7D%7D%2C%7B%22action%22%3A%22create_todo%22%2C%22todo%22%3A%7B%22title%22%3A%22Tareas%20Frontend%22%2C%22items%22%3A%5B%22Dise%C3%B1ar%20interfaz%22%2C%22Implementar%20componentes%22%2C%22Testing%22%5D%7D%7D%2C%7B%22action%22%3A%22create_mision%22%2C%22mision%22%3A%7B%22nombre%22%3A%22Desarrollo%20Frontend%22%2C%22descripcion%22%3A%22Implementar%20la%20interfaz%20de%20usuario%22%2C%22horas%22%3A40%2C%22fecha_start%22%3A%222024-02-20T09%3A00%3A00%22%2C%22fecha_end%22%3A%222024-03-10T17%3A00%3A00%22%2C%22estado%22%3A%22activa%22%7D%7D%2C%7B%22action%22%3A%22create_actividad%22%2C%22actividad%22%3A%7B%22descripcion%22%3A%22Reuni%C3%B3n%20de%20planificaci%C3%B3n%22%2C%22fecha%22%3A%222024-02-21%22%2C%22hora_inicio%22%3A%2214%3A30%22%2C%22cant_horas%22%3A2%7D%7D%5D`;
         
         document.getElementById('linkBox').textContent = link;
 

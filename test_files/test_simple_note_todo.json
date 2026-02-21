@@ -1,0 +1,18 @@
+[
+  {
+    "action": "create_note",
+    "note": {
+      "title": "Note",
+      "content": "Content"
+    }
+  },
+  {
+    "action": "create_todo",
+    "todo": {
+      "title": "Todo",
+      "items": [
+        "Item 1"
+      ]
+    }
+  }
+]

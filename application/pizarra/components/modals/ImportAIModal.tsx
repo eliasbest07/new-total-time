@@ -1,17 +1,29 @@
 import React, { useState } from 'react';
 import { Card, TodoItem } from '../../types';
+import { Mision } from '@/domain/entities/Mision';
+import { Actividad } from '@/domain/entities/Actividad';
 import { generateUniqueId } from '../../utils/idGenerator';
 import { X, Globe, Check, Loader, FileJson, FileText } from 'lucide-react';
 
 interface ImportAIModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (cards: Card[]) => void;
+  onImport: (data: ImportResult) => void;
   currentCardCount: number;
   initialUrl?: string;
+  idUsuario?: number;
+  usuarioAuth?: string;
+  onCreateMision?: (mision: Omit<Mision, 'id' | 'created_at'>) => Promise<Mision | null>;
+  onCreateActividad?: (actividad: Omit<Actividad, 'id' | 'created_at'>) => Promise<Actividad | null>;
 }
 
-interface ExternalCardData {
+interface ImportResult {
+  cards: Card[];
+  misiones: Omit<Mision, 'id' | 'created_at'>[];
+  actividades: Omit<Actividad, 'id' | 'created_at'>[];
+}
+
+interface ExternalData {
   action: string;
   note?: {
     title: string;
@@ -28,6 +40,29 @@ interface ExternalCardData {
     description: string;
     hours: number;
   };
+  mision?: {
+    nombre: string;
+    descripcion?: string;
+    horas?: number;
+    fecha_start?: string;
+    fecha_end?: string;
+    estado?: string;
+  };
+  actividad?: {
+    descripcion: string;
+    fecha?: string;
+    hora_inicio?: string;
+    cant_horas?: number;
+    link?: string;
+  };
+}
+
+interface ImportItem {
+  id: string;
+  type: 'card' | 'mision' | 'actividad';
+  title: string;
+  subtitle?: string;
+  data: Card | Omit<Mision, 'id' | 'created_at'> | Omit<Actividad, 'id' | 'created_at'>;
 }
 
 export const ImportAIModal: React.FC<ImportAIModalProps> = ({
@@ -35,15 +70,19 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
   onClose,
   onImport,
   currentCardCount,
-  initialUrl
+  initialUrl,
+  idUsuario,
+  usuarioAuth,
+  onCreateMision,
+  onCreateActividad
 }) => {
   const [inputType, setInputType] = useState<'url' | 'text'>('url');
   const [url, setUrl] = useState(initialUrl || '');
   const [jsonText, setJsonText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fetchedCards, setFetchedCards] = useState<Card[]>([]);
-  const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
+  const [fetchedItems, setFetchedItems] = useState<ImportItem[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [step, setStep] = useState<'input' | 'selection'>('input');
 
   // Effect to auto-fetch/parse if initialUrl is provided
@@ -81,30 +120,31 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
     }
   }, [isOpen, initialUrl]);
 
-  const mapExternalToCard = (item: any, index: number): Card | null => {
-    const existingIds = [`import-${Date.now()}-${index}`]; // Placeholder
-    const id = generateUniqueId('import', existingIds);
-    
-    // Default position (will be adjusted later)
-    const x = 100 + (index * 20);
-    const y = 100 + (index * 20);
-
+  const mapExternalToItems = (item: any, index: number): ImportItem | null => {
     if (item.action === 'create_note' && item.note) {
       let content = item.note.content || '';
       if (item.note.tags && Array.isArray(item.note.tags)) {
         content += `\n\nTags: ${item.note.tags.map((t: string) => `#${t}`).join(' ')}`;
       }
       
-      return {
-        id,
+      const card: Card = {
+        id: generateUniqueId('import', []),
         type: 'text',
         title: item.note.title || 'Nota Importada',
         content,
-        x,
-        y,
+        x: 100 + (index * 20),
+        y: 100 + (index * 20),
         width: 300,
         height: 200,
         fontSize: 14
+      };
+
+      return {
+        id: card.id,
+        type: 'card',
+        title: card.title,
+        subtitle: 'Nota',
+        data: card
       };
     }
 
@@ -115,35 +155,99 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
         completed: false
       }));
 
-      return {
-        id,
+      const card: Card = {
+        id: generateUniqueId('import', []),
         type: 'todo',
         title: item.todo.title || 'Lista de Tareas',
         content: '',
-        x,
-        y,
+        x: 100 + (index * 20),
+        y: 100 + (index * 20),
         width: 300,
         height: 300,
         fontSize: 14,
         todos
       };
+
+      return {
+        id: card.id,
+        type: 'card',
+        title: card.title,
+        subtitle: `${todos.length} items`,
+        data: card
+      };
     }
 
-    // Support for single object structure provided by user
-    if (item.action === 'create_ticket' || item.action === 'create_mission') {
-        const ticketData = item.ticket || item.mission;
-        if (!ticketData) return null;
+    if ((item.action === 'create_ticket' || item.action === 'create_mission') && (item.ticket || item.mission)) {
+      const ticketData = item.ticket || item.mission;
+      
+      const card: Card = {
+        id: generateUniqueId('import', []),
+        type: 'text',
+        title: ticketData.title || 'Misión Importada',
+        content: `${ticketData.hours || 1}h - ${ticketData.description || ''}`,
+        x: 100 + (index * 20),
+        y: 100 + (index * 20),
+        width: 280,
+        height: 250,
+        fontSize: 14
+      };
 
-        return {
-            id,
-            type: 'text', // Fallback to text for safety, or implement specific ticket type if needed
-            title: ticketData.title || 'Misión Importada',
-            content: `${ticketData.hours || 1}h - ${ticketData.description || ''}`,
-            x, y,
-            width: 280,
-            height: 250,
-            fontSize: 14
-        }
+      return {
+        id: card.id,
+        type: 'card',
+        title: card.title,
+        subtitle: `${ticketData.hours || 1}h`,
+        data: card
+      };
+    }
+
+    if (item.action === 'create_mision' && item.mision) {
+      const mision: Omit<Mision, 'id' | 'created_at'> = {
+        nombre: item.mision.nombre || 'Misión Importada',
+        descripcion: item.mision.descripcion || null,
+        horas: item.mision.horas || null,
+        fecha_start: item.mision.fecha_start || null,
+        fecha_end: item.mision.fecha_end || null,
+        id_usuario: idUsuario || null,
+        id_proyecto: null,
+        id_creador: usuarioAuth || null,
+        card_todos: null,
+        estado: item.mision.estado || 'pendiente'
+      };
+
+      return {
+        id: `mision-${index}`,
+        type: 'mision',
+        title: mision.nombre || 'Misión',
+        subtitle: mision.horas ? `${mision.horas}h` : undefined,
+        data: mision
+      };
+    }
+
+    if (item.action === 'create_actividad' && item.actividad) {
+      const actividad: Omit<Actividad, 'id' | 'created_at'> = {
+        id_usuario: usuarioAuth || null,
+        descripcion: item.actividad.descripcion || null,
+        fecha: item.actividad.fecha || null,
+        cant_horas: item.actividad.cant_horas || null,
+        link: item.actividad.link || null,
+        captures: null,
+        tiempo_dedicado: null,
+        hora_inicio: item.actividad.hora_inicio 
+          ? item.actividad.fecha 
+            ? `${item.actividad.fecha}T${item.actividad.hora_inicio}:00`
+            : null
+          : null,
+        id_proyecto: null
+      };
+
+      return {
+        id: `actividad-${index}`,
+        type: 'actividad',
+        title: actividad.descripcion?.substring(0, 50) || 'Actividad',
+        subtitle: actividad.cant_horas ? `${actividad.cant_horas}h` : undefined,
+        data: actividad
+      };
     }
 
     return null;
@@ -156,21 +260,21 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
     if (Array.isArray(data)) {
       itemsToProcess = data;
     } else {
-      itemsToProcess = [data]; // Handle single object
+      itemsToProcess = [data];
     }
 
-    const validCards: Card[] = [];
+    const validItems: ImportItem[] = [];
     itemsToProcess.forEach((item, index) => {
-      const card = mapExternalToCard(item, index);
-      if (card) validCards.push(card);
+      const importItem = mapExternalToItems(item, index);
+      if (importItem) validItems.push(importItem);
     });
 
-    if (validCards.length === 0) {
-      setError('No se encontraron cards válidas en el JSON');
+    if (validItems.length === 0) {
+      setError('No se encontraron items válidos en el JSON');
     } else {
-      setFetchedCards(validCards);
+      setFetchedItems(validItems);
       // Select all by default
-      setSelectedCards(new Set(validCards.map(c => c.id)));
+      setSelectedItems(new Set(validItems.map(c => c.id)));
       setStep('selection');
     }
   };
@@ -202,18 +306,73 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
   };
 
   const toggleSelection = (id: string) => {
-    const newSelected = new Set(selectedCards);
+    const newSelected = new Set(selectedItems);
     if (newSelected.has(id)) {
       newSelected.delete(id);
     } else {
       newSelected.add(id);
     }
-    setSelectedCards(newSelected);
+    setSelectedItems(newSelected);
   };
 
-  const handleFinalImport = () => {
-    const cardsToImport = fetchedCards.filter(c => selectedCards.has(c.id));
-    onImport(cardsToImport);
+  const handleFinalImport = async () => {
+    const selectedItemObjects = fetchedItems.filter(item => selectedItems.has(item.id));
+    
+    const result: ImportResult = {
+      cards: [],
+      misiones: [],
+      actividades: []
+    };
+
+    // Separar items por tipo
+    for (const item of selectedItemObjects) {
+      if (item.type === 'card') {
+        result.cards.push(item.data as Card);
+      } else if (item.type === 'mision') {
+        const misionData = item.data as Omit<Mision, 'id' | 'created_at'>;
+        result.misiones.push(misionData);
+      } else if (item.type === 'actividad') {
+        const actividadData = item.data as Omit<Actividad, 'id' | 'created_at'>;
+        result.actividades.push(actividadData);
+      }
+    }
+
+    console.log('✅ Items a crear:', {
+      cards: result.cards.length,
+      misiones: result.misiones.length,
+      actividades: result.actividades.length
+    });
+
+    // Crear misiones si existe el hook
+    if (result.misiones.length > 0 && onCreateMision) {
+      try {
+        console.log('🎯 Creando misiones...');
+        for (const mision of result.misiones) {
+          console.log('   Creando misión:', mision.nombre);
+          const created = await onCreateMision(mision);
+          console.log('   ✓ Misión creada:', created?.id);
+        }
+      } catch (err) {
+        console.error('❌ Error creating misiones:', err);
+      }
+    }
+
+    // Crear actividades si existe el hook
+    if (result.actividades.length > 0 && onCreateActividad) {
+      try {
+        console.log('📅 Creando actividades...');
+        for (const actividad of result.actividades) {
+          console.log('   Creando actividad:', actividad.descripcion);
+          const created = await onCreateActividad(actividad);
+          console.log('   ✓ Actividad creada:', created?.id);
+        }
+      } catch (err) {
+        console.error('❌ Error creating actividades:', err);
+      }
+    }
+
+    console.log('📤 Llamando onImport callback...');
+    onImport(result);
     handleClose();
   };
 
@@ -224,8 +383,8 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
     setStep('input');
     setUrl('');
     setJsonText('');
-    setFetchedCards([]);
-    setSelectedCards(new Set());
+    setFetchedItems([]);
+    setSelectedItems(new Set());
     setError(null);
     onClose();
   };
@@ -335,47 +494,59 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-600">
-                  {selectedCards.size} seleccionados de {fetchedCards.length}
+                  {selectedItems.size} seleccionados de {fetchedItems.length}
                 </span>
                 <button 
-                  onClick={() => setSelectedCards(selectedCards.size === fetchedCards.length ? new Set() : new Set(fetchedCards.map(c => c.id)))}
+                  onClick={() => setSelectedItems(selectedItems.size === fetchedItems.length ? new Set() : new Set(fetchedItems.map(c => c.id)))}
                   className="text-xs text-purple-600 font-medium hover:underline"
                 >
-                  {selectedCards.size === fetchedCards.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                  {selectedItems.size === fetchedItems.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
                 </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {fetchedCards.map((card) => (
-                  <div 
-                    key={card.id}
-                    onClick={() => toggleSelection(card.id)}
-                    className={`
-                      relative p-4 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md
-                      ${selectedCards.has(card.id) ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:border-gray-300'}
-                    `}
-                  >
-                    <div className={`absolute top-3 right-3 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
-                      selectedCards.has(card.id) ? 'bg-purple-500 border-purple-500' : 'border-gray-300 bg-white'
-                    }`}>
-                      {selectedCards.has(card.id) && <Check size={12} className="text-white" />}
-                    </div>
+                {fetchedItems.map((item) => {
+                  const typeColors = {
+                    'card': 'bg-blue-100 text-blue-700',
+                    'mision': 'bg-purple-100 text-purple-700',
+                    'actividad': 'bg-amber-100 text-amber-700'
+                  };
 
-                    <div className="pr-6">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                          card.type === 'todo' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {card.type === 'text' ? 'Nota' : card.type}
-                        </span>
+                  const typeLabels = {
+                    'card': 'Card',
+                    'mision': 'Misión',
+                    'actividad': 'Actividad'
+                  };
+
+                  return (
+                    <div 
+                      key={item.id}
+                      onClick={() => toggleSelection(item.id)}
+                      className={`
+                        relative p-4 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md
+                        ${selectedItems.has(item.id) ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:border-gray-300'}
+                      `}
+                    >
+                      <div className={`absolute top-3 right-3 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+                        selectedItems.has(item.id) ? 'bg-purple-500 border-purple-500' : 'border-gray-300 bg-white'
+                      }`}>
+                        {selectedItems.has(item.id) && <Check size={12} className="text-white" />}
                       </div>
-                      <h3 className="font-bold text-gray-800 text-sm truncate">{card.title}</h3>
-                      <p className="text-xs text-gray-500 line-clamp-2 mt-1">
-                        {card.type === 'text' ? card.content : `${(card.todos || []).length} items`}
-                      </p>
+
+                      <div className="pr-6">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${typeColors[item.type]}`}>
+                            {typeLabels[item.type]}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-gray-800 text-sm truncate">{item.title}</h3>
+                        {item.subtitle && (
+                          <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -409,11 +580,11 @@ export const ImportAIModal: React.FC<ImportAIModalProps> = ({
               </button>
               <button
                 onClick={handleFinalImport}
-                disabled={selectedCards.size === 0}
+                disabled={selectedItems.size === 0}
                 className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 text-sm flex items-center gap-2"
               >
                 <Check size={16} />
-                Importar {selectedCards.size} Cards
+                Importar {selectedItems.size} Items
               </button>
             </>
           )}

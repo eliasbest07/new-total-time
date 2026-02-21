@@ -1,12 +1,12 @@
 
 import AuthWrapper from "@/app/components/AuthWrapper";
-import MainScreen from './components/MainScreen';
+import ImportRedirect from './components/ImportRedirect';
 
 
 export default function Home() {
   return (
     <AuthWrapper>
-      <MainScreen />
+      <ImportRedirect />
     </AuthWrapper>
   );
 }
