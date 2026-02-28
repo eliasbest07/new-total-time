@@ -1506,7 +1506,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
   }, [cards, maxZIndex]);
 
   // Función para manejar la importación de cards
-  const handleImportCards = useCallback((importResult: { cards: Card[]; misiones: any[]; actividades: any[] }) => {
+  const handleImportCards = useCallback(async (importResult: { cards: Card[]; misiones: any[]; actividades: any[] }) => {
     console.log('📥 [IMPORT] handleImportCards llamado:', {
       cards: importResult.cards.length,
       misiones: importResult.misiones.length,
@@ -4001,7 +4001,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
           </button>
 
           {/* Botón Importar IA */}
-          <button
+          {/* <button
             onClick={() => setShowImportAIModal(true)}
             className="p-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg transition-all hover:shadow-xl"
             title="Importar desde IA"
@@ -4011,7 +4011,7 @@ const PizarraContent = forwardRef<PizarraRef, PizarraProps>(({ onShowScreenshots
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-          </button>
+          </button> */}
 
           {/* Separador */}
           <div className="w-px h-6 bg-gray-300" />
